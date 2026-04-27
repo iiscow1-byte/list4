@@ -24,7 +24,7 @@ export default defineEventHandler((event) => {
   const total = (db.prepare(`SELECT COUNT(*) as n FROM levels ${where}`).get(...params) as { n: number }).n
   const rows = db
     .prepare(
-      `SELECT position, name, difficulty, points
+      `SELECT position, name, difficulty, points, gddl_tier
        FROM levels ${where}
        ORDER BY position ASC
        LIMIT ? OFFSET ?`,
