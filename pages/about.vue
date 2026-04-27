@@ -9,7 +9,7 @@ useHead({ title: 'About — All Levels List' })
 
     <div class="mt-8 space-y-6 text-sm leading-relaxed text-zinc-300">
       <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">What is the All Levels List?</h2>
+        <h2 class="text-lg font-semibold text-zinc-100 mb-2">What is the All Levels List?</h2>
         <p>
           The All Levels List (the ALL) is a demonlist made by
           <a href="https://discord.com" class="text-accent hover:underline">@shindadokunoroi</a>
@@ -20,7 +20,7 @@ useHead({ title: 'About — All Levels List' })
       </section>
 
       <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">How are levels ranked?</h2>
+        <h2 class="text-lg font-semibold text-zinc-100 mb-2">How are levels ranked?</h2>
         <p>
           Each level has a fixed global placement and a points value. The top of the list (Extreme Demons,
           Tier 39+) carries six-figure points; lower tiers are flat-pointed inside their bracket. The
@@ -29,7 +29,7 @@ useHead({ title: 'About — All Levels List' })
       </section>
 
       <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">Where does the data come from?</h2>
+        <h2 class="text-lg font-semibold text-zinc-100 mb-2">Where does the data come from?</h2>
         <p>
           Data is pulled directly from the public Google Sheet that maintains the list. Each tab on the
           sheet (Extreme Demons, Tier 4 Demons, Subtier 5 Harder, etc.) is imported as a slice of the
@@ -38,7 +38,7 @@ useHead({ title: 'About — All Levels List' })
       </section>
 
       <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">Credits</h2>
+        <h2 class="text-lg font-semibold text-zinc-100 mb-2">Credits</h2>
         <p>
           List and tooling inspired by
           <a href="https://aredl.net" class="text-accent hover:underline">aredl.net</a>

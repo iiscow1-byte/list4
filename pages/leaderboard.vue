@@ -32,17 +32,17 @@ function fmt(n: number) {
         <div class="flex-1 min-w-0">
           <div class="font-medium truncate flex items-center gap-2">
             <span>{{ p.player }}</span>
-            <span v-if="p.tier" class="text-[10px] uppercase tracking-wider text-zinc-500 font-mono">{{ p.tier }}</span>
+            <span v-if="p.tier" class="text-[10px] uppercase tracking-widest text-zinc-500">tier {{ p.tier }}</span>
           </div>
           <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-            <span v-if="p.skill_points">skill: {{ fmt(p.skill_points) }}</span>
+            <span v-if="p.skill_points" class="tabular-nums">skill: {{ fmt(p.skill_points) }}</span>
             <span v-if="p.hardest">hardest: {{ p.hardest }}</span>
           </div>
         </div>
-        <span class="font-mono text-sm text-amber-300 shrink-0">{{ fmt(p.points) }} pts</span>
+        <span class="tabular-nums text-sm text-amber-300 shrink-0">{{ fmt(p.points) }} pts</span>
       </li>
       <li v-if="!pending && (data?.items?.length ?? 0) === 0" class="px-4 py-12 text-center text-sm text-zinc-500">
-        No players imported yet. Run <code class="font-mono text-amber-300">npm run import</code>.
+        No players imported yet. Run <code class="text-amber-300 tabular-nums">npm run import</code>.
       </li>
     </ol>
   </div>

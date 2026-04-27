@@ -14,7 +14,7 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="grid grid-cols-[20%_60%_20%] h-full min-h-0">
+  <div class="grid grid-cols-[20%_60%_20%] grid-rows-[minmax(0,1fr)] h-full">
     <LevelListNav :active-position="position" />
     <section class="overflow-y-auto min-h-0">
       <div v-if="error" class="p-12 text-center text-zinc-500">

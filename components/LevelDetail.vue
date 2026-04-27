@@ -11,6 +11,7 @@ type Level = {
   main_skillset: string | null
   verify_date: string | null
   verification: string | null
+  verification_url: string | null
   pov_placement: number | null
   year_verified: number | null
   source_tab: string | null
@@ -27,7 +28,24 @@ const tags = computed(() => {
   return list
 })
 
-const youtubeSearch = computed(() => {
+/** Pull a YouTube video ID from any of the URL forms YouTube uses. */
+function youtubeId(url: string | null): string | null {
+  if (!url) return null
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{6,})/,
+    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
+  ]
+  for (const re of patterns) {
+    const m = url.match(re)
+    if (m) return m[1]!
+  }
+  return null
+}
+
+const ytId = computed(() => youtubeId(props.level.verification_url))
+const fallbackSearch = computed(() => {
   if (!props.level.verification) return null
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
 })
@@ -48,20 +66,31 @@ function formatPoints(n: number | null) {
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <header class="mb-6">
       <div class="flex items-baseline gap-3 flex-wrap">
-        <span class="font-mono text-accent text-sm">#{{ level.position }}</span>
+        <span class="tabular-nums text-accent text-sm">#{{ level.position }}</span>
         <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
       </div>
-      <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5 font-mono">
+      <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
         <span v-if="level.placement_source">source: {{ level.placement_source }}</span>
         <span v-if="level.placement_source && level.year_verified" class="mx-2">·</span>
         <span v-if="level.year_verified">verified {{ level.year_verified }}</span>
       </p>
     </header>
 
-    <!-- Verification "embed" placeholder -->
+    <!-- Verification: real embed if YouTube; link card otherwise -->
+    <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
+      <iframe
+        :src="`https://www.youtube.com/embed/${ytId}`"
+        class="w-full h-full"
+        :title="level.verification ?? 'Verification'"
+        frameborder="0"
+        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowfullscreen
+        referrerpolicy="strict-origin-when-cross-origin"
+      />
+    </div>
     <a
-      v-if="youtubeSearch && level.verification"
-      :href="youtubeSearch"
+      v-else-if="level.verification_url || fallbackSearch"
+      :href="(level.verification_url ?? fallbackSearch)!"
       target="_blank"
       rel="noopener"
       class="block aspect-video rounded-md border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
@@ -73,8 +102,10 @@ function formatPoints(n: number | null) {
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
-          <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">{{ level.verification }}</p>
-          <p class="text-[11px] text-zinc-500 mt-2 font-mono uppercase tracking-wider">Open on YouTube</p>
+          <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">{{ level.verification ?? 'Watch verification' }}</p>
+          <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">
+            {{ level.verification_url ? 'Open verification ↗' : 'Search YouTube' }}
+          </p>
         </div>
       </div>
     </a>
@@ -99,21 +130,21 @@ function formatPoints(n: number | null) {
           :href="gdLevelUrl"
           target="_blank"
           rel="noopener"
-          class="font-mono text-base text-zinc-100 hover:text-accent transition-colors"
+          class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
         >{{ level.gd_id }}</a>
-        <div v-else class="font-mono text-base text-zinc-600">—</div>
+        <div v-else class="tabular-nums text-base text-zinc-600">—</div>
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">List Points</div>
-        <div class="font-mono text-base text-amber-300">{{ formatPoints(level.points) }}</div>
+        <div class="tabular-nums text-base text-amber-300">{{ formatPoints(level.points) }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-        <div class="font-mono text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
+        <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify Date</div>
-        <div class="font-mono text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
+        <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
       </div>
     </div>
 
@@ -132,16 +163,16 @@ function formatPoints(n: number | null) {
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">POV Placement</div>
-        <div class="font-mono text-sm text-zinc-100">{{ level.pov_placement ?? '—' }}</div>
+        <div class="tabular-nums text-sm text-zinc-100">{{ level.pov_placement ?? '—' }}</div>
       </div>
     </div>
 
     <!-- Metadata block -->
     <section class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
-      <h2 class="text-[10px] uppercase tracking-[0.2em] font-mono text-zinc-500 px-4 pt-3">Information</h2>
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Source list</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
-        <dt class="text-zinc-500">Imported from</dt><dd class="text-zinc-400 font-mono text-xs">{{ level.source_tab ?? '—' }}</dd>
+        <dt class="text-zinc-500">Imported from</dt><dd class="text-zinc-400 text-xs">{{ level.source_tab ?? '—' }}</dd>
         <dt class="text-zinc-500">Verification</dt>
         <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
         <dt class="text-zinc-500">Year verified</dt><dd class="text-zinc-200">{{ level.year_verified ?? '—' }}</dd>
@@ -150,12 +181,12 @@ function formatPoints(n: number | null) {
 
     <!-- Position history (sheet doesn't expose this — placeholder) -->
     <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
-      <h2 class="text-[10px] uppercase tracking-[0.2em] font-mono text-zinc-500 px-4 pt-3 pb-2 flex items-center gap-2">
+      <h2 class="text-[10px] uppercase tracking-[0.2em] tabular-nums text-zinc-500 px-4 pt-3 pb-2 flex items-center gap-2">
         Position History
         <span class="text-[10px] text-zinc-600 normal-case tracking-normal">— not tracked in this dataset</span>
       </h2>
       <div class="px-4 pb-4 text-xs text-zinc-600">
-        No placement history available. Current placement: <span class="text-zinc-300 font-mono">#{{ level.position }}</span>.
+        No placement history available. Current placement: <span class="text-zinc-300 tabular-nums">#{{ level.position }}</span>.
       </div>
     </section>
   </div>

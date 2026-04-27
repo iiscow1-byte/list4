@@ -3,11 +3,12 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply font-sans antialiased;
+  html {
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
-  h1, h2, h3 {
-    @apply font-mono tracking-tight;
+  body {
+    @apply font-sans antialiased text-zinc-100 bg-zinc-950;
+    font-synthesis-weight: none;
   }
 }
 
@@ -16,6 +17,6 @@
     @apply max-w-5xl mx-auto px-4 sm:px-6;
   }
   .rank-badge {
-    @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded font-mono text-sm font-semibold;
+    @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded text-sm font-semibold;
   }
 }

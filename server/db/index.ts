@@ -32,6 +32,7 @@ function initSchema(db: DatabaseSync) {
       main_skillset     TEXT,
       verify_date       TEXT,
       verification      TEXT,
+      verification_url  TEXT,
       pov_placement     INTEGER,
       year_verified     INTEGER,
       category          TEXT NOT NULL DEFAULT 'classic',

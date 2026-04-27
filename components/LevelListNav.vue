@@ -18,7 +18,6 @@ const { data, pending } = await useFetch('/api/levels', {
   query: computed(() => ({ pageSize: 500, search: search.value })),
 })
 
-// Auto-scroll the active item into view when it changes
 const listEl = ref<HTMLElement | null>(null)
 watch(
   () => props.activePosition,
@@ -33,10 +32,10 @@ watch(
 </script>
 
 <template>
-  <aside class="flex flex-col h-full border-r border-zinc-800 bg-zinc-950">
-    <div class="p-3 border-b border-zinc-800 sticky top-0 bg-zinc-950 z-10">
+  <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+    <div class="p-3 border-b border-zinc-800 shrink-0">
       <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="font-mono text-xs uppercase tracking-[0.2em] text-accent font-semibold">Classic</span>
+        <span class="text-xs uppercase tracking-widest text-accent font-semibold">Classic</span>
       </div>
       <input
         v-model="search"
@@ -46,7 +45,7 @@ watch(
       />
     </div>
 
-    <div ref="listEl" class="flex-1 overflow-y-auto">
+    <div ref="listEl" class="flex-1 min-h-0 overflow-y-auto">
       <div v-if="pending" class="px-3 py-4 text-xs text-zinc-500">loading…</div>
       <ul v-else class="divide-y divide-zinc-900/60">
         <li v-for="lvl in data?.items ?? []" :key="lvl.position" :data-pos="lvl.position">
@@ -55,7 +54,7 @@ watch(
             class="flex items-center gap-2 px-3 py-2 text-sm hover:bg-zinc-900/70 transition-colors"
             :class="lvl.position === activePosition ? 'bg-accent text-zinc-950 hover:bg-accent' : 'text-zinc-300'"
           >
-            <span class="font-mono text-xs w-12 shrink-0" :class="lvl.position === activePosition ? 'text-zinc-950/80' : 'text-zinc-500'">
+            <span class="text-xs w-12 shrink-0 tabular-nums" :class="lvl.position === activePosition ? 'text-zinc-950/80' : 'text-zinc-500'">
               #{{ lvl.position }}
             </span>
             <span class="truncate">{{ lvl.name }}</span>
