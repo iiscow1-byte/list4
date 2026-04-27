@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-mono tracking-tight;
+  }
+}
+
+@layer components {
+  .container-tight {
+    @apply max-w-5xl mx-auto px-4 sm:px-6;
+  }
+  .rank-badge {
+    @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded font-mono text-sm font-semibold;
+  }
+}

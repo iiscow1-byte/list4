@@ -1,0 +1,11 @@
+node_modules
+.nuxt
+.output
+.data
+dist
+*.log
+.env
+data/list.db
+data/list.db-journal
+data/list.db-wal
+data/list.db-shm
