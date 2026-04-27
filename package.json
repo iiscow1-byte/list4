@@ -8,7 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "seed": "node --experimental-strip-types server/db/seed.ts"
+    "import": "node --experimental-strip-types server/db/import.ts"
   },
   "dependencies": {
     "nuxt": "^3.14.0",

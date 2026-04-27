@@ -11,47 +11,38 @@ useHead({ title: 'About — All Levels List' })
       <section>
         <h2 class="text-lg font-mono text-zinc-100 mb-2">What is the All Levels List?</h2>
         <p>
-          The All Levels List is a community-maintained ranking covering tens of thousands of levels.
-          The goal is to extend the AREDL model — strict ranking, verified records, points-based leaderboard —
-          beyond extreme demons to the entire spectrum of levels worth playing.
+          The All Levels List (the ALL) is a demonlist made by
+          <a href="https://discord.com" class="text-accent hover:underline">@shindadokunoroi</a>
+          on Discord that combines many demonlists to create a general idea of what a list with everything
+          combined would look like. This site mirrors the public spreadsheet — over 50,000 levels — into a
+          searchable AREDL-style interface.
         </p>
       </section>
 
       <section>
         <h2 class="text-lg font-mono text-zinc-100 mb-2">How are levels ranked?</h2>
         <p>
-          Each level has a fixed position. The top of the list is the hardest; positions further down
-          award proportionally fewer points. Position changes are decided by the list team based on
-          submitted placement requests and discussion.
+          Each level has a fixed global placement and a points value. The top of the list (Extreme Demons,
+          Tier 39+) carries six-figure points; lower tiers are flat-pointed inside their bracket. The
+          underlying source list is shown on every level page (Global, EDI, GDDL, LoERL, etc.).
         </p>
       </section>
 
       <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">How is the leaderboard calculated?</h2>
+        <h2 class="text-lg font-mono text-zinc-100 mb-2">Where does the data come from?</h2>
         <p>
-          Every verified 100% completion of a ranked level awards points based on that level's
-          position. Your total is the sum of points from every ranked level you've beaten —
-          completions on legacy levels (beyond the scoring cutoff) award no points but still count
-          toward the level's record list.
-        </p>
-      </section>
-
-      <section>
-        <h2 class="text-lg font-mono text-zinc-100 mb-2">Submitting a record</h2>
-        <p>
-          Records are submitted to the list team for verification. Every completion needs a video
-          covering the entire run from the listed minimum percentage onward, and the player on the
-          record must match their list-tracked account.
+          Data is pulled directly from the public Google Sheet that maintains the list. Each tab on the
+          sheet (Extreme Demons, Tier 4 Demons, Subtier 5 Harder, etc.) is imported as a slice of the
+          global ranking. Re-running the importer refreshes everything in place.
         </p>
       </section>
 
       <section>
         <h2 class="text-lg font-mono text-zinc-100 mb-2">Credits</h2>
         <p>
-          The list and its tooling are inspired by
+          List and tooling inspired by
           <a href="https://aredl.net" class="text-accent hover:underline">aredl.net</a>
-          and the broader Geometry Dash list community.
-          Source code lineage:
+          and the broader Geometry Dash list community. Source code lineage:
           <a href="https://github.com/All-Rated-Extreme-Demon-List" class="text-accent hover:underline">
             All-Rated-Extreme-Demon-List on GitHub
           </a>.

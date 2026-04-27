@@ -20,25 +20,36 @@ export function getDb(): DatabaseSync {
 function initSchema(db: DatabaseSync) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS levels (
-      id              INTEGER PRIMARY KEY,
-      position        INTEGER NOT NULL UNIQUE,
-      name            TEXT    NOT NULL,
-      creator         TEXT    NOT NULL,
-      verifier        TEXT    NOT NULL,
-      verification    TEXT,
-      song            TEXT,
-      gd_id           INTEGER,
-      min_percent     INTEGER NOT NULL DEFAULT 100,
-      tags            TEXT    NOT NULL DEFAULT '[]'
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      position          INTEGER NOT NULL UNIQUE,
+      name              TEXT    NOT NULL,
+      gd_id             INTEGER,
+      gddl_tier         TEXT,
+      rated             TEXT,
+      difficulty        TEXT,
+      placement_source  TEXT,
+      points            REAL,
+      main_skillset     TEXT,
+      verify_date       TEXT,
+      verification      TEXT,
+      pov_placement     INTEGER,
+      year_verified     INTEGER,
+      category          TEXT NOT NULL DEFAULT 'classic',
+      source_tab        TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_levels_name      ON levels(name COLLATE NOCASE);
-    CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_levels_position  ON levels(position);
+    CREATE INDEX IF NOT EXISTS idx_levels_category  ON levels(category);
+    CREATE INDEX IF NOT EXISTS idx_levels_difficulty ON levels(difficulty);
 
     CREATE TABLE IF NOT EXISTS players (
-      id        INTEGER PRIMARY KEY,
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
       name      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-      country   TEXT
+      country   TEXT,
+      total_points REAL  NOT NULL DEFAULT 0,
+      skill_points REAL  NOT NULL DEFAULT 0,
+      hardest      TEXT,
+      tier         TEXT
     );
 
     CREATE TABLE IF NOT EXISTS records (
@@ -54,19 +65,4 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_records_level    ON records(level_id);
     CREATE INDEX IF NOT EXISTS idx_records_player   ON records(player_id);
   `)
-}
-
-/**
- * AREDL-style points curve. Top of the list is worth the most; points
- * decay smoothly toward `tail` at `legacyAt`, then 0 beyond that.
- */
-export function pointsForPosition(position: number, opts: { listSize: number; head?: number; tail?: number; legacyAt?: number }) {
-  const head = opts.head ?? 500
-  const tail = opts.tail ?? 1
-  const legacyAt = opts.legacyAt ?? Math.min(opts.listSize, 2000)
-  if (position < 1) return 0
-  if (position > legacyAt) return 0
-  const t = (position - 1) / Math.max(1, legacyAt - 1)
-  const value = head * Math.pow(tail / head, t)
-  return Math.round(value * 100) / 100
 }
