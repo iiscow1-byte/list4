@@ -250,11 +250,6 @@ async function saveEdit() {
         <div class="flex items-baseline gap-3 flex-wrap">
           <span class="tabular-nums text-accent text-sm">#{{ level.position }}</span>
           <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-          <span
-            v-if="isPermanent"
-            class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
-            title="Curated by mods — sheet re-imports will not overwrite this level."
-          >Permanent</span>
         </div>
         <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
           <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
