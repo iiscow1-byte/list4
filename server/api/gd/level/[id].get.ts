@@ -28,12 +28,15 @@ export default defineEventHandler(async (event) => {
 
   const stars = Number(raw.stars) || 0
   const featured = !!raw.featured
-  const epic = Number(raw.epic) || 0
+  const epicNum = Number(raw.epic) || 0
+  const isEpic = epicNum >= 1 || raw.epic === true
+  const isLegendary = !!raw.legendary || epicNum === 2
+  const isMythic = !!raw.mythic || epicNum === 3
   // GD rated tier — 0=Unrated, 1=Rated, 2=Featured, 3=Epic, 4=Legendary, 5=Mythic
   let score = 0
-  if (epic === 3) score = 5
-  else if (epic === 2) score = 4
-  else if (epic === 1) score = 3
+  if (isMythic) score = 5
+  else if (isLegendary) score = 4
+  else if (isEpic) score = 3
   else if (featured) score = 2
   else if (stars > 0) score = 1
 
