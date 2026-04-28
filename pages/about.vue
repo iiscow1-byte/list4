@@ -42,7 +42,7 @@ useHead({ title: 'About — All Levels List' })
         <p>
           List and tooling inspired by
           <a href="https://aredl.net" class="text-accent hover:underline">aredl.net</a>
-          and the broader Geometry Dash list community. Source code lineage:
+          and the broader Geometry Dash list community. This website was coded with a large amount of AI assistance. Source code lineage:
           <a href="https://github.com/All-Rated-Extreme-Demon-List" class="text-accent hover:underline">
             All-Rated-Extreme-Demon-List on GitHub
           </a>.

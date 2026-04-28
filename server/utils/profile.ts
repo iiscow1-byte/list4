@@ -26,15 +26,13 @@ export function getPlayerStats(db: DatabaseSync, name: string): PlayerStats | nu
 }
 
 export function getCompletedLevels(db: DatabaseSync, playerName: string): CompletedLevel[] {
-  const player = db.prepare(`SELECT id FROM players WHERE name = ? COLLATE NOCASE`).get(playerName) as { id: number } | undefined
-  if (!player) return []
   return db.prepare(
     `SELECT l.position, l.name, l.points, l.gddl_tier, r.percent
        FROM records r
        JOIN levels l ON l.id = r.level_id
-      WHERE r.player_id = ? AND r.verified = 1
+      WHERE r.player_name = ? COLLATE NOCASE AND r.permanent = 1
       ORDER BY l.position ASC`,
-  ).all(player.id) as CompletedLevel[]
+  ).all(playerName) as CompletedLevel[]
 }
 
 export function getCreatedLevels(db: DatabaseSync, creatorName: string): LevelRow[] {

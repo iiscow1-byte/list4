@@ -12,11 +12,11 @@ export default defineEventHandler((event) => {
 
   const records = db
     .prepare(
-      `SELECT r.percent, r.hz, r.video, p.name AS player, p.country
+      `SELECT r.percent, r.hz, r.video, r.player_name AS player, p.country
        FROM records r
-       JOIN players p ON p.id = r.player_id
-       WHERE r.level_id = ? AND r.verified = 1
-       ORDER BY r.percent DESC, p.name COLLATE NOCASE ASC`,
+       LEFT JOIN players p ON p.id = r.player_id
+       WHERE r.level_id = ? AND r.permanent = 1
+       ORDER BY r.percent DESC, r.player_name COLLATE NOCASE ASC`,
     )
     .all(level.id)
 

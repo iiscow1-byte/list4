@@ -12,8 +12,14 @@ export default defineEventHandler((event) => {
   const conds: string[] = []
   const params: any[] = []
   if (search) {
-    conds.push('(name LIKE ? COLLATE NOCASE)')
-    params.push(`%${search}%`)
+    const asPos = Number(search.replace(/^#/, ''))
+    if (Number.isInteger(asPos) && asPos > 0) {
+      conds.push('(name LIKE ? COLLATE NOCASE OR position = ?)')
+      params.push(`%${search}%`, asPos)
+    } else {
+      conds.push('(name LIKE ? COLLATE NOCASE)')
+      params.push(`%${search}%`)
+    }
   }
   if (difficulty) {
     conds.push('difficulty = ?')

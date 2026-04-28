@@ -22,13 +22,15 @@ type Level = {
   enjoyment?: number | null
 }
 
-const props = defineProps<{ level: Level }>()
+const props = defineProps<{ level: Level; readonly?: boolean }>()
 const emit = defineEmits<{ (e: 'refresh'): void }>()
 
 const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
-const canPromote = computed(() => role.value === 'admin')
-const canEdit = computed(() => role.value === 'admin' || role.value === 'moderator')
+const isLoggedIn = computed(() => !!meRes.value?.account)
+const canPromote = computed(() => role.value === 'admin' && !props.readonly)
+const canEdit = computed(() => (role.value === 'admin' || role.value === 'moderator') && !props.readonly)
+const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
 const tags = computed(() => {
@@ -191,6 +193,11 @@ async function saveEdit() {
           class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
           @click="startEdit"
         >Edit</button>
+        <NuxtLink
+          v-if="canSubmitRecord"
+          :to="`/records/submit?position=${level.position}`"
+          class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
+        >Submit record</NuxtLink>
         <span v-if="promoteError" class="text-[11px] text-red-400">{{ promoteError }}</span>
       </div>
     </header>

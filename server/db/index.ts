@@ -57,17 +57,20 @@ function initSchema(db: DatabaseSync) {
     );
 
     CREATE TABLE IF NOT EXISTS records (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      level_id   INTEGER NOT NULL REFERENCES levels(id)  ON DELETE CASCADE,
-      player_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-      percent    INTEGER NOT NULL,
-      hz         INTEGER,
-      video      TEXT,
-      verified   INTEGER NOT NULL DEFAULT 1,
-      UNIQUE(level_id, player_id)
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      level_id        INTEGER NOT NULL REFERENCES levels(id)  ON DELETE CASCADE,
+      player_id       INTEGER REFERENCES players(id)          ON DELETE SET NULL,
+      player_name     TEXT    NOT NULL,
+      percent         INTEGER NOT NULL DEFAULT 100,
+      hz              INTEGER,
+      video           TEXT,
+      permanent       INTEGER NOT NULL DEFAULT 0,
+      submitted_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitter_note  TEXT,
+      submitted_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_at      TEXT,
+      decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL
     );
-    CREATE INDEX IF NOT EXISTS idx_records_level    ON records(level_id);
-    CREATE INDEX IF NOT EXISTS idx_records_player   ON records(player_id);
 
     CREATE TABLE IF NOT EXISTS accounts (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,4 +121,34 @@ function initSchema(db: DatabaseSync) {
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
+
+  // Records: detect old schema (pre-submission system) and rebuild. The records
+  // table is currently always empty in production (the sheet doesn't expose
+  // per-level records), so dropping is safe. After rebuild, indexes are
+  // (re)created idempotently for both fresh and migrated DBs.
+  const recCols = db.prepare(`PRAGMA table_info(records)`).all() as { name: string }[]
+  if (!recCols.some((c) => c.name === 'submitted_by')) {
+    db.exec(`DROP TABLE IF EXISTS records`)
+    db.exec(`
+      CREATE TABLE records (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        level_id        INTEGER NOT NULL REFERENCES levels(id)  ON DELETE CASCADE,
+        player_id       INTEGER REFERENCES players(id)          ON DELETE SET NULL,
+        player_name     TEXT    NOT NULL,
+        percent         INTEGER NOT NULL DEFAULT 100,
+        hz              INTEGER,
+        video           TEXT,
+        permanent       INTEGER NOT NULL DEFAULT 0,
+        submitted_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+        submitter_note  TEXT,
+        submitted_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+        decided_at      TEXT,
+        decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+      )
+    `)
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_level     ON records(level_id)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_player    ON records(player_id)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_holder    ON records(player_name COLLATE NOCASE)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_records_permanent ON records(permanent)`)
 }

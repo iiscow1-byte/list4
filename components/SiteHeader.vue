@@ -28,11 +28,11 @@ const me = computed(() => meRes.value?.account ?? null)
         </NuxtLink>
 
         <NuxtLink
-          v-if="me?.role === 'admin'"
+          v-if="me?.role === 'admin' || me?.role === 'moderator'"
           to="/admin"
           class="px-3 py-1.5 rounded text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
           active-class="text-accent bg-zinc-900"
-        >Admin</NuxtLink>
+        >{{ me.role === 'admin' ? 'Admin' : 'Mod' }}</NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1" />
 
