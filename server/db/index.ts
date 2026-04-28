@@ -43,7 +43,8 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_levels_position  ON levels(position);
     CREATE INDEX IF NOT EXISTS idx_levels_category  ON levels(category);
     CREATE INDEX IF NOT EXISTS idx_levels_difficulty ON levels(difficulty);
-    CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE);
+    -- idx_levels_creator is created in the migration block below, so it works
+    -- on existing DBs that predate the `creator` column.
 
     CREATE TABLE IF NOT EXISTS players (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +110,6 @@ function initSchema(db: DatabaseSync) {
   const cols = db.prepare(`PRAGMA table_info(levels)`).all() as { name: string }[]
   if (!cols.some((c) => c.name === 'creator')) {
     db.exec(`ALTER TABLE levels ADD COLUMN creator TEXT`)
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator ON levels(creator COLLATE NOCASE)`)
   }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator ON levels(creator COLLATE NOCASE)`)
 }
