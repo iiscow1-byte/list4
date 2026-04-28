@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'level' })
+definePageMeta({ layout: 'level', key: () => 'level-page' })
 
 const route = useRoute()
 const position = computed(() => Number(route.params.position))

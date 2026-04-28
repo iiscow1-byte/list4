@@ -103,7 +103,7 @@ watch(
       <ul class="divide-y divide-zinc-900/60">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
           <NuxtLink
-            :to="`/levels/${lvl.position}`"
+            :to="{ path: `/levels/${lvl.position}`, query: search ? { q: search } : {} }"
             class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
             :style="lvl.position === activePosition
               ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
