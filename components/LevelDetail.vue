@@ -143,6 +143,80 @@ function cancelEdit() {
   saveError.value = null
 }
 
+// --- GD info dropdown ---
+type GdInfo = {
+  id: number
+  name: string | null
+  author: string | null
+  downloads: number
+  likes: number
+  length: string | null
+  objects: number
+  objectsApprox: boolean
+  coins: number
+  verifiedCoins: boolean
+  rating: { stars: number; starsRequested: number; featured: boolean; epic: number; difficulty: string | null }
+  song: { name: string | null; id: number | null; custom: boolean }
+  password: string | null
+}
+const infoOpen = ref(false)
+const infoData = ref<GdInfo | null>(null)
+const infoLoading = ref(false)
+const infoError = ref<string | null>(null)
+const infoBtn = ref<HTMLElement | null>(null)
+const infoPanel = ref<HTMLElement | null>(null)
+const lastFetchedId = ref<number | null>(null)
+
+async function loadInfo() {
+  if (!props.level.gd_id) return
+  if (lastFetchedId.value === props.level.gd_id && infoData.value) return
+  infoLoading.value = true
+  infoError.value = null
+  try {
+    infoData.value = await $fetch<GdInfo>(`/api/gd/level/${props.level.gd_id}`)
+    lastFetchedId.value = props.level.gd_id
+  } catch (e: any) {
+    infoError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to load.'
+  } finally {
+    infoLoading.value = false
+  }
+}
+
+async function toggleInfo() {
+  infoOpen.value = !infoOpen.value
+  if (infoOpen.value) await loadInfo()
+}
+
+watch(() => props.level.gd_id, () => {
+  infoOpen.value = false
+  infoData.value = null
+  lastFetchedId.value = null
+  infoError.value = null
+})
+
+function onDocClick(e: MouseEvent) {
+  if (!infoOpen.value) return
+  const t = e.target as Node
+  if (infoPanel.value?.contains(t) || infoBtn.value?.contains(t)) return
+  infoOpen.value = false
+}
+function onKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') infoOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onKey)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onKey)
+})
+
+function fmtNum(n: number | null | undefined) {
+  if (n == null) return '—'
+  return n.toLocaleString()
+}
+
 async function saveEdit() {
   if (saving.value) return
   saving.value = true
@@ -323,7 +397,7 @@ async function saveEdit() {
       </a>
 
       <!-- Tags -->
-      <div v-if="tags.length" class="flex flex-wrap gap-2 mb-6">
+      <div v-if="tags.length || level.gd_id" class="flex flex-wrap items-center gap-2 mb-6">
         <span
           v-for="t in tags"
           :key="t"
@@ -331,6 +405,79 @@ async function saveEdit() {
         >
           {{ t }}
         </span>
+
+        <div v-if="level.gd_id" class="relative">
+          <button
+            ref="infoBtn"
+            type="button"
+            class="w-6 h-6 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-accent hover:border-accent/40 transition-colors text-[11px] font-semibold flex items-center justify-center"
+            :aria-expanded="infoOpen"
+            aria-label="More info from Geometry Dash"
+            title="More info from Geometry Dash"
+            @click.stop="toggleInfo"
+          >i</button>
+
+          <div
+            v-if="infoOpen"
+            ref="infoPanel"
+            class="absolute left-0 top-full mt-2 z-20 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+          >
+            <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GD Info</span>
+              <span class="text-[10px] text-zinc-600 tabular-nums">#{{ level.gd_id }}</span>
+            </div>
+
+            <div v-if="infoLoading" class="px-3 py-4 text-xs text-zinc-500">Loading…</div>
+            <div v-else-if="infoError" class="px-3 py-4 text-xs text-red-400">{{ infoError }}</div>
+            <dl
+              v-else-if="infoData"
+              class="px-3 py-2 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 text-xs"
+            >
+              <dt class="text-zinc-500">Downloads</dt>
+              <dd class="text-zinc-200 tabular-nums">{{ fmtNum(infoData.downloads) }}</dd>
+
+              <dt class="text-zinc-500">Likes</dt>
+              <dd class="text-zinc-200 tabular-nums">{{ fmtNum(infoData.likes) }}</dd>
+
+              <dt class="text-zinc-500">Rating</dt>
+              <dd class="text-zinc-200">
+                <span v-if="infoData.rating.stars">
+                  {{ infoData.rating.stars }}★
+                  <span v-if="infoData.rating.epic === 3" class="text-fuchsia-400">· Legendary</span>
+                  <span v-else-if="infoData.rating.epic === 2" class="text-amber-300">· Epic</span>
+                  <span v-else-if="infoData.rating.epic === 1" class="text-sky-300">· Featured</span>
+                  <span v-else-if="infoData.rating.featured" class="text-sky-300">· Featured</span>
+                </span>
+                <span v-else-if="infoData.rating.starsRequested" class="text-zinc-400">
+                  Unrated · {{ infoData.rating.starsRequested }}★ requested
+                </span>
+                <span v-else class="text-zinc-500">Unrated</span>
+              </dd>
+
+              <dt class="text-zinc-500">Song</dt>
+              <dd class="text-zinc-200 truncate" :title="infoData.song.name ?? ''">{{ infoData.song.name ?? '—' }}</dd>
+
+              <dt class="text-zinc-500">Password</dt>
+              <dd class="text-zinc-200 font-mono">
+                <span v-if="infoData.password === null">Free copy</span>
+                <span v-else>{{ infoData.password }}</span>
+              </dd>
+
+              <dt class="text-zinc-500">Coins</dt>
+              <dd class="text-zinc-200 tabular-nums">
+                {{ infoData.coins }}<span v-if="infoData.coins" class="text-zinc-500"> · {{ infoData.verifiedCoins ? 'verified' : 'unverified' }}</span>
+              </dd>
+
+              <dt class="text-zinc-500">Length</dt>
+              <dd class="text-zinc-200">{{ infoData.length ?? '—' }}</dd>
+
+              <dt class="text-zinc-500">Objects</dt>
+              <dd class="text-zinc-200 tabular-nums">
+                <span v-if="infoData.objectsApprox">~</span>{{ fmtNum(infoData.objects) }}
+              </dd>
+            </dl>
+          </div>
+        </div>
       </div>
 
       <!-- Stats grid -->
