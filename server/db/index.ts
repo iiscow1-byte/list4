@@ -122,6 +122,29 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
 
+  // Void list: pending levels (gid=139895069 of the source sheet). Stored in a
+  // separate table because positions are list-local and the columns differ — no
+  // points / skillset / pov_placement, plus extra approximation/range fields.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS void_levels (
+      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+      position                 INTEGER NOT NULL UNIQUE,
+      name                     TEXT    NOT NULL,
+      gd_id                    INTEGER,
+      verify_date              TEXT,
+      difficulty_approximation TEXT,
+      general_idea             TEXT,
+      gddl_tier                TEXT,
+      demon_ranking            TEXT,
+      placement_source         TEXT,
+      verification             TEXT,
+      verification_url         TEXT,
+      added_on                 TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_void_position ON void_levels(position);
+    CREATE INDEX IF NOT EXISTS idx_void_name     ON void_levels(name COLLATE NOCASE);
+  `)
+
   // Records: detect old schema (pre-submission system) and rebuild. The records
   // table is currently always empty in production (the sheet doesn't expose
   // per-level records), so dropping is safe. After rebuild, indexes are

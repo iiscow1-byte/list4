@@ -53,11 +53,15 @@ function paraParts(p: string): { text: string; href: string | null } {
       <div v-if="landing" class="space-y-2 text-zinc-300 leading-relaxed">
         <p v-for="(p, i) in landing.intro" :key="`i-${i}`">{{ p }}</p>
       </div>
-      <div class="pt-2">
+      <div class="pt-2 flex flex-wrap gap-2">
         <NuxtLink
           to="/levels/1"
           class="inline-flex items-center gap-1.5 rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
         >Browse the list →</NuxtLink>
+        <NuxtLink
+          to="/void/1"
+          class="inline-flex items-center gap-1.5 rounded border border-fuchsia-700/60 bg-fuchsia-900/30 text-fuchsia-200 font-medium text-sm px-4 py-2 hover:bg-fuchsia-900/50 hover:border-fuchsia-600 transition-colors"
+        >Browse the void list →</NuxtLink>
       </div>
     </header>
 

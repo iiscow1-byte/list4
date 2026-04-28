@@ -13,6 +13,7 @@ const TABS = [
 ]
 const LEADERBOARD_GID = '280339977'
 const STATS_VIEWER_GID = '943829784'
+const VOID_LIST_GID = '139895069'
 
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
@@ -393,11 +394,66 @@ async function importStatsViewer() {
   console.log(`${imported} records (${dupes} duplicates, ${missingLevels} skipped — no matching position)`)
 }
 
+export async function importVoidList() {
+  const db = getDb()
+  process.stdout.write(`Fetching void list (gid=${VOID_LIST_GID})... `)
+  const { text, html } = await fetchTabRows(VOID_LIST_GID)
+  const found = findHeaderColumns(text)
+  if (!found) { console.log('no header row, skipping'); return }
+  const c = found.cols
+  const verCol = c['verification link']
+
+  // Wipe and re-import — void list churns frequently as levels move into the main list.
+  db.exec(`DELETE FROM void_levels`)
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO void_levels
+      (position, name, gd_id, verify_date, difficulty_approximation, general_idea,
+       gddl_tier, demon_ranking, placement_source, verification, verification_url, added_on)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  let pos = 0
+  let imported = 0
+  db.exec('BEGIN')
+  try {
+    for (let i = found.headerIdx + 1; i < text.length; i++) {
+      const r = text[i]!
+      const rh = html[i]!
+      const name = txt(r[c['level name']!])
+      if (!name) continue
+      const gdId = num(r[c['level id']!])
+      const verifyDate = txt(r[c['verify date']!])
+      const diffApprox = txt(r[c['difficulty approximation']!])
+      const genIdea = txt(r[c['general idea / range']!])
+      const gddlTier = txt(r[c['gddl tier']!])
+      const demonRank = txt(r[c['demon ranking']!])
+      const source = txt(r[c['source']!] ?? r[c['primary source']!])
+      // Skip section header rows like "Levels with a Difficulty Opinion" — they
+      // have a name but no actual level data.
+      if (!gdId && !verifyDate && !diffApprox && !genIdea && !gddlTier && !demonRank && !source) continue
+      pos++
+      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+      insert.run(
+        pos, name, gdId, verifyDate, diffApprox, genIdea, gddlTier, demonRank, source,
+        verCol != null ? txt(r[verCol]) : null, verHref,
+        txt(r[c['added to pending on']!]),
+      )
+      imported++
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  console.log(`${imported} levels`)
+}
+
 export async function runImport() {
   const t0 = Date.now()
   await importLevels()
   await importLeaderboard()
   await importStatsViewer()
+  await importVoidList()
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
 }
 
