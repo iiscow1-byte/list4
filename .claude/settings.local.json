@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH/pubhtml' -A 'all-levels-list-importer/1.0')",
+      "Bash(curl -sS 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH/pubhtml' -A 'all-levels-list-importer/1.0' -o /tmp/pubhtml.html -w 'HTTP %{http_code}\\\\nbytes %{size_download}\\\\n')",
+      "Read(//tmp/**)"
+    ]
+  }
+}

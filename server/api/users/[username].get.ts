@@ -14,8 +14,12 @@ export default defineEventHandler((event) => {
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })
   acc.has_avatar = !!acc.has_avatar
 
+  // Player stats and creator credits only make sense for a claimed leaderboard
+  // player. Records, however, can be submitted before a claim is approved, so we
+  // also resolve completed-levels by the username when there's no claim yet.
+  const effectiveName = acc.claimed_player ?? acc.username
   const player = acc.claimed_player ? getPlayerStats(db, acc.claimed_player) : null
-  const completedLevels = acc.claimed_player ? getCompletedLevels(db, acc.claimed_player) : []
+  const completedLevels = getCompletedLevels(db, effectiveName)
   const createdLevels = acc.claimed_player ? getCreatedLevels(db, acc.claimed_player) : []
 
   return { account: acc, player, completedLevels, createdLevels }

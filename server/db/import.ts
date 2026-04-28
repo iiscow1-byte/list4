@@ -12,6 +12,7 @@ const TABS = [
   { gid: '1875166663', label: 'Subtier 1 Easy' },
 ]
 const LEADERBOARD_GID = '280339977'
+const STATS_VIEWER_GID = '943829784'
 
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
@@ -260,10 +261,147 @@ async function importLeaderboard() {
   console.log(`${imported} players`)
 }
 
+/**
+ * Stats Viewer tab — wide spreadsheet, one 5-column block per player:
+ *   col 5N+1: separator
+ *   col 5N+2: Level Name
+ *   col 5N+3: Points
+ *   col 5N+4: ALL Place  (the global level position; the level_id isn't shown)
+ *   col 5N+5: GDDL Tier
+ *
+ * The player names sit in an early row at col 5N+2 (same column as Level Name).
+ * We look levels up by `position = ALL Place` since the tab doesn't expose gd_id.
+ */
+type CellPos = { col: number; text: string }
+
+function parseRowWithCols(rowHtml: string): CellPos[] {
+  const cells: CellPos[] = []
+  let col = 0
+  const re = /<t([dh])([^>]*)>([\s\S]*?)<\/t\1>/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(rowHtml)) !== null) {
+    const attrs = m[2]!
+    const content = m[3]!
+    const csMatch = attrs.match(/colspan="(\d+)"/)
+    const cs = csMatch ? Number(csMatch[1]) : 1
+    cells.push({ col, text: stripTags(content) })
+    col += cs
+  }
+  return cells
+}
+
+async function importStatsViewer() {
+  const db = getDb()
+  process.stdout.write(`Fetching stats viewer (gid=${STATS_VIEWER_GID})... `)
+
+  const url = `${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${STATS_VIEWER_GID}`
+  const res = await fetch(url, { headers: { 'User-Agent': 'all-levels-list-importer/1.0' } })
+  if (!res.ok) throw new Error(`fetch stats viewer failed: ${res.status}`)
+  const html = await res.text()
+  const tbodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/)
+  if (!tbodyMatch) { console.log('no tbody, skipping'); return }
+  const trs = splitRows(tbodyMatch[1]!)
+  const rows = trs.map(parseRowWithCols)
+
+  // Find player-name row: the one containing 'Total Points' labels.
+  let playerRowIdx = -1
+  for (let i = 0; i < Math.min(8, rows.length); i++) {
+    if (rows[i]!.some((c) => c.text === 'Total Points')) { playerRowIdx = i; break }
+  }
+  if (playerRowIdx < 0) { console.log('no player row, skipping'); return }
+
+  // Find level-header row: the one containing 'ALL Place'.
+  let headerRowIdx = -1
+  for (let i = playerRowIdx + 1; i < Math.min(12, rows.length); i++) {
+    if (rows[i]!.some((c) => c.text.toLowerCase() === 'all place')) { headerRowIdx = i; break }
+  }
+  if (headerRowIdx < 0) { console.log('no header row, skipping'); return }
+
+  // Build block index → player name. Player names are at col 5N+2 (block-local pos 1).
+  const players = new Map<number, string>()
+  for (const c of rows[playerRowIdx]!) {
+    if (c.col < 1 || !c.text) continue
+    const block = Math.floor((c.col - 1) / 5)
+    const pos = (c.col - 1) % 5
+    if (pos !== 1) continue
+    if (c.text === 'Total Points' || c.text === 'Skill Points') continue
+    players.set(block, c.text)
+  }
+
+  const insert = db.prepare(
+    `INSERT INTO records (level_id, player_id, player_name, video, permanent, submitted_by)
+     VALUES (?, ?, ?, NULL, 0, NULL)`,
+  )
+  const findLevel = db.prepare(`SELECT id FROM levels WHERE position = ?`)
+  const findPlayer = db.prepare(`SELECT id FROM players WHERE name = ? COLLATE NOCASE`)
+  const findExistingSheet = db.prepare(
+    `SELECT 1 FROM records WHERE level_id = ? AND player_name = ? COLLATE NOCASE AND submitted_by IS NULL`,
+  )
+
+  let imported = 0
+  let missingLevels = 0
+  let dupes = 0
+
+  // De-dup cases where the sheet lists the same player + level twice.
+  const seen = new Set<string>()
+
+  db.exec('BEGIN')
+  try {
+    // Wipe non-promoted sheet records and re-import inside the same transaction.
+    // Promoted sheet records (permanent = 1, submitted_by NULL) and user
+    // submissions are preserved.
+    db.exec(`DELETE FROM records WHERE submitted_by IS NULL AND permanent = 0`)
+
+    for (let i = headerRowIdx + 1; i < rows.length; i++) {
+      const row = rows[i]!
+      // Group cells by block index → { name, place }
+      const blocks = new Map<number, { name?: string; place?: string }>()
+      for (const c of row) {
+        if (c.col < 1) continue
+        const block = Math.floor((c.col - 1) / 5)
+        const pos = (c.col - 1) % 5
+        if (pos !== 1 && pos !== 3) continue
+        let entry = blocks.get(block)
+        if (!entry) { entry = {}; blocks.set(block, entry) }
+        if (pos === 1) entry.name = c.text
+        else entry.place = c.text
+      }
+
+      for (const [block, fields] of blocks) {
+        const player = players.get(block)
+        if (!player || !fields.name) continue
+        const place = num(fields.place ?? '')
+        if (place === null || place <= 0) continue
+
+        const lvl = findLevel.get(place) as { id: number } | undefined
+        if (!lvl) { missingLevels++; continue }
+
+        const dedupeKey = `${lvl.id}:${player.toLowerCase()}`
+        if (seen.has(dedupeKey)) { dupes++; continue }
+        seen.add(dedupeKey)
+
+        // Skip if a promoted sheet record already exists (we don't delete those).
+        if (findExistingSheet.get(lvl.id, player)) { dupes++; continue }
+
+        const p = findPlayer.get(player) as { id: number } | undefined
+        insert.run(lvl.id, p?.id ?? null, player)
+        imported++
+      }
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+
+  console.log(`${imported} records (${dupes} duplicates, ${missingLevels} skipped — no matching position)`)
+}
+
 export async function runImport() {
   const t0 = Date.now()
   await importLevels()
   await importLeaderboard()
+  await importStatsViewer()
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
 }
 

@@ -70,6 +70,42 @@ watchEffect(() => {
   }
 })
 
+// Holder autocomplete — leaderboard players + accounts
+type HolderMatch = { name: string; source: 'player' | 'account' }
+const holderMatches = ref<HolderMatch[]>([])
+const holderOpen = ref(false)
+let holderDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch(holderName, (v) => {
+  if (holderDebounce) clearTimeout(holderDebounce)
+  const q = v.trim()
+  if (!q) {
+    holderMatches.value = []
+    holderOpen.value = false
+    return
+  }
+  holderDebounce = setTimeout(async () => {
+    try {
+      const res = await $fetch<{ items: HolderMatch[] }>('/api/users/search', {
+        query: { q, limit: 10 },
+      })
+      // Don't suggest the value already typed exactly.
+      const matches = res.items.filter((m) => m.name.toLowerCase() !== q.toLowerCase())
+      holderMatches.value = matches
+      holderOpen.value = matches.length > 0
+    } catch {
+      holderMatches.value = []
+      holderOpen.value = false
+    }
+  }, 150)
+})
+
+function pickHolder(m: HolderMatch) {
+  holderName.value = m.name
+  holderMatches.value = []
+  holderOpen.value = false
+}
+
 const submitting = ref(false)
 const error = ref<string | null>(null)
 const success = ref(false)
@@ -144,15 +180,35 @@ async function submit() {
         </ul>
       </div>
 
-      <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
-        <input
-          v-model="holderName"
-          placeholder="Player name"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-        <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting on someone else's behalf.</span>
-      </label>
+      <div class="relative">
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
+          <input
+            v-model="holderName"
+            placeholder="Player name"
+            autocomplete="off"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @focus="holderOpen = holderMatches.length > 0"
+            @blur="setTimeout(() => holderOpen = false, 150)"
+          />
+          <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting on someone else's behalf.</span>
+        </label>
+        <ul
+          v-if="holderOpen && holderMatches.length"
+          class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+        >
+          <li v-for="m in holderMatches" :key="`${m.source}:${m.name}`">
+            <button
+              type="button"
+              class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
+              @mousedown.prevent="pickHolder(m)"
+            >
+              <span class="truncate flex-1">{{ m.name }}</span>
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">{{ m.source }}</span>
+            </button>
+          </li>
+        </ul>
+      </div>
 
       <label class="block">
         <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL</span>
