@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { tierColor, textOn } from '~/utils/tier-colors'
+import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
+
 type Landing = {
   intro: string[]
   faq: string[]
@@ -14,6 +17,14 @@ type Stats = {
   years: { year: string; count: number }[]
   difficulties: { name: string; count: number }[]
   ratings: { name: string; count: number }[]
+}
+
+function box(bg: string) {
+  return { backgroundColor: bg, color: textOn(bg) }
+}
+function mutedOn(bg: string) {
+  // Slightly faded label color over the same backdrop — black/white at 70% alpha.
+  return textOn(bg) === '#0a0a0a' ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.7)'
 }
 
 const { data: landing } = await useFetch<Landing>('/api/landing')
@@ -87,10 +98,11 @@ function paraParts(p: string): { text: string; href: string | null } {
           <div
             v-for="t in [...stats.subtiers, ...stats.tiers]"
             :key="t.tier"
-            class="bg-zinc-950 px-3 py-2.5"
+            class="px-3 py-2.5"
+            :style="box(tierColor(t.tier))"
           >
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500">{{ t.tier }}</div>
-            <div class="tabular-nums text-sm text-zinc-100">{{ t.count.toLocaleString() }}</div>
+            <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(tierColor(t.tier)) }">{{ t.tier }}</div>
+            <div class="tabular-nums text-sm">{{ t.count.toLocaleString() }}</div>
           </div>
         </div>
       </div>
@@ -99,9 +111,9 @@ function paraParts(p: string): { text: string; href: string | null } {
       <div v-if="stats.years.length" class="space-y-2">
         <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification year</h3>
         <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-8 gap-px bg-zinc-800 rounded-md overflow-hidden">
-          <div v-for="y in stats.years" :key="y.year" class="bg-zinc-950 px-3 py-2.5">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500">{{ y.year }}</div>
-            <div class="tabular-nums text-sm text-zinc-100">{{ y.count.toLocaleString() }}</div>
+          <div v-for="y in stats.years" :key="y.year" class="px-3 py-2.5" :style="box(yearColor(y.year))">
+            <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(yearColor(y.year)) }">{{ y.year }}</div>
+            <div class="tabular-nums text-sm">{{ y.count.toLocaleString() }}</div>
           </div>
         </div>
       </div>
@@ -110,9 +122,9 @@ function paraParts(p: string): { text: string; href: string | null } {
       <div v-if="stats.difficulties.length" class="space-y-2">
         <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-px bg-zinc-800 rounded-md overflow-hidden">
-          <div v-for="d in stats.difficulties" :key="d.name" class="bg-zinc-950 px-3 py-2.5">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500">{{ d.name }}</div>
-            <div class="tabular-nums text-sm text-zinc-100">{{ d.count.toLocaleString() }}</div>
+          <div v-for="d in stats.difficulties" :key="d.name" class="px-3 py-2.5" :style="box(difficultyColor(d.name))">
+            <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(difficultyColor(d.name)) }">{{ d.name }}</div>
+            <div class="tabular-nums text-sm">{{ d.count.toLocaleString() }}</div>
           </div>
         </div>
       </div>
@@ -121,9 +133,9 @@ function paraParts(p: string): { text: string; href: string | null } {
       <div v-if="stats.ratings.length" class="space-y-2">
         <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Rating</h3>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-px bg-zinc-800 rounded-md overflow-hidden">
-          <div v-for="r in stats.ratings" :key="r.name" class="bg-zinc-950 px-3 py-2.5">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500">{{ r.name }}</div>
-            <div class="tabular-nums text-sm text-zinc-100">{{ r.count.toLocaleString() }}</div>
+          <div v-for="r in stats.ratings" :key="r.name" class="px-3 py-2.5" :style="box(ratingColor(r.name))">
+            <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(ratingColor(r.name)) }">{{ r.name }}</div>
+            <div class="tabular-nums text-sm">{{ r.count.toLocaleString() }}</div>
           </div>
         </div>
       </div>

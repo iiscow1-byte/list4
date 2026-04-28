@@ -52,6 +52,7 @@ export const TIER_COLORS: Record<string, string> = {
   'Tier 37': '#380635',
   'Tier 38': '#300636',
   'Tier 39': '#250630',
+  'Tier 40': '#120118',
 }
 
 /** Lookup with graceful fallback to a neutral zinc color. */
