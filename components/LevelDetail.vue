@@ -148,6 +148,7 @@ type GdInfo = {
   id: number
   name: string | null
   author: string | null
+  description: string | null
   downloads: number
   likes: number
   length: string | null
@@ -155,10 +156,12 @@ type GdInfo = {
   objectsApprox: boolean
   coins: number
   verifiedCoins: boolean
-  rating: { stars: number; starsRequested: number; featured: boolean; epic: number; difficulty: string | null }
+  score: 0 | 1 | 2 | 3 | 4 | 5
   song: { name: string | null; id: number | null; custom: boolean }
   password: string | null
 }
+const SCORE_LABELS = ['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+const ratedLabel = computed(() => infoData.value ? SCORE_LABELS[infoData.value.score] : null)
 const infoOpen = ref(false)
 const infoData = ref<GdInfo | null>(null)
 const infoLoading = ref(false)
@@ -187,12 +190,13 @@ async function toggleInfo() {
   if (infoOpen.value) await loadInfo()
 }
 
-watch(() => props.level.gd_id, () => {
+watch(() => props.level.gd_id, (id) => {
   infoOpen.value = false
   infoData.value = null
   lastFetchedId.value = null
   infoError.value = null
-})
+  if (id) loadInfo()
+}, { immediate: true })
 
 function onDocClick(e: MouseEvent) {
   if (!infoOpen.value) return
@@ -439,21 +443,6 @@ async function saveEdit() {
               <dt class="text-zinc-500">Likes</dt>
               <dd class="text-zinc-200 tabular-nums">{{ fmtNum(infoData.likes) }}</dd>
 
-              <dt class="text-zinc-500">Rating</dt>
-              <dd class="text-zinc-200">
-                <span v-if="infoData.rating.stars">
-                  {{ infoData.rating.stars }}★
-                  <span v-if="infoData.rating.epic === 3" class="text-fuchsia-400">· Legendary</span>
-                  <span v-else-if="infoData.rating.epic === 2" class="text-amber-300">· Epic</span>
-                  <span v-else-if="infoData.rating.epic === 1" class="text-sky-300">· Featured</span>
-                  <span v-else-if="infoData.rating.featured" class="text-sky-300">· Featured</span>
-                </span>
-                <span v-else-if="infoData.rating.starsRequested" class="text-zinc-400">
-                  Unrated · {{ infoData.rating.starsRequested }}★ requested
-                </span>
-                <span v-else class="text-zinc-500">Unrated</span>
-              </dd>
-
               <dt class="text-zinc-500">Song</dt>
               <dd class="text-zinc-200 truncate" :title="infoData.song.name ?? ''">{{ infoData.song.name ?? '—' }}</dd>
 
@@ -479,6 +468,12 @@ async function saveEdit() {
           </div>
         </div>
       </div>
+
+      <!-- Description (from GD) -->
+      <p
+        v-if="infoData?.description"
+        class="text-sm text-zinc-300 whitespace-pre-wrap mb-6 leading-relaxed"
+      >{{ infoData.description }}</p>
 
       <!-- Stats grid -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-3">
@@ -514,7 +509,7 @@ async function saveEdit() {
         </div>
         <div class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Rated</div>
-          <div class="text-sm text-zinc-100">{{ level.rated ?? '—' }}</div>
+          <div class="text-sm text-zinc-100">{{ ratedLabel ?? (level.gd_id ? '…' : '—') }}</div>
         </div>
         <div class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Main Skillset</div>

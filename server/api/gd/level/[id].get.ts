@@ -26,12 +26,24 @@ export default defineEventHandler(async (event) => {
   const passwordRaw = String(raw.password ?? '')
   const password = passwordRaw && passwordRaw !== '0' ? passwordRaw : null
 
+  const stars = Number(raw.stars) || 0
+  const featured = !!raw.featured
+  const epic = Number(raw.epic) || 0
+  // GD rated tier — 0=Unrated, 1=Rated, 2=Featured, 3=Epic, 4=Legendary, 5=Mythic
+  let score = 0
+  if (epic === 3) score = 5
+  else if (epic === 2) score = 4
+  else if (epic === 1) score = 3
+  else if (featured) score = 2
+  else if (stars > 0) score = 1
+
   setHeader(event, 'cache-control', 'public, max-age=300, s-maxage=300')
 
   return {
     id: Number(raw.id) || id,
     name: raw.name ?? null,
     author: raw.author ?? null,
+    description: typeof raw.description === 'string' ? raw.description : null,
     downloads: Number(raw.downloads) || 0,
     likes: Number(raw.likes) || 0,
     length: raw.length ?? null,
@@ -39,13 +51,7 @@ export default defineEventHandler(async (event) => {
     objectsApprox: !!raw.large,
     coins: Number(raw.coins) || 0,
     verifiedCoins: !!raw.verifiedCoins,
-    rating: {
-      stars: Number(raw.stars) || 0,
-      starsRequested: Number(raw.starsRequested) || 0,
-      featured: !!raw.featured,
-      epic: Number(raw.epic) || 0,
-      difficulty: raw.difficulty ?? null,
-    },
+    score,
     song: {
       name: song,
       id: customSong || null,
