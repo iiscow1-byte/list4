@@ -544,7 +544,6 @@ async function saveEdit() {
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
         <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <dt class="text-zinc-500">Source list</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
-          <dt class="text-zinc-500">Imported from</dt><dd class="text-zinc-400 text-xs">{{ level.source_tab ?? '—' }}</dd>
           <dt class="text-zinc-500">Verification</dt>
           <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
           <dt class="text-zinc-500">Year verified</dt><dd class="text-zinc-200">{{ level.year_verified ?? '—' }}</dd>
