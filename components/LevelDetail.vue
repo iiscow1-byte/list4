@@ -39,6 +39,7 @@ const tags = computed(() => {
   if (props.level.difficulty) list.push(props.level.difficulty)
   if (props.level.main_skillset) list.push(props.level.main_skillset)
   if (props.level.rated) list.push(props.level.rated)
+  if (props.level.placement_source) list.push(props.level.placement_source)
   return list
 })
 

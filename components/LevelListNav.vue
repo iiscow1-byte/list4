@@ -44,6 +44,8 @@ const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
 const creator = ref('')
+const sourceFilter = ref('')
+const sources = ref<{ source: string; count: number }[]>([])
 const verifyFrom = ref('')
 const verifyTo = ref('')
 const ratingSet = reactive<Record<string, boolean>>(
@@ -58,6 +60,7 @@ const activeFilterCount = computed(() => {
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (TAGS.some((t) => tagSet[t])) n++
   if (creator.value.trim()) n++
+  if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
   if (RATINGS.some((r) => ratingSet[r])) n++
   if (enjoyMin.value !== '' || enjoyMax.value !== '') n++
@@ -84,6 +87,7 @@ function buildQuery() {
     tierMax: tierMax.value < TIER_MAX_ORD ? tierMax.value : undefined,
     tags: tags.length ? tags.join(',') : undefined,
     creator: creator.value.trim() || undefined,
+    source: sourceFilter.value || undefined,
     verifyFrom: verifyFrom.value || undefined,
     verifyTo: verifyTo.value || undefined,
     ratings: ratings.length ? ratings.join(',') : undefined,
@@ -123,6 +127,7 @@ function resetFilters() {
   tierMax.value = TIER_MAX_ORD
   for (const t of TAGS) tagSet[t] = false
   creator.value = ''
+  sourceFilter.value = ''
   verifyFrom.value = ''
   verifyTo.value = ''
   for (const r of RATINGS) ratingSet[r] = false
@@ -148,6 +153,7 @@ function refilter(immediate = false) {
 
 watch(search, () => refilter())
 watch(creator, () => refilter())
+watch(sourceFilter, () => refilter(true))
 watch(enjoyMin, () => refilter())
 watch(enjoyMax, () => refilter())
 watch(verifyFrom, () => refilter(true))
@@ -163,13 +169,18 @@ const sentinel = ref<HTMLElement | null>(null)
 const scrollEl = ref<HTMLElement | null>(null)
 let observer: IntersectionObserver | null = null
 
-onMounted(() => {
-  if (!sentinel.value || !scrollEl.value) return
-  observer = new IntersectionObserver(
-    (entries) => { if (entries[0]?.isIntersecting) loadMore() },
-    { root: scrollEl.value, rootMargin: '300px 0px' },
-  )
-  observer.observe(sentinel.value)
+onMounted(async () => {
+  if (sentinel.value && scrollEl.value) {
+    observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMore() },
+      { root: scrollEl.value, rootMargin: '300px 0px' },
+    )
+    observer.observe(sentinel.value)
+  }
+  try {
+    const res = await $fetch<{ sources: { source: string; count: number }[] }>('/api/levels/sources')
+    sources.value = res.sources
+  } catch { /* non-fatal */ }
 })
 onBeforeUnmount(() => observer?.disconnect())
 
@@ -290,6 +301,20 @@ watch(
             type="text" placeholder="Creator name"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
+        </label>
+
+        <!-- Source -->
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Source</span>
+          <select
+            v-model="sourceFilter"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          >
+            <option value="">All sources</option>
+            <option v-for="s in sources" :key="s.source" :value="s.source">
+              {{ s.source }} ({{ s.count.toLocaleString() }})
+            </option>
+          </select>
         </label>
 
         <!-- Verify date range -->

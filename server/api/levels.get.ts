@@ -38,6 +38,7 @@ export default defineEventHandler((event) => {
   const tierMax = q.tierMax != null && q.tierMax !== '' ? Number(q.tierMax) : null
   const tags = asArray(q.tags).map((s) => s.toLowerCase()).filter((s) => KNOWN_TAG_SUFFIXES.has(s))
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
+  const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''
   const verifyTo = typeof q.verifyTo === 'string' ? q.verifyTo.trim() : ''
   const ratings = asArray(q.ratings).filter((s) => KNOWN_RATINGS.has(s))
@@ -72,6 +73,11 @@ export default defineEventHandler((event) => {
   if (creator) {
     conds.push(`creator LIKE ? COLLATE NOCASE`)
     params.push(`%${creator}%`)
+  }
+
+  if (source) {
+    conds.push(`placement_source = ?`)
+    params.push(source)
   }
 
   if (verifyFrom) { conds.push(`verify_date >= ?`); params.push(verifyFrom) }
