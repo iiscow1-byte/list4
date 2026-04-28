@@ -44,7 +44,7 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_levels_category  ON levels(category);
     CREATE INDEX IF NOT EXISTS idx_levels_difficulty ON levels(difficulty);
     -- idx_levels_creator is created in the migration block below, so it works
-    -- on existing DBs that predate the `creator` column.
+    -- on existing DBs that predate the creator column.
 
     CREATE TABLE IF NOT EXISTS players (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
