@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { getPlayerStats, getCompletedLevels, getCreatedLevels } from '~/server/utils/profile'
+import { computeDerivedStats } from '~/server/utils/leaderboard'
 
 export default defineEventHandler((event) => {
   const username = getRouterParam(event, 'username')
@@ -14,13 +15,25 @@ export default defineEventHandler((event) => {
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })
   acc.has_avatar = !!acc.has_avatar
 
-  // Player stats and creator credits only make sense for a claimed leaderboard
-  // player. Records, however, can be submitted before a claim is approved, so we
-  // also resolve completed-levels by the username when there's no claim yet.
+  // Use the claimed leaderboard name when available, else the username — for
+  // both records lookup and derived stats.
   const effectiveName = acc.claimed_player ?? acc.username
-  const player = acc.claimed_player ? getPlayerStats(db, acc.claimed_player) : null
+
+  // Sheet stats win when bound to a leaderboard player; otherwise fall back to
+  // stats derived from accepted records under the effective name. Modern
+  // accounts (no leaderboard claim) get the same stats box as legacy unclaimed
+  // profiles, just computed instead of pulled from the sheet.
+  let player: { name: string; country: string | null; total_points: number; skill_points: number; hardest: string | null; tier: string | null } | null = null
+  if (acc.claimed_player) {
+    player = getPlayerStats(db, acc.claimed_player)
+  }
+  if (!player) {
+    const derived = computeDerivedStats(db, effectiveName)
+    if (derived) player = { ...derived, country: null }
+  }
+
   const completedLevels = getCompletedLevels(db, effectiveName)
-  const createdLevels = acc.claimed_player ? getCreatedLevels(db, acc.claimed_player) : []
+  const createdLevels = getCreatedLevels(db, effectiveName)
 
   return { account: acc, player, completedLevels, createdLevels }
 })
