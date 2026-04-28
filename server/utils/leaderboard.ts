@@ -28,6 +28,17 @@ type RawRow = {
   position: number
 }
 
+/**
+ * The sheet's leaderboard stores `tier` as a bare number ("32"); `levels.gddl_tier`
+ * stores the full label ("Tier 32"). Strip the prefix so derived stats match the
+ * format other parts of the site already expect.
+ */
+function normalizeTier(value: string | null | undefined): string | null {
+  if (!value) return null
+  const stripped = value.replace(/^\s*Tier\s+/i, '').trim()
+  return stripped || null
+}
+
 function statsFromSortedRows(name: string, rows: RawRow[]): DerivedStats {
   let total = 0
   let skill = 0
@@ -40,7 +51,7 @@ function statsFromSortedRows(name: string, rows: RawRow[]): DerivedStats {
     total_points: total,
     skill_points: skill,
     hardest: rows[0]?.level_name ?? null,
-    tier: rows[0]?.gddl_tier ?? null,
+    tier: normalizeTier(rows[0]?.gddl_tier),
   }
 }
 
