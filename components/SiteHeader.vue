@@ -55,6 +55,9 @@ const me = computed(() => meRes.value?.account ?? null)
           <NuxtLink to="/login" class="px-3 py-1.5 rounded text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">Log in</NuxtLink>
           <NuxtLink to="/signup" class="px-3 py-1.5 rounded text-sm font-medium text-accent hover:bg-zinc-900 transition-colors">Sign up</NuxtLink>
         </template>
+
+        <span class="w-px h-5 bg-zinc-800 mx-1" />
+        <ThemeMenu />
       </nav>
     </div>
   </header>
