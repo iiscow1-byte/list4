@@ -5,6 +5,7 @@ const playerName = computed(() => String(route.params.player))
 const { data, error } = await useFetch<{
   player: { name: string; country: string | null; total_points: number; skill_points: number; hardest: string | null; tier: string | null }
   claimedBy: string | null
+  derived: boolean
   completedLevels: any[]
   createdLevels: any[]
 }>(() => `/api/users/by-player/${encodeURIComponent(playerName.value)}`, { watch: [playerName] })
@@ -42,10 +43,13 @@ function fmt(n: number | null | undefined) {
 
       <div class="rounded-md border border-amber-900/40 bg-amber-950/20 p-4 text-sm text-amber-200">
         This user has not claimed their account yet.
-        <span class="text-amber-200/70 block text-xs mt-1">
-          The leaderboard stats below come straight from the published sheet. If this is you,
+        <span v-if="!data.derived" class="text-amber-200/70 block text-xs mt-1">
+          Legacy stats below come straight from the original Google sheet. If this is you,
           <NuxtLink to="/signup" class="underline hover:text-amber-100">create an account</NuxtLink>
           and request to claim "{{ data.player.name }}".
+        </span>
+        <span v-else class="text-amber-200/70 block text-xs mt-1">
+          Stats below are computed from this player's accepted records.
         </span>
       </div>
 

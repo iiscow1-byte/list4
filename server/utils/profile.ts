@@ -26,15 +26,14 @@ export function getPlayerStats(db: DatabaseSync, name: string): PlayerStats | nu
 }
 
 export function getCompletedLevels(db: DatabaseSync, playerName: string): CompletedLevel[] {
-  // A record is visible when it's mod-approved (`permanent = 1`) OR it came from
-  // the sheet (`submitted_by IS NULL` — no submitter means no moderation queue).
-  // Pending user submissions (permanent = 0 with a submitter) are excluded.
+  // Sheet records are auto-accepted (permanent = 1) on import, and approved
+  // user submissions are also permanent = 1, so a single filter covers both.
+  // Pending user submissions (permanent = 0) stay hidden.
   return db.prepare(
     `SELECT l.position, l.name, l.points, l.gddl_tier, r.percent
        FROM records r
        JOIN levels l ON l.id = r.level_id
-      WHERE r.player_name = ? COLLATE NOCASE
-        AND (r.permanent = 1 OR r.submitted_by IS NULL)
+      WHERE r.player_name = ? COLLATE NOCASE AND r.permanent = 1
       ORDER BY l.position ASC`,
   ).all(playerName) as CompletedLevel[]
 }

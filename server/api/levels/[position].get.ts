@@ -15,8 +15,7 @@ export default defineEventHandler((event) => {
       `SELECT r.percent, r.hz, r.video, r.player_name AS player, p.country
        FROM records r
        LEFT JOIN players p ON p.id = r.player_id
-       WHERE r.level_id = ?
-         AND (r.permanent = 1 OR r.submitted_by IS NULL)
+       WHERE r.level_id = ? AND r.permanent = 1
        ORDER BY r.percent DESC, r.player_name COLLATE NOCASE ASC`,
     )
     .all(level.id)

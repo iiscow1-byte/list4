@@ -328,15 +328,15 @@ async function importStatsViewer() {
     players.set(block, c.text)
   }
 
+  // Sheet records are auto-accepted (permanent = 1). They never went through the
+  // submission queue, and not every legacy entry has a video link of consistent
+  // shape, so we don't store one here either.
   const insert = db.prepare(
     `INSERT INTO records (level_id, player_id, player_name, video, permanent, submitted_by)
-     VALUES (?, ?, ?, NULL, 0, NULL)`,
+     VALUES (?, ?, ?, NULL, 1, NULL)`,
   )
   const findLevel = db.prepare(`SELECT id FROM levels WHERE position = ?`)
   const findPlayer = db.prepare(`SELECT id FROM players WHERE name = ? COLLATE NOCASE`)
-  const findExistingSheet = db.prepare(
-    `SELECT 1 FROM records WHERE level_id = ? AND player_name = ? COLLATE NOCASE AND submitted_by IS NULL`,
-  )
 
   let imported = 0
   let missingLevels = 0
@@ -347,10 +347,9 @@ async function importStatsViewer() {
 
   db.exec('BEGIN')
   try {
-    // Wipe non-promoted sheet records and re-import inside the same transaction.
-    // Promoted sheet records (permanent = 1, submitted_by NULL) and user
-    // submissions are preserved.
-    db.exec(`DELETE FROM records WHERE submitted_by IS NULL AND permanent = 0`)
+    // Wipe all sheet-source records and re-import. User submissions
+    // (submitted_by IS NOT NULL) are preserved regardless of permanent state.
+    db.exec(`DELETE FROM records WHERE submitted_by IS NULL`)
 
     for (let i = headerRowIdx + 1; i < rows.length; i++) {
       const row = rows[i]!
@@ -379,9 +378,6 @@ async function importStatsViewer() {
         const dedupeKey = `${lvl.id}:${player.toLowerCase()}`
         if (seen.has(dedupeKey)) { dupes++; continue }
         seen.add(dedupeKey)
-
-        // Skip if a promoted sheet record already exists (we don't delete those).
-        if (findExistingSheet.get(lvl.id, player)) { dupes++; continue }
 
         const p = findPlayer.get(player) as { id: number } | undefined
         insert.run(lvl.id, p?.id ?? null, player)

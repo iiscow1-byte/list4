@@ -151,4 +151,9 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_player    ON records(player_id)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_holder    ON records(player_name COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_permanent ON records(permanent)`)
+
+  // Sheet records are now auto-accepted; promote any leftover from earlier
+  // imports that were inserted as permanent = 0. Idempotent — does nothing once
+  // every sheet record is already permanent = 1.
+  db.exec(`UPDATE records SET permanent = 1 WHERE submitted_by IS NULL AND permanent = 0`)
 }
