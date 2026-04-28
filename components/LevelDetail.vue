@@ -161,7 +161,12 @@ type GdInfo = {
   password: string | null
 }
 const SCORE_LABELS = ['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
-const ratedLabel = computed(() => infoData.value ? SCORE_LABELS[infoData.value.score] : null)
+const ratedLabel = computed(() => {
+  if (!infoData.value) return null
+  const { score, length } = infoData.value
+  if (score === 0 && (length === 'Tiny' || length === 'Short')) return 'Challenge'
+  return SCORE_LABELS[score]
+})
 const infoOpen = ref(false)
 const infoData = ref<GdInfo | null>(null)
 const infoLoading = ref(false)
