@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
-
-type VoidRow = { position: number; name: string; demon_ranking: string | null; gddl_tier: string | null }
+type VoidRow = { position: number; name: string; demon_ranking: string | null; days: number | null }
 
 const props = defineProps<{ activePosition?: number | null }>()
 
@@ -82,8 +80,8 @@ watch(
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800 shrink-0">
       <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="text-xs uppercase tracking-widest text-accent font-semibold">Void</span>
-        <span class="text-[10px] text-zinc-500 normal-case tracking-normal">— pending</span>
+        <span class="text-xs uppercase tracking-widest text-fuchsia-300 font-semibold">Void</span>
+        <span class="text-[10px] text-zinc-500 normal-case tracking-normal">— no difficulty opinion</span>
       </div>
       <input
         v-model="search"
@@ -99,18 +97,17 @@ watch(
           <NuxtLink
             :to="{ path: `/void/${lvl.position}`, query: search ? { q: search } : {} }"
             class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
-            :style="lvl.position === activePosition
-              ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
-              : undefined"
-            :class="lvl.position === activePosition ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
+            :class="lvl.position === activePosition
+              ? 'bg-fuchsia-900/40 text-fuchsia-100'
+              : 'text-zinc-300 hover:bg-zinc-900/70'"
           >
-            <span
-              class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
-              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >
+            <span class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium bg-zinc-900 text-zinc-400">
               #{{ lvl.position }}
             </span>
-            <span class="truncate">{{ lvl.name }}</span>
+            <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
+            <span v-if="lvl.days != null" class="shrink-0 text-[10px] tabular-nums text-zinc-500">
+              {{ lvl.days.toLocaleString() }}d
+            </span>
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">
@@ -120,7 +117,7 @@ watch(
 
       <div ref="sentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
         <span v-if="loading">loading…</span>
-        <span v-else-if="done && items.length > 0">{{ total.toLocaleString() }} pending levels</span>
+        <span v-else-if="done && items.length > 0">{{ total.toLocaleString() }} levels</span>
         <span v-else>↓ scroll for more</span>
       </div>
     </div>

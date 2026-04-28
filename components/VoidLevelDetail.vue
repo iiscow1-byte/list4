@@ -4,9 +4,7 @@ type VoidLevel = {
   name: string
   gd_id: number | null
   verify_date: string | null
-  difficulty_approximation: string | null
-  general_idea: string | null
-  gddl_tier: string | null
+  days: number | null
   demon_ranking: string | null
   placement_source: string | null
   verification: string | null
@@ -19,7 +17,6 @@ const props = defineProps<{ level: VoidLevel }>()
 const tags = computed(() => {
   const list: string[] = []
   if (props.level.demon_ranking) list.push(props.level.demon_ranking)
-  if (props.level.gddl_tier) list.push(props.level.gddl_tier)
   if (props.level.placement_source) list.push(props.level.placement_source)
   return list
 })
@@ -51,12 +48,15 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
     <header class="mb-6">
       <div class="flex items-baseline gap-3 flex-wrap">
-        <span class="tabular-nums text-accent text-sm">#{{ level.position }}</span>
+        <span class="tabular-nums text-fuchsia-300 text-sm">#{{ level.position }}</span>
         <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
         <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
-          Void · pending
+          Void
         </span>
       </div>
+      <p class="text-xs text-zinc-500 mt-1.5">
+        Levels in the void list have no difficulty opinion.
+      </p>
     </header>
 
     <!-- Verification -->
@@ -104,24 +104,6 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
       </span>
     </div>
 
-    <!-- Difficulty approximation + general idea (only if present) -->
-    <section
-      v-if="level.difficulty_approximation || level.general_idea"
-      class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6"
-    >
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Difficulty approximation</h2>
-      <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-        <template v-if="level.difficulty_approximation">
-          <dt class="text-zinc-500">Approx.</dt>
-          <dd class="text-zinc-200">{{ level.difficulty_approximation }}</dd>
-        </template>
-        <template v-if="level.general_idea">
-          <dt class="text-zinc-500">Range</dt>
-          <dd class="text-zinc-200">{{ level.general_idea }}</dd>
-        </template>
-      </dl>
-    </section>
-
     <!-- Stats grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
       <div class="bg-zinc-950 p-4">
@@ -136,8 +118,8 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
         <div v-else class="tabular-nums text-base text-zinc-600">—</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-        <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
+        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Days</div>
+        <div class="tabular-nums text-base text-zinc-100">{{ level.days != null ? level.days.toLocaleString() : '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>

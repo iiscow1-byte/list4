@@ -13,7 +13,7 @@ const TABS = [
 ]
 const LEADERBOARD_GID = '280339977'
 const STATS_VIEWER_GID = '943829784'
-const VOID_LIST_GID = '139895069'
+const VOID_LIST_GID = '1630809094'
 
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
@@ -407,9 +407,9 @@ export async function importVoidList() {
   db.exec(`DELETE FROM void_levels`)
   const insert = db.prepare(`
     INSERT OR IGNORE INTO void_levels
-      (position, name, gd_id, verify_date, difficulty_approximation, general_idea,
-       gddl_tier, demon_ranking, placement_source, verification, verification_url, added_on)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (position, name, gd_id, verify_date, days, demon_ranking,
+       placement_source, verification, verification_url, added_on)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
   let pos = 0
@@ -423,18 +423,15 @@ export async function importVoidList() {
       if (!name) continue
       const gdId = num(r[c['level id']!])
       const verifyDate = txt(r[c['verify date']!])
-      const diffApprox = txt(r[c['difficulty approximation']!])
-      const genIdea = txt(r[c['general idea / range']!])
-      const gddlTier = txt(r[c['gddl tier']!])
+      const days = num(r[c['days']!])
       const demonRank = txt(r[c['demon ranking']!])
       const source = txt(r[c['source']!] ?? r[c['primary source']!])
-      // Skip section header rows like "Levels with a Difficulty Opinion" — they
-      // have a name but no actual level data.
-      if (!gdId && !verifyDate && !diffApprox && !genIdea && !gddlTier && !demonRank && !source) continue
+      // Skip section header / blank rows — they have a name but no actual level data.
+      if (!gdId && !verifyDate && days == null && !demonRank && !source) continue
       pos++
       const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
       insert.run(
-        pos, name, gdId, verifyDate, diffApprox, genIdea, gddlTier, demonRank, source,
+        pos, name, gdId, verifyDate, days, demonRank, source,
         verCol != null ? txt(r[verCol]) : null, verHref,
         txt(r[c['added to pending on']!]),
       )

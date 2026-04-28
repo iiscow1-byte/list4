@@ -122,24 +122,32 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
 
-  // Void list: pending levels (gid=139895069 of the source sheet). Stored in a
-  // separate table because positions are list-local and the columns differ — no
-  // points / skillset / pov_placement, plus extra approximation/range fields.
+  // Void list: levels with no difficulty opinion (gid=1630809094 of the source
+  // sheet). Stored in a separate table from `levels` because positions are
+  // list-local and the columns differ — no points / skillset / GDDL tier.
+  // The earlier prototype used the pending-list gid and had a different column
+  // set, so drop and recreate if those legacy columns are still around.
+  const voidExists = (db.prepare(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='void_levels'`,
+  ).get() as { name: string } | undefined)
+  if (voidExists) {
+    const vc = db.prepare(`PRAGMA table_info(void_levels)`).all() as { name: string }[]
+    const hasLegacy = vc.some((c) => c.name === 'difficulty_approximation' || c.name === 'general_idea' || c.name === 'gddl_tier')
+    if (hasLegacy) db.exec(`DROP TABLE void_levels`)
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS void_levels (
-      id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-      position                 INTEGER NOT NULL UNIQUE,
-      name                     TEXT    NOT NULL,
-      gd_id                    INTEGER,
-      verify_date              TEXT,
-      difficulty_approximation TEXT,
-      general_idea             TEXT,
-      gddl_tier                TEXT,
-      demon_ranking            TEXT,
-      placement_source         TEXT,
-      verification             TEXT,
-      verification_url         TEXT,
-      added_on                 TEXT
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      position         INTEGER NOT NULL UNIQUE,
+      name             TEXT    NOT NULL,
+      gd_id            INTEGER,
+      verify_date      TEXT,
+      days             INTEGER,
+      demon_ranking    TEXT,
+      placement_source TEXT,
+      verification     TEXT,
+      verification_url TEXT,
+      added_on         TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_void_position ON void_levels(position);
     CREATE INDEX IF NOT EXISTS idx_void_name     ON void_levels(name COLLATE NOCASE);
