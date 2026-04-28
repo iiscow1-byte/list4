@@ -23,23 +23,24 @@ function fmt(n: number) {
     <div v-if="pending" class="text-sm text-zinc-500">loading…</div>
 
     <ol v-else class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden">
-      <li
-        v-for="p in data?.items ?? []"
-        :key="p.player"
-        class="flex items-center gap-4 px-4 py-3 hover:bg-zinc-900/60 transition-colors"
-      >
-        <span class="rank-badge" :class="rankClass(p.rank)">#{{ p.rank }}</span>
-        <div class="flex-1 min-w-0">
-          <div class="font-medium truncate flex items-center gap-2">
-            <span>{{ p.player }}</span>
-            <span v-if="p.tier" class="text-[10px] uppercase tracking-widest text-zinc-500">tier {{ p.tier }}</span>
+      <li v-for="p in data?.items ?? []" :key="p.player">
+        <NuxtLink
+          :to="`/users/by-player/${encodeURIComponent(p.player)}`"
+          class="flex items-center gap-4 px-4 py-3 hover:bg-zinc-900/60 transition-colors group"
+        >
+          <span class="rank-badge" :class="rankClass(p.rank)">#{{ p.rank }}</span>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
+              <span>{{ p.player }}</span>
+              <span v-if="p.tier" class="text-[10px] uppercase tracking-widest text-zinc-500">tier {{ p.tier }}</span>
+            </div>
+            <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
+              <span v-if="p.skill_points" class="tabular-nums">skill: {{ fmt(p.skill_points) }}</span>
+              <span v-if="p.hardest">hardest: {{ p.hardest }}</span>
+            </div>
           </div>
-          <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-            <span v-if="p.skill_points" class="tabular-nums">skill: {{ fmt(p.skill_points) }}</span>
-            <span v-if="p.hardest">hardest: {{ p.hardest }}</span>
-          </div>
-        </div>
-        <span class="tabular-nums text-sm text-amber-300 shrink-0">{{ fmt(p.points) }} pts</span>
+          <span class="tabular-nums text-sm text-amber-300 shrink-0">{{ fmt(p.points) }} pts</span>
+        </NuxtLink>
       </li>
       <li v-if="!pending && (data?.items?.length ?? 0) === 0" class="px-4 py-12 text-center text-sm text-zinc-500">
         No players imported yet. Run <code class="text-amber-300 tabular-nums">npm run import</code>.

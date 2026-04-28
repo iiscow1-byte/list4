@@ -36,12 +36,14 @@ function initSchema(db: DatabaseSync) {
       pov_placement     INTEGER,
       year_verified     INTEGER,
       category          TEXT NOT NULL DEFAULT 'classic',
-      source_tab        TEXT
+      source_tab        TEXT,
+      creator           TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_levels_name      ON levels(name COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_levels_position  ON levels(position);
     CREATE INDEX IF NOT EXISTS idx_levels_category  ON levels(category);
     CREATE INDEX IF NOT EXISTS idx_levels_difficulty ON levels(difficulty);
+    CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE);
 
     CREATE TABLE IF NOT EXISTS players (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,5 +67,48 @@ function initSchema(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_records_level    ON records(level_id);
     CREATE INDEX IF NOT EXISTS idx_records_player   ON records(player_id);
+
+    CREATE TABLE IF NOT EXISTS accounts (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      username        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+      password_hash   TEXT    NOT NULL,
+      password_salt   TEXT    NOT NULL,
+      role            TEXT    NOT NULL DEFAULT 'user' CHECK(role IN ('user','moderator','admin')),
+      bio             TEXT,
+      avatar_blob     BLOB,
+      avatar_type     TEXT,
+      country         TEXT,
+      subdivision     TEXT,
+      claimed_player  TEXT    COLLATE NOCASE,
+      created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_accounts_username ON accounts(username);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_player ON accounts(claimed_player) WHERE claimed_player IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token       TEXT    PRIMARY KEY,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      expires_at  TEXT    NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
+
+    CREATE TABLE IF NOT EXISTS claim_requests (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      player_name   TEXT    NOT NULL,
+      status        TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_at    TEXT,
+      decided_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_claims_account ON claim_requests(account_id);
+    CREATE INDEX IF NOT EXISTS idx_claims_status  ON claim_requests(status);
   `)
+
+  // Migration: add `creator` column to existing `levels` tables that predate it.
+  const cols = db.prepare(`PRAGMA table_info(levels)`).all() as { name: string }[]
+  if (!cols.some((c) => c.name === 'creator')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN creator TEXT`)
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator ON levels(creator COLLATE NOCASE)`)
+  }
 }
