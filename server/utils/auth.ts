@@ -97,3 +97,11 @@ export function requireAdmin(event: H3Event): Account {
   if (a.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Admin only' })
   return a
 }
+
+export function requireMod(event: H3Event): Account {
+  const a = requireAccount(event)
+  if (a.role !== 'admin' && a.role !== 'moderator') {
+    throw createError({ statusCode: 403, statusMessage: 'Moderators or admins only' })
+  }
+  return a
+}

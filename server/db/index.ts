@@ -106,10 +106,16 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_claims_status  ON claim_requests(status);
   `)
 
-  // Migration: add `creator` column to existing `levels` tables that predate it.
+  // Migrations: add columns to existing `levels` tables that predate them.
+  // Each guarded by PRAGMA so re-runs are no-ops on already-migrated DBs.
   const cols = db.prepare(`PRAGMA table_info(levels)`).all() as { name: string }[]
-  if (!cols.some((c) => c.name === 'creator')) {
-    db.exec(`ALTER TABLE levels ADD COLUMN creator TEXT`)
-  }
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator ON levels(creator COLLATE NOCASE)`)
+  const has = (n: string) => cols.some((c) => c.name === n)
+  if (!has('creator'))   db.exec(`ALTER TABLE levels ADD COLUMN creator TEXT`)
+  if (!has('permanent')) db.exec(`ALTER TABLE levels ADD COLUMN permanent INTEGER NOT NULL DEFAULT 0`)
+  if (!has('verifier'))  db.exec(`ALTER TABLE levels ADD COLUMN verifier TEXT`)
+  if (!has('publisher')) db.exec(`ALTER TABLE levels ADD COLUMN publisher TEXT`)
+  if (!has('enjoyment')) db.exec(`ALTER TABLE levels ADD COLUMN enjoyment REAL`)
+
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
 }

@@ -160,9 +160,17 @@ async function importLevels() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
   `)
 
+  // Levels that have a permanent counterpart are owned by the website, not the
+  // sheet — skip any incoming row matching one of these gd_ids.
+  const permGdIds = new Set(
+    (db.prepare(`SELECT gd_id FROM levels WHERE permanent = 1 AND gd_id IS NOT NULL`).all() as { gd_id: number }[])
+      .map((r) => r.gd_id),
+  )
+
   let total = 0
   let skipped = 0
   let collisions = 0
+  let permSkipped = 0
 
   for (const tab of TABS) {
     process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
@@ -182,11 +190,13 @@ async function importLevels() {
         const name = txt(r[c['level name']!])
         const placement = num(r[c['placement']!])
         if (!name || placement === null) { skipped++; continue }
+        const gdId = num(r[c['level id']!])
+        if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
         const result = insert.run(
           placement,
           name,
-          num(r[c['level id']!]),
+          gdId,
           txt(r[c['gddl tier']!]),
           txt(r[c['rated']!]),
           txt(r[c['difficulty']!]),
@@ -212,7 +222,7 @@ async function importLevels() {
     total += imported
   }
 
-  console.log(`\nImported ${total} levels (${skipped} blank rows skipped, ${collisions} dropped on position conflict — earlier tab wins).`)
+  console.log(`\nImported ${total} levels (${skipped} blank, ${collisions} position conflicts, ${permSkipped} skipped — owned by permanent records).`)
 }
 
 async function importLeaderboard() {

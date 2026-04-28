@@ -4,7 +4,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const position = computed(() => Number(route.params.position))
 
-const { data: level, error } = await useFetch(() => `/api/levels/${position.value}`, {
+const { data: level, error, refresh } = await useFetch(() => `/api/levels/${position.value}`, {
   watch: [position],
 })
 
@@ -21,7 +21,7 @@ useHead(() => ({
         <p class="text-sm">Level #{{ position }} not found.</p>
         <NuxtLink to="/levels/1" class="text-accent hover:underline text-sm mt-2 inline-block">Back to top of list</NuxtLink>
       </div>
-      <LevelDetail v-else-if="level" :level="level" />
+      <LevelDetail v-else-if="level" :level="level" @refresh="refresh" />
     </section>
     <LevelRecords :records="level?.records ?? []" />
   </div>

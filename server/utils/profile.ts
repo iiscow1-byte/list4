@@ -38,9 +38,14 @@ export function getCompletedLevels(db: DatabaseSync, playerName: string): Comple
 }
 
 export function getCreatedLevels(db: DatabaseSync, creatorName: string): LevelRow[] {
+  // `creator` is a comma-separated list (e.g. "Knobbelboy, Riot"). Wrap both the
+  // stored value and the search term with ", " delimiters so the LIKE only
+  // matches whole tokens, not substrings.
   return db.prepare(
     `SELECT position, name, points, gddl_tier
-       FROM levels WHERE creator = ? COLLATE NOCASE
+       FROM levels
+      WHERE creator IS NOT NULL
+        AND (', ' || creator || ', ') LIKE ('%, ' || ? || ', %') COLLATE NOCASE
       ORDER BY position ASC`,
   ).all(creatorName) as LevelRow[]
 }
