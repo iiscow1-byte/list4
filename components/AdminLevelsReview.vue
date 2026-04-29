@@ -120,6 +120,22 @@ async function decide(action: 'approve' | 'reject') {
 }
 
 function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
+
+function youtubeId(url: string | null): string | null {
+  if (!url) return null
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{6,})/,
+    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
+  ]
+  for (const re of patterns) {
+    const m = url.match(re)
+    if (m) return m[1]!
+  }
+  return null
+}
+const verificationYtId = computed(() => youtubeId(selected.value?.verification_url ?? null))
 </script>
 
 <template>
@@ -211,6 +227,17 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
         <!-- Verification -->
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h3>
+          <div v-if="verificationYtId" class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800">
+            <iframe
+              :src="`https://www.youtube.com/embed/${verificationYtId}`"
+              class="w-full h-full"
+              :title="selected.verification ?? 'Verification'"
+              frameborder="0"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
+            />
+          </div>
           <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ selected.verifier ?? '—' }}</dd>
             <dt class="text-zinc-500">Title</dt><dd class="text-zinc-200">{{ selected.verification ?? '—' }}</dd>

@@ -140,7 +140,7 @@ function paraParts(p: string): { text: string; href: string | null } {
       <!-- Ratings -->
       <div v-if="stats.ratings.length" class="space-y-2">
         <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Rating</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-px bg-zinc-800 rounded-md overflow-hidden">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
           <div v-for="r in stats.ratings" :key="r.name" class="px-3 py-2.5" :style="box(ratingColor(r.name))">
             <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(ratingColor(r.name)) }">{{ r.name }}</div>
             <div class="tabular-nums text-sm">{{ r.count.toLocaleString() }}</div>
