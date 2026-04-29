@@ -133,7 +133,7 @@ async function submit() {
       <!-- FPS + Version -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Made for FPS</span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
           <input
             v-model="fps"
             placeholder="any"
