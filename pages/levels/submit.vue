@@ -43,7 +43,7 @@ const success = ref(false)
 
 // --- Level comparison drawer ---
 type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
-const COMPARE_PAGE_SIZE = 500
+const COMPARE_PAGE_SIZE = 1000
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
