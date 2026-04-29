@@ -183,17 +183,21 @@ const infoPanel = ref<HTMLElement | null>(null)
 const lastFetchedId = ref<number | null>(null)
 
 async function loadInfo() {
-  if (!props.level.gd_id) return
-  if (lastFetchedId.value === props.level.gd_id && infoData.value) return
+  const id = props.level.gd_id
+  if (!id) return
+  if (lastFetchedId.value === id && infoData.value) return
   infoLoading.value = true
   infoError.value = null
   try {
-    infoData.value = await $fetch<GdInfo>(`/api/gd/level/${props.level.gd_id}`)
-    lastFetchedId.value = props.level.gd_id
+    const data = await $fetch<GdInfo>(`/api/gd/level/${id}`)
+    if (props.level.gd_id !== id) return
+    infoData.value = data
+    lastFetchedId.value = id
   } catch (e: any) {
+    if (props.level.gd_id !== id) return
     infoError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to load.'
   } finally {
-    infoLoading.value = false
+    if (props.level.gd_id === id) infoLoading.value = false
   }
 }
 
