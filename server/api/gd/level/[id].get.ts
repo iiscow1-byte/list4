@@ -1,17 +1,9 @@
 /**
- * Look up a level on the official Geometry Dash servers.
- *
- * Strategy: try Boomlings directly first (authoritative, lowest latency). If
- * that fails — typically a 403 from a blocked egress IP (e.g. Railway) — fall
- * back to gdbrowser.com, whose own server isn't on those blocklists.
- *
- * Both paths normalise to the same return shape, so the frontend doesn't care
- * which one served the response.
+ * Look up a level on the official Geometry Dash servers via Boomlings.
  */
 
 const GD_SECRET = 'Wmfd2893gb7'
 const BOOMLINGS_URL = 'http://www.boomlings.com/database/downloadGJLevel22.php'
-const GDBROWSER_URL = (id: number) => `https://gdbrowser.com/api/level/${id}`
 
 // Official soundtracks (level field 12 — only set for non-custom songs).
 const OFFICIAL_SONGS: Record<number, string> = {
@@ -160,67 +152,13 @@ async function fetchFromBoomlings(id: number): Promise<GdInfo> {
   }
 }
 
-async function fetchFromGdBrowser(id: number): Promise<GdInfo> {
-  const resp = await fetch(GDBROWSER_URL(id), {
-    headers: { 'User-Agent': 'all-levels-list/1.0' },
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!resp.ok) throw new Error(`gdbrowser HTTP ${resp.status}`)
-  const raw: any = await resp.json().catch(() => null)
-  if (!raw || raw === -1 || typeof raw !== 'object') throw new Error('not_found')
-
-  const customSong = Number(raw.customSong) || 0
-  const song = customSong
-    ? [raw.songName, raw.songAuthor].filter(Boolean).join(' — ') || null
-    : (raw.officialSong || null)
-
-  const passwordRaw = String(raw.password ?? '')
-  const password = passwordRaw && passwordRaw !== '0' ? passwordRaw : null
-
-  const stars = Number(raw.stars) || 0
-  const featured = !!raw.featured
-  const epicNum = Number(raw.epic) || 0
-  const isEpic = epicNum >= 1 || raw.epic === true
-  const isLegendary = !!raw.legendary || epicNum === 2
-  const isMythic = !!raw.mythic || epicNum === 3
-  let score: 0 | 1 | 2 | 3 | 4 | 5 = 0
-  if (isMythic) score = 5
-  else if (isLegendary) score = 4
-  else if (isEpic) score = 3
-  else if (featured) score = 2
-  else if (stars > 0) score = 1
-
-  return {
-    id: Number(raw.id) || id,
-    name: raw.name ?? null,
-    author: raw.author ?? null,
-    description: typeof raw.description === 'string' ? raw.description : null,
-    downloads: Number(raw.downloads) || 0,
-    likes: Number(raw.likes) || 0,
-    length: raw.length ?? null,
-    objects: Number(raw.objects) || 0,
-    objectsApprox: !!raw.large,
-    coins: Number(raw.coins) || 0,
-    verifiedCoins: !!raw.verifiedCoins,
-    score,
-    song: {
-      name: song,
-      id: customSong || null,
-      custom: !!customSong,
-    },
-    password,
-  }
-}
-
 export default defineEventHandler(async (event) => {
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isFinite(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid level id' })
   }
 
-  const errors: string[] = []
-  let info: GdInfo | null = null
-
+  let info: GdInfo
   try {
     info = await fetchFromBoomlings(id)
   } catch (e: any) {
@@ -228,25 +166,9 @@ export default defineEventHandler(async (event) => {
     if (msg === 'not_found') {
       throw createError({ statusCode: 404, statusMessage: 'Level not found on GD servers' })
     }
-    errors.push(`boomlings: ${msg}`)
-  }
-
-  if (!info) {
-    try {
-      info = await fetchFromGdBrowser(id)
-    } catch (e: any) {
-      const msg = e?.message ?? 'unknown'
-      if (msg === 'not_found') {
-        throw createError({ statusCode: 404, statusMessage: 'Level not found on GD servers' })
-      }
-      errors.push(`gdbrowser: ${msg}`)
-    }
-  }
-
-  if (!info) {
     throw createError({
       statusCode: 502,
-      statusMessage: `Geometry Dash servers unavailable (${errors.join('; ')})`,
+      statusMessage: `Geometry Dash servers unavailable (boomlings: ${msg})`,
     })
   }
 
