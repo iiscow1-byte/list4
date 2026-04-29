@@ -122,6 +122,35 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
 
+  // Pending level submissions — user-submitted new levels awaiting admin review.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_levels (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      gd_id           INTEGER,
+      name            TEXT,
+      fps             TEXT,
+      game_version    TEXT,
+      verification    TEXT,
+      verification_url TEXT,
+      verifier        TEXT,
+      verify_date     TEXT,
+      gddl_tier       TEXT,
+      difficulty      TEXT,
+      enjoyment       REAL,
+      main_skillset   TEXT,
+      tags            TEXT,
+      notes           TEXT,
+      status          TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      submitted_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitted_at    TEXT NOT NULL DEFAULT (datetime('now')),
+      decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at      TEXT,
+      placement       INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_levels_status    ON pending_levels(status);
+    CREATE INDEX IF NOT EXISTS idx_pending_levels_submitter ON pending_levels(submitted_by);
+  `)
+
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
   // list-local and the columns differ — no points / skillset / GDDL tier.

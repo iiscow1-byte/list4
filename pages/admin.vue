@@ -8,9 +8,10 @@ const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 const isAdmin = computed(() => me.value?.role === 'admin')
 
-type TabId = 'records' | 'claims' | 'accounts'
+type TabId = 'records' | 'levels' | 'claims' | 'accounts'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',  label: 'Records',  adminOnly: false },
+  { id: 'levels',   label: 'Levels',   adminOnly: false },
   { id: 'claims',   label: 'Claims',   adminOnly: true },
   { id: 'accounts', label: 'Accounts', adminOnly: true },
 ]
@@ -134,6 +135,9 @@ async function setClaim(u: AdminUser) {
 
     <!-- Records tab — full-width 3-panel review layout -->
     <AdminRecordsReview v-if="tab === 'records'" class="flex-1 min-h-0" />
+
+    <!-- Levels tab — pending level submissions -->
+    <AdminLevelsReview v-else-if="tab === 'levels'" class="flex-1 min-h-0" />
 
     <!-- Claims tab -->
     <div v-else-if="tab === 'claims'" class="flex-1 overflow-y-auto">

@@ -296,6 +296,17 @@ function fmt(n: number | null | undefined) {
       >Submit record</NuxtLink>
     </section>
 
+    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 flex items-center justify-between gap-3 flex-wrap">
+      <div class="min-w-0">
+        <h2 class="text-sm font-medium text-zinc-100">Submit a new level</h2>
+        <p class="text-xs text-zinc-500 mt-0.5">Suggest a level to add to the list. A moderator picks placement.</p>
+      </div>
+      <NuxtLink
+        to="/levels/submit"
+        class="rounded border border-accent/40 text-accent font-medium text-sm px-4 py-1.5 hover:bg-accent/10 transition-colors shrink-0"
+      >Submit level</NuxtLink>
+    </section>
+
     <ProfileLevelLists
       v-if="profileData"
       :completed="profileData.completedLevels"
