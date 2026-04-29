@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { tierColor, textOn } from '~/utils/tier-colors'
+
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a level — All Levels List' })
 
@@ -41,36 +43,129 @@ const success = ref(false)
 
 // --- Level comparison drawer ---
 type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+const COMPARE_PAGE_SIZE = 100
 const compareOpen = ref(false)
+const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
 const compareItems = ref<ListLevel[]>([])
 const compareLoading = ref(false)
 const comparePicked = ref<ListLevel | null>(null)
+const compareTotal = ref(0)
+const compareNextPage = ref(1)
+const compareInitialized = ref(false)
+const compareDone = computed(() =>
+  compareInitialized.value && compareItems.value.length >= compareTotal.value,
+)
+const compareScrollEl = ref<HTMLElement | null>(null)
+const compareSentinel = ref<HTMLElement | null>(null)
 let compareDebounce: ReturnType<typeof setTimeout> | null = null
+let compareObserver: IntersectionObserver | null = null
+let suppressSearchReload = false
 
-async function loadCompare() {
+function resetCompareList() {
+  compareItems.value = []
+  compareNextPage.value = 1
+  compareTotal.value = 0
+  compareInitialized.value = false
+}
+
+async function loadCompareMore() {
+  if (compareLoading.value) return
+  if (compareInitialized.value && compareDone.value) return
   compareLoading.value = true
   try {
-    const res = await $fetch<{ items: ListLevel[] }>('/api/levels', {
-      query: { page: 1, pageSize: 50, search: compareSearch.value || undefined },
-    })
-    compareItems.value = res.items
+    const query: Record<string, any> = {
+      page: compareNextPage.value,
+      pageSize: COMPARE_PAGE_SIZE,
+    }
+    if (compareMode.value === 'search' && compareSearch.value) {
+      query.search = compareSearch.value
+    }
+    const res = await $fetch<{ total: number; items: ListLevel[] }>('/api/levels', { query })
+    compareTotal.value = res.total
+    compareItems.value.push(...res.items)
+    compareNextPage.value += 1
+    compareInitialized.value = true
   } finally {
     compareLoading.value = false
   }
 }
+
+async function reloadCompare() {
+  resetCompareList()
+  await loadCompareMore()
+}
+
+function scrollToPickedInList() {
+  const lvl = comparePicked.value
+  if (!lvl || !compareScrollEl.value) return
+  const el = compareScrollEl.value.querySelector<HTMLElement>(`[data-pos="${lvl.position}"]`)
+  el?.scrollIntoView({ block: 'center' })
+}
+
+async function pickCompareItem(lvl: ListLevel) {
+  if (compareMode.value === 'browse') {
+    comparePicked.value = lvl
+    return
+  }
+  // From search mode: switch to browse view of the full list, scrolled to this level.
+  comparePicked.value = lvl
+  const wasFiltered = !!compareSearch.value
+  compareMode.value = 'browse'
+  if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
+  if (compareSearch.value !== '') {
+    suppressSearchReload = true
+    compareSearch.value = ''
+  }
+  if (wasFiltered) resetCompareList()
+  const targetPage = Math.max(1, Math.ceil(lvl.position / COMPARE_PAGE_SIZE))
+  while (compareNextPage.value <= targetPage && !(compareInitialized.value && compareDone.value)) {
+    await loadCompareMore()
+  }
+  await nextTick()
+  scrollToPickedInList()
+}
+
+function backToSearch() {
+  compareMode.value = 'search'
+  resetCompareList()
+  loadCompareMore()
+}
+
 function openCompare() {
   compareOpen.value = true
   comparePicked.value = comparisonLevel.value
-  if (compareItems.value.length === 0) loadCompare()
+  compareMode.value = 'search'
+  if (!compareInitialized.value) loadCompareMore()
 }
 function closeCompare() {
   compareOpen.value = false
 }
 watch(compareSearch, () => {
   if (compareDebounce) clearTimeout(compareDebounce)
-  compareDebounce = setTimeout(loadCompare, 200)
+  if (suppressSearchReload) { suppressSearchReload = false; return }
+  compareDebounce = setTimeout(async () => {
+    compareMode.value = 'search'
+    await reloadCompare()
+  }, 200)
 })
+watch(compareOpen, async (open) => {
+  await nextTick()
+  if (open) {
+    if (compareSentinel.value && compareScrollEl.value && !compareObserver) {
+      compareObserver = new IntersectionObserver(
+        (entries) => { if (entries[0]?.isIntersecting) loadCompareMore() },
+        { root: compareScrollEl.value, rootMargin: '300px 0px' },
+      )
+      compareObserver.observe(compareSentinel.value)
+    }
+  } else {
+    compareObserver?.disconnect()
+    compareObserver = null
+  }
+})
+onBeforeUnmount(() => compareObserver?.disconnect())
+
 function confirmCompare() {
   const lvl = comparePicked.value
   if (!lvl) return
@@ -417,7 +512,10 @@ async function submit() {
           <header class="p-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
             <div class="flex flex-col">
               <span class="text-xs uppercase tracking-widest text-accent font-semibold">Level comparison</span>
-              <span class="text-[11px] text-zinc-500">Pick a level whose tier and rank match yours.</span>
+              <span class="text-[11px] text-zinc-500">
+                <template v-if="compareMode === 'search'">Search, then click a level to browse nearby placements.</template>
+                <template v-else>Pick a level whose tier and rank match yours.</template>
+              </span>
             </div>
             <button
               type="button"
@@ -427,36 +525,52 @@ async function submit() {
             >✕</button>
           </header>
 
-          <div class="p-3 border-b border-zinc-800 shrink-0">
+          <div class="p-3 border-b border-zinc-800 shrink-0 flex items-center gap-2">
             <input
               v-model="compareSearch"
               type="search"
               placeholder="Search the main list…"
-              class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
+            <button
+              v-if="compareMode === 'browse'"
+              type="button"
+              class="shrink-0 text-[11px] text-zinc-400 hover:text-zinc-100 px-2 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
+              @click="backToSearch"
+            >Back to search</button>
           </div>
 
-          <div class="flex-1 min-h-0 overflow-y-auto">
+          <div ref="compareScrollEl" class="flex-1 min-h-0 overflow-y-auto">
             <ul v-if="compareItems.length" class="divide-y divide-zinc-900/60">
-              <li v-for="lvl in compareItems" :key="lvl.position">
+              <li v-for="lvl in compareItems" :key="lvl.position" :data-pos="lvl.position">
                 <button
                   type="button"
                   class="w-full text-left flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors"
-                  :class="comparePicked?.position === lvl.position
-                    ? 'bg-accent/15 text-zinc-100'
-                    : 'text-zinc-300 hover:bg-zinc-900/70'"
-                  @click="comparePicked = lvl"
+                  :style="comparePicked?.position === lvl.position
+                    ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
+                    : undefined"
+                  :class="comparePicked?.position === lvl.position ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
+                  @click="pickCompareItem(lvl)"
                 >
-                  <span class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium bg-zinc-900 text-zinc-300">
+                  <span
+                    class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
+                    :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
+                  >
                     #{{ lvl.position }}
                   </span>
                   <span class="truncate flex-1">{{ lvl.name }}</span>
-                  <span v-if="lvl.gddl_tier" class="text-[10px] text-zinc-500 shrink-0">{{ lvl.gddl_tier }}</span>
+                  <span v-if="lvl.gddl_tier" class="text-[10px] opacity-70 shrink-0">{{ lvl.gddl_tier }}</span>
                 </button>
               </li>
             </ul>
             <div v-else-if="compareLoading" class="px-3 py-6 text-xs text-zinc-500 text-center">loading…</div>
             <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No matches.</div>
+
+            <div ref="compareSentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
+              <span v-if="compareLoading && compareItems.length">loading…</span>
+              <span v-else-if="compareDone && compareItems.length > 0">{{ compareTotal.toLocaleString() }} levels — end of list</span>
+              <span v-else-if="compareItems.length">↓ scroll for more</span>
+            </div>
           </div>
 
           <footer class="p-3 border-t border-zinc-800 shrink-0 flex items-center gap-2">
