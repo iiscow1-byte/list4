@@ -43,7 +43,7 @@ const success = ref(false)
 
 // --- Level comparison drawer ---
 type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
-const COMPARE_PAGE_SIZE = 100
+const COMPARE_PAGE_SIZE = 500
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
@@ -51,49 +51,73 @@ const compareItems = ref<ListLevel[]>([])
 const compareLoading = ref(false)
 const comparePicked = ref<ListLevel | null>(null)
 const compareTotal = ref(0)
-const compareNextPage = ref(1)
+// Loaded page window. 0 = none loaded yet.
+const comparePageLow = ref(0)
+const comparePageHigh = ref(0)
 const compareInitialized = ref(false)
-const compareDone = computed(() =>
-  compareInitialized.value && compareItems.value.length >= compareTotal.value,
+const compareTopDone = computed(() => compareInitialized.value && comparePageLow.value <= 1)
+const compareBottomDone = computed(
+  () => compareInitialized.value
+    && comparePageHigh.value * COMPARE_PAGE_SIZE >= compareTotal.value,
 )
 const compareScrollEl = ref<HTMLElement | null>(null)
-const compareSentinel = ref<HTMLElement | null>(null)
+const compareTopSentinel = ref<HTMLElement | null>(null)
+const compareBottomSentinel = ref<HTMLElement | null>(null)
 let compareDebounce: ReturnType<typeof setTimeout> | null = null
 let compareObserver: IntersectionObserver | null = null
 let suppressSearchReload = false
 
 function resetCompareList() {
   compareItems.value = []
-  compareNextPage.value = 1
+  comparePageLow.value = 0
+  comparePageHigh.value = 0
   compareTotal.value = 0
   compareInitialized.value = false
 }
 
-async function loadCompareMore() {
+async function loadComparePage(page: number, where: 'append' | 'prepend') {
   if (compareLoading.value) return
-  if (compareInitialized.value && compareDone.value) return
+  if (page < 1) return
   compareLoading.value = true
   try {
-    const query: Record<string, any> = {
-      page: compareNextPage.value,
-      pageSize: COMPARE_PAGE_SIZE,
-    }
+    const query: Record<string, any> = { page, pageSize: COMPARE_PAGE_SIZE }
     if (compareMode.value === 'search' && compareSearch.value) {
       query.search = compareSearch.value
     }
     const res = await $fetch<{ total: number; items: ListLevel[] }>('/api/levels', { query })
     compareTotal.value = res.total
-    compareItems.value.push(...res.items)
-    compareNextPage.value += 1
+    if (where === 'append') {
+      compareItems.value.push(...res.items)
+      comparePageHigh.value = page
+      if (comparePageLow.value === 0) comparePageLow.value = page
+    } else {
+      // Prepend: preserve visual scroll position by compensating for added height.
+      const el = compareScrollEl.value
+      const prevHeight = el?.scrollHeight ?? 0
+      const prevTop = el?.scrollTop ?? 0
+      compareItems.value.unshift(...res.items)
+      comparePageLow.value = page
+      if (comparePageHigh.value === 0) comparePageHigh.value = page
+      await nextTick()
+      if (el) el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
+    }
     compareInitialized.value = true
   } finally {
     compareLoading.value = false
   }
 }
 
-async function reloadCompare() {
-  resetCompareList()
-  await loadCompareMore()
+function loadCompareNext() {
+  if (compareLoading.value) return
+  if (comparePageHigh.value === 0) { loadComparePage(1, 'append'); return }
+  if (compareBottomDone.value) return
+  loadComparePage(comparePageHigh.value + 1, 'append')
+}
+
+function loadComparePrev() {
+  if (compareLoading.value) return
+  if (comparePageLow.value <= 1) return
+  loadComparePage(comparePageLow.value - 1, 'prepend')
 }
 
 function scrollToPickedInList() {
@@ -108,20 +132,17 @@ async function pickCompareItem(lvl: ListLevel) {
     comparePicked.value = lvl
     return
   }
-  // From search mode: switch to browse view of the full list, scrolled to this level.
+  // From search mode: switch to browse view of the full list, centered on this level.
   comparePicked.value = lvl
-  const wasFiltered = !!compareSearch.value
   compareMode.value = 'browse'
   if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
   if (compareSearch.value !== '') {
     suppressSearchReload = true
     compareSearch.value = ''
   }
-  if (wasFiltered) resetCompareList()
+  resetCompareList()
   const targetPage = Math.max(1, Math.ceil(lvl.position / COMPARE_PAGE_SIZE))
-  while (compareNextPage.value <= targetPage && !(compareInitialized.value && compareDone.value)) {
-    await loadCompareMore()
-  }
+  await loadComparePage(targetPage, 'append')
   await nextTick()
   scrollToPickedInList()
 }
@@ -129,14 +150,14 @@ async function pickCompareItem(lvl: ListLevel) {
 function backToSearch() {
   compareMode.value = 'search'
   resetCompareList()
-  loadCompareMore()
+  loadComparePage(1, 'append')
 }
 
 function openCompare() {
   compareOpen.value = true
   comparePicked.value = comparisonLevel.value
   compareMode.value = 'search'
-  if (!compareInitialized.value) loadCompareMore()
+  if (!compareInitialized.value) loadComparePage(1, 'append')
 }
 function closeCompare() {
   compareOpen.value = false
@@ -146,18 +167,26 @@ watch(compareSearch, () => {
   if (suppressSearchReload) { suppressSearchReload = false; return }
   compareDebounce = setTimeout(async () => {
     compareMode.value = 'search'
-    await reloadCompare()
+    resetCompareList()
+    await loadComparePage(1, 'append')
   }, 200)
 })
 watch(compareOpen, async (open) => {
   await nextTick()
   if (open) {
-    if (compareSentinel.value && compareScrollEl.value && !compareObserver) {
+    if (compareScrollEl.value && !compareObserver) {
       compareObserver = new IntersectionObserver(
-        (entries) => { if (entries[0]?.isIntersecting) loadCompareMore() },
+        (entries) => {
+          for (const e of entries) {
+            if (!e.isIntersecting) continue
+            if (e.target === compareBottomSentinel.value) loadCompareNext()
+            else if (e.target === compareTopSentinel.value) loadComparePrev()
+          }
+        },
         { root: compareScrollEl.value, rootMargin: '300px 0px' },
       )
-      compareObserver.observe(compareSentinel.value)
+      if (compareTopSentinel.value) compareObserver.observe(compareTopSentinel.value)
+      if (compareBottomSentinel.value) compareObserver.observe(compareBottomSentinel.value)
     }
   } else {
     compareObserver?.disconnect()
@@ -541,6 +570,14 @@ async function submit() {
           </div>
 
           <div ref="compareScrollEl" class="flex-1 min-h-0 overflow-y-auto">
+            <div
+              ref="compareTopSentinel"
+              class="px-3 py-2 text-[11px] text-zinc-600 text-center"
+            >
+              <span v-if="compareLoading && comparePageLow > 1">loading…</span>
+              <span v-else-if="compareItems.length && !compareTopDone">↑ scroll for more</span>
+            </div>
+
             <ul v-if="compareItems.length" class="divide-y divide-zinc-900/60">
               <li v-for="lvl in compareItems" :key="lvl.position" :data-pos="lvl.position">
                 <button
@@ -566,9 +603,9 @@ async function submit() {
             <div v-else-if="compareLoading" class="px-3 py-6 text-xs text-zinc-500 text-center">loading…</div>
             <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No matches.</div>
 
-            <div ref="compareSentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
+            <div ref="compareBottomSentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
               <span v-if="compareLoading && compareItems.length">loading…</span>
-              <span v-else-if="compareDone && compareItems.length > 0">{{ compareTotal.toLocaleString() }} levels — end of list</span>
+              <span v-else-if="compareBottomDone && compareItems.length > 0">{{ compareTotal.toLocaleString() }} levels — end of list</span>
               <span v-else-if="compareItems.length">↓ scroll for more</span>
             </div>
           </div>
