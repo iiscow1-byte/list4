@@ -117,8 +117,11 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   verification_url: '',
   year_verified: '',
 })
+const draftPosition = ref<number | string>('')
 const saving = ref(false)
 const saveError = ref<string | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
 
 function startEdit() {
   draft.name = props.level.name ?? ''
@@ -135,13 +138,16 @@ function startEdit() {
   draft.verification = props.level.verification ?? ''
   draft.verification_url = props.level.verification_url ?? ''
   draft.year_verified = props.level.year_verified ?? ''
+  draftPosition.value = props.level.position
   saveError.value = null
+  deleteError.value = null
   editing.value = true
 }
 
 function cancelEdit() {
   editing.value = false
   saveError.value = null
+  deleteError.value = null
 }
 
 // --- GD info dropdown ---
@@ -233,12 +239,36 @@ async function saveEdit() {
   saveError.value = null
   try {
     await $fetch(`/api/admin/levels/${props.level.position}`, { method: 'PATCH', body: { ...draft } })
+    // If position changed, do the structural move after the metadata save —
+    // it shifts neighboring rows so it's a separate atomic op.
+    const newPos = Number(draftPosition.value)
+    if (Number.isInteger(newPos) && newPos > 0 && newPos !== props.level.position) {
+      await $fetch(`/api/admin/levels/${props.level.position}/move`, { method: 'POST', body: { to: newPos } })
+      // The current URL still references the old position; navigate to the new one.
+      await navigateTo(`/levels/${newPos}`)
+      return
+    }
     emit('refresh')
     editing.value = false
   } catch (e: any) {
     saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
   } finally {
     saving.value = false
+  }
+}
+
+async function deleteLevel() {
+  if (deleting.value) return
+  if (!confirm(`Delete "${props.level.name}" (#${props.level.position})? This shifts everything below up by one and cannot be undone from the UI.`)) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await $fetch(`/api/admin/levels/${props.level.position}`, { method: 'DELETE' })
+    await navigateTo('/levels/1')
+  } catch (e: any) {
+    deleteError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
+  } finally {
+    deleting.value = false
   }
 }
 </script>
@@ -283,13 +313,17 @@ async function saveEdit() {
     <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
       <div class="flex items-baseline justify-between">
         <h2 class="text-xs uppercase tracking-widest text-accent font-medium">Editing level</h2>
-        <span class="text-[11px] text-zinc-500">Position #{{ level.position }} (not editable)</span>
+        <span class="text-[11px] text-zinc-500">Currently at #{{ level.position }}</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
           <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
+          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
@@ -348,7 +382,7 @@ async function saveEdit() {
         </label>
       </div>
 
-      <div class="flex items-center gap-3 pt-2">
+      <div class="flex items-center gap-3 pt-2 flex-wrap">
         <button
           type="button"
           :disabled="saving"
@@ -360,7 +394,15 @@ async function saveEdit() {
           class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
           @click="cancelEdit"
         >Cancel</button>
+        <button
+          v-if="role === 'admin'"
+          type="button"
+          :disabled="deleting"
+          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          @click="deleteLevel"
+        >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
         <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
+        <span v-if="deleteError" class="text-xs text-red-400">{{ deleteError }}</span>
       </div>
     </section>
 
