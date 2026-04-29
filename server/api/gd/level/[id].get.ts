@@ -1,9 +1,17 @@
 /**
  * Look up a level on the official Geometry Dash servers via Boomlings.
+ *
+ * The request is made through node:http (not fetch) so we can omit the
+ * User-Agent entirely — fetch silently inserts `User-Agent: node` even when
+ * you set it to '', and Boomlings 403s requests with any UA. The official
+ * client sends none.
  */
 
+import http from 'node:http'
+
 const GD_SECRET = 'Wmfd2893gb7'
-const BOOMLINGS_URL = 'http://www.boomlings.com/database/downloadGJLevel22.php'
+const BOOMLINGS_HOST = 'www.boomlings.com'
+const BOOMLINGS_PATH = '/database/downloadGJLevel22.php'
 
 // Official soundtracks (level field 12 — only set for non-custom songs).
 const OFFICIAL_SONGS: Record<number, string> = {
@@ -92,25 +100,50 @@ function decodeBase64Url(raw: string): string | null {
   }
 }
 
-async function fetchFromBoomlings(id: number): Promise<GdInfo> {
-  const params = new URLSearchParams()
-  params.append('secret', GD_SECRET)
-  params.append('levelID', String(id))
-  params.append('gameVersion', '21')
-  params.append('binaryVersion', '35')
-  params.append('gdw', '0')
-
-  const resp = await fetch(BOOMLINGS_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': '',
-    },
-    body: params.toString(),
-    signal: AbortSignal.timeout(8000),
+function postBoomlings(body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        method: 'POST',
+        host: BOOMLINGS_HOST,
+        port: 80,
+        path: BOOMLINGS_PATH,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': body.length,
+        },
+        timeout: 8000,
+      },
+      (res: any) => {
+        const status = res.statusCode ?? 0
+        if (status !== 200) {
+          res.resume()
+          reject(new Error(`boomlings HTTP ${status}`))
+          return
+        }
+        res.setEncoding('utf8')
+        let data = ''
+        res.on('data', (c: string) => { data += c })
+        res.on('end', () => resolve(data))
+        res.on('error', reject)
+      },
+    )
+    req.on('error', reject)
+    req.on('timeout', () => req.destroy(new Error('boomlings timeout')))
+    req.end(body)
   })
-  if (!resp.ok) throw new Error(`boomlings HTTP ${resp.status}`)
-  const raw = (await resp.text()).trim()
+}
+
+async function fetchFromBoomlings(id: number): Promise<GdInfo> {
+  const body = new URLSearchParams({
+    secret: GD_SECRET,
+    levelID: String(id),
+    gameVersion: '21',
+    binaryVersion: '35',
+    gdw: '0',
+  }).toString()
+
+  const raw = (await postBoomlings(body)).trim()
   if (!raw || raw === '-1') throw new Error('not_found')
 
   const m = parseGdMap(raw)
