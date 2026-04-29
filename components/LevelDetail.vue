@@ -253,8 +253,6 @@ async function saveEdit() {
         </div>
         <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
           <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
-          <span v-if="level.placement_source && level.year_verified" class="mx-2">·</span>
-          <span v-if="level.year_verified">verified {{ level.year_verified }}</span>
         </p>
       </div>
 
