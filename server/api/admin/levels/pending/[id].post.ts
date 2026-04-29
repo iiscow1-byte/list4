@@ -41,10 +41,13 @@ export default defineEventHandler(async (event) => {
   db.exec('BEGIN')
   try {
     if (goesToVoid) {
-      // Shift void positions and insert.
+      // Shift later positions down by one to make room. Done in two steps via
+      // negative placeholders to avoid the UNIQUE-constraint collisions SQLite
+      // would otherwise hit while the UPDATE walks the rows.
       const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM void_levels`).get() as { m: number | null }).m ?? 0
       const insertPos = Math.min(placement, maxPos + 1)
-      db.prepare(`UPDATE void_levels SET position = position + 1 WHERE position >= ?`).run(insertPos)
+      db.prepare(`UPDATE void_levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
+      db.prepare(`UPDATE void_levels SET position = -position WHERE position < 0`).run()
       db.prepare(
         `INSERT INTO void_levels (position, name, gd_id, verify_date, demon_ranking, placement_source,
                                   verification, verification_url, added_on)
@@ -60,10 +63,11 @@ export default defineEventHandler(async (event) => {
         sub.verification_url,
       )
     } else {
-      // Shift main list positions and insert.
+      // Shift main list positions down by one. Same negate-then-flip pattern.
       const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
       const insertPos = Math.min(placement, maxPos + 1)
-      db.prepare(`UPDATE levels SET position = position + 1 WHERE position >= ?`).run(insertPos)
+      db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
+      db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
       db.prepare(
         `INSERT INTO levels
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
