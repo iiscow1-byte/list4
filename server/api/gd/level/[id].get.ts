@@ -89,24 +89,35 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid level id' })
   }
 
+  // The full set of form fields GDBrowser / RobTop's client send. Sending only
+  // `secret + levelID` is sometimes rejected with a default/empty response.
+  const params = new URLSearchParams()
+  params.append('secret', GD_SECRET)
+  params.append('levelID', String(id))
+  params.append('gameVersion', '21')
+  params.append('binaryVersion', '35')
+  params.append('gdw', '0')
+
   let raw: string | null = null
   try {
-    raw = await $fetch<string>(GD_URL, {
+    const resp = await fetch(GD_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        // GD servers reject most User-Agents — mimic the game (empty UA).
+        // GD servers reject most User-Agents — the game itself sends an empty one.
         'User-Agent': '',
       },
-      body: new URLSearchParams({
-        secret: GD_SECRET,
-        levelID: String(id),
-      }).toString(),
-      responseType: 'text',
-      timeout: 8000,
+      body: params.toString(),
+      signal: AbortSignal.timeout(8000),
     })
-  } catch {
-    throw createError({ statusCode: 502, statusMessage: 'Geometry Dash servers unavailable' })
+    if (!resp.ok) {
+      throw createError({ statusCode: 502, statusMessage: `GD upstream HTTP ${resp.status}` })
+    }
+    raw = await resp.text()
+  } catch (e: any) {
+    if (e?.statusCode) throw e
+    const msg = e?.message ?? e?.cause?.message ?? 'unknown error'
+    throw createError({ statusCode: 502, statusMessage: `Geometry Dash servers unavailable: ${msg}` })
   }
 
   const trimmed = (raw ?? '').trim()
