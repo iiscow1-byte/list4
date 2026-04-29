@@ -557,7 +557,7 @@ async function deleteLevel() {
           <div class="text-sm text-zinc-100">{{ level.main_skillset ?? '—' }}</div>
         </div>
         <div class="bg-zinc-950 p-4">
-          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">POV Placement</div>
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Placement on Verification</div>
           <div class="tabular-nums text-sm text-zinc-100">{{ level.pov_placement ?? '—' }}</div>
         </div>
       </div>

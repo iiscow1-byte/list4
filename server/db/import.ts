@@ -180,6 +180,13 @@ async function importLevels() {
     const found = findHeaderColumns(text)
     if (!found) { console.log('no header row, skipping'); continue }
     const c = refineColumns(text, found.cols, found.headerIdx + 1)
+    // The "Placement on Verification" column in the published sheet has a
+    // uniform "1" indicator cell at the labelled column; the actual placement
+    // value lives one column to the right. refineColumns can't detect this
+    // because it only shifts when the labelled cell is empty.
+    if (c['placement on verification'] != null) {
+      c['placement on verification'] = c['placement on verification'] + 1
+    }
     const sourceCol = c['source'] ?? c['primary source']
     const verCol = c['verification link']
     let imported = 0
