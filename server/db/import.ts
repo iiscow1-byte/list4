@@ -154,12 +154,14 @@ function refineColumns(textRows: string[][], cols: Record<string, number>, dataS
 
 async function importLevels() {
   const db = getDb()
+  // `rated` is intentionally not imported from the sheet — the GD API is the
+  // source of truth for ratings. New rows are inserted with rated = NULL.
   const insert = db.prepare(`
     INSERT OR IGNORE INTO levels
-      (position, name, gd_id, gddl_tier, rated, difficulty, placement_source, points,
+      (position, name, gd_id, gddl_tier, difficulty, placement_source, points,
        main_skillset, verify_date, verification, verification_url, pov_placement,
        year_verified, category, source_tab)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
   `)
 
   // Levels that have a permanent counterpart are owned by the website, not the
@@ -207,7 +209,6 @@ async function importLevels() {
           name,
           gdId,
           txt(r[c['gddl tier']!]),
-          txt(r[c['rated']!]),
           txt(r[c['difficulty']!]),
           sourceCol != null ? txt(r[sourceCol]) : null,
           num(r[c['points']!]),
