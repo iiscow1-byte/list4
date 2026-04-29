@@ -59,7 +59,7 @@ export default defineEventHandler((event) => {
     .filter((r) => r.count > 0)
 
   // Rating order matches GD's rating tiers + the list-specific extras.
-  const ratingOrder = ['Mythic', 'Legendary', 'Epic', 'Featured', 'Rated', 'Unrated', 'Challenge', 'Official', 'Banned']
+  const ratingOrder = ['Mythic', 'Legendary', 'Epic', 'Featured', 'Rated', 'Unrated', 'Challenge', 'Official']
   const ratingRows = db
     .prepare(
       `SELECT COALESCE(NULLIF(rated, ''), 'Unrated') AS rating_name, COUNT(*) AS count

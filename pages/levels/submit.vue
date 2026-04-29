@@ -105,6 +105,22 @@ const verificationWarning = computed(() =>
 )
 const noOpinion = computed(() => !gddlTier.value && !difficulty.value)
 
+function youtubeId(url: string | null): string | null {
+  if (!url) return null
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{6,})/,
+    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
+  ]
+  for (const re of patterns) {
+    const m = url.match(re)
+    if (m) return m[1]!
+  }
+  return null
+}
+const ytId = computed(() => youtubeId(verificationUrl.value.trim()))
+
 async function submit() {
   if (submitting.value) return
   error.value = null
@@ -215,6 +231,18 @@ async function submit() {
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
+
+        <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black overflow-hidden">
+          <iframe
+            :src="`https://www.youtube.com/embed/${ytId}`"
+            class="w-full h-full"
+            title="Verification preview"
+            frameborder="0"
+            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            referrerpolicy="strict-origin-when-cross-origin"
+          />
+        </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
