@@ -268,6 +268,14 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
           <div v-if="previewLoading" class="text-xs text-zinc-500">loading…</div>
           <div v-else-if="!preview" class="text-xs text-zinc-600">Enter a position to see context.</div>
           <ul v-else class="rounded border border-zinc-800 divide-y divide-zinc-900 overflow-hidden">
+            <li
+              v-if="preview.featuredAbove"
+              class="px-2 py-1 flex items-center gap-2 text-xs bg-zinc-900/60"
+            >
+              <span class="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">Featured ↑</span>
+              <span class="tabular-nums w-10 text-zinc-500">#{{ preview.featuredAbove.position }}</span>
+              <span class="truncate flex-1 text-zinc-300">{{ preview.featuredAbove.name }}</span>
+            </li>
             <li v-for="row in preview.above" :key="`a-${row.position}`" class="px-2 py-1 flex items-center gap-2 text-xs">
               <span class="tabular-nums w-10 text-zinc-500">#{{ row.position }}</span>
               <span class="truncate flex-1">{{ row.name }}</span>
@@ -281,26 +289,15 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
               <span class="truncate flex-1">{{ row.name }}</span>
               <span class="text-[10px] text-zinc-600">(now #{{ row.position }})</span>
             </li>
-          </ul>
-
-          <div v-if="preview" class="mt-3 grid grid-cols-1 gap-1.5 text-[11px]">
-            <div class="rounded border border-zinc-800 px-2 py-1 flex items-center gap-2">
-              <span class="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">Featured ↑</span>
-              <span v-if="preview.featuredAbove" class="truncate flex-1 text-zinc-300">
-                <span class="tabular-nums text-zinc-500">#{{ preview.featuredAbove.position }}</span>
-                {{ preview.featuredAbove.name }}
-              </span>
-              <span v-else class="text-zinc-600">none</span>
-            </div>
-            <div class="rounded border border-zinc-800 px-2 py-1 flex items-center gap-2">
+            <li
+              v-if="preview.featuredBelow"
+              class="px-2 py-1 flex items-center gap-2 text-xs bg-zinc-900/60"
+            >
               <span class="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">Featured ↓</span>
-              <span v-if="preview.featuredBelow" class="truncate flex-1 text-zinc-300">
-                <span class="tabular-nums text-zinc-500">#{{ preview.featuredBelow.position }}</span>
-                {{ preview.featuredBelow.name }}
-              </span>
-              <span v-else class="text-zinc-600">none</span>
-            </div>
-          </div>
+              <span class="tabular-nums w-10 text-zinc-500">#{{ preview.featuredBelow.position }}</span>
+              <span class="truncate flex-1 text-zinc-300">{{ preview.featuredBelow.name }}</span>
+            </li>
+          </ul>
         </div>
 
         <div class="mt-auto flex flex-col gap-2 pt-2">
