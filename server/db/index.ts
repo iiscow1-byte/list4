@@ -151,6 +151,17 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_pending_levels_submitter ON pending_levels(submitted_by);
   `)
 
+  const pcols = db.prepare(`PRAGMA table_info(pending_levels)`).all() as { name: string }[]
+  if (!pcols.some((c) => c.name === 'placement_estimate')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN placement_estimate INTEGER`)
+  }
+  if (!pcols.some((c) => c.name === 'comparison_level_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN comparison_level_id INTEGER`)
+  }
+  if (!pcols.some((c) => c.name === 'comparison_level_name')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN comparison_level_name TEXT`)
+  }
+
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
   // list-local and the columns differ — no points / skillset / GDDL tier.

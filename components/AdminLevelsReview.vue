@@ -17,6 +17,9 @@ type PendingLevel = {
   notes: string | null
   submitted_at: string
   submitter: string | null
+  placement_estimate: number | null
+  comparison_level_id: number | null
+  comparison_level_name: string | null
 }
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
@@ -54,8 +57,8 @@ async function load() {
 }
 onMounted(load)
 
-watch(selected, () => {
-  placement.value = ''
+watch(selected, (s) => {
+  placement.value = s?.placement_estimate != null ? String(s.placement_estimate) : ''
   preview.value = null
 })
 
@@ -247,6 +250,12 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
             :disabled="goesToVoid && false"
             class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
+          <p
+            v-if="selected?.placement_estimate != null"
+            class="text-[10px] text-accent mt-1"
+          >
+            Submitter estimated #{{ selected.placement_estimate }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
+          </p>
           <p class="text-[10px] text-zinc-500 mt-1">
             <template v-if="goesToVoid">Position in the void list (no difficulty opinion).</template>
             <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>

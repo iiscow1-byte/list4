@@ -62,6 +62,21 @@ export default defineEventHandler(async (event) => {
   const notes = strOrNull(body.notes, 4000)
   const name = strOrNull(body.name, 200)
 
+  let placementEstimate: number | null = null
+  if (body.placement_estimate != null && body.placement_estimate !== '') {
+    const n = Number(body.placement_estimate)
+    if (!Number.isInteger(n) || n <= 0) {
+      throw createError({ statusCode: 400, statusMessage: 'Placement estimate must be a positive integer.' })
+    }
+    placementEstimate = n
+  }
+  let comparisonLevelId: number | null = null
+  if (body.comparison_level_id != null && body.comparison_level_id !== '') {
+    const n = Number(body.comparison_level_id)
+    if (Number.isInteger(n) && n > 0) comparisonLevelId = n
+  }
+  const comparisonLevelName = strOrNull(body.comparison_level_name, 200)
+
   const db = getDb()
 
   // Reject duplicates already in the main list — only accept gd_ids the list
@@ -83,12 +98,14 @@ export default defineEventHandler(async (event) => {
     .prepare(
       `INSERT INTO pending_levels
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
-         gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
+         placement_estimate, comparison_level_id, comparison_level_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       gdId, name, fps, gameVersion, verification, verificationUrl, verifier, verifyDate,
       gddlTier, difficulty, enjoyment, skillset, tags, notes, account.id,
+      placementEstimate, comparisonLevelId, comparisonLevelName,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }
