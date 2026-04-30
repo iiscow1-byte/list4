@@ -8,10 +8,12 @@
  */
 
 import http from 'node:http'
+import { getDb } from '~/server/db'
 
 const GD_SECRET = 'Wmfd2893gb7'
 const BOOMLINGS_HOST = 'www.boomlings.com'
 const BOOMLINGS_PATH = '/database/downloadGJLevel22.php'
+const CACHE_TTL_SECONDS = 3600
 
 // Official soundtracks (level field 12 — only set for non-custom songs).
 const OFFICIAL_SONGS: Record<number, string> = {
@@ -213,6 +215,19 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid level id' })
   }
 
+  const db = getDb()
+  const cached = db
+    .prepare(
+      `SELECT info_json, CAST(strftime('%s','now') - strftime('%s', fetched_at) AS INTEGER) AS age
+       FROM gd_info_cache WHERE gd_id = ?`,
+    )
+    .get(id) as { info_json: string; age: number } | undefined
+
+  if (cached && cached.age < CACHE_TTL_SECONDS) {
+    setHeader(event, 'cache-control', 'public, max-age=300, s-maxage=300')
+    return JSON.parse(cached.info_json) as GdInfo
+  }
+
   let info: GdInfo
   try {
     info = await fetchFromBoomlings(id)
@@ -221,6 +236,12 @@ export default defineEventHandler(async (event) => {
     if (msg === 'not_found') {
       throw createError({ statusCode: 404, statusMessage: 'Level not found on GD servers' })
     }
+    // Rate-limited / network failure / proxy down — serve stale cache if we have any,
+    // since stale data is always better than a 502 for fields that change slowly.
+    if (cached) {
+      setHeader(event, 'cache-control', 'public, max-age=60')
+      return JSON.parse(cached.info_json) as GdInfo
+    }
     const cause = e?.cause?.code ?? e?.cause?.message ?? e?.cause
     const detail = cause ? `${msg} (${cause})` : msg
     throw createError({
@@ -228,6 +249,12 @@ export default defineEventHandler(async (event) => {
       statusMessage: `Geometry Dash servers unavailable (boomlings: ${detail})`,
     })
   }
+
+  db.prepare(
+    `INSERT INTO gd_info_cache (gd_id, info_json, fetched_at)
+     VALUES (?, ?, datetime('now'))
+     ON CONFLICT(gd_id) DO UPDATE SET info_json = excluded.info_json, fetched_at = excluded.fetched_at`,
+  ).run(id, JSON.stringify(info))
 
   setHeader(event, 'cache-control', 'public, max-age=300, s-maxage=300')
   return info

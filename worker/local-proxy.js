@@ -9,7 +9,7 @@
 //   GD_PROXY_URL=https://<random>.trycloudflare.com
 //   GD_PROXY_TOKEN=<the same random-string>
 
-const http = require('node:http')
+import http from 'node:http'
 
 const PORT = Number(process.env.PORT) || 8787
 const TOKEN = process.env.PROXY_TOKEN

@@ -227,4 +227,14 @@ function initSchema(db: DatabaseSync) {
   // imports that were inserted as permanent = 0. Idempotent — does nothing once
   // every sheet record is already permanent = 1.
   db.exec(`UPDATE records SET permanent = 1 WHERE submitted_by IS NULL AND permanent = 0`)
+
+  // Cache of GD level info fetched from Boomlings. Refreshed at most once per
+  // hour per gd_id to stay well under Boomlings' rate limits.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gd_info_cache (
+      gd_id      INTEGER PRIMARY KEY,
+      info_json  TEXT    NOT NULL,
+      fetched_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
 }
