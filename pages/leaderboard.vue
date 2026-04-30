@@ -32,7 +32,6 @@ function fmt(n: number) {
           <div class="flex-1 min-w-0">
             <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
               <span>{{ p.player }}</span>
-              <span v-if="p.tier" class="text-[10px] uppercase tracking-widest text-zinc-500">Tier {{ p.tier }}</span>
             </div>
             <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
               <span v-if="p.skill_points" class="tabular-nums">Skill: {{ fmt(p.skill_points) }}</span>

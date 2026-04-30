@@ -279,7 +279,7 @@ function fmt(n: number | null | undefined) {
           <dd class="text-zinc-100 text-base truncate">{{ profileData.player.hardest ?? '—' }}</dd>
         </div>
         <div>
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier</dt>
+          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
           <dd class="text-zinc-100 text-base">{{ profileData.player.tier ?? '—' }}</dd>
         </div>
       </dl>

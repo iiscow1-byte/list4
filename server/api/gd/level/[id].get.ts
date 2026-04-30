@@ -221,9 +221,11 @@ export default defineEventHandler(async (event) => {
     if (msg === 'not_found') {
       throw createError({ statusCode: 404, statusMessage: 'Level not found on GD servers' })
     }
+    const cause = e?.cause?.code ?? e?.cause?.message ?? e?.cause
+    const detail = cause ? `${msg} (${cause})` : msg
     throw createError({
       statusCode: 502,
-      statusMessage: `Geometry Dash servers unavailable (boomlings: ${msg})`,
+      statusMessage: `Geometry Dash servers unavailable (boomlings: ${detail})`,
     })
   }
 

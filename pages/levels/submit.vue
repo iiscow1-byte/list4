@@ -462,7 +462,7 @@ async function submit() {
         <p
           v-if="noOpinion"
           class="text-xs text-fuchsia-300 bg-fuchsia-950/30 border border-fuchsia-900/50 rounded px-3 py-2"
-        >⚠ Levels submitted without a difficulty opinion will be added to the void list.</p>
+        >⚠ Levels submitted without a difficulty opinion will be added to the voided list and will not be placed yet.</p>
       </fieldset>
 
       <!-- Optional metadata -->
