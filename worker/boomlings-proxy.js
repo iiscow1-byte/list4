@@ -23,11 +23,15 @@ export default {
     const body = await request.text()
     const upstream = await fetch(`http://www.boomlings.com${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': '',
+      },
       body,
     })
 
-    return new Response(upstream.body, {
+    const text = await upstream.text()
+    return new Response(text, {
       status: upstream.status,
       headers: { 'Content-Type': 'text/plain' },
     })
