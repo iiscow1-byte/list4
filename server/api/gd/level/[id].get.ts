@@ -1,10 +1,13 @@
 /**
- * Look up a level on the official Geometry Dash servers via Boomlings.
+ * Look up a level on the official Geometry Dash servers.
  *
- * The request is made through node:http (not fetch) so we can omit the
- * User-Agent entirely — fetch silently inserts `User-Agent: node` even when
- * you set it to '', and Boomlings 403s requests with any UA. The official
- * client sends none.
+ * Strategy: try gdbrowser first (no rate limit, no UA blocking). If gdbrowser
+ * is down OR returns its placeholder response (a sentinel level with exactly
+ * 10,000,000 downloads), fall back to Boomlings via the configured proxy.
+ *
+ * Boomlings is hit through node:http with no User-Agent — fetch silently
+ * inserts `User-Agent: node` and Boomlings 403s any UA-bearing request.
+ * The official GD client sends none.
  */
 
 import http from 'node:http'
@@ -13,6 +16,8 @@ import { getDb } from '~/server/db'
 const GD_SECRET = 'Wmfd2893gb7'
 const BOOMLINGS_HOST = 'www.boomlings.com'
 const BOOMLINGS_PATH = '/database/downloadGJLevel22.php'
+const GDBROWSER_URL = (id: number) => `https://gdbrowser.com/api/level/${id}`
+const GDBROWSER_PLACEHOLDER_DOWNLOADS = 10_000_000
 const CACHE_TTL_SECONDS = 3600
 
 // Official soundtracks (level field 12 — only set for non-custom songs).
@@ -158,6 +163,83 @@ function postBoomlings(body: string): Promise<string> {
   return postDirect(body)
 }
 
+async function fetchFromGdBrowser(id: number): Promise<GdInfo> {
+  const resp = await fetch(GDBROWSER_URL(id), {
+    headers: { 'User-Agent': 'all-levels-list/1.0' },
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!resp.ok) throw new Error(`gdbrowser HTTP ${resp.status}`)
+  const raw: any = await resp.json().catch(() => null)
+  if (!raw || raw === -1 || typeof raw !== 'object') throw new Error('not_found')
+
+  const customSong = Number(raw.customSong) || 0
+  const song = customSong
+    ? [raw.songName, raw.songAuthor].filter(Boolean).join(' — ') || null
+    : (raw.officialSong || null)
+
+  const passwordRaw = String(raw.password ?? '')
+  const password = passwordRaw && passwordRaw !== '0' ? passwordRaw : null
+
+  const stars = Number(raw.stars) || 0
+  const featured = !!raw.featured
+  const epicNum = Number(raw.epic) || 0
+  const isEpic = epicNum >= 1 || raw.epic === true
+  const isLegendary = !!raw.legendary || epicNum === 2
+  const isMythic = !!raw.mythic || epicNum === 3
+  let score: 0 | 1 | 2 | 3 | 4 | 5 = 0
+  if (isMythic) score = 5
+  else if (isLegendary) score = 4
+  else if (isEpic) score = 3
+  else if (featured) score = 2
+  else if (stars > 0) score = 1
+
+  return {
+    id: Number(raw.id) || id,
+    name: raw.name ?? null,
+    author: raw.author ?? null,
+    description: typeof raw.description === 'string' ? raw.description : null,
+    downloads: Number(raw.downloads) || 0,
+    likes: Number(raw.likes) || 0,
+    length: raw.length ?? null,
+    objects: Number(raw.objects) || 0,
+    objectsApprox: !!raw.large,
+    coins: Number(raw.coins) || 0,
+    verifiedCoins: !!raw.verifiedCoins,
+    score,
+    song: { name: song, id: customSong || null, custom: !!customSong },
+    password,
+  }
+}
+
+/**
+ * Try gdbrowser, then Boomlings. The 10M-downloads sentinel is gdbrowser's
+ * placeholder response (returned when its own upstream call failed) — treat it
+ * as a soft error so the Boomlings fallback runs. False positives on legitimate
+ * 10M-download levels just cost one extra Boomlings call.
+ *
+ * `not_found` from gdbrowser is NOT treated as authoritative since their cache
+ * can lag; only Boomlings' 404 is final.
+ */
+async function fetchFresh(id: number): Promise<GdInfo> {
+  const errors: string[] = []
+  try {
+    const info = await fetchFromGdBrowser(id)
+    if (info.downloads !== GDBROWSER_PLACEHOLDER_DOWNLOADS) return info
+    errors.push('gdbrowser: placeholder response')
+  } catch (e: any) {
+    errors.push(`gdbrowser: ${e?.message ?? 'unknown'}`)
+  }
+  try {
+    return await fetchFromBoomlings(id)
+  } catch (e: any) {
+    const msg = e?.message ?? 'unknown'
+    if (msg === 'not_found') throw e
+    const cause = e?.cause?.code ?? e?.cause?.message ?? e?.cause
+    errors.push(`boomlings: ${cause ? `${msg} (${cause})` : msg}`)
+    throw new Error(errors.join('; '))
+  }
+}
+
 async function fetchFromBoomlings(id: number): Promise<GdInfo> {
   const body = new URLSearchParams({
     secret: GD_SECRET,
@@ -230,23 +312,21 @@ export default defineEventHandler(async (event) => {
 
   let info: GdInfo
   try {
-    info = await fetchFromBoomlings(id)
+    info = await fetchFresh(id)
   } catch (e: any) {
     const msg = e?.message ?? 'unknown'
     if (msg === 'not_found') {
       throw createError({ statusCode: 404, statusMessage: 'Level not found on GD servers' })
     }
-    // Rate-limited / network failure / proxy down — serve stale cache if we have any,
-    // since stale data is always better than a 502 for fields that change slowly.
+    // Both backends failed — serve stale cache if we have any, since stale data
+    // is always better than a 502 for fields that change slowly.
     if (cached) {
       setHeader(event, 'cache-control', 'public, max-age=60')
       return JSON.parse(cached.info_json) as GdInfo
     }
-    const cause = e?.cause?.code ?? e?.cause?.message ?? e?.cause
-    const detail = cause ? `${msg} (${cause})` : msg
     throw createError({
       statusCode: 502,
-      statusMessage: `Geometry Dash servers unavailable (boomlings: ${detail})`,
+      statusMessage: `Geometry Dash servers unavailable (${msg})`,
     })
   }
 
