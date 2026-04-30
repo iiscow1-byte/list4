@@ -100,7 +100,7 @@ function decodeBase64Url(raw: string): string | null {
   }
 }
 
-function postBoomlings(body: string): Promise<string> {
+function postDirect(body: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -132,6 +132,28 @@ function postBoomlings(body: string): Promise<string> {
     req.on('timeout', () => req.destroy(new Error('boomlings timeout')))
     req.end(body)
   })
+}
+
+async function postViaProxy(proxyUrl: string, token: string, body: string): Promise<string> {
+  const url = proxyUrl.replace(/\/$/, '') + BOOMLINGS_PATH
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-Proxy-Token': token,
+    },
+    body,
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!resp.ok) throw new Error(`boomlings HTTP ${resp.status}`)
+  return await resp.text()
+}
+
+function postBoomlings(body: string): Promise<string> {
+  const proxyUrl = process.env.GD_PROXY_URL
+  const proxyToken = process.env.GD_PROXY_TOKEN
+  if (proxyUrl && proxyToken) return postViaProxy(proxyUrl, proxyToken, body)
+  return postDirect(body)
 }
 
 async function fetchFromBoomlings(id: number): Promise<GdInfo> {
