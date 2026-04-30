@@ -61,6 +61,6 @@ const server = http.createServer((req, res) => {
   })
 })
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`boomlings proxy listening on http://127.0.0.1:${PORT}`)
+server.listen(PORT, () => {
+  console.log(`boomlings proxy listening on port ${PORT}`)
 })
