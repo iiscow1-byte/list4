@@ -121,6 +121,16 @@ function initSchema(db: DatabaseSync) {
   if (!has('enjoyment')) db.exec(`ALTER TABLE levels ADD COLUMN enjoyment REAL`)
   if (!has('description_override')) db.exec(`ALTER TABLE levels ADD COLUMN description_override TEXT`)
 
+  // Accounts: banned_at = ISO timestamp when an admin banned the account.
+  // NULL = active. Sessions for banned accounts are rejected at the auth layer.
+  const accCols = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
+  if (!accCols.some((c) => c.name === 'banned_at')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN banned_at TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'banned_reason')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN banned_reason TEXT`)
+  }
+
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
 

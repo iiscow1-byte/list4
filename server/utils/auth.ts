@@ -64,13 +64,19 @@ export function getCurrentAccount(event: H3Event): Account | null {
   const db = getDb()
   const row = db.prepare(
     `SELECT a.id, a.username, a.role, a.bio, a.country, a.subdivision, a.claimed_player,
-            (a.avatar_blob IS NOT NULL) AS has_avatar, s.expires_at
+            (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at
        FROM sessions s
        JOIN accounts a ON a.id = s.account_id
       WHERE s.token = ?`,
   ).get(token) as any
   if (!row) return null
   if (new Date(row.expires_at).getTime() < Date.now()) {
+    db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token)
+    return null
+  }
+  // Banned: drop the session so the cookie stops resolving and the user is
+  // effectively signed out across the site without them having to refresh.
+  if (row.banned_at) {
     db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token)
     return null
   }

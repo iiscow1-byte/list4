@@ -10,14 +10,14 @@ export default defineEventHandler((event) => {
   let rows
   if (search) {
     rows = db.prepare(
-      `SELECT id, username, role, claimed_player, created_at
+      `SELECT id, username, role, claimed_player, created_at, banned_at, banned_reason
          FROM accounts
         WHERE username LIKE ? COLLATE NOCASE OR claimed_player LIKE ? COLLATE NOCASE
         ORDER BY created_at DESC LIMIT 200`,
     ).all(`%${search}%`, `%${search}%`)
   } else {
     rows = db.prepare(
-      `SELECT id, username, role, claimed_player, created_at
+      `SELECT id, username, role, claimed_player, created_at, banned_at, banned_reason
          FROM accounts ORDER BY created_at DESC LIMIT 200`,
     ).all()
   }

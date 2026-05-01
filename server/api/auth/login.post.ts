@@ -8,11 +8,19 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
   const row = db.prepare(
-    `SELECT id, username, password_hash, password_salt, role
+    `SELECT id, username, password_hash, password_salt, role, banned_at, banned_reason
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!row || !verifyPassword(password, row.password_hash, row.password_salt)) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid username or password.' })
+  }
+  if (row.banned_at) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: row.banned_reason
+        ? `Account banned: ${row.banned_reason}`
+        : 'Account banned.',
+    })
   }
   const token = createSession(row.id)
   setSessionCookie(event, token)

@@ -40,6 +40,7 @@ async function loadClaims() {
 type AdminUser = {
   id: number; username: string; role: 'user' | 'moderator' | 'admin'
   claimed_player: string | null; created_at: string
+  banned_at: string | null; banned_reason: string | null
 }
 const users = ref<AdminUser[]>([])
 const userSearch = ref('')
@@ -86,6 +87,32 @@ async function setRole(u: AdminUser, role: 'user' | 'moderator' | 'admin') {
   try {
     await $fetch('/api/admin/role', { method: 'POST', body: { username: u.username, role } })
     flash('ok', `${u.username} is now ${role}.`)
+    await loadUsers()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function toggleBan(u: AdminUser) {
+  if (u.banned_at) {
+    if (!confirm(`Unban ${u.username}?`)) return
+    try {
+      await $fetch('/api/admin/ban', { method: 'POST', body: { username: u.username, action: 'unban' } })
+      flash('ok', `${u.username} unbanned.`)
+      await loadUsers()
+    } catch (e: any) {
+      flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+    }
+    return
+  }
+  const reason = prompt(`Ban ${u.username}? Optional reason (shown to them on next login):`, '')
+  if (reason === null) return // cancelled
+  try {
+    await $fetch('/api/admin/ban', {
+      method: 'POST',
+      body: { username: u.username, action: 'ban', reason: reason.trim() || undefined },
+    })
+    flash('ok', `${u.username} banned.`)
     await loadUsers()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
@@ -193,7 +220,7 @@ async function setClaim(u: AdminUser) {
           </div>
           <div v-if="users.length === 0" class="px-4 pb-4 text-xs text-zinc-600">No accounts.</div>
           <ul v-else class="divide-y divide-zinc-900">
-            <li v-for="u in users" :key="u.id" class="px-4 py-3 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center">
+            <li v-for="u in users" :key="u.id" class="px-4 py-3 grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-center" :class="{ 'opacity-70': u.banned_at }">
               <div class="min-w-0">
                 <div class="flex items-baseline gap-2 flex-wrap">
                   <NuxtLink :to="`/users/${u.username}`" class="font-medium text-zinc-100 hover:text-accent">{{ u.username }}</NuxtLink>
@@ -201,9 +228,17 @@ async function setClaim(u: AdminUser) {
                     'bg-accent/15 text-accent border-accent/30': u.role !== 'user',
                     'bg-zinc-900 text-zinc-500 border-zinc-800': u.role === 'user',
                   }">{{ u.role }}</span>
+                  <span
+                    v-if="u.banned_at"
+                    class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border bg-red-950/40 text-red-300 border-red-900/60"
+                    :title="u.banned_reason ?? 'banned'"
+                  >Banned</span>
                   <span v-if="u.claimed_player" class="text-[11px] text-zinc-400">→ {{ u.claimed_player }}</span>
                 </div>
                 <div class="text-[11px] text-zinc-500 mt-0.5">{{ u.created_at }}</div>
+                <div v-if="u.banned_at && u.banned_reason" class="text-[11px] text-red-300/80 mt-0.5 truncate" :title="u.banned_reason">
+                  Reason: {{ u.banned_reason }}
+                </div>
               </div>
               <div class="flex items-center gap-2">
                 <input
@@ -229,6 +264,14 @@ async function setClaim(u: AdminUser) {
                     : 'border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'"
                   @click="setRole(u, r)"
                 >{{ r }}</button>
+                <button
+                  type="button"
+                  class="ml-1 px-2 py-1 rounded border transition-colors"
+                  :class="u.banned_at
+                    ? 'border-emerald-800 text-emerald-300 hover:bg-emerald-950/40'
+                    : 'border-red-900/60 text-red-300 hover:bg-red-950/40'"
+                  @click="toggleBan(u)"
+                >{{ u.banned_at ? 'Unban' : 'Ban' }}</button>
               </div>
             </li>
           </ul>
