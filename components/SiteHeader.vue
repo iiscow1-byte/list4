@@ -53,7 +53,7 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
           <button
             type="button"
             class="px-1.5 py-1.5 rounded-r text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            :class="{ 'text-zinc-100 bg-zinc-900': listMenuOpen }"
+            :class="{ 'text-zinc-100 bg-zinc-900': listMenuOpen || listActive }"
             :aria-expanded="listMenuOpen"
             aria-haspopup="menu"
             aria-label="Other lists"
