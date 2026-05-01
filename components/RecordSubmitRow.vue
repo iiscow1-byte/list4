@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLevelPicker } from '~/composables/useLevelPicker'
+
 type LevelMatch = { position: number; name: string }
 type RowValue = { search: string; video: string; selected: LevelMatch | null }
 
@@ -18,37 +20,7 @@ function setSelected(s: LevelMatch | null) {
   emit('update:modelValue', { ...props.modelValue, selected: s })
 }
 
-const matches = ref<LevelMatch[]>([])
-const matchesOpen = ref(false)
-
-let debounce: ReturnType<typeof setTimeout> | null = null
-watch(search, (v) => {
-  if (selected.value && v !== `#${selected.value.position} ${selected.value.name}`) {
-    setSelected(null)
-  }
-  if (selected.value) { matches.value = []; matchesOpen.value = false; return }
-  if (debounce) clearTimeout(debounce)
-  if (!v.trim()) { matches.value = []; matchesOpen.value = false; return }
-  debounce = setTimeout(async () => {
-    try {
-      const res = await $fetch<{ items: LevelMatch[] }>('/api/levels', {
-        query: { search: v.trim(), pageSize: 20 },
-      })
-      matches.value = res.items
-      matchesOpen.value = res.items.length > 0
-    } catch {
-      matches.value = []
-      matchesOpen.value = false
-    }
-  }, 200)
-})
-
-function pick(l: LevelMatch) {
-  setSelected(l)
-  search.value = `#${l.position} ${l.name}`
-  matches.value = []
-  matchesOpen.value = false
-}
+const picker = useLevelPicker(search, selected, setSelected)
 </script>
 
 <template>
@@ -58,23 +30,28 @@ function pick(l: LevelMatch) {
       placeholder="Level…"
       autocomplete="off"
       class="w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-      @focus="matchesOpen = matches.length > 0"
-      @blur="setTimeout(() => matchesOpen = false, 150)"
+      @focus="picker.openIfHasMatches()"
+      @blur="picker.scheduleClose()"
     />
     <ul
-      v-if="matchesOpen && matches.length"
+      v-if="picker.open.value && picker.matches.value.length"
+      :ref="picker.setScrollEl"
       class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+      @scroll="picker.onScroll"
     >
-      <li v-for="l in matches" :key="l.position">
+      <li v-for="l in picker.matches.value" :key="l.position">
         <button
           type="button"
           class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
-          @mousedown.prevent="pick(l)"
+          :class="{ 'bg-accent/10': picker.isExactMatch(l) }"
+          @mousedown.prevent="picker.pick(l)"
         >
           <span class="tabular-nums text-accent text-xs w-12 shrink-0">#{{ l.position }}</span>
           <span class="truncate">{{ l.name }}</span>
+          <span v-if="picker.isExactMatch(l)" class="ml-auto text-[10px] uppercase tracking-widest text-accent shrink-0">Exact</span>
         </button>
       </li>
+      <li v-if="picker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
     </ul>
   </div>
   <input

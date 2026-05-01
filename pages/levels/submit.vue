@@ -4,6 +4,10 @@ import { tierColor, textOn } from '~/utils/tier-colors'
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a level — All Levels List' })
 
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
+const isAdmin = computed(() => me.value?.role === 'admin')
+
 const TIER_OPTIONS = [
   '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
   ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
@@ -252,6 +256,10 @@ async function submit() {
     error.value = 'A numeric level ID is required.'
     return
   }
+  if (!isAdmin.value && !verificationUrl.value.trim()) {
+    error.value = 'A verification video link is required.'
+    return
+  }
   submitting.value = true
   try {
     await $fetch('/api/levels/submit', {
@@ -347,10 +355,14 @@ async function submit() {
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification</legend>
 
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification link</span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+            Verification link <span v-if="!isAdmin" class="text-red-400">*</span>
+            <span v-if="isAdmin" class="text-zinc-600 normal-case">— optional for admins</span>
+          </span>
           <input
             v-model="verificationUrl"
             type="url"
+            :required="!isAdmin"
             placeholder="https://www.youtube.com/watch?v=…"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />

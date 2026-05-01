@@ -119,6 +119,7 @@ function initSchema(db: DatabaseSync) {
   if (!has('verifier'))  db.exec(`ALTER TABLE levels ADD COLUMN verifier TEXT`)
   if (!has('publisher')) db.exec(`ALTER TABLE levels ADD COLUMN publisher TEXT`)
   if (!has('enjoyment')) db.exec(`ALTER TABLE levels ADD COLUMN enjoyment REAL`)
+  if (!has('description_override')) db.exec(`ALTER TABLE levels ADD COLUMN description_override TEXT`)
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
@@ -267,6 +268,26 @@ function initSchema(db: DatabaseSync) {
   // imports that were inserted as permanent = 0. Idempotent — does nothing once
   // every sheet record is already permanent = 1.
   db.exec(`UPDATE records SET permanent = 1 WHERE submitted_by IS NULL AND permanent = 0`)
+
+  // Inbox: messages from moderators to users (e.g. denial reasons). The
+  // related_kind/related_id pair is informational — the row stays around even
+  // if the original submission/record is deleted.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS inbox_messages (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      kind         TEXT    NOT NULL,
+      subject      TEXT    NOT NULL,
+      body         TEXT,
+      related_kind TEXT,
+      related_id   INTEGER,
+      sent_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      read_at      TEXT,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_account ON inbox_messages(account_id, read_at);
+    CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_messages(created_at);
+  `)
 
   // Cache of GD level info fetched from Boomlings. Refreshed at most once per
   // hour per gd_id to stay well under Boomlings' rate limits.

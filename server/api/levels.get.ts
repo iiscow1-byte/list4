@@ -20,6 +20,13 @@ const SORT_SQL: Record<string, string> = {
 
 const KNOWN_TAG_SUFFIXES = new Set(['old', 'uldm', 'buffed', 'nerfed'])
 const KNOWN_RATINGS = new Set(['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'])
+// Tiered ratings form a strict ladder — selecting "Featured" should include
+// everything Featured-and-above. Unrated and Challenge are NOT on the ladder
+// and stay exclusive when selected.
+const TIERED_RATING_LEVEL: Record<string, number> = {
+  Rated: 1, Featured: 2, Epic: 3, Legendary: 4, Mythic: 5,
+}
+const TIERED_RATING_NAMES = Object.keys(TIERED_RATING_LEVEL)
 
 function asArray(v: any): string[] {
   if (v == null) return []
@@ -85,13 +92,25 @@ export default defineEventHandler((event) => {
 
   if (ratings.length) {
     const includesUnrated = ratings.includes('Unrated')
-    const named = ratings.filter((r) => r !== 'Unrated')
+    const includesChallenge = ratings.includes('Challenge')
+    // Tiered selections cascade upward: if "Featured" is checked we include
+    // Featured + Epic + Legendary + Mythic. Multiple tiered selections collapse
+    // to the lowest one chosen.
+    const tieredChosen = ratings.filter((r) => TIERED_RATING_LEVEL[r] != null)
+    const minLevel = tieredChosen.length
+      ? Math.min(...tieredChosen.map((r) => TIERED_RATING_LEVEL[r]!))
+      : null
+    const expanded = minLevel != null
+      ? TIERED_RATING_NAMES.filter((r) => TIERED_RATING_LEVEL[r]! >= minLevel)
+      : []
+
     const parts: string[] = []
-    if (named.length) {
-      parts.push(`rated IN (${named.map(() => '?').join(',')})`)
-      params.push(...named)
+    if (expanded.length) {
+      parts.push(`rated IN (${expanded.map(() => '?').join(',')})`)
+      params.push(...expanded)
     }
     if (includesUnrated) parts.push(`(rated IS NULL OR rated = '' OR rated = 'Unrated')`)
+    if (includesChallenge) { parts.push(`rated = ?`); params.push('Challenge') }
     conds.push(`(${parts.join(' OR ')})`)
   }
 
@@ -99,7 +118,13 @@ export default defineEventHandler((event) => {
   if (Number.isFinite(enjoyMax)) { conds.push(`enjoyment <= ?`); params.push(enjoyMax) }
 
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
-  const orderBy = SORT_SQL[sort]!
+  // When the user is searching, float an exact name match (case-insensitive)
+  // to the top so it always lands on page 1 of an autocomplete dropdown,
+  // regardless of where it sits in the list.
+  const orderBy = search
+    ? `(name = ? COLLATE NOCASE) DESC, ${SORT_SQL[sort]!}`
+    : SORT_SQL[sort]!
+  const orderParams = search ? [search] : []
 
   const total = (db.prepare(`SELECT COUNT(*) as n FROM levels ${where}`).get(...params) as { n: number }).n
   const rows = db
@@ -109,7 +134,7 @@ export default defineEventHandler((event) => {
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     )
-    .all(...params, pageSize, offset) as any[]
+    .all(...params, ...orderParams, pageSize, offset) as any[]
 
   // When the only rating filter is "Challenge", number the rows by their global
   // rank in the filtered ordering (offset + 1, offset + 2, ...) instead of by

@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
+import { sendInboxMessage } from '~/server/utils/inbox'
 
 /**
  * Move an awaiting-placement level onto the main list at `placement`, or
@@ -7,22 +8,38 @@ import { requireMod } from '~/server/utils/auth'
  * they already have a difficulty opinion (that's why they got out of pending).
  */
 export default defineEventHandler(async (event) => {
-  requireMod(event)
+  const account = requireMod(event)
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'place' | 'remove'; placement?: number }>(event)
+  const body = await readBody<{ action: 'place' | 'remove'; placement?: number; reason?: string }>(event)
   if (body.action !== 'place' && body.action !== 'remove') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
 
   const db = getDb()
   const sub = db.prepare(`SELECT * FROM awaiting_levels WHERE id = ?`).get(id) as any
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Awaiting level not found.' })
+  // Resolve the original submitter via the linked pending row (we copied
+  // pending_id when sending the level here in the first place).
+  const submitterId = sub.pending_id
+    ? (db.prepare(`SELECT submitted_by FROM pending_levels WHERE id = ?`).get(sub.pending_id) as { submitted_by: number | null } | undefined)?.submitted_by ?? null
+    : null
 
   if (body.action === 'remove') {
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
+    if (submitterId) {
+      sendInboxMessage(db, submitterId, {
+        kind: 'awaiting_removed',
+        subject: `"${sub.name}" was removed from the awaiting placement list`,
+        body: reason || null,
+        related_kind: 'awaiting_level',
+        related_id: sub.id,
+        sent_by: account.id,
+      })
+    }
     return { ok: true }
   }
 

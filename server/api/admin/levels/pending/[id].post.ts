@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
+import { sendInboxMessage } from '~/server/utils/inbox'
 
 /**
  * Approve or reject a pending level submission.
@@ -13,10 +14,11 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'approve' | 'reject' | 'await'; placement?: number }>(event)
+  const body = await readBody<{ action: 'approve' | 'reject' | 'await'; placement?: number; reason?: string }>(event)
   if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
 
   const db = getDb()
   const sub = db.prepare(`SELECT * FROM pending_levels WHERE id = ? AND status = 'pending'`).get(id) as any
@@ -25,6 +27,16 @@ export default defineEventHandler(async (event) => {
   if (body.action === 'reject') {
     db.prepare(`UPDATE pending_levels SET status='rejected', decided_by=?, decided_at=datetime('now') WHERE id = ?`)
       .run(account.id, id)
+    if (sub.submitted_by) {
+      sendInboxMessage(db, sub.submitted_by, {
+        kind: 'level_rejected',
+        subject: `Your submission for "${sub.name ?? `Level ${sub.gd_id}`}" was rejected`,
+        body: reason || null,
+        related_kind: 'pending_level',
+        related_id: sub.id,
+        sent_by: account.id,
+      })
+    }
     return { ok: true }
   }
 

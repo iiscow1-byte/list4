@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useLevelPicker } from '~/composables/useLevelPicker'
+
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a record — All Levels List' })
 
@@ -10,11 +12,11 @@ type LevelMatch = { position: number; name: string }
 type Row = { uid: number; search: string; video: string; selected: LevelMatch | null }
 
 const levelSearch = ref('')
-const levelMatches = ref<LevelMatch[]>([])
 const selectedLevel = ref<LevelMatch | null>(null)
 const selectedVerifier = ref<string | null>(null)
-const matchesOpen = ref(false)
 const isVerificationClaim = ref(false)
+
+const levelPicker = useLevelPicker(levelSearch, selectedLevel, (s) => { selectedLevel.value = s })
 
 // Pre-fill from ?position=N if provided.
 async function preselectFromQuery() {
@@ -47,39 +49,6 @@ watch(selectedLevel, async (l) => {
 })
 
 const canClaimVerification = computed(() => selectedLevel.value != null && !selectedVerifier.value)
-
-let searchDebounce: ReturnType<typeof setTimeout> | null = null
-watch(levelSearch, (v) => {
-  // If user keeps typing past the picked label, treat as a new search.
-  if (selectedLevel.value && v !== `#${selectedLevel.value.position} ${selectedLevel.value.name}`) {
-    selectedLevel.value = null
-  }
-  if (selectedLevel.value) {
-    levelMatches.value = []
-    matchesOpen.value = false
-    return
-  }
-  if (searchDebounce) clearTimeout(searchDebounce)
-  if (!v.trim()) {
-    levelMatches.value = []
-    matchesOpen.value = false
-    return
-  }
-  searchDebounce = setTimeout(async () => {
-    const res = await $fetch<{ items: LevelMatch[] }>('/api/levels', {
-      query: { search: v.trim(), pageSize: 20 },
-    })
-    levelMatches.value = res.items
-    matchesOpen.value = res.items.length > 0
-  }, 200)
-})
-
-function pickLevel(l: LevelMatch) {
-  selectedLevel.value = l
-  levelSearch.value = `#${l.position} ${l.name}`
-  levelMatches.value = []
-  matchesOpen.value = false
-}
 
 const holderName = ref('')
 const video = ref('')
@@ -315,23 +284,29 @@ async function submit() {
             placeholder="Search by name or position…"
             autocomplete="off"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            @focus="matchesOpen = levelMatches.length > 0"
+            @focus="levelPicker.openIfHasMatches()"
+            @blur="levelPicker.scheduleClose()"
           />
         </label>
         <ul
-          v-if="matchesOpen && levelMatches.length"
+          v-if="levelPicker.open.value && levelPicker.matches.value.length"
+          :ref="levelPicker.setScrollEl"
           class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+          @scroll="levelPicker.onScroll"
         >
-          <li v-for="l in levelMatches" :key="l.position">
+          <li v-for="l in levelPicker.matches.value" :key="l.position">
             <button
               type="button"
               class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
-              @click="pickLevel(l)"
+              :class="{ 'bg-accent/10': levelPicker.isExactMatch(l) }"
+              @mousedown.prevent="levelPicker.pick(l)"
             >
               <span class="tabular-nums text-accent text-xs w-12 shrink-0">#{{ l.position }}</span>
               <span class="truncate">{{ l.name }}</span>
+              <span v-if="levelPicker.isExactMatch(l)" class="ml-auto text-[10px] uppercase tracking-widest text-accent shrink-0">Exact</span>
             </button>
           </li>
+          <li v-if="levelPicker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
         </ul>
       </div>
 

@@ -17,6 +17,7 @@ const items = ref<PendingRec[]>([])
 const selectedId = ref<number | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
+const rejectReason = ref<string>('')
 
 async function load() {
   const res = await $fetch<{ items: PendingRec[] }>('/api/admin/records/pending')
@@ -55,9 +56,12 @@ async function decide(action: 'approve' | 'reject') {
   if (!selected.value || decideLoading.value) return
   decideLoading.value = true
   try {
-    await $fetch(`/api/admin/records/${selected.value.id}`, { method: 'POST', body: { action } })
+    const body: any = { action }
+    if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
+    await $fetch(`/api/admin/records/${selected.value.id}`, { method: 'POST', body })
     flash('ok', `Record ${action === 'approve' ? 'approved' : 'rejected'}.`)
     selectedId.value = null
+    rejectReason.value = ''
     await load()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
@@ -137,6 +141,16 @@ async function decide(action: 'approve' | 'reject') {
         </div>
 
         <div class="mt-auto flex flex-col gap-2 pt-2">
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">— optional, sent to submitter</span></span>
+            <textarea
+              v-model="rejectReason"
+              rows="2"
+              maxlength="4000"
+              placeholder="Why this record can't be accepted."
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
           <button
             type="button"
             :disabled="decideLoading"

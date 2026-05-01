@@ -38,6 +38,7 @@ const decideLoading = ref(false)
 const placement = ref<string>('')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
+const removeReason = ref<string>('')
 
 async function load() {
   const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
@@ -99,10 +100,12 @@ async function decide(action: 'place' | 'remove') {
   try {
     const body: any = { action }
     if (action === 'place') body.placement = Number(placement.value)
+    if (action === 'remove') body.reason = removeReason.value.trim() || undefined
     await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
     flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
     selectedId.value = null
     placement.value = ''
+    removeReason.value = ''
     preview.value = null
     await load()
   } catch (e: any) {
@@ -310,6 +313,16 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
         </div>
 
         <div class="mt-auto flex flex-col gap-2 pt-2">
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">— optional, sent to submitter</span></span>
+            <textarea
+              v-model="removeReason"
+              rows="2"
+              maxlength="4000"
+              placeholder="Why this is being removed."
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
           <button
             type="button"
             :disabled="decideLoading || !placement"

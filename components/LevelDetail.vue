@@ -20,6 +20,7 @@ type Level = {
   verifier?: string | null
   publisher?: string | null
   enjoyment?: number | null
+  description_override?: string | null
 }
 
 const props = defineProps<{ level: Level; readonly?: boolean }>()
@@ -98,7 +99,7 @@ async function promote() {
 type EditableFields = Pick<Level,
   'name' | 'gd_id' | 'creator' | 'verifier' | 'publisher' | 'enjoyment' |
   'points' | 'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
-  'verification' | 'verification_url' | 'year_verified'
+  'verification' | 'verification_url' | 'year_verified' | 'description_override'
 >
 const editing = ref(false)
 const draft = reactive<Record<keyof EditableFields, any>>({
@@ -116,6 +117,7 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   verification: '',
   verification_url: '',
   year_verified: '',
+  description_override: '',
 })
 const draftPosition = ref<number | string>('')
 const saving = ref(false)
@@ -138,6 +140,7 @@ function startEdit() {
   draft.verification = props.level.verification ?? ''
   draft.verification_url = props.level.verification_url ?? ''
   draft.year_verified = props.level.year_verified ?? ''
+  draft.description_override = props.level.description_override ?? ''
   draftPosition.value = props.level.position
   saveError.value = null
   deleteError.value = null
@@ -384,6 +387,18 @@ async function deleteLevel() {
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
           <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
+
+        <label v-if="role === 'admin'" class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+            Description override <span class="text-zinc-600 normal-case">— admin only, replaces the GD description</span>
+          </span>
+          <textarea
+            v-model="draft.description_override"
+            rows="3"
+            placeholder="Leave blank to use the description pulled from GD."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
       </div>
 
       <div class="flex items-center gap-3 pt-2 flex-wrap">
@@ -514,11 +529,11 @@ async function deleteLevel() {
         </div>
       </div>
 
-      <!-- Description (from GD) -->
+      <!-- Description: admin override beats GD's stored description. -->
       <p
-        v-if="infoData?.description"
+        v-if="level.description_override || infoData?.description"
         class="text-sm text-zinc-300 whitespace-pre-wrap mb-6 leading-relaxed"
-      >{{ infoData.description }}</p>
+      >{{ level.description_override || infoData?.description }}</p>
 
       <!-- Stats grid -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-3">

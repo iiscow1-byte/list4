@@ -94,6 +94,17 @@ function decodePassword(raw: string): string | null {
   }
 }
 
+// gdbrowser returns the literal placeholder "(No description provided)" for
+// levels without a description; treat blank / placeholder values as null so the
+// UI hides the description block entirely.
+function cleanDescription(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  if (/^\(?\s*no description provided\s*\)?$/i.test(trimmed)) return null
+  return raw
+}
+
 function decodeBase64Url(raw: string): string | null {
   if (!raw) return null
   try {
@@ -197,7 +208,7 @@ async function fetchFromGdBrowser(id: number): Promise<GdInfo> {
     id: Number(raw.id) || id,
     name: raw.name ?? null,
     author: raw.author ?? null,
-    description: typeof raw.description === 'string' ? raw.description : null,
+    description: cleanDescription(raw.description),
     downloads: Number(raw.downloads) || 0,
     likes: Number(raw.likes) || 0,
     length: raw.length ?? null,
@@ -273,7 +284,7 @@ async function fetchFromBoomlings(id: number): Promise<GdInfo> {
     id: Number(m['1']) || id,
     name: m['2'] ?? null,
     author: null,
-    description: decodeBase64Url(m['3'] ?? ''),
+    description: cleanDescription(decodeBase64Url(m['3'] ?? '')),
     downloads: Number(m['10']) || 0,
     likes: Number(m['14']) || 0,
     length: LENGTHS[lengthCode] ?? null,

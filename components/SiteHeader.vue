@@ -7,6 +7,21 @@ const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
+// Inbox unread badge — only fetched when logged in. Refreshes on route change
+// so the count drops as soon as the user opens the inbox page.
+const inboxUnread = ref(0)
+async function loadInboxUnread() {
+  if (!me.value) { inboxUnread.value = 0; return }
+  try {
+    const res = await $fetch<{ unread: number }>('/api/account/inbox')
+    inboxUnread.value = res.unread
+  } catch {
+    inboxUnread.value = 0
+  }
+}
+watch(me, loadInboxUnread, { immediate: true })
+watch(() => route.fullPath, loadInboxUnread)
+
 const listMenuOpen = ref(false)
 const listMenuRef = ref<HTMLElement | null>(null)
 
@@ -113,6 +128,18 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
 
         <template v-if="me">
           <NuxtLink
+            to="/inbox"
+            class="relative px-3 py-1.5 rounded text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            active-class="text-zinc-100 bg-zinc-900"
+            aria-label="Inbox"
+          >
+            Inbox
+            <span
+              v-if="inboxUnread > 0"
+              class="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-accent text-[10px] tabular-nums font-semibold text-zinc-950"
+            >{{ inboxUnread > 99 ? '99+' : inboxUnread }}</span>
+          </NuxtLink>
+          <NuxtLink
             to="/account"
             class="px-3 py-1.5 rounded text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors flex items-center gap-2"
             active-class="text-zinc-100 bg-zinc-900"
@@ -137,10 +164,10 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Discord"
-          class="p-1.5 rounded text-zinc-400 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
+          class="inline-flex items-center justify-center p-1.5 rounded text-zinc-400 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true">
-            <path d="M20.317 4.369A19.79 19.79 0 0 0 16.558 3.2a.075.075 0 0 0-.079.037c-.34.602-.719 1.388-.984 2.005a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.997-2.005.078.078 0 0 0-.079-.037A19.74 19.74 0 0 0 5.171 4.37a.07.07 0 0 0-.032.027C2.144 8.84 1.32 13.179 1.724 17.46a.083.083 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.029.078.078 0 0 0 .085-.028 14.2 14.2 0 0 0 1.226-1.994.076.076 0 0 0-.041-.105 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.075.075 0 0 1 .078-.01c3.927 1.793 8.18 1.793 12.061 0a.075.075 0 0 1 .079.009c.12.099.245.198.372.292a.077.077 0 0 1-.006.128 12.3 12.3 0 0 1-1.873.891.077.077 0 0 0-.041.106c.36.698.772 1.362 1.225 1.993a.077.077 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.029.077.077 0 0 0 .032-.054c.5-4.949-.838-9.252-3.549-13.064a.061.061 0 0 0-.031-.028zM8.02 14.852c-1.182 0-2.156-1.085-2.156-2.418 0-1.333.955-2.419 2.156-2.419 1.21 0 2.175 1.095 2.156 2.419 0 1.333-.955 2.418-2.156 2.418zm7.974 0c-1.182 0-2.156-1.085-2.156-2.418 0-1.333.955-2.419 2.156-2.419 1.21 0 2.175 1.095 2.156 2.419 0 1.333-.946 2.418-2.156 2.418z"/>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36" fill="currentColor" class="w-5 h-5 block" aria-hidden="true">
+            <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
           </svg>
         </a>
         <ThemeMenu />

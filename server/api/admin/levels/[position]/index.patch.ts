@@ -16,6 +16,7 @@ const FIELDS: Record<string, 'text' | 'int' | 'real'> = {
   verification: 'text',
   verification_url: 'text',
   year_verified: 'int',
+  description_override: 'text',
 }
 
 function coerce(value: unknown, type: 'text' | 'int' | 'real'): string | number | null {
@@ -32,8 +33,12 @@ function coerce(value: unknown, type: 'text' | 'int' | 'real'): string | number 
 /**
  * Edit a permanent level's metadata. Mods or admins; level must be permanent.
  */
+// Fields only an admin can write — mods edit metadata but description override
+// is editorial, so admin-only.
+const ADMIN_ONLY_FIELDS = new Set(['description_override'])
+
 export default defineEventHandler(async (event) => {
-  requireMod(event)
+  const account = requireMod(event)
   const position = Number(getRouterParam(event, 'position'))
   if (!Number.isFinite(position)) throw createError({ statusCode: 400, statusMessage: 'Bad position' })
 
@@ -48,10 +53,10 @@ export default defineEventHandler(async (event) => {
   const sets: string[] = []
   const values: (string | number | null)[] = []
   for (const [key, type] of Object.entries(FIELDS)) {
-    if (key in body) {
-      sets.push(`${key} = ?`)
-      values.push(coerce(body[key], type))
-    }
+    if (!(key in body)) continue
+    if (ADMIN_ONLY_FIELDS.has(key) && account.role !== 'admin') continue
+    sets.push(`${key} = ?`)
+    values.push(coerce(body[key], type))
   }
   if (sets.length === 0) return { ok: true, updated: 0 }
 
