@@ -3,11 +3,12 @@
  *
  * Strategy: try gdbrowser first (no rate limit, no UA blocking). If gdbrowser
  * is down OR returns its placeholder response (a sentinel level with exactly
- * 10,000,000 downloads), fall back to Boomlings via the configured proxy.
+ * 10,000,000 downloads), fall back to Boomlings directly.
  *
  * Boomlings is hit through node:http with no User-Agent — fetch silently
- * inserts `User-Agent: node` and Boomlings 403s any UA-bearing request.
- * The official GD client sends none.
+ * inserts `User-Agent: node` and Boomlings' Cloudflare layer 1020s any
+ * UA-bearing request. The official GD client sends none. Must target the
+ * `www.` subdomain — the apex hostname is also Cloudflare-blocked.
  */
 
 import http from 'node:http'
@@ -118,7 +119,7 @@ function decodeBase64Url(raw: string): string | null {
   }
 }
 
-function postDirect(body: string): Promise<string> {
+function postBoomlings(body: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -150,28 +151,6 @@ function postDirect(body: string): Promise<string> {
     req.on('timeout', () => req.destroy(new Error('boomlings timeout')))
     req.end(body)
   })
-}
-
-async function postViaProxy(proxyUrl: string, token: string, body: string): Promise<string> {
-  const url = proxyUrl.replace(/\/$/, '') + BOOMLINGS_PATH
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-Proxy-Token': token,
-    },
-    body,
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!resp.ok) throw new Error(`boomlings HTTP ${resp.status}`)
-  return await resp.text()
-}
-
-function postBoomlings(body: string): Promise<string> {
-  const proxyUrl = process.env.GD_PROXY_URL
-  const proxyToken = process.env.GD_PROXY_TOKEN
-  if (proxyUrl && proxyToken) return postViaProxy(proxyUrl, proxyToken, body)
-  return postDirect(body)
 }
 
 async function fetchFromGdBrowser(id: number): Promise<GdInfo> {
