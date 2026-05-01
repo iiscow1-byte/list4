@@ -11,21 +11,41 @@ type LevelMatch = { position: number; name: string }
 const levelSearch = ref('')
 const levelMatches = ref<LevelMatch[]>([])
 const selectedLevel = ref<LevelMatch | null>(null)
+const selectedVerifier = ref<string | null>(null)
 const matchesOpen = ref(false)
+const isVerificationClaim = ref(false)
 
 // Pre-fill from ?position=N if provided.
 async function preselectFromQuery() {
   const pos = Number(route.query.position)
   if (!Number.isFinite(pos)) return
   try {
-    const lvl = await $fetch<{ position: number; name: string }>(`/api/levels/${pos}`)
+    const lvl = await $fetch<{ position: number; name: string; verifier: string | null }>(`/api/levels/${pos}`)
     selectedLevel.value = { position: lvl.position, name: lvl.name }
+    selectedVerifier.value = lvl.verifier ?? null
     levelSearch.value = `#${lvl.position} ${lvl.name}`
   } catch {
     // ignore — user will pick manually
   }
 }
 preselectFromQuery()
+
+watch(selectedLevel, async (l) => {
+  if (!l) {
+    selectedVerifier.value = null
+    isVerificationClaim.value = false
+    return
+  }
+  try {
+    const full = await $fetch<{ verifier: string | null }>(`/api/levels/${l.position}`)
+    selectedVerifier.value = full.verifier ?? null
+  } catch {
+    selectedVerifier.value = null
+  }
+  if (selectedVerifier.value) isVerificationClaim.value = false
+})
+
+const canClaimVerification = computed(() => selectedLevel.value != null && !selectedVerifier.value)
 
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
 watch(levelSearch, (v) => {
@@ -130,11 +150,13 @@ async function submit() {
         player_name: holderName.value.trim(),
         video: video.value.trim(),
         note: note.value.trim() || null,
+        is_verification_claim: canClaimVerification.value && isVerificationClaim.value,
       },
     })
     success.value = true
     video.value = ''
     note.value = ''
+    isVerificationClaim.value = false
     setTimeout(() => (success.value = false), 5000)
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
@@ -219,6 +241,20 @@ async function submit() {
           placeholder="https://www.youtube.com/watch?v=…"
           class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
+      </label>
+
+      <label v-if="canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none">
+        <input
+          v-model="isVerificationClaim"
+          type="checkbox"
+          class="mt-0.5 accent-accent"
+        />
+        <span class="text-sm text-zinc-200">
+          This is the level's verification
+          <span class="block text-[11px] text-zinc-500 mt-0.5">
+            If approved, {{ holderName.trim() || 'the record holder' }} will be credited as the verifier of this level.
+          </span>
+        </span>
       </label>
 
       <label class="block">

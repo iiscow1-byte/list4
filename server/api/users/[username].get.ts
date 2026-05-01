@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { getPlayerStats, getCompletedLevels, getCreatedLevels } from '~/server/utils/profile'
+import { getPlayerStats, getCompletedLevels, getCreatedLevels, getVerifiedLevels } from '~/server/utils/profile'
 import { computeDerivedStats } from '~/server/utils/leaderboard'
 
 export default defineEventHandler((event) => {
@@ -34,6 +34,7 @@ export default defineEventHandler((event) => {
 
   const completedLevels = getCompletedLevels(db, effectiveName)
   const createdLevels = getCreatedLevels(db, effectiveName)
+  const verifiedLevels = getVerifiedLevels(db, effectiveName)
 
-  return { account: acc, player, completedLevels, createdLevels }
+  return { account: acc, player, completedLevels, createdLevels, verifiedLevels }
 })

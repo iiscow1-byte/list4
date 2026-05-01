@@ -69,7 +69,8 @@ function initSchema(db: DatabaseSync) {
       submitter_note  TEXT,
       submitted_at    TEXT    NOT NULL DEFAULT (datetime('now')),
       decided_at      TEXT,
-      decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+      decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      is_verification_claim INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS accounts (
@@ -223,6 +224,14 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_void_name     ON void_levels(name COLLATE NOCASE);
   `)
 
+  // Records: add is_verification_claim column for submitters claiming the
+  // record is the level's verification. On approval, an unset level.verifier
+  // gets backfilled from this record's player_name.
+  const recColsPre = db.prepare(`PRAGMA table_info(records)`).all() as { name: string }[]
+  if (recColsPre.length && !recColsPre.some((c) => c.name === 'is_verification_claim')) {
+    db.exec(`ALTER TABLE records ADD COLUMN is_verification_claim INTEGER NOT NULL DEFAULT 0`)
+  }
+
   // Records: detect old schema (pre-submission system) and rebuild. The records
   // table is currently always empty in production (the sheet doesn't expose
   // per-level records), so dropping is safe. After rebuild, indexes are
@@ -244,7 +253,8 @@ function initSchema(db: DatabaseSync) {
         submitter_note  TEXT,
         submitted_at    TEXT    NOT NULL DEFAULT (datetime('now')),
         decided_at      TEXT,
-        decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+        decided_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+        is_verification_claim INTEGER NOT NULL DEFAULT 0
       )
     `)
   }

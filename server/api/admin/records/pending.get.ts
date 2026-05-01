@@ -10,8 +10,10 @@ export default defineEventHandler((event) => {
             r.video,
             r.submitter_note,
             r.submitted_at,
+            r.is_verification_claim,
             l.position,
             l.name AS level_name,
+            l.verifier AS level_verifier,
             sub.username AS submitter
        FROM records r
        JOIN levels l        ON l.id = r.level_id

@@ -50,3 +50,12 @@ export function getCreatedLevels(db: DatabaseSync, creatorName: string): LevelRo
       ORDER BY position ASC`,
   ).all(creatorName) as LevelRow[]
 }
+
+export function getVerifiedLevels(db: DatabaseSync, verifierName: string): LevelRow[] {
+  return db.prepare(
+    `SELECT position, name, points, gddl_tier
+       FROM levels
+      WHERE verifier = ? COLLATE NOCASE
+      ORDER BY position ASC`,
+  ).all(verifierName) as LevelRow[]
+}

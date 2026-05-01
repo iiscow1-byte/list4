@@ -4,11 +4,13 @@ type PendingRec = {
   level_id: number
   position: number
   level_name: string
+  level_verifier: string | null
   player_name: string
   video: string
   submitter_note: string | null
   submitted_at: string
   submitter: string | null
+  is_verification_claim: number
 }
 
 const items = ref<PendingRec[]>([])
@@ -114,6 +116,19 @@ async function decide(action: 'approve' | 'reject') {
         <div>
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">For player</p>
           <p class="text-sm text-zinc-100">{{ selected.player_name }}</p>
+        </div>
+
+        <div v-if="selected.is_verification_claim && !selected.level_verifier"
+             class="rounded border border-sky-800/60 bg-sky-950/30 px-3 py-2 text-xs text-sky-200">
+          <p class="font-medium">Verifier claim</p>
+          <p class="mt-0.5 text-sky-300/80">
+            Approving will set <span class="text-sky-100">{{ selected.player_name }}</span> as the verifier of this level.
+          </p>
+        </div>
+        <div v-else-if="selected.is_verification_claim && selected.level_verifier"
+             class="rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-400">
+          Submitter checked "is verification" but the level already lists
+          <span class="text-zinc-200">{{ selected.level_verifier }}</span> — claim will be ignored.
         </div>
 
         <div v-if="selected.submitter_note">

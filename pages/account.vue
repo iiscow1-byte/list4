@@ -116,6 +116,7 @@ type ProfileData = {
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
   createdLevels: any[]
+  verifiedLevels: any[]
 }
 const profileData = ref<ProfileData | null>(null)
 
@@ -311,6 +312,7 @@ function fmt(n: number | null | undefined) {
       v-if="profileData"
       :completed="profileData.completedLevels"
       :created="profileData.createdLevels"
+      :verified="profileData.verifiedLevels"
     />
   </div>
 </template>

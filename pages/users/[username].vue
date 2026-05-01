@@ -11,6 +11,7 @@ const { data, error } = await useFetch<{
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
   createdLevels: any[]
+  verifiedLevels: any[]
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
 
 useHead(() => ({
@@ -85,6 +86,7 @@ function fmt(n: number | null | undefined) {
       <ProfileLevelLists
         :completed="data.completedLevels"
         :created="data.createdLevels"
+        :verified="data.verifiedLevels"
       />
     </template>
   </div>
