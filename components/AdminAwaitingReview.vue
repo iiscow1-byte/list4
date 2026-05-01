@@ -1,8 +1,8 @@
 <script setup lang="ts">
-type PendingLevel = {
+type AwaitingLevel = {
   id: number
   gd_id: number | null
-  name: string | null
+  name: string
   fps: string | null
   game_version: string | null
   verification: string | null
@@ -15,12 +15,11 @@ type PendingLevel = {
   main_skillset: string | null
   tags: string | null
   notes: string | null
-  submitted_at: string
   submitter: string | null
-  placement_estimate: number | null
-  comparison_level_id: number | null
-  comparison_level_name: string | null
+  approved_at: string
 }
+
+type AwaitingRow = Pick<AwaitingLevel, 'id' | 'name' | 'gd_id' | 'gddl_tier' | 'difficulty' | 'main_skillset' | 'approved_at'>
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
 type Preview = {
@@ -31,23 +30,17 @@ type Preview = {
   featuredBelow: PreviewRow | null
 }
 
-const items = ref<PendingLevel[]>([])
+const items = ref<AwaitingRow[]>([])
 const selectedId = ref<number | null>(null)
+const selected = ref<AwaitingLevel | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
 const placement = ref<string>('')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
 
-const selected = computed(() => items.value.find((r) => r.id === selectedId.value) ?? null)
-
-const goesToVoid = computed(() => {
-  if (!selected.value) return false
-  return !selected.value.gddl_tier && !selected.value.difficulty
-})
-
 async function load() {
-  const res = await $fetch<{ items: PendingLevel[] }>('/api/admin/levels/pending')
+  const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
   items.value = res.items
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
@@ -57,10 +50,16 @@ async function load() {
 }
 onMounted(load)
 
-watch(selected, (s) => {
-  placement.value = s?.placement_estimate != null ? String(s.placement_estimate) : ''
+watch(selectedId, async (id) => {
+  placement.value = ''
   preview.value = null
-})
+  if (id == null) { selected.value = null; return }
+  try {
+    selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
+  } catch {
+    selected.value = null
+  }
+}, { immediate: true })
 
 let placementDebounce: ReturnType<typeof setTimeout> | null = null
 watch(placement, (v) => {
@@ -87,29 +86,21 @@ function flash(kind: 'ok' | 'err', msg: string) {
   setTimeout(() => (banner.value = null), 3500)
 }
 
-async function decide(action: 'approve' | 'reject' | 'await') {
+async function decide(action: 'place' | 'remove') {
   if (!selected.value || decideLoading.value) return
-  if (action === 'approve') {
+  if (action === 'place') {
     const n = Number(placement.value)
     if (!Number.isInteger(n) || n <= 0) {
-      flash('err', 'Enter a placement (1-based) before approving.')
+      flash('err', 'Enter a placement (1-based) before placing.')
       return
     }
   }
   decideLoading.value = true
   try {
     const body: any = { action }
-    if (action === 'approve') body.placement = Number(placement.value)
-    const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
-      method: 'POST', body,
-    })
-    if (action === 'approve') {
-      flash('ok', res.voided ? 'Approved — added to the void list.' : 'Approved — added to the main list.')
-    } else if (action === 'await') {
-      flash('ok', 'Sent to awaiting placement.')
-    } else {
-      flash('ok', 'Submission rejected.')
-    }
+    if (action === 'place') body.placement = Number(placement.value)
+    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
+    flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
     selectedId.value = null
     placement.value = ''
     preview.value = null
@@ -142,11 +133,11 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
 
 <template>
   <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
-    <!-- Left: pending list -->
+    <!-- Left: awaiting list -->
     <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
       <div class="p-3 border-b border-zinc-800 shrink-0">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Pending levels</p>
-        <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} waiting</p>
+        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
+        <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} unplaced</p>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
         <ul v-if="items.length" class="divide-y divide-zinc-900/60">
@@ -154,40 +145,37 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             <button
               type="button"
               class="w-full text-left px-3 py-2 text-sm transition-colors"
-              :class="selectedId === r.id ? 'bg-accent/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
+              :class="selectedId === r.id ? 'bg-sky-900/30 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
-              <div class="font-medium truncate">{{ r.name ?? `Level ${r.gd_id}` }}</div>
+              <div class="font-medium truncate">{{ r.name }}</div>
               <div class="text-[11px] text-zinc-500 truncate">
-                #{{ r.gd_id ?? '?' }} · by {{ r.submitter ?? 'unknown' }}
+                #{{ r.gd_id ?? '?' }} · {{ r.gddl_tier ?? r.difficulty ?? '—' }}
               </div>
-              <div class="text-[10px] text-zinc-600 truncate">{{ r.submitted_at }}</div>
+              <div class="text-[10px] text-zinc-600 truncate">{{ r.approved_at }}</div>
             </button>
           </li>
         </ul>
-        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No pending submissions.</div>
+        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">Nothing awaiting placement.</div>
       </div>
     </aside>
 
-    <!-- Center: submitted level details -->
+    <!-- Center: level details -->
     <section class="overflow-y-auto min-h-0 px-6 py-6">
       <div v-if="!selected" class="text-center text-sm text-zinc-500 py-12">
-        {{ items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
+        {{ items.length === 0 ? 'Nothing to place.' : 'Pick a level on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
         <header>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
+          <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name }}</h2>
           <p class="text-xs text-zinc-500 mt-1">
-            Submitted by
-            <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
-            <span v-else>unknown</span>
-            · {{ selected.submitted_at }}
+            <template v-if="selected.submitter">
+              Submitted by
+              <NuxtLink :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink> ·
+            </template>
+            Approved {{ selected.approved_at }}
           </p>
         </header>
-
-        <span v-if="goesToVoid" class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
-          No difficulty opinion · will go to void
-        </span>
 
         <!-- Stats grid -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
@@ -276,23 +264,15 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             v-model="placement"
             type="number" inputmode="numeric" min="1"
             placeholder="position #"
-            :disabled="goesToVoid && false"
             class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
-          <p
-            v-if="selected?.placement_estimate != null"
-            class="text-[10px] text-accent mt-1"
-          >
-            Submitter estimated #{{ selected.placement_estimate }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
-          </p>
           <p class="text-[10px] text-zinc-500 mt-1">
-            <template v-if="goesToVoid">Position in the void list (no difficulty opinion).</template>
-            <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>
+            Position in the main list. Existing levels at and below shift down by one.
           </p>
         </div>
 
         <!-- Preview rows around the candidate placement -->
-        <div v-if="!goesToVoid">
+        <div>
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Around #{{ preview?.placement ?? '—' }}</p>
           <div v-if="previewLoading" class="text-xs text-zinc-500">loading…</div>
           <div v-else-if="!preview" class="text-xs text-zinc-600">Enter a position to see context.</div>
@@ -311,7 +291,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             </li>
             <li class="px-2 py-1 flex items-center gap-2 text-xs bg-accent/15 text-accent">
               <span class="tabular-nums w-10 font-semibold">#{{ preview.placement }}</span>
-              <span class="truncate flex-1 italic">← new submission</span>
+              <span class="truncate flex-1 italic">← placing here</span>
             </li>
             <li v-for="row in preview.below" :key="`b-${row.position}`" class="px-2 py-1 flex items-center gap-2 text-xs">
               <span class="tabular-nums w-10 text-zinc-500">#{{ row.position + 1 }}</span>
@@ -334,21 +314,15 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             type="button"
             :disabled="decideLoading || !placement"
             class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('approve')"
-          >Approve at #{{ placement || '—' }}</button>
-          <button
-            type="button"
-            :disabled="decideLoading"
-            class="w-full rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('await')"
-            title="Approve without a position. Goes to the public awaiting-placement list."
-          >Send to awaiting</button>
+            @click="decide('place')"
+          >Place at #{{ placement || '—' }}</button>
           <button
             type="button"
             :disabled="decideLoading"
             class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('reject')"
-          >Reject</button>
+            @click="decide('remove')"
+            title="Remove from awaiting without placing on the list."
+          >Remove</button>
         </div>
 
         <div
@@ -358,7 +332,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
         >{{ banner.msg }}</div>
       </div>
       <div v-else class="p-4">
-        <p class="text-xs text-zinc-500">Select a submission to review.</p>
+        <p class="text-xs text-zinc-500">Select a level to place.</p>
       </div>
     </aside>
   </div>

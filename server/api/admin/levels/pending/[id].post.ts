@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'approve' | 'reject'; placement?: number }>(event)
-  if (body.action !== 'approve' && body.action !== 'reject') {
+  const body = await readBody<{ action: 'approve' | 'reject' | 'await'; placement?: number }>(event)
+  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
 
@@ -26,6 +26,48 @@ export default defineEventHandler(async (event) => {
     db.prepare(`UPDATE pending_levels SET status='rejected', decided_by=?, decided_at=datetime('now') WHERE id = ?`)
       .run(account.id, id)
     return { ok: true }
+  }
+
+  // --- send to awaiting placement (publicly visible holding list) ---
+  if (body.action === 'await') {
+    const submitter = sub.submitted_by
+      ? (db.prepare(`SELECT username FROM accounts WHERE id = ?`).get(sub.submitted_by) as { username: string } | undefined)?.username ?? null
+      : null
+    db.exec('BEGIN')
+    try {
+      db.prepare(
+        `INSERT INTO awaiting_levels
+          (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
+           gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        sub.gd_id,
+        sub.name ?? `Level ${sub.gd_id}`,
+        sub.fps,
+        sub.game_version,
+        sub.verification,
+        sub.verification_url,
+        sub.verifier,
+        sub.verify_date,
+        sub.gddl_tier,
+        sub.difficulty,
+        sub.enjoyment,
+        sub.main_skillset,
+        sub.tags,
+        sub.notes,
+        submitter,
+        sub.id,
+        account.id,
+      )
+      db.prepare(
+        `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
+      ).run(account.id, id)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      throw e
+    }
+    return { ok: true, awaiting: true }
   }
 
   // --- approve ---

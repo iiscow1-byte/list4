@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const links = [
   { to: '/levels/1', label: 'List' },
+  { to: '/awaiting', label: 'Awaiting' },
   { to: '/leaderboard', label: 'Leaderboard' },
 ]
 

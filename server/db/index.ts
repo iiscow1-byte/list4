@@ -175,6 +175,36 @@ function initSchema(db: DatabaseSync) {
     const hasLegacy = vc.some((c) => c.name === 'difficulty_approximation' || c.name === 'general_idea' || c.name === 'gddl_tier')
     if (hasLegacy) db.exec(`DROP TABLE void_levels`)
   }
+  // Awaiting placement: levels approved out of pending review but not yet
+  // assigned a final position on the main / void list. Public-facing holding
+  // area, ordered by approval time. Mirrors the metadata captured on the
+  // pending submission so the public page can render full level details.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS awaiting_levels (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      gd_id            INTEGER,
+      name             TEXT    NOT NULL,
+      fps              TEXT,
+      game_version     TEXT,
+      verification     TEXT,
+      verification_url TEXT,
+      verifier         TEXT,
+      verify_date      TEXT,
+      gddl_tier        TEXT,
+      difficulty       TEXT,
+      enjoyment        REAL,
+      main_skillset    TEXT,
+      tags             TEXT,
+      notes            TEXT,
+      submitter        TEXT,
+      pending_id       INTEGER,
+      approved_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      approved_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_awaiting_name        ON awaiting_levels(name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_awaiting_approved_at ON awaiting_levels(approved_at);
+  `)
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS void_levels (
       id               INTEGER PRIMARY KEY AUTOINCREMENT,
