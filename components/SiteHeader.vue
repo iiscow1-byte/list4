@@ -1,12 +1,38 @@
 <script setup lang="ts">
 const links = [
-  { to: '/levels/1', label: 'List' },
-  { to: '/awaiting', label: 'Awaiting' },
   { to: '/leaderboard', label: 'Leaderboard' },
 ]
 
+const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
+
+const listMenuOpen = ref(false)
+const listMenuRef = ref<HTMLElement | null>(null)
+
+const listActive = computed(() =>
+  route.path.startsWith('/levels') || route.path.startsWith('/awaiting') || route.path.startsWith('/void'),
+)
+
+function onDocClick(e: MouseEvent) {
+  if (!listMenuOpen.value) return
+  if (listMenuRef.value && !listMenuRef.value.contains(e.target as Node)) {
+    listMenuOpen.value = false
+  }
+}
+function onEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') listMenuOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onEsc)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onEsc)
+})
+
+watch(() => route.fullPath, () => { listMenuOpen.value = false })
 </script>
 
 <template>
@@ -17,6 +43,49 @@ const me = computed(() => meRes.value?.account ?? null)
         <span class="text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
       </NuxtLink>
       <nav class="flex items-center gap-1">
+        <!-- List + dropdown for void / awaiting -->
+        <div ref="listMenuRef" class="relative flex items-stretch">
+          <NuxtLink
+            to="/levels/1"
+            class="pl-3 pr-2 py-1.5 rounded-l text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            :class="{ 'text-zinc-100 bg-zinc-900': listActive }"
+          >List</NuxtLink>
+          <button
+            type="button"
+            class="px-1.5 py-1.5 rounded-r text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            :class="{ 'text-zinc-100 bg-zinc-900': listMenuOpen }"
+            :aria-expanded="listMenuOpen"
+            aria-haspopup="menu"
+            aria-label="Other lists"
+            @click="listMenuOpen = !listMenuOpen"
+          >
+            <svg
+              viewBox="0 0 20 20" fill="currentColor"
+              class="w-3.5 h-3.5 transition-transform"
+              :class="{ 'rotate-180': listMenuOpen }"
+              aria-hidden="true"
+            >
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div
+            v-if="listMenuOpen"
+            role="menu"
+            class="absolute left-0 top-full mt-1 min-w-[12rem] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-40"
+          >
+            <NuxtLink
+              to="/awaiting"
+              role="menuitem"
+              class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            >Awaiting placement</NuxtLink>
+            <NuxtLink
+              to="/void/1"
+              role="menuitem"
+              class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            >Void list</NuxtLink>
+          </div>
+        </div>
+
         <NuxtLink
           v-for="l in links"
           :key="l.to"
