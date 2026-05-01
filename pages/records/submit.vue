@@ -7,6 +7,7 @@ const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
 type LevelMatch = { position: number; name: string }
+type Row = { uid: number; search: string; video: string; selected: LevelMatch | null }
 
 const levelSearch = ref('')
 const levelMatches = ref<LevelMatch[]>([])
@@ -84,6 +85,47 @@ const holderName = ref('')
 const video = ref('')
 const note = ref('')
 
+const multi = ref(false)
+let nextUid = 1
+const makeEmptyRow = (): Row => ({ uid: nextUid++, search: '', video: '', selected: null })
+const rows = ref<Row[]>([makeEmptyRow()])
+
+// Auto-grow / auto-shrink the row list based on content. The last row gets a
+// new empty sibling once it has any text; non-last rows that are completely
+// empty are removed. Keeps the grid feeling like a free-form spreadsheet.
+function syncRows() {
+  const isFilled = (r: Row) => !!r.search.trim() || !!r.video.trim()
+  const last = rows.value[rows.value.length - 1]
+  if (last && isFilled(last)) rows.value.push(makeEmptyRow())
+  for (let i = rows.value.length - 2; i >= 0; i--) {
+    const r = rows.value[i]!
+    if (!r.search.trim() && !r.video.trim()) rows.value.splice(i, 1)
+  }
+}
+watch(rows, syncRows, { deep: true })
+
+// Keep single-mode and the first multi row in sync so toggling doesn't lose
+// what the user has already typed.
+function toggleMulti() {
+  if (!multi.value) {
+    rows.value = [{
+      uid: nextUid++,
+      search: levelSearch.value,
+      video: video.value,
+      selected: selectedLevel.value,
+    }, makeEmptyRow()]
+    multi.value = true
+  } else {
+    const first = rows.value[0]
+    if (first) {
+      levelSearch.value = first.search
+      video.value = first.video
+      selectedLevel.value = first.selected
+    }
+    multi.value = false
+  }
+}
+
 watchEffect(() => {
   if (!holderName.value && me.value) {
     holderName.value = me.value.claimed_player ?? me.value.username
@@ -130,8 +172,63 @@ const submitting = ref(false)
 const error = ref<string | null>(null)
 const success = ref(false)
 
+const successMulti = ref<{ submitted: number; failed: number } | null>(null)
+
 async function submit() {
   if (submitting.value) return
+  error.value = null
+
+  if (multi.value) {
+    const filled = rows.value.filter((r) => r.selected || r.search.trim() || r.video.trim())
+    if (filled.length === 0) {
+      error.value = 'Add at least one level + video.'
+      return
+    }
+    for (const r of filled) {
+      if (!r.selected) {
+        error.value = 'Pick every level from the suggestions before submitting.'
+        return
+      }
+      if (!/^https?:\/\/\S+$/i.test(r.video.trim())) {
+        error.value = `Video URL is missing or invalid for "${r.selected.name}".`
+        return
+      }
+    }
+    submitting.value = true
+    let submitted = 0
+    let failed = 0
+    let firstError: string | null = null
+    try {
+      for (const r of filled) {
+        try {
+          await $fetch('/api/records', {
+            method: 'POST',
+            body: {
+              position: r.selected!.position,
+              player_name: holderName.value.trim(),
+              video: r.video.trim(),
+              note: note.value.trim() || null,
+            },
+          })
+          submitted++
+        } catch (e: any) {
+          failed++
+          if (!firstError) firstError = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
+        }
+      }
+    } finally {
+      submitting.value = false
+    }
+    if (submitted > 0) {
+      successMulti.value = { submitted, failed }
+      rows.value = [makeEmptyRow()]
+      note.value = ''
+      setTimeout(() => (successMulti.value = null), 6000)
+    }
+    if (failed > 0 && firstError) error.value = firstError
+    return
+  }
+
   if (!selectedLevel.value) {
     error.value = 'Pick a level from the suggestions.'
     return
@@ -140,7 +237,6 @@ async function submit() {
     error.value = 'A video link is required.'
     return
   }
-  error.value = null
   submitting.value = true
   try {
     await $fetch('/api/records', {
@@ -167,14 +263,51 @@ async function submit() {
 </script>
 
 <template>
-  <div class="container-tight py-8 max-w-xl">
-    <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit a record</h1>
-    <p class="text-sm text-zinc-400 mb-6">
-      A moderator will review your submission before it appears on the level page.
-    </p>
+  <div class="container-tight py-8" :class="multi ? 'max-w-3xl' : 'max-w-xl'">
+    <div class="flex items-start justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit a record</h1>
+        <p class="text-sm text-zinc-400">
+          A moderator will review your submission before it appears on the level page.
+        </p>
+      </div>
+      <label class="shrink-0 flex items-center gap-2 cursor-pointer select-none mt-1">
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Multiple</span>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="multi"
+          class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+          :class="multi ? 'bg-accent' : 'bg-zinc-800'"
+          @click="toggleMulti"
+        >
+          <span
+            class="inline-block h-4 w-4 rounded-full bg-zinc-50 transition-transform"
+            :class="multi ? 'translate-x-4' : 'translate-x-0.5'"
+          />
+        </button>
+      </label>
+    </div>
 
     <form class="space-y-4" @submit.prevent="submit">
-      <div class="relative">
+      <!-- Multi-row grid: level on the left, video URL on the right -->
+      <div v-if="multi">
+        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1">
+          <span>Level</span>
+          <span>Video URL</span>
+        </div>
+        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2">
+          <RecordSubmitRow
+            v-for="row in rows"
+            :key="row.uid"
+            :model-value="row"
+            @update:model-value="(v) => Object.assign(row, v)"
+          />
+        </div>
+        <p class="text-[11px] text-zinc-500 mt-2">A new row appears as soon as you start filling the last one.</p>
+      </div>
+
+      <div v-else class="relative">
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level</span>
           <input
@@ -232,7 +365,7 @@ async function submit() {
         </ul>
       </div>
 
-      <label class="block">
+      <label v-if="!multi" class="block">
         <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL</span>
         <input
           v-model="video"
@@ -243,7 +376,7 @@ async function submit() {
         />
       </label>
 
-      <label v-if="canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none">
+      <label v-if="!multi && canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none">
         <input
           v-model="isVerificationClaim"
           type="checkbox"
@@ -274,6 +407,10 @@ async function submit() {
           class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
         >{{ submitting ? 'Submitting…' : 'Submit' }}</button>
         <span v-if="success" class="text-xs text-emerald-400">Submitted — pending review.</span>
+        <span v-if="successMulti" class="text-xs text-emerald-400">
+          Submitted {{ successMulti.submitted }} record{{ successMulti.submitted === 1 ? '' : 's' }} — pending review.<span v-if="successMulti.failed">
+            {{ successMulti.failed }} failed.</span>
+        </span>
         <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
       </div>
     </form>
