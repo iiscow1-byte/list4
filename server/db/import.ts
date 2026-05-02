@@ -155,47 +155,78 @@ export function refineColumns(textRows: string[][], cols: Record<string, number>
 /**
  * One-time cleanup for DBs populated before the (gd_id, name) dedupe was in
  * place. Earlier importLevels runs counted positions up from MAX(position)+1,
- * so every re-import created another full copy of every sheet level. Find each
- * (gd_id, lower(name)) group, keep the row with the lowest id (oldest, most
- * stable for FK references), re-point records/opinions/pending_levels to the
- * survivor, and delete the rest. Idempotent — no-op once the DB is clean.
+ * so every re-import created another full copy of every sheet level. Group by
+ * (gd_id, lower(name)); per group, keep the permanent row if any, otherwise
+ * the lowest id (oldest, most stable for FK references); re-point records,
+ * opinions, and pending_levels to the survivor; delete the rest. Idempotent —
+ * no-op once the DB is clean.
+ *
+ * Grouping is done in JS rather than via GROUP_CONCAT/window functions because
+ * earlier SQL-based versions silently produced no diagnostic output when they
+ * failed; this version always logs the group count and verifies afterward.
  */
-function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): number {
-  const groups = db.prepare(`
-    SELECT MIN(id) AS keep_id, GROUP_CONCAT(id) AS all_ids
-    FROM levels
-    GROUP BY COALESCE(gd_id, -1), LOWER(name)
-    HAVING COUNT(*) > 1
-  `).all() as { keep_id: number; all_ids: string }[]
-  if (groups.length === 0) return 0
+function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): void {
+  type Row = { id: number; gd_id: number | null; name: string; permanent: number }
+  const rows = db.prepare(`SELECT id, gd_id, name, permanent FROM levels`).all() as Row[]
 
-  let removed = 0
+  const groups = new Map<string, { id: number; perm: boolean }[]>()
+  for (const r of rows) {
+    const key = `${r.gd_id ?? ''}|${r.name.toLowerCase()}`
+    let g = groups.get(key)
+    if (!g) { g = []; groups.set(key, g) }
+    g.push({ id: r.id, perm: r.permanent === 1 })
+  }
+
+  const remap: { drop: number; keep: number }[] = []
+  let dupGroups = 0
+  for (const g of groups.values()) {
+    if (g.length < 2) continue
+    dupGroups++
+    // Prefer permanent rows; among ties, lowest id wins.
+    g.sort((a, b) => Number(b.perm) - Number(a.perm) || a.id - b.id)
+    const keep = g[0]!.id
+    for (let i = 1; i < g.length; i++) remap.push({ drop: g[i]!.id, keep })
+  }
+
+  console.log(`Dedupe scan: ${rows.length} rows, ${groups.size} unique (gd_id, name), ${dupGroups} duplicated, ${remap.length} rows to remove.`)
+  if (remap.length === 0) return
+
+  const updRecords  = db.prepare(`UPDATE records  SET level_id = ? WHERE level_id = ?`)
+  const updOpinions = db.prepare(`UPDATE opinions SET level_id = ? WHERE list_kind = 'main' AND level_id = ?`)
+  const updPending  = db.prepare(`UPDATE pending_levels SET comparison_level_id = ? WHERE comparison_level_id = ?`)
+  const delLevel    = db.prepare(`DELETE FROM levels WHERE id = ?`)
+
   db.exec('BEGIN')
   try {
-    for (const g of groups) {
-      const ids = g.all_ids.split(',').map(Number)
-      const dropIds = ids.filter((id) => id !== g.keep_id)
-      if (dropIds.length === 0) continue
-      const placeholders = dropIds.map(() => '?').join(',')
-      db.prepare(`UPDATE records  SET level_id            = ? WHERE level_id            IN (${placeholders})`).run(g.keep_id, ...dropIds)
-      db.prepare(`UPDATE opinions SET level_id            = ? WHERE list_kind = 'main' AND level_id IN (${placeholders})`).run(g.keep_id, ...dropIds)
-      db.prepare(`UPDATE pending_levels SET comparison_level_id = ? WHERE comparison_level_id IN (${placeholders})`).run(g.keep_id, ...dropIds)
-      db.prepare(`DELETE FROM levels WHERE id IN (${placeholders})`).run(...dropIds)
-      removed += dropIds.length
+    for (const { drop, keep } of remap) {
+      updRecords.run(keep, drop)
+      updOpinions.run(keep, drop)
+      updPending.run(keep, drop)
+      delLevel.run(drop)
     }
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
+    console.error('Cleanup failed, rolled back:', e)
     throw e
   }
-  return removed
+
+  // Sanity check — query the DB again and confirm zero duplicate groups remain.
+  const remaining = db.prepare(`
+    SELECT COUNT(*) AS n FROM (
+      SELECT 1 FROM levels GROUP BY COALESCE(gd_id, -1), LOWER(name) HAVING COUNT(*) > 1
+    )
+  `).get() as { n: number }
+  console.log(`Removed ${remap.length} duplicate level rows. ${remaining.n} duplicate groups remain.`)
+  if (remaining.n > 0) {
+    console.warn(`WARNING: cleanup completed but ${remaining.n} duplicate groups still present — please report.`)
+  }
 }
 
 async function importLevels() {
   const db = getDb()
 
-  const removed = cleanupDuplicateLevels(db)
-  if (removed > 0) console.log(`Removed ${removed} duplicate level rows from prior imports.`)
+  cleanupDuplicateLevels(db)
 
   // `rated` is intentionally not imported from the sheet — the GD API is the
   // source of truth for ratings. New rows are inserted with rated = NULL.
