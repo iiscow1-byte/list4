@@ -11,6 +11,12 @@ export default defineEventHandler((event) => {
   const level = db.prepare(`SELECT * FROM levels WHERE position = ?`).get(position) as any
   if (!level) throw createError({ statusCode: 404, statusMessage: 'Level not found' })
 
+  // Resolve the submitter's username (only set for site submissions; sheet
+  // imports have submitted_by = NULL).
+  const submitter = level.submitted_by
+    ? (db.prepare(`SELECT username FROM accounts WHERE id = ?`).get(level.submitted_by) as { username: string } | undefined)?.username ?? null
+    : null
+
   const records = db
     .prepare(
       `SELECT r.percent, r.hz, r.video, r.player_name AS player, p.country
@@ -36,5 +42,5 @@ export default defineEventHandler((event) => {
     )
     .all(level.id)
 
-  return { ...level, enjoyment, records, community, position_history }
+  return { ...level, enjoyment, records, community, position_history, submitter }
 })

@@ -64,6 +64,9 @@ export default defineEventHandler(async (event) => {
 
   const notes = strOrNull(body.notes, 4000)
   const name = strOrNull(body.name, 200)
+  // "None" / unset → site-default placement source. Anything else is whatever
+  // the submitter said in the dropdown ("Demon List", "Pemonlist", etc.).
+  const placementSource = strOrNull(body.placement_source, 100) ?? 'All Levels List'
 
   let placementEstimate: number | null = null
   if (body.placement_estimate != null && body.placement_estimate !== '') {
@@ -110,13 +113,15 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO pending_levels
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
          gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
-         placement_estimate, comparison_level_id, comparison_level_name, pov_placement)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         placement_estimate, comparison_level_id, comparison_level_name, pov_placement,
+         placement_source)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       gdId, name, fps, gameVersion, verification, verificationUrl, verifier, verifyDate,
       gddlTier, difficulty, enjoyment, skillset, tags, notes, account.id,
       placementEstimate, comparisonLevelId, comparisonLevelName, povPlacement,
+      placementSource,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }

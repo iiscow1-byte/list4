@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Awaiting level not found.' })
   // Resolve the original submitter via the linked pending row (we copied
   // pending_id when sending the level here in the first place).
-  const submitterId = sub.pending_id
+  const submitterId: number | null = sub.pending_id
     ? (db.prepare(`SELECT submitted_by FROM pending_levels WHERE id = ?`).get(sub.pending_id) as { submitted_by: number | null } | undefined)?.submitted_by ?? null
     : null
 
@@ -59,8 +59,8 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO levels
         (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
          verification, verification_url, year_verified, category, source_tab,
-         creator, permanent, enjoyment, pov_placement)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?)`,
+         creator, permanent, enjoyment, pov_placement, placement_source, submitted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?)`,
     ).run(
       insertPos,
       sub.name,
@@ -74,6 +74,8 @@ export default defineEventHandler(async (event) => {
       sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
       sub.enjoyment,
       sub.pov_placement,
+      sub.placement_source ?? 'All Levels List',
+      submitterId,
     )
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
     db.exec('COMMIT')

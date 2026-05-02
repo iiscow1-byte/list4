@@ -124,6 +124,16 @@ function initSchema(db: DatabaseSync) {
   // above it (position - 1). Lets curators tag exact-difficulty ties without
   // overriding the auto-computed point value.
   if (!has('same_as_above')) db.exec(`ALTER TABLE levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
+  // `submitted_by`: account that originally submitted the level (only set for
+  // levels that came in through the submit flow, not sheet imports).
+  if (!has('submitted_by')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN submitted_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL`)
+  }
+
+  // One-time rename: legacy "hand placed" source (case-insensitive) → the
+  // new canonical "All Levels List" tag used for site-originated submissions.
+  // Idempotent: no-op once every row is already migrated.
+  db.exec(`UPDATE levels SET placement_source = 'All Levels List' WHERE LOWER(placement_source) = 'hand placed'`)
 
   // Accounts: banned_at = ISO timestamp when an admin banned the account.
   // NULL = active. Sessions for banned accounts are rejected at the auth layer.
@@ -180,6 +190,9 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'pov_placement')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN pov_placement INTEGER`)
   }
+  if (!pcols.some((c) => c.name === 'placement_source')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN placement_source TEXT`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
@@ -227,6 +240,9 @@ function initSchema(db: DatabaseSync) {
   const acols = db.prepare(`PRAGMA table_info(awaiting_levels)`).all() as { name: string }[]
   if (!acols.some((c) => c.name === 'pov_placement')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN pov_placement INTEGER`)
+  }
+  if (!acols.some((c) => c.name === 'placement_source')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN placement_source TEXT`)
   }
 
   db.exec(`

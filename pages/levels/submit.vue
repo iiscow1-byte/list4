@@ -33,6 +33,20 @@ const verificationUrl = ref('')
 const verifier = ref('')
 const verifyDate = ref('')
 const povPlacement = ref<string>('')
+const placementSource = ref<string>('')
+
+// Existing curated source list (Demon List, Pemonlist, GDDP, …) so submitters
+// can pick where they originally found the level. "" = the default "None"
+// option, which the server stores as "All Levels List".
+const { data: sourcesRes } = await useFetch<{ sources: { source: string; count: number }[] }>(
+  '/api/levels/sources',
+  { default: () => ({ sources: [] }) },
+)
+const sourceOptions = computed(() =>
+  (sourcesRes.value?.sources ?? [])
+    .map((s) => s.source)
+    .filter((s) => s && s.toLowerCase() !== 'all levels list'),
+)
 const gddlTier = ref('')
 const difficulty = ref('')
 const enjoyment = ref('')
@@ -275,6 +289,7 @@ async function submit() {
         verifier: verifier.value.trim() || null,
         verify_date: verifyDate.value || null,
         pov_placement: povPlacement.value !== '' ? Number(povPlacement.value) : null,
+        placement_source: placementSource.value || null,
         gddl_tier: gddlTier.value || null,
         difficulty: difficulty.value || null,
         enjoyment: enjoyment.value !== '' ? Number(enjoyment.value) : null,
@@ -289,7 +304,8 @@ async function submit() {
     success.value = true
     // Reset form (but keep fps/version defaults)
     gdId.value = ''; name.value = ''; verification.value = ''; verificationUrl.value = ''
-    verifier.value = ''; verifyDate.value = ''; povPlacement.value = ''; gddlTier.value = ''; difficulty.value = ''
+    verifier.value = ''; verifyDate.value = ''; povPlacement.value = ''; placementSource.value = ''
+    gddlTier.value = ''; difficulty.value = ''
     enjoyment.value = ''; skillset.value = ''; notes.value = ''
     placementEstimate.value = ''; comparisonLevel.value = null
     for (const t of ALL_TAGS) tagSet[t] = false
@@ -331,6 +347,21 @@ async function submit() {
           />
         </label>
       </div>
+
+      <!-- Source -->
+      <label class="block">
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+          Source
+          <span class="text-zinc-600 normal-case">— where you found this level. Leave on "None" if it's first-party to the All Levels List.</span>
+        </span>
+        <select
+          v-model="placementSource"
+          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        >
+          <option value="">None</option>
+          <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
+        </select>
+      </label>
 
       <!-- FPS + Version -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

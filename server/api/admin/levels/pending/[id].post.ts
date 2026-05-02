@@ -51,8 +51,9 @@ export default defineEventHandler(async (event) => {
       db.prepare(
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
-           gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by, pov_placement)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
+           pov_placement, placement_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
         sub.id,
         account.id,
         sub.pov_placement,
+        sub.placement_source ?? 'All Levels List',
       )
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
@@ -114,7 +116,7 @@ export default defineEventHandler(async (event) => {
         sub.gd_id,
         sub.verify_date,
         sub.difficulty,
-        'ALL Submission',
+        sub.placement_source ?? 'All Levels List',
         sub.verification,
         sub.verification_url,
       )
@@ -128,8 +130,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO levels
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
-           creator, permanent, enjoyment, pov_placement)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?)`,
+           creator, permanent, enjoyment, pov_placement, placement_source, submitted_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -143,6 +145,8 @@ export default defineEventHandler(async (event) => {
         sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
         sub.enjoyment,
         sub.pov_placement,
+        sub.placement_source ?? 'All Levels List',
+        sub.submitted_by,
       )
     }
 

@@ -28,6 +28,7 @@ type Level = {
   enjoyment?: number | null
   description_override?: string | null
   same_as_above?: number | null
+  submitter?: string | null
   community?: Community | null
   position_history?: PositionHistoryEntry[]
 }
@@ -292,6 +293,7 @@ const infoRows = computed<CreditRow[]>(() => {
   if (props.level.placement_source) rows.push({ label: 'Source list',   value: props.level.placement_source })
   if (props.level.verification)     rows.push({ label: 'Verification',  value: props.level.verification })
   if (props.level.year_verified)    rows.push({ label: 'Year verified', value: String(props.level.year_verified) })
+  if (props.level.submitter)        rows.push({ label: 'Submitted by',  value: props.level.submitter })
   return rows
 })
 
