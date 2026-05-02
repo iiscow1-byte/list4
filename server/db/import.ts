@@ -152,8 +152,51 @@ export function refineColumns(textRows: string[][], cols: Record<string, number>
   return refined
 }
 
+/**
+ * One-time cleanup for DBs populated before the (gd_id, name) dedupe was in
+ * place. Earlier importLevels runs counted positions up from MAX(position)+1,
+ * so every re-import created another full copy of every sheet level. Find each
+ * (gd_id, lower(name)) group, keep the row with the lowest id (oldest, most
+ * stable for FK references), re-point records/opinions/pending_levels to the
+ * survivor, and delete the rest. Idempotent — no-op once the DB is clean.
+ */
+function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): number {
+  const groups = db.prepare(`
+    SELECT MIN(id) AS keep_id, GROUP_CONCAT(id) AS all_ids
+    FROM levels
+    GROUP BY COALESCE(gd_id, -1), LOWER(name)
+    HAVING COUNT(*) > 1
+  `).all() as { keep_id: number; all_ids: string }[]
+  if (groups.length === 0) return 0
+
+  let removed = 0
+  db.exec('BEGIN')
+  try {
+    for (const g of groups) {
+      const ids = g.all_ids.split(',').map(Number)
+      const dropIds = ids.filter((id) => id !== g.keep_id)
+      if (dropIds.length === 0) continue
+      const placeholders = dropIds.map(() => '?').join(',')
+      db.prepare(`UPDATE records  SET level_id            = ? WHERE level_id            IN (${placeholders})`).run(g.keep_id, ...dropIds)
+      db.prepare(`UPDATE opinions SET level_id            = ? WHERE list_kind = 'main' AND level_id IN (${placeholders})`).run(g.keep_id, ...dropIds)
+      db.prepare(`UPDATE pending_levels SET comparison_level_id = ? WHERE comparison_level_id IN (${placeholders})`).run(g.keep_id, ...dropIds)
+      db.prepare(`DELETE FROM levels WHERE id IN (${placeholders})`).run(...dropIds)
+      removed += dropIds.length
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  return removed
+}
+
 async function importLevels() {
   const db = getDb()
+
+  const removed = cleanupDuplicateLevels(db)
+  if (removed > 0) console.log(`Removed ${removed} duplicate level rows from prior imports.`)
+
   // `rated` is intentionally not imported from the sheet — the GD API is the
   // source of truth for ratings. New rows are inserted with rated = NULL.
   const insert = db.prepare(`
@@ -172,15 +215,24 @@ async function importLevels() {
   )
 
   // Sheet placement numbers are no longer authoritative — we just count up.
-  // Same level can appear on multiple tabs (e.g. main vs. tier-specific); each
-  // occurrence becomes its own row at the next sequential position. The
-  // placement column is still read, but only as a "is this a real level row"
-  // signal (decoration / section-header rows have no placement value).
+  // Same level appearing on multiple tabs (e.g. main + tier-specific) collapses
+  // to a single row; the first tab to claim it wins, matching the TABS order
+  // (Main, then tiers). The placement column is still read, but only as a
+  // "is this a real level row" signal (decoration / section-header rows have
+  // no placement value).
   //
-  // Re-runs against a populated DB rely on INSERT OR IGNORE to no-op via the
-  // position UNIQUE — drop the data files first if you want a clean rebuild.
+  // Re-runs against a populated DB skip rows that already exist — keyed on
+  // (gd_id, name) so positions don't drift across imports.
   const startingPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
   let pos = startingPos
+
+  // Pre-load existing (gd_id, name) pairs to detect duplicates across runs.
+  // Lowercased name matches the COLLATE NOCASE index on levels.name.
+  const dupKey = (gd: number | null, n: string) => `${gd ?? ''}|${n.toLowerCase()}`
+  const seen = new Set<string>()
+  for (const row of db.prepare(`SELECT gd_id, name FROM levels`).all() as { gd_id: number | null; name: string }[]) {
+    seen.add(dupKey(row.gd_id, row.name))
+  }
 
   let total = 0
   let skipped = 0
@@ -215,6 +267,9 @@ async function importLevels() {
         if (!name || placement === null) { skipped++; continue }
         const gdId = num(r[c['level id']!])
         if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
+        const key = dupKey(gdId, name)
+        if (seen.has(key)) { collisions++; continue }
+        seen.add(key)
         pos++
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
         const result = insert.run(
