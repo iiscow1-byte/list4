@@ -752,8 +752,8 @@ async function deleteLevel() {
         </div>
       </div>
 
-      <!-- Permanent-only credits -->
-      <section v-if="isPermanent && creditRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+      <!-- Credits -->
+      <section v-if="creditRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Credits</h2>
         <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <template v-for="row in creditRows" :key="row.label">

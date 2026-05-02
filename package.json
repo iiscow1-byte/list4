@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "start": "node .output/server/index.mjs",
     "postinstall": "nuxt prepare",
-    "import": "node --experimental-strip-types --no-warnings server/db/import.ts"
+    "import": "node --experimental-strip-types --no-warnings server/db/import.ts",
+    "diff-sheet": "node --experimental-strip-types --no-warnings server/db/diff-sheet.ts"
   },
   "engines": {
     "node": ">=22.5"

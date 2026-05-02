@@ -7,6 +7,21 @@ const TIER_ORD_SQL = `
   END
 `
 
+// Numeric ladder for rating sorts. Higher number = "more rated". Mapped against
+// the stored `rated` column (Mythic > Legendary > Epic > Featured > Rated >
+// Unrated > Challenge). NULL/empty rows sort with Unrated.
+const RATING_ORD_SQL = `
+  CASE rated
+    WHEN 'Mythic'    THEN 6
+    WHEN 'Legendary' THEN 5
+    WHEN 'Epic'      THEN 4
+    WHEN 'Featured'  THEN 3
+    WHEN 'Rated'     THEN 2
+    WHEN 'Challenge' THEN 0
+    ELSE 1
+  END
+`
+
 const SORT_SQL: Record<string, string> = {
   position:        'position ASC',
   name_asc:        'name COLLATE NOCASE ASC',
@@ -16,13 +31,12 @@ const SORT_SQL: Record<string, string> = {
   enjoyment_asc:   'enjoyment ASC NULLS LAST, position ASC',
   added_desc:      'id DESC',
   added_asc:       'id ASC',
+  rating_desc:     `(${RATING_ORD_SQL}) DESC, position ASC`,
+  rating_asc:      `(${RATING_ORD_SQL}) ASC, position ASC`,
 }
 
 const KNOWN_TAG_SUFFIXES = new Set(['old', 'uldm', 'buffed', 'nerfed'])
 const KNOWN_RATINGS = new Set(['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'])
-// Tiered ratings form a strict ladder — selecting "Featured" should include
-// everything Featured-and-above. Unrated and Challenge are NOT on the ladder
-// and stay exclusive when selected.
 const TIERED_RATING_LEVEL: Record<string, number> = {
   Rated: 1, Featured: 2, Epic: 3, Legendary: 4, Mythic: 5,
 }
@@ -52,50 +66,53 @@ export default defineEventHandler((event) => {
   const enjoyMin = q.enjoyMin != null && q.enjoyMin !== '' ? Number(q.enjoyMin) : null
   const enjoyMax = q.enjoyMax != null && q.enjoyMax !== '' ? Number(q.enjoyMax) : null
   const sort = typeof q.sort === 'string' && SORT_SQL[q.sort] ? q.sort : 'position'
+  const rankByFilter = q.rankByFilter === '1' || q.rankByFilter === 'true' || q.rankByFilter === true
 
-  const db = getDb()
-  const conds: string[] = []
-  const params: any[] = []
+  // Filter conditions are split in two so the optional rank-by-filter mode can
+  // compute rank from the filter-only set and apply the text search separately
+  // on top — searching narrows the displayed rows but doesn't change their
+  // ranks within the filtered list.
+  const filterConds: string[] = []
+  const filterParams: any[] = []
+  const searchConds: string[] = []
+  const searchParams: any[] = []
 
   if (search) {
     const asPos = Number(search.replace(/^#/, ''))
     if (Number.isInteger(asPos) && asPos > 0) {
-      conds.push('(name LIKE ? COLLATE NOCASE OR position = ?)')
-      params.push(`%${search}%`, asPos)
+      searchConds.push('(name LIKE ? COLLATE NOCASE OR position = ?)')
+      searchParams.push(`%${search}%`, asPos)
     } else {
-      conds.push('(name LIKE ? COLLATE NOCASE)')
-      params.push(`%${search}%`)
+      searchConds.push('(name LIKE ? COLLATE NOCASE)')
+      searchParams.push(`%${search}%`)
     }
   }
 
-  if (Number.isFinite(tierMin)) { conds.push(`(${TIER_ORD_SQL}) >= ?`); params.push(tierMin) }
-  if (Number.isFinite(tierMax)) { conds.push(`(${TIER_ORD_SQL}) <= ?`); params.push(tierMax) }
+  if (Number.isFinite(tierMin)) { filterConds.push(`(${TIER_ORD_SQL}) >= ?`); filterParams.push(tierMin) }
+  if (Number.isFinite(tierMax)) { filterConds.push(`(${TIER_ORD_SQL}) <= ?`); filterParams.push(tierMax) }
 
   for (const tag of tags) {
     const label = tag === 'uldm' ? 'ULDM' : tag.charAt(0).toUpperCase() + tag.slice(1)
-    conds.push(`name LIKE ? COLLATE NOCASE`)
-    params.push(`%(${label})%`)
+    filterConds.push(`name LIKE ? COLLATE NOCASE`)
+    filterParams.push(`%(${label})%`)
   }
 
   if (creator) {
-    conds.push(`creator LIKE ? COLLATE NOCASE`)
-    params.push(`%${creator}%`)
+    filterConds.push(`creator LIKE ? COLLATE NOCASE`)
+    filterParams.push(`%${creator}%`)
   }
 
   if (source) {
-    conds.push(`placement_source = ?`)
-    params.push(source)
+    filterConds.push(`placement_source = ?`)
+    filterParams.push(source)
   }
 
-  if (verifyFrom) { conds.push(`verify_date >= ?`); params.push(verifyFrom) }
-  if (verifyTo)   { conds.push(`verify_date <= ?`); params.push(verifyTo) }
+  if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
+  if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }
 
   if (ratings.length) {
     const includesUnrated = ratings.includes('Unrated')
     const includesChallenge = ratings.includes('Challenge')
-    // Tiered selections cascade upward: if "Featured" is checked we include
-    // Featured + Epic + Legendary + Mythic. Multiple tiered selections collapse
-    // to the lowest one chosen.
     const tieredChosen = ratings.filter((r) => TIERED_RATING_LEVEL[r] != null)
     const minLevel = tieredChosen.length
       ? Math.min(...tieredChosen.map((r) => TIERED_RATING_LEVEL[r]!))
@@ -107,42 +124,66 @@ export default defineEventHandler((event) => {
     const parts: string[] = []
     if (expanded.length) {
       parts.push(`rated IN (${expanded.map(() => '?').join(',')})`)
-      params.push(...expanded)
+      filterParams.push(...expanded)
     }
     if (includesUnrated) parts.push(`(rated IS NULL OR rated = '' OR rated = 'Unrated')`)
-    if (includesChallenge) { parts.push(`rated = ?`); params.push('Challenge') }
-    conds.push(`(${parts.join(' OR ')})`)
+    if (includesChallenge) { parts.push(`rated = ?`); filterParams.push('Challenge') }
+    filterConds.push(`(${parts.join(' OR ')})`)
   }
 
-  if (Number.isFinite(enjoyMin)) { conds.push(`enjoyment >= ?`); params.push(enjoyMin) }
-  if (Number.isFinite(enjoyMax)) { conds.push(`enjoyment <= ?`); params.push(enjoyMax) }
+  if (Number.isFinite(enjoyMin)) { filterConds.push(`enjoyment >= ?`); filterParams.push(enjoyMin) }
+  if (Number.isFinite(enjoyMax)) { filterConds.push(`enjoyment <= ?`); filterParams.push(enjoyMax) }
 
-  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
-  // When the user is searching, float an exact name match (case-insensitive)
-  // to the top so it always lands on page 1 of an autocomplete dropdown,
-  // regardless of where it sits in the list.
+  const challengeOnly = ratings.length === 1 && ratings[0] === 'Challenge'
+  // Challenge-only mode has always ranked by filter ordering — keep that
+  // implicit so the existing "challenge ranks" UX still works without the
+  // explicit toggle.
+  const useFilterRank = rankByFilter || challengeOnly
+
+  const orderBySort = SORT_SQL[sort]!
   const orderBy = search
-    ? `(name = ? COLLATE NOCASE) DESC, ${SORT_SQL[sort]!}`
-    : SORT_SQL[sort]!
+    ? `(name = ? COLLATE NOCASE) DESC, ${orderBySort}`
+    : orderBySort
   const orderParams = search ? [search] : []
 
-  const total = (db.prepare(`SELECT COUNT(*) as n FROM levels ${where}`).get(...params) as { n: number }).n
-  const rows = db
-    .prepare(
+  const db = getDb()
+  const filterWhere = filterConds.length ? `WHERE ${filterConds.join(' AND ')}` : ''
+  const allWhere = [...filterConds, ...searchConds].length
+    ? `WHERE ${[...filterConds, ...searchConds].join(' AND ')}`
+    : ''
+  const allParams = [...filterParams, ...searchParams]
+
+  const total = (db.prepare(`SELECT COUNT(*) as n FROM levels ${allWhere}`).get(...allParams) as { n: number }).n
+
+  let items: any[]
+  if (useFilterRank) {
+    // Rank within the filter-only set, then narrow to the search hit list.
+    // ROW_NUMBER over the user-selected sort is the displayRank (1-based,
+    // independent of pagination offsets).
+    const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
+    const sql = `
+      WITH ranked AS (
+        SELECT position, name, difficulty, points, gddl_tier,
+               ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
+        FROM levels
+        ${filterWhere}
+      )
+      SELECT * FROM ranked
+      ${innerSearchClause}
+      ORDER BY ${orderBy}
+      LIMIT ? OFFSET ?
+    `
+    items = db.prepare(sql).all(
+      ...filterParams, ...searchParams, ...orderParams, pageSize, offset,
+    ) as any[]
+  } else {
+    items = db.prepare(
       `SELECT position, name, difficulty, points, gddl_tier
-       FROM levels ${where}
+       FROM levels ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
-    )
-    .all(...params, ...orderParams, pageSize, offset) as any[]
+    ).all(...allParams, ...orderParams, pageSize, offset) as any[]
+  }
 
-  // When the only rating filter is "Challenge", number the rows by their global
-  // rank in the filtered ordering (offset + 1, offset + 2, ...) instead of by
-  // their natural list position. The hardest challenge becomes #1, etc.
-  const challengeOnly = ratings.length === 1 && ratings[0] === 'Challenge'
-  const items = challengeOnly
-    ? rows.map((r, i) => ({ ...r, displayRank: offset + i + 1 }))
-    : rows
-
-  return { total, page, pageSize, items, challengeMode: challengeOnly }
+  return { total, page, pageSize, items, challengeMode: challengeOnly, rankByFilter: useFilterRank }
 })

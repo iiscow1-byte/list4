@@ -3,7 +3,7 @@ import { getDb } from './index.ts'
 const SHEET_BASE_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
 
-const TABS = [
+export const TABS = [
   { gid: '0',          label: 'Main (Extreme Demons)' },
   { gid: '1036115495', label: 'Tier 4 Demons' },
   { gid: '1989779679', label: 'Subtier 5 Harder' },
@@ -83,7 +83,7 @@ function unwrapGoogleRedirect(url: string): string {
  * Returns the first `<a href="...">` URL inside a cell HTML string, unwrapped from
  * Google's redirect. Returns null if there is no link.
  */
-function extractLinkHref(cellHtml: string): string | null {
+export function extractLinkHref(cellHtml: string): string | null {
   const m = cellHtml.match(/<a[^>]*\shref="([^"]+)"/i)
   if (!m) return null
   return unwrapGoogleRedirect(decodeEntities(m[1]!))
@@ -94,7 +94,7 @@ function extractLinkHref(cellHtml: string): string | null {
  * Each tab's first non-empty data row in `<tbody>` is the header row.
  * Returns a map of normalized header name -> column index.
  */
-function findHeaderColumns(rows: string[][]): { headerIdx: number; cols: Record<string, number> } | null {
+export function findHeaderColumns(rows: string[][]): { headerIdx: number; cols: Record<string, number> } | null {
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!
     if (r.some((c) => c.toLowerCase() === 'level name' || c.toLowerCase() === 'player name')) {
@@ -106,7 +106,7 @@ function findHeaderColumns(rows: string[][]): { headerIdx: number; cols: Record<
   return null
 }
 
-async function fetchTabRows(gid: string): Promise<{ text: string[][]; html: string[][] }> {
+export async function fetchTabRows(gid: string): Promise<{ text: string[][]; html: string[][] }> {
   const url = `${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${gid}`
   const res = await fetch(url, { headers: { 'User-Agent': 'all-levels-list-importer/1.0' } })
   if (!res.ok) throw new Error(`fetch gid=${gid} failed: ${res.status}`)
@@ -120,14 +120,14 @@ async function fetchTabRows(gid: string): Promise<{ text: string[][]; html: stri
 }
 
 // ---------- numeric/text helpers ----------
-function num(s: string | undefined): number | null {
+export function num(s: string | undefined): number | null {
   if (!s) return null
   const cleaned = s.replace(/,/g, '').trim()
   if (cleaned === '' || cleaned === '-') return null
   const n = Number(cleaned)
   return Number.isFinite(n) ? n : null
 }
-function txt(s: string | undefined): string | null {
+export function txt(s: string | undefined): string | null {
   const t = (s ?? '').trim()
   return t === '' ? null : t
 }
@@ -139,7 +139,7 @@ function txt(s: string | undefined): string | null {
  * the next few data rows and shift right by 1 if the labelled column is empty
  * but the next column has content.
  */
-function refineColumns(textRows: string[][], cols: Record<string, number>, dataStart: number): Record<string, number> {
+export function refineColumns(textRows: string[][], cols: Record<string, number>, dataStart: number): Record<string, number> {
   const sample = textRows.slice(dataStart, dataStart + 8).filter((r) => r.length > 5)
   if (sample.length === 0) return cols
   const refined = { ...cols }

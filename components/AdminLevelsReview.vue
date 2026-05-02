@@ -58,9 +58,28 @@ async function load() {
 }
 onMounted(load)
 
-watch(selected, (s) => {
-  placement.value = s?.placement_estimate != null ? String(s.placement_estimate) : ''
+watch(selected, async (s) => {
   preview.value = null
+  if (s?.placement_estimate != null) {
+    placement.value = String(s.placement_estimate)
+    return
+  }
+  placement.value = ''
+  // No submitter estimate — fall back to the midpoint of the tier so the
+  // reviewer starts with a sensible default rather than an empty input.
+  if (s?.gddl_tier) {
+    const tier = s.gddl_tier
+    try {
+      const res = await $fetch<{ midpoint: number | null }>('/api/admin/levels/tier-midpoint', {
+        query: { tier },
+      })
+      // Guard against the user picking a different submission while the
+      // request was in flight.
+      if (selected.value?.id === s.id && res.midpoint != null && !placement.value) {
+        placement.value = String(res.midpoint)
+      }
+    } catch { /* non-fatal */ }
+  }
 })
 
 let placementDebounce: ReturnType<typeof setTimeout> | null = null

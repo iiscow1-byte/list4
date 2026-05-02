@@ -27,6 +27,8 @@ const SORTS = [
   { value: 'enjoyment_asc',  label: 'Enjoyment (lowest)' },
   { value: 'added_desc',     label: 'Added (newest)' },
   { value: 'added_asc',      label: 'Added (oldest)' },
+  { value: 'rating_desc',    label: 'Rating (highest)' },
+  { value: 'rating_asc',     label: 'Rating (lowest)' },
 ] as const
 
 const TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
@@ -54,6 +56,7 @@ const ratingSet = reactive<Record<string, boolean>>(
 const enjoyMin = ref<string>('')
 const enjoyMax = ref<string>('')
 const sort = ref<typeof SORTS[number]['value']>('position')
+const rankByFilter = ref(false)
 
 const activeFilterCount = computed(() => {
   let n = 0
@@ -65,6 +68,7 @@ const activeFilterCount = computed(() => {
   if (RATINGS.some((r) => ratingSet[r])) n++
   if (enjoyMin.value !== '' || enjoyMax.value !== '') n++
   if (sort.value !== 'position') n++
+  if (rankByFilter.value) n++
   return n
 })
 
@@ -94,6 +98,7 @@ function buildQuery() {
     enjoyMin: enjoyMin.value !== '' ? enjoyMin.value : undefined,
     enjoyMax: enjoyMax.value !== '' ? enjoyMax.value : undefined,
     sort: sort.value !== 'position' ? sort.value : undefined,
+    rankByFilter: rankByFilter.value ? 1 : undefined,
   }
 }
 
@@ -134,6 +139,7 @@ function resetFilters() {
   enjoyMin.value = ''
   enjoyMax.value = ''
   sort.value = 'position'
+  rankByFilter.value = false
 }
 
 // Initial load
@@ -163,6 +169,7 @@ watch(tierMin, () => { if (tierMin.value > tierMax.value) tierMin.value = tierMa
 watch(tierMax, () => { if (tierMax.value < tierMin.value) tierMax.value = tierMin.value; refilter() })
 watch(tagSet,    () => refilter(true), { deep: true })
 watch(ratingSet, () => refilter(true), { deep: true })
+watch(rankByFilter, () => refilter(true))
 
 // Infinite scroll
 const sentinel = ref<HTMLElement | null>(null)
@@ -358,6 +365,17 @@ watch(
           >
             <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
+        </label>
+
+        <!-- Rank-by-filter toggle -->
+        <label class="flex items-start gap-2 cursor-pointer select-none">
+          <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="text-[11px] text-zinc-200">Rank by filter position</span>
+            <span class="block text-[10px] text-zinc-500">
+              Numbers reflect each level's place within the filtered list rather than the global list. Search narrows what's shown without changing ranks.
+            </span>
+          </span>
         </label>
 
         <div class="flex items-center justify-between pt-1">
