@@ -240,6 +240,68 @@ function fmtNum(n: number | null | undefined) {
   return n.toLocaleString()
 }
 
+// Publisher: prefer the manually-set field, fall back to the GD account that
+// posted the level (resolved by gdbrowser into a username).
+const apiPublisher = computed(() => infoData.value?.author ?? null)
+const resolvedPublisher = computed<string | null>(
+  () => props.level.publisher ?? apiPublisher.value ?? null,
+)
+
+type CreditRow = { label: string; value: string }
+const creditRows = computed<CreditRow[]>(() => {
+  const rows: CreditRow[] = []
+  if (props.level.creator)         rows.push({ label: 'Creator(s)', value: props.level.creator })
+  if (props.level.verifier)        rows.push({ label: 'Verifier',   value: props.level.verifier })
+  if (resolvedPublisher.value)     rows.push({ label: 'Publisher',  value: resolvedPublisher.value })
+  return rows
+})
+
+const infoRows = computed<CreditRow[]>(() => {
+  const rows: CreditRow[] = []
+  if (props.level.placement_source) rows.push({ label: 'Source list',   value: props.level.placement_source })
+  if (props.level.verification)     rows.push({ label: 'Verification',  value: props.level.verification })
+  if (props.level.year_verified)    rows.push({ label: 'Year verified', value: String(props.level.year_verified) })
+  return rows
+})
+
+// Stat tiles: rendered only when populated. Two grids preserved from the
+// original layout — the first is identity/scoring, the second is gameplay
+// metadata. The grid-cols class is picked based on visible-tile count so
+// hidden tiles don't leave gray gap-px slots showing through.
+type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'gddl_tier' | 'verify_date'
+type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement'
+
+const visibleTiles1 = computed<Tile1[]>(() => {
+  const out: Tile1[] = []
+  if (props.level.gd_id)             out.push('level_id')
+  if (props.level.points != null)    out.push('list_points')
+  if (props.level.enjoyment != null) out.push('enjoyment')
+  if (props.level.gddl_tier)         out.push('gddl_tier')
+  if (props.level.verify_date)       out.push('verify_date')
+  return out
+})
+
+const visibleTiles2 = computed<Tile2[]>(() => {
+  const out: Tile2[] = []
+  if (props.level.difficulty)         out.push('difficulty')
+  if (ratedLabel.value)               out.push('rated')
+  if (props.level.main_skillset)      out.push('main_skillset')
+  if (props.level.pov_placement != null) out.push('pov_placement')
+  return out
+})
+
+// Tailwind needs literal class names in source — enumerate up to 5.
+function gridColsClass(n: number): string {
+  switch (n) {
+    case 1: return 'grid-cols-1'
+    case 2: return 'grid-cols-2'
+    case 3: return 'grid-cols-2 sm:grid-cols-3'
+    case 4: return 'grid-cols-2 sm:grid-cols-4'
+    case 5: return 'grid-cols-2 sm:grid-cols-5'
+    default: return 'grid-cols-2 sm:grid-cols-4'
+  }
+}
+
 async function saveEdit() {
   if (saving.value) return
   saving.value = true
@@ -535,72 +597,82 @@ async function deleteLevel() {
         class="text-sm text-zinc-300 whitespace-pre-wrap mb-6 leading-relaxed"
       >{{ level.description_override || infoData?.description }}</p>
 
-      <!-- Stats grid -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-3">
-        <div class="bg-zinc-950 p-4">
+      <!-- Stats grid: identity / scoring -->
+      <div
+        v-if="visibleTiles1.length"
+        class="grid gap-px bg-zinc-800 rounded-md overflow-hidden mb-3"
+        :class="gridColsClass(visibleTiles1.length)"
+      >
+        <div v-if="visibleTiles1.includes('level_id')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
           <a
-            v-if="gdLevelUrl"
-            :href="gdLevelUrl"
+            :href="gdLevelUrl!"
             target="_blank"
             rel="noopener"
             class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
           >{{ level.gd_id }}</a>
-          <div v-else class="tabular-nums text-base text-zinc-600">—</div>
         </div>
-        <div class="bg-zinc-950 p-4">
+        <div v-if="visibleTiles1.includes('list_points')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">List Points</div>
           <div class="tabular-nums text-base text-amber-300">{{ formatPoints(level.points) }}</div>
         </div>
-        <div class="bg-zinc-950 p-4">
-          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-          <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
+        <div v-if="visibleTiles1.includes('enjoyment')" class="bg-zinc-950 p-4">
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
+          <div class="tabular-nums text-base text-zinc-100">{{ Number(level.enjoyment).toFixed(1) }}</div>
         </div>
-        <div class="bg-zinc-950 p-4">
+        <div v-if="visibleTiles1.includes('gddl_tier')" class="bg-zinc-950 p-4">
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
+          <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier }}</div>
+        </div>
+        <div v-if="visibleTiles1.includes('verify_date')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify Date</div>
-          <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
+          <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date }}</div>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
-        <div class="bg-zinc-950 p-4">
+      <!-- Stats grid: gameplay metadata -->
+      <div
+        v-if="visibleTiles2.length"
+        class="grid gap-px bg-zinc-800 rounded-md overflow-hidden mb-6"
+        :class="gridColsClass(visibleTiles2.length)"
+      >
+        <div v-if="visibleTiles2.includes('difficulty')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
-          <div class="text-sm text-zinc-100">{{ level.difficulty ?? '—' }}</div>
+          <div class="text-sm text-zinc-100">{{ level.difficulty }}</div>
         </div>
-        <div class="bg-zinc-950 p-4">
+        <div v-if="visibleTiles2.includes('rated')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Rated</div>
-          <div class="text-sm text-zinc-100">{{ ratedLabel ?? (level.gd_id ? '…' : '—') }}</div>
+          <div class="text-sm text-zinc-100">{{ ratedLabel }}</div>
         </div>
-        <div class="bg-zinc-950 p-4">
+        <div v-if="visibleTiles2.includes('main_skillset')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Main Skillset</div>
-          <div class="text-sm text-zinc-100">{{ level.main_skillset ?? '—' }}</div>
+          <div class="text-sm text-zinc-100">{{ level.main_skillset }}</div>
         </div>
-        <div class="bg-zinc-950 p-4">
+        <div v-if="visibleTiles2.includes('pov_placement')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Placement on Verification</div>
-          <div class="tabular-nums text-sm text-zinc-100">{{ level.pov_placement ?? '—' }}</div>
+          <div class="tabular-nums text-sm text-zinc-100">{{ level.pov_placement }}</div>
         </div>
       </div>
 
       <!-- Permanent-only credits -->
-      <section v-if="isPermanent" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+      <section v-if="isPermanent && creditRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Credits</h2>
         <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt class="text-zinc-500">Creator(s)</dt><dd class="text-zinc-200">{{ level.creator ?? '—' }}</dd>
-          <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ level.verifier ?? '—' }}</dd>
-          <dt class="text-zinc-500">Publisher</dt><dd class="text-zinc-200">{{ level.publisher ?? '—' }}</dd>
-          <dt class="text-zinc-500">Enjoyment</dt>
-          <dd class="text-zinc-200 tabular-nums">{{ level.enjoyment != null ? Number(level.enjoyment).toFixed(1) : '—' }}</dd>
+          <template v-for="row in creditRows" :key="row.label">
+            <dt class="text-zinc-500">{{ row.label }}</dt>
+            <dd class="text-zinc-200">{{ row.value }}</dd>
+          </template>
         </dl>
       </section>
 
       <!-- Metadata block -->
-      <section class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+      <section v-if="infoRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
         <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-          <dt class="text-zinc-500">Source list</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
-          <dt class="text-zinc-500">Verification</dt>
-          <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
-          <dt class="text-zinc-500">Year verified</dt><dd class="text-zinc-200">{{ level.year_verified ?? '—' }}</dd>
+          <template v-for="row in infoRows" :key="row.label">
+            <dt class="text-zinc-500">{{ row.label }}</dt>
+            <dd class="text-zinc-200 truncate" :title="row.value">{{ row.value }}</dd>
+          </template>
         </dl>
       </section>
 
