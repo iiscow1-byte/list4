@@ -7,17 +7,31 @@ const TIER_ORD_SQL = `
   END
 `
 
+// Whether a level is a "Challenge" per the GD API (cached in gd_info_cache).
+// Mirrors the UI rule in LevelDetail.vue: unrated (score 0) + Tiny/Short length.
+// Returns 0/1 (never NULL) so it's safe to AND/NOT against without NULL pitfalls.
+const API_CHALLENGE_SQL = `
+  COALESCE(
+    json_extract(c.info_json, '$.score') = 0
+    AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short'),
+    0
+  )
+`
+
 // Numeric ladder for rating sorts. Higher number = "more rated". Mapped against
 // the stored `rated` column (Mythic > Legendary > Epic > Featured > Rated >
-// Unrated > Challenge). NULL/empty rows sort with Unrated.
+// Unrated > Challenge). NULL/empty rows sort with Unrated, except those the GD
+// API reports as Challenge — those sort with Challenge to stay consistent with
+// how they're labeled in the detail view.
 const RATING_ORD_SQL = `
-  CASE rated
-    WHEN 'Mythic'    THEN 6
-    WHEN 'Legendary' THEN 5
-    WHEN 'Epic'      THEN 4
-    WHEN 'Featured'  THEN 3
-    WHEN 'Rated'     THEN 2
-    WHEN 'Challenge' THEN 0
+  CASE
+    WHEN rated = 'Mythic'    THEN 6
+    WHEN rated = 'Legendary' THEN 5
+    WHEN rated = 'Epic'      THEN 4
+    WHEN rated = 'Featured'  THEN 3
+    WHEN rated = 'Rated'     THEN 2
+    WHEN rated = 'Challenge' THEN 0
+    WHEN (rated IS NULL OR rated = '') AND ${API_CHALLENGE_SQL} THEN 0
     ELSE 1
   END
 `
@@ -126,8 +140,8 @@ export default defineEventHandler((event) => {
       parts.push(`rated IN (${expanded.map(() => '?').join(',')})`)
       filterParams.push(...expanded)
     }
-    if (includesUnrated) parts.push(`(rated IS NULL OR rated = '' OR rated = 'Unrated')`)
-    if (includesChallenge) { parts.push(`rated = ?`); filterParams.push('Challenge') }
+    if (includesUnrated) parts.push(`((rated IS NULL OR rated = '' OR rated = 'Unrated') AND NOT ${API_CHALLENGE_SQL})`)
+    if (includesChallenge) parts.push(`(rated = 'Challenge' OR ((rated IS NULL OR rated = '') AND ${API_CHALLENGE_SQL}))`)
     filterConds.push(`(${parts.join(' OR ')})`)
   }
 
@@ -153,7 +167,12 @@ export default defineEventHandler((event) => {
     : ''
   const allParams = [...filterParams, ...searchParams]
 
-  const total = (db.prepare(`SELECT COUNT(*) as n FROM levels ${allWhere}`).get(...allParams) as { n: number }).n
+  // gd_info_cache is joined so RATING_ORD_SQL / API_CHALLENGE_SQL can read
+  // info_json. PRIMARY KEY on gd_info_cache.gd_id keeps it 1:1 — row count
+  // (and COUNT(*)) is unchanged by the join.
+  const fromClause = `levels LEFT JOIN gd_info_cache c ON c.gd_id = levels.gd_id`
+
+  const total = (db.prepare(`SELECT COUNT(*) as n FROM ${fromClause} ${allWhere}`).get(...allParams) as { n: number }).n
 
   let items: any[]
   if (useFilterRank) {
@@ -165,7 +184,7 @@ export default defineEventHandler((event) => {
       WITH ranked AS (
         SELECT position, name, difficulty, points, gddl_tier,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
-        FROM levels
+        FROM ${fromClause}
         ${filterWhere}
       )
       SELECT * FROM ranked
@@ -179,7 +198,7 @@ export default defineEventHandler((event) => {
   } else {
     items = db.prepare(
       `SELECT position, name, difficulty, points, gddl_tier
-       FROM levels ${allWhere}
+       FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     ).all(...allParams, ...orderParams, pageSize, offset) as any[]

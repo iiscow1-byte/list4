@@ -59,11 +59,24 @@ export default defineEventHandler((event) => {
     .filter((r) => r.count > 0)
 
   // Rating order matches GD's rating tiers + the list-specific extras.
+  // Levels with no admin-set `rated` value but whose cached GD info reports
+  // score 0 + Tiny/Short length are reclassified as Challenge here, mirroring
+  // the filter logic in /api/levels and the label in LevelDetail.vue.
   const ratingOrder = ['Mythic', 'Legendary', 'Epic', 'Featured', 'Rated', 'Unrated', 'Challenge', 'Official']
   const ratingRows = db
     .prepare(
-      `SELECT COALESCE(NULLIF(rated, ''), 'Unrated') AS rating_name, COUNT(*) AS count
-       FROM levels
+      `SELECT
+         CASE
+           WHEN rated IS NOT NULL AND rated <> '' THEN rated
+           WHEN COALESCE(
+                  json_extract(c.info_json, '$.score') = 0
+                  AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short'),
+                  0
+                ) = 1 THEN 'Challenge'
+           ELSE 'Unrated'
+         END AS rating_name,
+         COUNT(*) AS count
+       FROM levels LEFT JOIN gd_info_cache c ON c.gd_id = levels.gd_id
        GROUP BY rating_name`,
     )
     .all() as { rating_name: string; count: number }[]
