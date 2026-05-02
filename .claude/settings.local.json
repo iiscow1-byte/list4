@@ -17,7 +17,8 @@
       "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('records total:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records'\\).get\\(\\)\\); console.log\\('user-submitted:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records WHERE submitted_by IS NOT NULL'\\).get\\(\\)\\); console.log\\('permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=1'\\).get\\(\\)\\); console.log\\('non-permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=0 OR permanent IS NULL'\\).get\\(\\)\\);\")",
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gerg1\\\\Documents\\\\code\\\\Geometry dash\\\\ALL\\\\list4\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(npx nuxi *)"
+      "Bash(npx nuxi *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

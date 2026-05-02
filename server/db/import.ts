@@ -357,7 +357,16 @@ async function importStatsViewer() {
     `INSERT INTO records (level_id, player_id, player_name, video, permanent, submitted_by)
      VALUES (?, ?, ?, NULL, 1, NULL)`,
   )
-  const findLevel = db.prepare(`SELECT id FROM levels WHERE position = ?`)
+  // Resolve by name first — that's the most stable key the stats viewer exposes.
+  // Position lookup is the fallback: admin moves/deletes can shift DB positions
+  // out of sync with the sheet's "ALL Place", and matching by position would
+  // then bind records to the wrong level. The resulting level_id is the
+  // levels.id PK (stable for the lifetime of the row), so once stored, records
+  // stay correctly attached even if the level later moves.
+  const findLevelByName = db.prepare(
+    `SELECT id FROM levels WHERE name = ? COLLATE NOCASE ORDER BY position ASC LIMIT 1`,
+  )
+  const findLevelByPosition = db.prepare(`SELECT id FROM levels WHERE position = ?`)
   const findPlayer = db.prepare(`SELECT id FROM players WHERE name = ? COLLATE NOCASE`)
 
   let imported = 0
@@ -392,9 +401,12 @@ async function importStatsViewer() {
         const player = players.get(block)
         if (!player || !fields.name) continue
         const place = num(fields.place ?? '')
-        if (place === null || place <= 0) continue
 
-        const lvl = findLevel.get(place) as { id: number } | undefined
+        const levelName = (fields.name ?? '').trim()
+        const lvl = (levelName ? findLevelByName.get(levelName) as { id: number } | undefined : undefined)
+                 ?? (place !== null && place > 0
+                       ? findLevelByPosition.get(place) as { id: number } | undefined
+                       : undefined)
         if (!lvl) { missingLevels++; continue }
 
         const dedupeKey = `${lvl.id}:${player.toLowerCase()}`
