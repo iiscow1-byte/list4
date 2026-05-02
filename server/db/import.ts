@@ -223,6 +223,8 @@ function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): void {
   }
 }
 
+const dupKey = (gd: number | null, n: string) => `${gd ?? ''}|${n.toLowerCase()}`
+
 async function importLevels() {
   const db = getDb()
 
@@ -231,7 +233,7 @@ async function importLevels() {
   // `rated` is intentionally not imported from the sheet — the GD API is the
   // source of truth for ratings. New rows are inserted with rated = NULL.
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO levels
+    INSERT INTO levels
       (position, name, gd_id, gddl_tier, difficulty, placement_source, points,
        main_skillset, verify_date, verification, verification_url, pov_placement,
        year_verified, category, source_tab)
@@ -245,29 +247,30 @@ async function importLevels() {
       .map((r) => r.gd_id),
   )
 
-  // Sheet placement numbers are no longer authoritative — we just count up.
-  // Same level appearing on multiple tabs (e.g. main + tier-specific) collapses
-  // to a single row; the first tab to claim it wins, matching the TABS order
-  // (Main, then tiers). The placement column is still read, but only as a
-  // "is this a real level row" signal (decoration / section-header rows have
-  // no placement value).
-  //
-  // Re-runs against a populated DB skip rows that already exist — keyed on
-  // (gd_id, name) so positions don't drift across imports.
-  const startingPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
-  let pos = startingPos
-
-  // Pre-load existing (gd_id, name) pairs to detect duplicates across runs.
+  // Pre-load existing rows so we can decide insert vs. reuse-and-reposition.
   // Lowercased name matches the COLLATE NOCASE index on levels.name.
-  const dupKey = (gd: number | null, n: string) => `${gd ?? ''}|${n.toLowerCase()}`
-  const seen = new Set<string>()
-  for (const row of db.prepare(`SELECT gd_id, name FROM levels`).all() as { gd_id: number | null; name: string }[]) {
-    seen.add(dupKey(row.gd_id, row.name))
+  const existingByKey = new Map<string, number>()  // key -> id
+  for (const row of db
+    .prepare(`SELECT id, gd_id, name FROM levels WHERE permanent = 0 OR permanent IS NULL`)
+    .all() as { id: number; gd_id: number | null; name: string }[]) {
+    existingByKey.set(dupKey(row.gd_id, row.name), row.id)
   }
 
+  // Sheet placement numbers are not authoritative — the row order *within* each
+  // tab is. Same level appearing on multiple tabs (e.g. main + tier-specific)
+  // collapses to a single row; the first tab to claim it wins, matching the
+  // TABS order (Main, then tiers). The placement column is still read, but only
+  // as a "is this a real level row" signal (decoration / section-header rows
+  // have no placement value).
+  //
+  // Newly-encountered rows are inserted with a temporary position above
+  // MAX(position); applySheetOrder below renumbers everything to match the
+  // sheet's current ordering.
+  let tempPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
+
+  const sheetOrder: { key: string; gdId: number | null; name: string }[] = []
   let total = 0
   let skipped = 0
-  let collisions = 0
   let permSkipped = 0
 
   for (const tab of TABS) {
@@ -299,12 +302,17 @@ async function importLevels() {
         const gdId = num(r[c['level id']!])
         if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
         const key = dupKey(gdId, name)
-        if (seen.has(key)) { collisions++; continue }
-        seen.add(key)
-        pos++
+        // Already encountered earlier in the sheet (or already in the DB) —
+        // record sheet rank but don't re-insert.
+        if (sheetOrder.some((s) => s.key === key)) continue
+        sheetOrder.push({ key, gdId, name })
+
+        if (existingByKey.has(key)) continue
+
+        tempPos++
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
         const result = insert.run(
-          pos,
+          tempPos,
           name,
           gdId,
           txt(r[c['gddl tier']!]),
@@ -319,19 +327,87 @@ async function importLevels() {
           num(r[c['year verified']!]),
           tab.label,
         )
-        if (result.changes === 0) collisions++
-        else imported++
+        existingByKey.set(key, Number(result.lastInsertRowid))
+        imported++
       }
       db.exec('COMMIT')
     } catch (e) {
       db.exec('ROLLBACK')
       throw e
     }
-    console.log(`${imported} levels`)
+    console.log(`${imported} new`)
     total += imported
   }
 
-  console.log(`\nImported ${total} levels (${skipped} blank, ${collisions} position conflicts, ${permSkipped} skipped — owned by permanent records).`)
+  // Renumber non-permanent rows so positions match the freshly-collected sheet
+  // order. Permanent levels are anchors — their positions are kept fixed and
+  // sheet entries flow around them. Rows still in the DB but no longer on the
+  // sheet (e.g. a level the curators removed) drift to the end of the list,
+  // ordered by their previous position; nothing is deleted automatically.
+  const orphans = applySheetOrder(db, sheetOrder)
+
+  console.log(
+    `\nImported ${total} new levels; renumbered all non-permanent rows by sheet order ` +
+    `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
+    `${permSkipped} skipped — owned by permanent records.`,
+  )
+}
+
+/**
+ * Two-phase reposition. Sheet entries get sequential positions starting at 1,
+ * skipping over positions held by permanent levels (which are website-owned and
+ * never move). DB rows that don't match a sheet entry are appended after the
+ * sheet entries in their previous-position order. Everything happens inside a
+ * single transaction; the negative-position parking step lets us swap rows
+ * without tripping the position UNIQUE constraint mid-way.
+ *
+ * Returns the count of non-permanent rows that weren't matched against the
+ * sheet (orphans).
+ */
+function applySheetOrder(
+  db: ReturnType<typeof getDb>,
+  sheetOrder: { key: string; gdId: number | null; name: string }[],
+): number {
+  const sheetRank = new Map<string, number>()
+  sheetOrder.forEach((s, i) => sheetRank.set(s.key, i))
+
+  const allNonPerm = db
+    .prepare(`SELECT id, gd_id, name, position FROM levels WHERE permanent = 0 OR permanent IS NULL`)
+    .all() as { id: number; gd_id: number | null; name: string; position: number }[]
+
+  const ranked = allNonPerm.map((r) => ({
+    id: r.id,
+    rank: sheetRank.get(dupKey(r.gd_id, r.name)) ?? Number.POSITIVE_INFINITY,
+    fallbackPos: r.position,
+  }))
+  ranked.sort((a, b) => a.rank - b.rank || a.fallbackPos - b.fallbackPos)
+
+  const permPositions = new Set(
+    (db.prepare(`SELECT position FROM levels WHERE permanent = 1`).all() as { position: number }[])
+      .map((r) => r.position),
+  )
+  const targets: number[] = []
+  let p = 1
+  while (targets.length < ranked.length) {
+    if (!permPositions.has(p)) targets.push(p)
+    p++
+  }
+
+  const setPos = db.prepare(`UPDATE levels SET position = ? WHERE id = ?`)
+  db.exec('BEGIN')
+  try {
+    // Park every non-permanent row at a unique negative position so the final
+    // assignment can't collide with a value still held by another row in this
+    // batch. Permanent positions are positive, so negatives are conflict-free.
+    for (let i = 0; i < ranked.length; i++) setPos.run(-(i + 1), ranked[i]!.id)
+    for (let i = 0; i < ranked.length; i++) setPos.run(targets[i]!, ranked[i]!.id)
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+
+  return ranked.filter((r) => !Number.isFinite(r.rank)).length
 }
 
 async function importLeaderboard() {
