@@ -171,6 +171,17 @@ async function importLevels() {
       .map((r) => r.gd_id),
   )
 
+  // Sheet placement numbers are no longer authoritative — we just count up.
+  // Same level can appear on multiple tabs (e.g. main vs. tier-specific); each
+  // occurrence becomes its own row at the next sequential position. The
+  // placement column is still read, but only as a "is this a real level row"
+  // signal (decoration / section-header rows have no placement value).
+  //
+  // Re-runs against a populated DB rely on INSERT OR IGNORE to no-op via the
+  // position UNIQUE — drop the data files first if you want a clean rebuild.
+  const startingPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
+  let pos = startingPos
+
   let total = 0
   let skipped = 0
   let collisions = 0
@@ -200,12 +211,14 @@ async function importLevels() {
         const rh = html[i]!
         const name = txt(r[c['level name']!])
         const placement = num(r[c['placement']!])
+        // Filter, don't assign — placement === null means decoration row.
         if (!name || placement === null) { skipped++; continue }
         const gdId = num(r[c['level id']!])
         if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
+        pos++
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
         const result = insert.run(
-          placement,
+          pos,
           name,
           gdId,
           txt(r[c['gddl tier']!]),
