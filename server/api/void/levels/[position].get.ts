@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { communityStats } from '~/server/utils/opinions'
 
 export default defineEventHandler((event) => {
   const position = Number(getRouterParam(event, 'position'))
@@ -8,5 +9,6 @@ export default defineEventHandler((event) => {
   const db = getDb()
   const level = db.prepare(`SELECT * FROM void_levels WHERE position = ?`).get(position) as any
   if (!level) throw createError({ statusCode: 404, statusMessage: 'Void level not found' })
-  return level
+  const community = communityStats(db, 'void', level.id)
+  return { ...level, community }
 })

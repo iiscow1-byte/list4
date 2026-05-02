@@ -1,4 +1,10 @@
 <script setup lang="ts">
+type Community = {
+  count: number
+  community_tier: string | null
+  community_enjoyment: number | null
+  distribution: Record<string, number> | null
+}
 type Level = {
   position: number
   name: string
@@ -21,6 +27,7 @@ type Level = {
   publisher?: string | null
   enjoyment?: number | null
   description_override?: string | null
+  community?: Community | null
 }
 
 const props = defineProps<{ level: Level; readonly?: boolean }>()
@@ -269,7 +276,11 @@ const infoRows = computed<CreditRow[]>(() => {
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
 type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'gddl_tier' | 'verify_date'
-type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement'
+type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
+
+const community = computed<Community | null>(() => props.level.community ?? null)
+const hasCommunityTier = computed(() => !!community.value?.community_tier)
+const hasDistribution = computed(() => !!community.value?.distribution)
 
 const visibleTiles1 = computed<Tile1[]>(() => {
   const out: Tile1[] = []
@@ -287,7 +298,50 @@ const visibleTiles2 = computed<Tile2[]>(() => {
   if (ratedLabel.value)               out.push('rated')
   if (props.level.main_skillset)      out.push('main_skillset')
   if (props.level.pov_placement != null) out.push('pov_placement')
+  if (hasCommunityTier.value)         out.push('community_tier')
   return out
+})
+
+// --- Community distribution popover (bar chart) ---
+const distOpen = ref(false)
+const distBtn = ref<HTMLElement | null>(null)
+const distPanel = ref<HTMLElement | null>(null)
+
+function toggleDist() { distOpen.value = !distOpen.value }
+function onDistDocClick(e: MouseEvent) {
+  if (!distOpen.value) return
+  const t = e.target as Node
+  if (distPanel.value?.contains(t) || distBtn.value?.contains(t)) return
+  distOpen.value = false
+}
+function onDistKey(e: KeyboardEvent) {
+  if (e.key === 'Escape') distOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onDistDocClick)
+  document.addEventListener('keydown', onDistKey)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDistDocClick)
+  document.removeEventListener('keydown', onDistKey)
+})
+
+/** Sorted [label, count] pairs for the bar chart. Subtiers ascending, then
+ * Tiers ascending; unrecognized keys fall to the bottom. */
+function tierKeyOrder(label: string): number {
+  if (label === '—') return 1e9
+  const m = label.match(/^(Tier|Subtier) (\d{1,2})$/)
+  if (!m) return 9e8
+  const n = Number(m[2])
+  return m[1] === 'Subtier' ? n : 100 + n
+}
+const distRows = computed<{ label: string; count: number; pct: number }[]>(() => {
+  const dist = community.value?.distribution
+  if (!dist) return []
+  const entries = Object.entries(dist).map(([label, count]) => ({ label, count }))
+  entries.sort((a, b) => tierKeyOrder(a.label) - tierKeyOrder(b.label))
+  const max = Math.max(1, ...entries.map((e) => e.count))
+  return entries.map((e) => ({ ...e, pct: (e.count / max) * 100 }))
 })
 
 // Tailwind needs literal class names in source — enumerate up to 5.
@@ -374,6 +428,11 @@ async function deleteLevel() {
           :to="`/records/submit?position=${level.position}`"
           class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
         >Submit record</NuxtLink>
+        <NuxtLink
+          v-if="canSubmitRecord"
+          :to="`/opinions/submit?position=${level.position}`"
+          class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
+        >Submit opinion</NuxtLink>
         <span v-if="promoteError" class="text-[11px] text-red-400">{{ promoteError }}</span>
       </div>
     </header>
@@ -651,6 +710,45 @@ async function deleteLevel() {
         <div v-if="visibleTiles2.includes('pov_placement')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Placement on Verification</div>
           <div class="tabular-nums text-sm text-zinc-100">{{ level.pov_placement }}</div>
+        </div>
+        <div v-if="visibleTiles2.includes('community_tier')" class="bg-zinc-950 p-4 relative">
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1 flex items-center gap-1.5">
+            <span>Community Tier</span>
+            <button
+              v-if="hasDistribution"
+              ref="distBtn"
+              type="button"
+              class="w-4 h-4 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-accent hover:border-accent/40 transition-colors text-[10px] font-semibold flex items-center justify-center leading-none"
+              :aria-expanded="distOpen"
+              aria-label="Show rating distribution"
+              title="Show rating distribution"
+              @click.stop="toggleDist"
+            >i</button>
+          </div>
+          <div class="text-sm text-zinc-100">
+            {{ community?.community_tier }}
+            <span class="text-[10px] text-zinc-500 ml-1">· {{ community?.count }} rating{{ community?.count === 1 ? '' : 's' }}</span>
+          </div>
+
+          <div
+            v-if="distOpen && hasDistribution"
+            ref="distPanel"
+            class="absolute right-0 top-full mt-2 z-20 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+          >
+            <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Rating distribution</span>
+              <span class="text-[10px] text-zinc-600 tabular-nums">{{ community?.count }} total</span>
+            </div>
+            <ul class="px-3 py-2 space-y-1.5">
+              <li v-for="row in distRows" :key="row.label" class="flex items-center gap-2 text-[11px]">
+                <span class="w-16 shrink-0 truncate text-zinc-400">{{ row.label }}</span>
+                <div class="flex-1 h-2 rounded bg-zinc-900 overflow-hidden">
+                  <div class="h-full bg-accent" :style="{ width: row.pct + '%' }" />
+                </div>
+                <span class="w-6 shrink-0 text-right tabular-nums text-zinc-300">{{ row.count }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 

@@ -308,4 +308,34 @@ function initSchema(db: DatabaseSync) {
       fetched_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
   `)
+
+  // Opinions: per-user difficulty / enjoyment ratings on a level. Approved
+  // opinions feed the "community tier" tile + bar chart on the level page.
+  // list_kind disambiguates main-list and void-list levels since their tables
+  // are separate; level_id refers to whichever table list_kind names.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS opinions (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_kind             TEXT    NOT NULL DEFAULT 'main' CHECK(list_kind IN ('main','void')),
+      level_id              INTEGER NOT NULL,
+      submitted_by          INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      proof_url             TEXT    NOT NULL,
+      gddl_tier             TEXT,
+      difficulty            TEXT,
+      enjoyment             REAL,
+      notes                 TEXT,
+      request_relocation    INTEGER NOT NULL DEFAULT 0,
+      requested_position    INTEGER,
+      comparison_level_id   INTEGER,
+      comparison_level_name TEXT,
+      status                TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      source_record_id      INTEGER REFERENCES records(id) ON DELETE SET NULL,
+      submitted_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_at            TEXT,
+      decided_by            INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_opinions_level   ON opinions(list_kind, level_id, status);
+    CREATE INDEX IF NOT EXISTS idx_opinions_status  ON opinions(status);
+    CREATE INDEX IF NOT EXISTS idx_opinions_record  ON opinions(source_record_id);
+  `)
 }

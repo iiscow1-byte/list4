@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { communityStats } from '~/server/utils/opinions'
 
 export default defineEventHandler((event) => {
   const position = Number(getRouterParam(event, 'position'))
@@ -20,5 +21,10 @@ export default defineEventHandler((event) => {
     )
     .all(level.id)
 
-  return { ...level, records }
+  const community = communityStats(db, 'main', level.id)
+  // If the community has settled on an enjoyment, prefer it over the imported
+  // sheet value for display purposes.
+  const enjoyment = community.community_enjoyment ?? level.enjoyment
+
+  return { ...level, enjoyment, records, community }
 })

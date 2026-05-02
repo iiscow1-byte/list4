@@ -54,6 +54,20 @@ const holderName = ref('')
 const video = ref('')
 const note = ref('')
 
+// Optional ratings — promoted to a real opinion if the record is approved.
+const TIER_OPTIONS = [
+  '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
+  ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
+]
+const DIFFICULTY_OPTIONS = [
+  '', 'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
+  'Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon',
+]
+const ratingOpen = ref(false)
+const opinionTier = ref('')
+const opinionDifficulty = ref('')
+const opinionEnjoyment = ref('')
+
 const multi = ref(false)
 let nextUid = 1
 const makeEmptyRow = (): Row => ({ uid: nextUid++, search: '', video: '', selected: null })
@@ -216,12 +230,19 @@ async function submit() {
         video: video.value.trim(),
         note: note.value.trim() || null,
         is_verification_claim: canClaimVerification.value && isVerificationClaim.value,
+        opinion_gddl_tier: opinionTier.value || null,
+        opinion_difficulty: opinionDifficulty.value || null,
+        opinion_enjoyment: opinionEnjoyment.value !== '' ? Number(opinionEnjoyment.value) : null,
       },
     })
     success.value = true
     video.value = ''
     note.value = ''
     isVerificationClaim.value = false
+    opinionTier.value = ''
+    opinionDifficulty.value = ''
+    opinionEnjoyment.value = ''
+    ratingOpen.value = false
     setTimeout(() => (success.value = false), 5000)
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
@@ -364,6 +385,45 @@ async function submit() {
           </span>
         </span>
       </label>
+
+      <fieldset v-if="!multi" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+          <button type="button" class="hover:text-zinc-300" @click="ratingOpen = !ratingOpen">
+            Rate this level <span class="text-zinc-600 normal-case">— optional, applied if the record is approved</span>
+            <span class="ml-1 text-[11px]">{{ ratingOpen ? '▾' : '▸' }}</span>
+          </button>
+        </legend>
+        <div v-if="ratingOpen" class="space-y-3 pt-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <select
+                v-model="opinionTier"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
+              <select
+                v-model="opinionDifficulty"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
+              </select>
+            </label>
+          </div>
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+            <input
+              v-model="opinionEnjoyment"
+              type="number" min="0" max="10" step="0.1" inputmode="decimal"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+        </div>
+      </fieldset>
 
       <label class="block">
         <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">— optional</span></span>

@@ -14,7 +14,10 @@
       "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('first 5 ids to fetch:', db.prepare\\(\\\\\"SELECT DISTINCT l.gd_id FROM levels l WHERE l.gd_id IS NOT NULL ORDER BY l.gd_id LIMIT 5\\\\\"\\).all\\(\\)\\);\")",
       "PowerShell(Get-Process -Name node -ErrorAction SilentlyContinue)",
       "PowerShell(Get-WmiObject Win32_Process -Filter \"name='node.exe'\")",
-      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('records total:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records'\\).get\\(\\)\\); console.log\\('user-submitted:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records WHERE submitted_by IS NOT NULL'\\).get\\(\\)\\); console.log\\('permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=1'\\).get\\(\\)\\); console.log\\('non-permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=0 OR permanent IS NULL'\\).get\\(\\)\\);\")"
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('records total:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records'\\).get\\(\\)\\); console.log\\('user-submitted:', db.prepare\\('SELECT COUNT\\(*\\) c FROM records WHERE submitted_by IS NOT NULL'\\).get\\(\\)\\); console.log\\('permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=1'\\).get\\(\\)\\); console.log\\('non-permanent levels:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE permanent=0 OR permanent IS NULL'\\).get\\(\\)\\);\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gerg1\\\\Documents\\\\code\\\\Geometry dash\\\\ALL\\\\list4\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(npx nuxi *)"
     ]
   }
 }
