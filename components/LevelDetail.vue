@@ -109,6 +109,7 @@ type EditableFields = Pick<Level,
   'verification' | 'verification_url' | 'year_verified' | 'description_override'
 >
 const editing = ref(false)
+const apiOverridesOpen = ref(false)
 const draft = reactive<Record<keyof EditableFields, any>>({
   name: '',
   gd_id: '',
@@ -151,6 +152,7 @@ function startEdit() {
   draftPosition.value = props.level.position
   saveError.value = null
   deleteError.value = null
+  apiOverridesOpen.value = false
   editing.value = true
 }
 
@@ -471,10 +473,6 @@ async function deleteLevel() {
           <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Publisher</span>
-          <input v-model="draft.publisher" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
           <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
@@ -486,10 +484,6 @@ async function deleteLevel() {
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
           <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
-          <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
@@ -509,17 +503,51 @@ async function deleteLevel() {
           <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
 
-        <label v-if="role === 'admin'" class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-            Description override <span class="text-zinc-600 normal-case">— admin only, replaces the GD description</span>
-          </span>
-          <textarea
-            v-model="draft.description_override"
-            rows="3"
-            placeholder="Leave blank to use the description pulled from GD."
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
+        <!-- Fields that override values pulled from the GD API. Collapsed by
+             default since they're only used to correct/replace API data. -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="apiOverridesOpen"
+            @click="apiOverridesOpen = !apiOverridesOpen"
+          >
+            <span>
+              API overrides
+              <span class="text-zinc-600 normal-case tracking-normal">— replace info pulled from Geometry Dash</span>
+            </span>
+            <svg
+              :class="{ 'rotate-180': apiOverridesOpen }"
+              class="w-3.5 h-3.5 transition-transform"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="apiOverridesOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Publisher</span>
+              <input v-model="draft.publisher" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
+              <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label v-if="role === 'admin'" class="block sm:col-span-2">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                Description override <span class="text-zinc-600 normal-case">— admin only, replaces the GD description</span>
+              </span>
+              <textarea
+                v-model="draft.description_override"
+                rows="3"
+                placeholder="Leave blank to use the description pulled from GD."
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          </div>
+        </div>
       </div>
 
       <div class="flex items-center gap-3 pt-2 flex-wrap">
