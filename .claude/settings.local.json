@@ -4,7 +4,16 @@
       "Bash(curl -s 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH/pubhtml' -A 'all-levels-list-importer/1.0')",
       "Bash(curl -sS 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH/pubhtml' -A 'all-levels-list-importer/1.0' -o /tmp/pubhtml.html -w 'HTTP %{http_code}\\\\nbytes %{size_download}\\\\n')",
       "Read(//tmp/**)",
-      "WebFetch(domain:boomlings.dev)"
+      "WebFetch(domain:boomlings.dev)",
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('levels w/ gd_id:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE gd_id IS NOT NULL'\\).get\\(\\)\\); console.log\\('void w/ gd_id:', db.prepare\\('SELECT COUNT\\(*\\) c FROM void_levels WHERE gd_id IS NOT NULL'\\).get\\(\\)\\); console.log\\('awaiting w/ gd_id:', db.prepare\\('SELECT COUNT\\(*\\) c FROM awaiting_levels WHERE gd_id IS NOT NULL'\\).get\\(\\)\\); console.log\\('cache rows:', db.prepare\\('SELECT COUNT\\(*\\) c FROM gd_info_cache'\\).get\\(\\)\\); console.log\\('missing main:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels l WHERE l.gd_id IS NOT NULL AND NOT EXISTS \\(SELECT 1 FROM gd_info_cache c WHERE c.gd_id=l.gd_id\\)'\\).get\\(\\)\\); console.log\\('missing void:', db.prepare\\('SELECT COUNT\\(*\\) c FROM void_levels l WHERE l.gd_id IS NOT NULL AND NOT EXISTS \\(SELECT 1 FROM gd_info_cache c WHERE c.gd_id=l.gd_id\\)'\\).get\\(\\)\\); console.log\\('missing awaiting:', db.prepare\\('SELECT COUNT\\(*\\) c FROM awaiting_levels l WHERE l.gd_id IS NOT NULL AND NOT EXISTS \\(SELECT 1 FROM gd_info_cache c WHERE c.gd_id=l.gd_id\\)'\\).get\\(\\)\\);\")",
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); const t=db.prepare\\(\\\\\"SELECT name FROM sqlite_master WHERE type='table'\\\\\"\\).all\\(\\); console.log\\(t\\);\")",
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('levels w/ gd_id:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels WHERE gd_id IS NOT NULL'\\).get\\(\\)\\); console.log\\('levels total:', db.prepare\\('SELECT COUNT\\(*\\) c FROM levels'\\).get\\(\\)\\); console.log\\('sample gd_ids:', db.prepare\\('SELECT gd_id, name FROM levels WHERE gd_id IS NOT NULL LIMIT 3'\\).all\\(\\)\\);\")",
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('cache rows:', db.prepare\\('SELECT COUNT\\(*\\) c FROM gd_info_cache'\\).get\\(\\)\\); console.log\\('latest:', db.prepare\\(\\\\\"SELECT gd_id, fetched_at FROM gd_info_cache ORDER BY fetched_at DESC LIMIT 3\\\\\"\\).all\\(\\)\\);\")",
+      "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue)",
+      "Bash(node -e \"const {DatabaseSync}=require\\('node:sqlite'\\); const db=new DatabaseSync\\('data/list.db'\\); console.log\\('first 5 ids to fetch:', db.prepare\\(\\\\\"SELECT DISTINCT l.gd_id FROM levels l WHERE l.gd_id IS NOT NULL ORDER BY l.gd_id LIMIT 5\\\\\"\\).all\\(\\)\\);\")",
+      "PowerShell(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-WmiObject Win32_Process -Filter \"name='node.exe'\")"
     ]
   }
 }
