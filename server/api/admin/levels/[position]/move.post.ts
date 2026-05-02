@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
+import { recomputePoints } from '~/server/utils/points'
 
 /**
  * Move a level from `position` to `body.to`. Other affected rows in the range
@@ -10,7 +11,7 @@ import { requireMod } from '~/server/utils/auth'
 const STASH = -1_000_000_000
 
 export default defineEventHandler(async (event) => {
-  requireMod(event)
+  const account = requireMod(event)
   const fromPos = Number(getRouterParam(event, 'position'))
   if (!Number.isInteger(fromPos) || fromPos <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Bad source position.' })
@@ -50,11 +51,20 @@ export default defineEventHandler(async (event) => {
     // 3. Place the moved row at its new position.
     db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(target, STASH)
 
+    db.prepare(
+      `INSERT INTO position_history (level_id, from_position, to_position, changed_by)
+       VALUES (?, ?, ?, ?)`,
+    ).run(existing.id, fromPos, target, account.id)
+
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
     throw e
   }
+
+  // Tier midpoints shift whenever a level moves across tier boundaries, so
+  // recompute points across the whole list after the structural change.
+  recomputePoints(db)
 
   return { ok: true, from: fromPos, to: target }
 })

@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { recomputePoints } from '~/server/utils/points'
 
 /**
  * Approve or reject a pending level submission.
@@ -50,8 +51,8 @@ export default defineEventHandler(async (event) => {
       db.prepare(
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
-           gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by, pov_placement)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -70,6 +71,7 @@ export default defineEventHandler(async (event) => {
         submitter,
         sub.id,
         account.id,
+        sub.pov_placement,
       )
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
@@ -126,8 +128,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO levels
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
-           creator, permanent, enjoyment)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?)`,
+           creator, permanent, enjoyment, pov_placement)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -140,6 +142,7 @@ export default defineEventHandler(async (event) => {
         sub.verification_url,
         sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
         sub.enjoyment,
+        sub.pov_placement,
       )
     }
 
@@ -150,6 +153,10 @@ export default defineEventHandler(async (event) => {
     db.exec('ROLLBACK')
     throw e
   }
+
+  // Inserting at `insertPos` shifts every level below it; tier midpoints
+  // change too, so refresh the auto-computed points for the whole list.
+  if (!goesToVoid) recomputePoints(db)
 
   return { ok: true, voided: goesToVoid, permanent: isPermanent }
 })

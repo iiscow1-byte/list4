@@ -26,5 +26,15 @@ export default defineEventHandler((event) => {
   // sheet value for display purposes.
   const enjoyment = community.community_enjoyment ?? level.enjoyment
 
-  return { ...level, enjoyment, records, community }
+  const position_history = db
+    .prepare(
+      `SELECT h.from_position, h.to_position, h.changed_at, a.username AS changed_by
+       FROM position_history h
+       LEFT JOIN accounts a ON a.id = h.changed_by
+       WHERE h.level_id = ?
+       ORDER BY h.changed_at DESC, h.id DESC`,
+    )
+    .all(level.id)
+
+  return { ...level, enjoyment, records, community, position_history }
 })

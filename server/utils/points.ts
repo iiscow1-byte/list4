@@ -1,0 +1,161 @@
+import type { DatabaseSync } from 'node:sqlite'
+
+/**
+ * Midpoint point values per GDDL tier. A level placed exactly at its tier's
+ * median list position gets the value below; everything else is linearly
+ * interpolated between adjacent tier midpoints. Sourced from `dev/median levels`.
+ */
+export const TIER_POINTS: Record<string, number> = {
+  'Subtier 0': 0,
+  'Subtier 1': 0.05,
+  'Subtier 2': 0.20,
+  'Subtier 3': 0.30,
+  'Subtier 4': 0.50,
+  'Subtier 5': 0.75,
+  'Tier 1': 1.25,
+  'Tier 2': 2.5,
+  'Tier 3': 3.5,
+  'Tier 4': 4.5,
+  'Tier 5': 5.5,
+  'Tier 6': 6.7,
+  'Tier 7': 8.2,
+  'Tier 8': 10.4,
+  'Tier 9': 13.5,
+  'Tier 10': 17.3,
+  'Tier 11': 22.5,
+  'Tier 12': 27.3,
+  'Tier 13': 32.3,
+  'Tier 14': 37.6,
+  'Tier 15': 45.1,
+  'Tier 16': 55.2,
+  'Tier 17': 67.5,
+  'Tier 18': 80,
+  'Tier 19': 92,
+  'Tier 20': 115,
+  'Tier 21': 140,
+  'Tier 22': 180,
+  'Tier 23': 225,
+  'Tier 24': 290,
+  'Tier 25': 360,
+  'Tier 26': 445,
+  'Tier 27': 560,
+  'Tier 28': 722,
+  'Tier 29': 890,
+  'Tier 30': 1110,
+  'Tier 31': 1540,
+  'Tier 32': 2600,
+  'Tier 33': 4070,
+  'Tier 34': 5900,
+  'Tier 35': 10000,
+  'Tier 36': 20000,
+  'Tier 37': 40000,
+  'Tier 38': 75000,
+  'Tier 39': 115000,
+  'Tier 40': 175000,
+  'Tier 41': 250000,
+}
+
+type LevelRow = {
+  id: number
+  position: number
+  gddl_tier: string | null
+  same_as_above: number
+  points: number | null
+}
+
+/**
+ * Recompute and persist the `points` column for every main-list level.
+ *
+ * Algorithm: each tier with at least one level contributes an "anchor" at the
+ * median position of its levels and the tier's midpoint points. Anchors are
+ * sorted by position (low position = harder = higher points). For every level,
+ * points are linearly interpolated between the two surrounding anchors;
+ * positions outside the anchor range clamp to the nearest anchor's value.
+ *
+ * Levels with `same_as_above = 1` inherit the (already-computed) points of the
+ * level immediately above them in position order; chains resolve in one pass
+ * because we iterate by ascending position.
+ *
+ * Run inside a single transaction so partial failures don't leave half the
+ * list with stale points.
+ */
+export function recomputePoints(db: DatabaseSync): void {
+  const rows = db
+    .prepare(
+      `SELECT id, position, gddl_tier, same_as_above, points
+       FROM levels
+       ORDER BY position ASC`,
+    )
+    .all() as LevelRow[]
+  if (rows.length === 0) return
+
+  const byTier = new Map<string, LevelRow[]>()
+  for (const r of rows) {
+    if (!r.gddl_tier || !(r.gddl_tier in TIER_POINTS)) continue
+    let g = byTier.get(r.gddl_tier)
+    if (!g) { g = []; byTier.set(r.gddl_tier, g) }
+    g.push(r)
+  }
+
+  const anchors: { pos: number; pts: number }[] = []
+  for (const [tier, list] of byTier) {
+    list.sort((a, b) => a.position - b.position)
+    const mid = list[Math.floor(list.length / 2)]!.position
+    anchors.push({ pos: mid, pts: TIER_POINTS[tier]! })
+  }
+  anchors.sort((a, b) => a.pos - b.pos)
+
+  function interpolate(pos: number): number | null {
+    if (anchors.length === 0) return null
+    if (anchors.length === 1) return anchors[0]!.pts
+    if (pos <= anchors[0]!.pos) return anchors[0]!.pts
+    if (pos >= anchors[anchors.length - 1]!.pos) return anchors[anchors.length - 1]!.pts
+    for (let i = 1; i < anchors.length; i++) {
+      const a = anchors[i - 1]!
+      const b = anchors[i]!
+      if (pos <= b.pos) {
+        const t = (pos - a.pos) / (b.pos - a.pos)
+        return a.pts + t * (b.pts - a.pts)
+      }
+    }
+    return null
+  }
+
+  // First pass: tier-based interpolation for every level.
+  const computed = new Map<number, number | null>()
+  for (const r of rows) {
+    computed.set(r.id, r.gddl_tier ? interpolate(r.position) : null)
+  }
+
+  // Second pass: levels marked "same as above" copy from the previous level.
+  // rows is in ascending position order, so chains resolve naturally.
+  let prev: LevelRow | null = null
+  for (const r of rows) {
+    if (r.same_as_above && prev) {
+      computed.set(r.id, computed.get(prev.id) ?? null)
+    }
+    prev = r
+  }
+
+  // Round to a stable precision so reads from the DB compare cleanly.
+  function round(n: number | null): number | null {
+    if (n == null) return null
+    return Math.round(n * 1000) / 1000
+  }
+
+  const upd = db.prepare(`UPDATE levels SET points = ? WHERE id = ?`)
+  db.exec('BEGIN')
+  try {
+    for (const r of rows) {
+      const next = round(computed.get(r.id) ?? null)
+      const cur = r.points
+      if (next == null && cur == null) continue
+      if (next != null && cur != null && Math.abs(next - cur) < 1e-6) continue
+      upd.run(next, r.id)
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+}

@@ -8,12 +8,14 @@ const TIER_ORD_SQL = `
 `
 
 // Whether a level is a "Challenge" per the GD API (cached in gd_info_cache).
-// Mirrors the UI rule in LevelDetail.vue: unrated (score 0) + Tiny/Short length.
+// Mirrors the UI rule in LevelDetail.vue: unrated (score 0) + Tiny/Short length,
+// AND placed at Tier 1+ on the list (Subtiers don't qualify).
 // Returns 0/1 (never NULL) so it's safe to AND/NOT against without NULL pitfalls.
 const API_CHALLENGE_SQL = `
   COALESCE(
     json_extract(c.info_json, '$.score') = 0
-    AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short'),
+    AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short')
+    AND gddl_tier LIKE 'Tier %',
     0
   )
 `

@@ -27,7 +27,15 @@ type Level = {
   publisher?: string | null
   enjoyment?: number | null
   description_override?: string | null
+  same_as_above?: number | null
   community?: Community | null
+  position_history?: PositionHistoryEntry[]
+}
+type PositionHistoryEntry = {
+  from_position: number | null
+  to_position: number
+  changed_at: string
+  changed_by: string | null
 }
 
 const props = defineProps<{ level: Level; readonly?: boolean }>()
@@ -105,9 +113,10 @@ async function promote() {
 // --- Edit ---
 type EditableFields = Pick<Level,
   'name' | 'gd_id' | 'creator' | 'verifier' | 'publisher' | 'enjoyment' |
-  'points' | 'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
-  'verification' | 'verification_url' | 'year_verified' | 'description_override'
->
+  'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
+  'verification' | 'verification_url' | 'pov_placement' | 'year_verified' |
+  'description_override'
+> & { same_as_above: boolean }
 const editing = ref(false)
 const apiOverridesOpen = ref(false)
 const draft = reactive<Record<keyof EditableFields, any>>({
@@ -117,15 +126,16 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   verifier: '',
   publisher: '',
   enjoyment: '',
-  points: '',
   difficulty: '',
   gddl_tier: '',
   rated: '',
   main_skillset: '',
   verification: '',
   verification_url: '',
+  pov_placement: '',
   year_verified: '',
   description_override: '',
+  same_as_above: false,
 })
 const draftPosition = ref<number | string>('')
 const saving = ref(false)
@@ -140,15 +150,16 @@ function startEdit() {
   draft.verifier = props.level.verifier ?? ''
   draft.publisher = props.level.publisher ?? ''
   draft.enjoyment = props.level.enjoyment ?? ''
-  draft.points = props.level.points ?? ''
   draft.difficulty = props.level.difficulty ?? ''
   draft.gddl_tier = props.level.gddl_tier ?? ''
   draft.rated = props.level.rated ?? ''
   draft.main_skillset = props.level.main_skillset ?? ''
   draft.verification = props.level.verification ?? ''
   draft.verification_url = props.level.verification_url ?? ''
+  draft.pov_placement = props.level.pov_placement ?? ''
   draft.year_verified = props.level.year_verified ?? ''
   draft.description_override = props.level.description_override ?? ''
+  draft.same_as_above = !!props.level.same_as_above
   draftPosition.value = props.level.position
   saveError.value = null
   deleteError.value = null
@@ -161,6 +172,12 @@ function cancelEdit() {
   saveError.value = null
   deleteError.value = null
 }
+
+// Switching to a different level should drop any unsaved edit state — the
+// same component instance is reused across navigation in this layout.
+watch(() => props.level.position, (next, prev) => {
+  if (prev != null && next !== prev) cancelEdit()
+})
 
 // --- GD info dropdown ---
 type GdInfo = {
@@ -180,10 +197,15 @@ type GdInfo = {
   password: string | null
 }
 const SCORE_LABELS = ['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+const isChallengeTier = computed(
+  () => !!props.level.gddl_tier && /^Tier \d+$/.test(props.level.gddl_tier),
+)
 const ratedLabel = computed(() => {
   if (!infoData.value) return null
   const { score, length } = infoData.value
-  if (score === 0 && (length === 'Tiny' || length === 'Short')) return 'Challenge'
+  if (score === 0 && (length === 'Tiny' || length === 'Short') && isChallengeTier.value) {
+    return 'Challenge'
+  }
   return SCORE_LABELS[score]
 })
 const infoOpen = ref(false)
@@ -459,9 +481,12 @@ async function deleteLevel() {
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
           <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Points</span>
-          <input v-model="draft.points" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none mt-2 sm:mt-6">
+          <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Same difficulty as above</span>
+            <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
+          </span>
         </label>
 
         <label class="block sm:col-span-2">
@@ -488,6 +513,10 @@ async function deleteLevel() {
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
           <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement on verification</span>
+          <input v-model="draft.pov_placement" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>
@@ -802,14 +831,34 @@ async function deleteLevel() {
         </dl>
       </section>
 
-      <!-- Position history (sheet doesn't expose this — placeholder) -->
+      <!-- Position history: most recent first. Recorded on admin moves. -->
       <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
         <h2 class="text-[10px] uppercase tracking-[0.2em] tabular-nums text-zinc-500 px-4 pt-3 pb-2 flex items-center gap-2">
           Position History
-          <span class="text-[10px] text-zinc-600 normal-case tracking-normal">— not tracked in this dataset</span>
         </h2>
-        <div class="px-4 pb-4 text-xs text-zinc-600">
-          No placement history available. Current placement: <span class="text-zinc-300 tabular-nums">#{{ level.position }}</span>.
+        <ul
+          v-if="level.position_history && level.position_history.length"
+          class="px-4 pb-3 text-xs divide-y divide-zinc-900/60"
+        >
+          <li
+            v-for="entry in level.position_history"
+            :key="entry.changed_at + ':' + entry.to_position"
+            class="py-2 flex items-center gap-3 tabular-nums"
+          >
+            <span class="text-zinc-300">
+              <template v-if="entry.from_position != null">
+                #{{ entry.from_position }} <span class="text-zinc-600">→</span> #{{ entry.to_position }}
+              </template>
+              <template v-else>
+                Placed at #{{ entry.to_position }}
+              </template>
+            </span>
+            <span v-if="entry.changed_by" class="text-zinc-500">by {{ entry.changed_by }}</span>
+            <span class="text-zinc-600 ml-auto">{{ entry.changed_at }}</span>
+          </li>
+        </ul>
+        <div v-else class="px-4 pb-4 text-xs text-zinc-600">
+          No placement changes recorded. Current placement: <span class="text-zinc-300 tabular-nums">#{{ level.position }}</span>.
         </div>
       </section>
     </template>

@@ -120,6 +120,10 @@ function initSchema(db: DatabaseSync) {
   if (!has('publisher')) db.exec(`ALTER TABLE levels ADD COLUMN publisher TEXT`)
   if (!has('enjoyment')) db.exec(`ALTER TABLE levels ADD COLUMN enjoyment REAL`)
   if (!has('description_override')) db.exec(`ALTER TABLE levels ADD COLUMN description_override TEXT`)
+  // `same_as_above`: when 1, this level's points mirror the level immediately
+  // above it (position - 1). Lets curators tag exact-difficulty ties without
+  // overriding the auto-computed point value.
+  if (!has('same_as_above')) db.exec(`ALTER TABLE levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
 
   // Accounts: banned_at = ISO timestamp when an admin banned the account.
   // NULL = active. Sessions for banned accounts are rejected at the auth layer.
@@ -173,6 +177,9 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'comparison_level_name')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN comparison_level_name TEXT`)
   }
+  if (!pcols.some((c) => c.name === 'pov_placement')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN pov_placement INTEGER`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
@@ -216,6 +223,11 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_awaiting_name        ON awaiting_levels(name COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_awaiting_approved_at ON awaiting_levels(approved_at);
   `)
+
+  const acols = db.prepare(`PRAGMA table_info(awaiting_levels)`).all() as { name: string }[]
+  if (!acols.some((c) => c.name === 'pov_placement')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN pov_placement INTEGER`)
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS void_levels (
@@ -307,6 +319,21 @@ function initSchema(db: DatabaseSync) {
       info_json  TEXT    NOT NULL,
       fetched_at TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+  `)
+
+  // Position history: one row per admin position change. `from_position` is
+  // NULL for the initial placement (we don't backfill prior moves on existing
+  // DBs). Tied to levels.id so a renumbering doesn't orphan the history.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS position_history (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      level_id      INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+      from_position INTEGER,
+      to_position   INTEGER NOT NULL,
+      changed_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      changed_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_position_history_level ON position_history(level_id, changed_at);
   `)
 
   // Opinions: per-user difficulty / enjoyment ratings on a level. Approved

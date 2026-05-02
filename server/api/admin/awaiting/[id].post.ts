@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { recomputePoints } from '~/server/utils/points'
 
 /**
  * Move an awaiting-placement level onto the main list at `placement`, or
@@ -58,8 +59,8 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO levels
         (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
          verification, verification_url, year_verified, category, source_tab,
-         creator, permanent, enjoyment)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?)`,
+         creator, permanent, enjoyment, pov_placement)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?)`,
     ).run(
       insertPos,
       sub.name,
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
       sub.verification_url,
       sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
       sub.enjoyment,
+      sub.pov_placement,
     )
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
     db.exec('COMMIT')
@@ -79,6 +81,8 @@ export default defineEventHandler(async (event) => {
     db.exec('ROLLBACK')
     throw e
   }
+
+  recomputePoints(db)
 
   return { ok: true, placement }
 })

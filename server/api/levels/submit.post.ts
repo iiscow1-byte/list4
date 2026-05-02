@@ -73,6 +73,14 @@ export default defineEventHandler(async (event) => {
     }
     placementEstimate = n
   }
+  let povPlacement: number | null = null
+  if (body.pov_placement != null && body.pov_placement !== '') {
+    const n = Number(body.pov_placement)
+    if (!Number.isInteger(n) || n <= 0) {
+      throw createError({ statusCode: 400, statusMessage: 'Placement on verification must be a positive integer.' })
+    }
+    povPlacement = n
+  }
   let comparisonLevelId: number | null = null
   if (body.comparison_level_id != null && body.comparison_level_id !== '') {
     const n = Number(body.comparison_level_id)
@@ -102,13 +110,13 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO pending_levels
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
          gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
-         placement_estimate, comparison_level_id, comparison_level_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         placement_estimate, comparison_level_id, comparison_level_name, pov_placement)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       gdId, name, fps, gameVersion, verification, verificationUrl, verifier, verifyDate,
       gddlTier, difficulty, enjoyment, skillset, tags, notes, account.id,
-      placementEstimate, comparisonLevelId, comparisonLevelName,
+      placementEstimate, comparisonLevelId, comparisonLevelName, povPlacement,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }

@@ -1,25 +1,33 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
+import { recomputePoints } from '~/server/utils/points'
 
-const FIELDS: Record<string, 'text' | 'int' | 'real'> = {
+// `points` is no longer editable — it's derived from gddl_tier + position,
+// with `same_as_above` as the only manual override.
+const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   name: 'text',
   gd_id: 'int',
   creator: 'text',
   verifier: 'text',
   publisher: 'text',
   enjoyment: 'real',
-  points: 'real',
   difficulty: 'text',
   gddl_tier: 'text',
   rated: 'text',
   main_skillset: 'text',
   verification: 'text',
   verification_url: 'text',
+  pov_placement: 'int',
   year_verified: 'int',
   description_override: 'text',
+  same_as_above: 'bool',
 }
 
-function coerce(value: unknown, type: 'text' | 'int' | 'real'): string | number | null {
+function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string | number | null {
+  if (type === 'bool') {
+    if (value === true || value === 1 || value === '1' || value === 'true') return 1
+    return 0
+  }
   if (value === undefined || value === null || value === '') return null
   if (type === 'text') {
     const s = String(value).trim()
@@ -62,5 +70,13 @@ export default defineEventHandler(async (event) => {
 
   values.push(position)
   db.prepare(`UPDATE levels SET ${sets.join(', ')} WHERE position = ?`).run(...values)
+
+  // Tier or same_as_above edits change the auto-computed point value (for
+  // this level and potentially neighbors that share its tier midpoint), so
+  // recompute the whole list any time either of those is touched.
+  if ('gddl_tier' in body || 'same_as_above' in body) {
+    recomputePoints(db)
+  }
+
   return { ok: true, updated: sets.length }
 })

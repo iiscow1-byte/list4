@@ -1,4 +1,5 @@
 import { getDb } from './index.ts'
+import { recomputePoints } from '../utils/points.ts'
 
 const SHEET_BASE_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
@@ -231,13 +232,15 @@ async function importLevels() {
   cleanupDuplicateLevels(db)
 
   // `rated` is intentionally not imported from the sheet — the GD API is the
-  // source of truth for ratings. New rows are inserted with rated = NULL.
+  // source of truth for ratings. `points` is also skipped — values are derived
+  // from gddl_tier + position via recomputePoints() and the sheet column is no
+  // longer authoritative. New rows are inserted with rated = NULL, points = NULL.
   const insert = db.prepare(`
     INSERT INTO levels
-      (position, name, gd_id, gddl_tier, difficulty, placement_source, points,
+      (position, name, gd_id, gddl_tier, difficulty, placement_source,
        main_skillset, verify_date, verification, verification_url, pov_placement,
        year_verified, category, source_tab)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
   `)
 
   // Levels that have a permanent counterpart are owned by the website, not the
@@ -311,6 +314,10 @@ async function importLevels() {
 
         tempPos++
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+        // Placement on verification is only trusted on the Main tab (gid=0);
+        // tier-specific tabs have stale / off-by-one values for these.
+        const povCol = c['placement on verification']
+        const pov = tab.gid === '0' && povCol != null ? num(r[povCol]!) : null
         const result = insert.run(
           tempPos,
           name,
@@ -318,12 +325,11 @@ async function importLevels() {
           txt(r[c['gddl tier']!]),
           txt(r[c['difficulty']!]),
           sourceCol != null ? txt(r[sourceCol]) : null,
-          num(r[c['points']!]),
           txt(r[c['main skillset']!]),
           txt(r[c['verify date']!]),
           verCol != null ? txt(r[verCol]) : null,
           verHref,
-          num(r[c['placement on verification']!]),
+          pov,
           num(r[c['year verified']!]),
           tab.label,
         )
@@ -346,10 +352,15 @@ async function importLevels() {
   // ordered by their previous position; nothing is deleted automatically.
   const orphans = applySheetOrder(db, sheetOrder)
 
+  // Points are derived from tier + position; recompute against the freshly
+  // settled list ordering so every level (including imports just renumbered)
+  // ends up with a current value.
+  recomputePoints(db)
+
   console.log(
     `\nImported ${total} new levels; renumbered all non-permanent rows by sheet order ` +
     `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
-    `${permSkipped} skipped — owned by permanent records.`,
+    `${permSkipped} skipped — owned by permanent records. Points recomputed.`,
   )
 }
 

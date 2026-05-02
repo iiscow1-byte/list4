@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
+import { recomputePoints } from '~/server/utils/points'
 
 /**
  * Delete a level and shift everything below it up by one to close the gap.
@@ -27,6 +28,8 @@ export default defineEventHandler((event) => {
     db.exec('ROLLBACK')
     throw e
   }
+
+  recomputePoints(db)
 
   return { ok: true }
 })
