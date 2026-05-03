@@ -20,6 +20,7 @@ type PendingLevel = {
   placement_estimate: number | null
   comparison_level_id: number | null
   comparison_level_name: string | null
+  from_open_verification_id: number | null
 }
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
@@ -179,7 +180,14 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               :class="selectedId === r.id ? 'bg-accent/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
-              <div class="font-medium truncate">{{ r.name ?? `Level ${r.gd_id}` }}</div>
+              <div class="font-medium truncate flex items-center gap-1.5">
+                <span class="truncate">{{ r.name ?? `Level ${r.gd_id}` }}</span>
+                <span
+                  v-if="r.from_open_verification_id"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-violet-900/40 text-violet-300 border border-violet-800/60"
+                  title="Verification submitted for an open-verification level"
+                >Verif</span>
+              </div>
               <div class="text-[11px] text-zinc-500 truncate">
                 #{{ r.gd_id ?? '?' }} · by {{ r.submitter ?? 'unknown' }}
               </div>
@@ -207,9 +215,20 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
           </p>
         </header>
 
-        <span v-if="goesToVoid" class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
-          No difficulty opinion · will go to void
-        </span>
+        <div class="flex flex-wrap gap-2">
+          <span v-if="goesToVoid" class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
+            No difficulty opinion · will go to void
+          </span>
+          <NuxtLink
+            v-if="selected.from_open_verification_id"
+            :to="`/open-verifications/${selected.from_open_verification_id}`"
+            target="_blank"
+            class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-violet-900/40 text-violet-300 border border-violet-800/60 hover:bg-violet-900/60"
+            title="Approving will remove the level from the open-verifications list"
+          >
+            Verification of open-verif #{{ selected.from_open_verification_id }} ↗
+          </NuxtLink>
+        </div>
 
         <!-- Stats grid -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">

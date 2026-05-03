@@ -4,7 +4,7 @@ definePageMeta({ layout: 'level', key: () => 'open-ver-page' })
 const route = useRoute()
 const id = computed(() => Number(route.params.id))
 
-const { data: level, error } = await useFetch(() => `/api/open-verifications/levels/${id.value}`, {
+const { data: level, error, refresh } = await useFetch(() => `/api/open-verifications/levels/${id.value}`, {
   watch: [id],
 })
 
@@ -21,7 +21,7 @@ useHead(() => ({
         <p class="text-sm">Open verification not found.</p>
         <NuxtLink to="/open-verifications" class="text-accent hover:underline text-sm mt-2 inline-block">Back to list</NuxtLink>
       </div>
-      <OpenVerLevelDetail v-else-if="level" :level="level" />
+      <OpenVerLevelDetail v-else-if="level" :level="level" @refresh="refresh" />
     </section>
   </div>
 </template>

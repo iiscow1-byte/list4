@@ -193,6 +193,12 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'placement_source')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN placement_source TEXT`)
   }
+  // Verification-of-open-verification submissions: pending row carries a link
+  // back to the open_verifications row so an admin approval can also remove it
+  // from the open list when the verified copy lands on the main list.
+  if (!pcols.some((c) => c.name === 'from_open_verification_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_open_verification_id INTEGER`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are

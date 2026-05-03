@@ -77,6 +77,9 @@ export default defineEventHandler(async (event) => {
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
       ).run(account.id, id)
+      if (sub.from_open_verification_id) {
+        db.prepare(`DELETE FROM open_verifications WHERE id = ?`).run(sub.from_open_verification_id)
+      }
       db.exec('COMMIT')
     } catch (e) {
       db.exec('ROLLBACK')
@@ -153,6 +156,12 @@ export default defineEventHandler(async (event) => {
 
     db.prepare(`UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now'), placement=? WHERE id = ?`)
       .run(account.id, placement, id)
+    // Promoting a verification submission removes the level from the open-
+    // verifications list — it now lives on the main (or void) list with a
+    // verifier credited.
+    if (sub.from_open_verification_id) {
+      db.prepare(`DELETE FROM open_verifications WHERE id = ?`).run(sub.from_open_verification_id)
+    }
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')

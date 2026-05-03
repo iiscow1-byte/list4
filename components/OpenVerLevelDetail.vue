@@ -19,6 +19,91 @@ type OpenVerLevel = {
 }
 
 const props = defineProps<{ level: OpenVerLevel }>()
+const emit = defineEmits<{ (e: 'refresh'): void }>()
+
+const { data: meRes } = useCurrentUser()
+const role = computed(() => meRes.value?.account?.role ?? null)
+const isAdmin = computed(() => role.value === 'admin' || role.value === 'owner' || role.value === 'developer')
+const canEdit = computed(() => isAdmin.value || role.value === 'moderator')
+
+const editing = ref(false)
+const draft = reactive({
+  name: '',
+  gd_id: '' as number | string,
+  fps: '',
+  game_version: '',
+  showcase_url: '',
+  verifier: '',
+  gddl_tier: '',
+  difficulty: '',
+  enjoyment: '' as number | string,
+  main_skillset: '',
+  tags: '',
+  notes: '',
+  placement_source: '',
+})
+const saving = ref(false)
+const saveError = ref<string | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+function startEdit() {
+  draft.name = props.level.name ?? ''
+  draft.gd_id = props.level.gd_id ?? ''
+  draft.fps = props.level.fps ?? ''
+  draft.game_version = props.level.game_version ?? ''
+  draft.showcase_url = props.level.showcase_url ?? ''
+  draft.verifier = props.level.verifier ?? ''
+  draft.gddl_tier = props.level.gddl_tier ?? ''
+  draft.difficulty = props.level.difficulty ?? ''
+  draft.enjoyment = props.level.enjoyment ?? ''
+  draft.main_skillset = props.level.main_skillset ?? ''
+  draft.tags = props.level.tags ?? ''
+  draft.notes = props.level.notes ?? ''
+  draft.placement_source = props.level.placement_source ?? ''
+  saveError.value = null
+  deleteError.value = null
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+  saveError.value = null
+  deleteError.value = null
+}
+
+watch(() => props.level.id, (next, prev) => {
+  if (prev != null && next !== prev) cancelEdit()
+})
+
+async function saveEdit() {
+  if (saving.value) return
+  saving.value = true
+  saveError.value = null
+  try {
+    await $fetch(`/api/admin/open-verifications/${props.level.id}`, { method: 'PATCH', body: { ...draft } })
+    emit('refresh')
+    editing.value = false
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteLevel() {
+  if (deleting.value) return
+  if (!confirm(`Delete "${props.level.name}" from the open verifications list? This cannot be undone from the UI.`)) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await $fetch(`/api/admin/open-verifications/${props.level.id}`, { method: 'DELETE' })
+    await navigateTo('/open-verifications')
+  } catch (e: any) {
+    deleteError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
+  } finally {
+    deleting.value = false
+  }
+}
 
 function youtubeId(url: string | null): string | null {
   if (!url) return null
@@ -46,20 +131,121 @@ const tagList = computed(() => {
 
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
-    <header class="mb-6">
-      <div class="flex items-baseline gap-3 flex-wrap">
-        <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-        <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-violet-900/40 text-violet-300 border border-violet-800/60">
-          Open verification
-        </span>
+    <header class="mb-6 flex items-start justify-between gap-3 flex-wrap">
+      <div>
+        <div class="flex items-baseline gap-3 flex-wrap">
+          <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
+          <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-violet-900/40 text-violet-300 border border-violet-800/60">
+            Open verification
+          </span>
+        </div>
+        <p class="text-xs text-zinc-500 mt-1.5">
+          Submitted on {{ level.submitted_at }}<span v-if="level.submitter">
+            · by
+            <NuxtLink :to="`/users/${level.submitter}`" class="hover:text-accent">{{ level.submitter }}</NuxtLink>
+          </span>
+        </p>
       </div>
-      <p class="text-xs text-zinc-500 mt-1.5">
-        Submitted on {{ level.submitted_at }}<span v-if="level.submitter">
-          · by
-          <NuxtLink :to="`/users/${level.submitter}`" class="hover:text-accent">{{ level.submitter }}</NuxtLink>
-        </span>
-      </p>
+      <div class="shrink-0 flex flex-col items-end gap-1">
+        <NuxtLink
+          :to="`/open-verifications/${level.id}/submit-verification`"
+          class="rounded bg-accent text-zinc-950 font-medium text-sm px-3 py-1.5 hover:bg-accent/90 transition-colors"
+        >
+          Submit verification
+        </NuxtLink>
+        <button
+          v-if="canEdit && !editing"
+          type="button"
+          class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
+          @click="startEdit"
+        >Edit</button>
+      </div>
     </header>
+
+    <!-- Edit form -->
+    <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-medium">Editing open verification</h2>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
+          <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
+          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+          <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
+          <input v-model="draft.fps" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
+          <input v-model="draft.game_version" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+          <input v-model="draft.gddl_tier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+          <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+          <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
+          <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Showcase URL</span>
+          <input v-model="draft.showcase_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
+          <input v-model="draft.tags" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes</span>
+          <textarea v-model="draft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2 flex-wrap">
+        <button
+          type="button"
+          :disabled="saving"
+          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          @click="saveEdit"
+        >{{ saving ? 'Saving…' : 'Save' }}</button>
+        <button
+          type="button"
+          class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
+          @click="cancelEdit"
+        >Cancel</button>
+        <button
+          v-if="isAdmin"
+          type="button"
+          :disabled="deleting"
+          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          @click="deleteLevel"
+        >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
+        <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
+        <span v-if="deleteError" class="text-xs text-red-400">{{ deleteError }}</span>
+      </div>
+    </section>
 
     <!-- Showcase (replaces verification) -->
     <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">

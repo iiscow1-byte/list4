@@ -13,6 +13,89 @@ type VoidLevel = {
 }
 
 const props = defineProps<{ level: VoidLevel }>()
+const emit = defineEmits<{ (e: 'refresh'): void }>()
+
+const { data: meRes } = useCurrentUser()
+const role = computed(() => meRes.value?.account?.role ?? null)
+const isAdmin = computed(() => role.value === 'admin' || role.value === 'owner' || role.value === 'developer')
+const canEdit = computed(() => isAdmin.value || role.value === 'moderator')
+
+const editing = ref(false)
+const draft = reactive({
+  name: '',
+  gd_id: '' as number | string,
+  verify_date: '',
+  days: '' as number | string,
+  demon_ranking: '',
+  placement_source: '',
+  verification: '',
+  verification_url: '',
+})
+const draftPosition = ref<number | string>('')
+const saving = ref(false)
+const saveError = ref<string | null>(null)
+const deleting = ref(false)
+const deleteError = ref<string | null>(null)
+
+function startEdit() {
+  draft.name = props.level.name ?? ''
+  draft.gd_id = props.level.gd_id ?? ''
+  draft.verify_date = props.level.verify_date ?? ''
+  draft.days = props.level.days ?? ''
+  draft.demon_ranking = props.level.demon_ranking ?? ''
+  draft.placement_source = props.level.placement_source ?? ''
+  draft.verification = props.level.verification ?? ''
+  draft.verification_url = props.level.verification_url ?? ''
+  draftPosition.value = props.level.position
+  saveError.value = null
+  deleteError.value = null
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+  saveError.value = null
+  deleteError.value = null
+}
+
+watch(() => props.level.position, (next, prev) => {
+  if (prev != null && next !== prev) cancelEdit()
+})
+
+async function saveEdit() {
+  if (saving.value) return
+  saving.value = true
+  saveError.value = null
+  try {
+    await $fetch(`/api/admin/void/${props.level.position}`, { method: 'PATCH', body: { ...draft } })
+    const newPos = Number(draftPosition.value)
+    if (Number.isInteger(newPos) && newPos > 0 && newPos !== props.level.position) {
+      await $fetch(`/api/admin/void/${props.level.position}/move`, { method: 'POST', body: { to: newPos } })
+      await navigateTo(`/void/${newPos}`)
+      return
+    }
+    emit('refresh')
+    editing.value = false
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function deleteLevel() {
+  if (deleting.value) return
+  if (!confirm(`Delete "${props.level.name}" (#${props.level.position}) from the void list? This shifts everything below up by one and cannot be undone from the UI.`)) return
+  deleting.value = true
+  deleteError.value = null
+  try {
+    await $fetch(`/api/admin/void/${props.level.position}`, { method: 'DELETE' })
+    await navigateTo('/void/1')
+  } catch (e: any) {
+    deleteError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
+  } finally {
+    deleting.value = false
+  }
+}
 
 const tags = computed(() => {
   const list: string[] = []
@@ -46,18 +129,96 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
 
 <template>
   <div class="px-8 py-6 max-w-3xl mx-auto w-full">
-    <header class="mb-6">
-      <div class="flex items-baseline gap-3 flex-wrap">
-        <span class="tabular-nums text-fuchsia-300 text-sm">#{{ level.position }}</span>
-        <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-        <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
-          Void
-        </span>
+    <header class="mb-6 flex items-start gap-4">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-baseline gap-3 flex-wrap">
+          <span class="tabular-nums text-fuchsia-300 text-sm">#{{ level.position }}</span>
+          <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
+          <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
+            Void
+          </span>
+        </div>
+        <p class="text-xs text-zinc-500 mt-1.5">
+          Levels in the void list have no difficulty opinion.
+        </p>
       </div>
-      <p class="text-xs text-zinc-500 mt-1.5">
-        Levels in the void list have no difficulty opinion.
-      </p>
+      <button
+        v-if="canEdit && !editing"
+        type="button"
+        class="shrink-0 rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
+        @click="startEdit"
+      >Edit</button>
     </header>
+
+    <!-- Edit form -->
+    <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-medium">Editing void level</h2>
+        <span class="text-[11px] text-zinc-500">Currently at #{{ level.position }}</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
+          <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
+          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
+          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
+          <input v-model="draft.verify_date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Days</span>
+          <input v-model="draft.days" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon ranking</span>
+          <input v-model="draft.demon_ranking" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
+          <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
+          <input v-model="draft.verification" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+          <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2 flex-wrap">
+        <button
+          type="button"
+          :disabled="saving"
+          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          @click="saveEdit"
+        >{{ saving ? 'Saving…' : 'Save' }}</button>
+        <button
+          type="button"
+          class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
+          @click="cancelEdit"
+        >Cancel</button>
+        <button
+          v-if="isAdmin"
+          type="button"
+          :disabled="deleting"
+          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          @click="deleteLevel"
+        >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
+        <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
+        <span v-if="deleteError" class="text-xs text-red-400">{{ deleteError }}</span>
+      </div>
+    </section>
 
     <!-- Verification -->
     <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
