@@ -24,11 +24,13 @@ const RIGHT_ROW: Record<string, number> = {
 const DEMON_SET = new Set(['easy demon', 'medium demon', 'hard demon', 'insane demon', 'extreme demon'])
 const RIGHT_SET = new Set([...DEMON_SET, 'insane'])
 
-// Image is 2024×1795, cells are 202.4×224.375px (portrait, ratio ≈ 0.902).
-// Display at 72×80 (ratio 0.9) to avoid the ~10% horizontal squash that
-// occurs with a square element. Full image renders at 720×640px.
-const CELL_W = 72
-const CELL_H = 80
+// Image is 2750×2750. Each icon sits in a 250×250 source cell, with the
+// grid offset by 125px from the image origin (so cell (0,0) spans 125–375).
+const CELL_SRC = 250
+const PAD_SRC = 125
+const IMG_SRC = 2750
+const CELL_DISPLAY = 80
+const SCALE = CELL_DISPLAY / CELL_SRC
 
 const coords = computed(() => {
   const diff = (props.difficulty ?? '').toLowerCase().trim()
@@ -44,7 +46,9 @@ const coords = computed(() => {
 
 const bgPos = computed(() => {
   const { col, row } = coords.value
-  return `-${col * CELL_W}px -${row * CELL_H}px`
+  const x = (PAD_SRC + col * CELL_SRC) * SCALE
+  const y = (PAD_SRC + row * CELL_SRC) * SCALE
+  return `-${x}px -${y}px`
 })
 </script>
 
@@ -52,11 +56,11 @@ const bgPos = computed(() => {
   <div
     class="shrink-0"
     :style="{
-      width: `${CELL_W}px`,
-      height: `${CELL_H}px`,
+      width: `${CELL_DISPLAY}px`,
+      height: `${CELL_DISPLAY}px`,
       backgroundImage: `url('/difficulty-sprites.png')`,
       backgroundRepeat: 'no-repeat',
-      backgroundSize: `${CELL_W * 10}px ${CELL_H * 8}px`,
+      backgroundSize: `${IMG_SRC * SCALE}px ${IMG_SRC * SCALE}px`,
       backgroundPosition: bgPos,
     }"
     :title="difficulty ?? 'Unknown'"
