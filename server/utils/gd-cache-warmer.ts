@@ -11,7 +11,7 @@
  */
 
 import { getDb } from '~/server/db'
-import { fetchOneClassified } from '~/server/utils/gd-fetch'
+import { fetchOneClassified, isBoomlingsBlocked } from '~/server/utils/gd-fetch'
 
 // Pacing knobs. gdbrowser is unmetered but uses Cloudflare; Boomlings is the
 // hard rate limit when the fallback fires.
@@ -20,6 +20,7 @@ const BOOMLINGS_EXTRA_DELAY_MS = 1500
 const BACKOFF_INITIAL_MS = 5_000
 const BACKOFF_MAX_MS = 5 * 60_000
 const CONSECUTIVE_ERROR_HARD_STOP = 25
+const BOOMLINGS_BLOCKED_THRESHOLD = 3
 const HEARTBEAT_MS = 60_000
 
 type WarmerStatus = {
@@ -31,6 +32,7 @@ type WarmerStatus = {
   ok: number
   notFound: number
   errors: number
+  boomlingsBlocked: boolean
   lastLevel: { gd_id: number; name: string | null; position: number; at: string } | null
   lastError: string | null
 }

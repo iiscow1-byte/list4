@@ -245,9 +245,19 @@ async function fetchFromBoomlings(id: number, timeoutMs: number): Promise<GdInfo
 }
 
 export type FetchOutcome =
-  | { kind: 'ok'; info: GdInfo; usedBoomlings: boolean }
+  | { kind: 'ok'; info: GdInfo; usedBoomlings: boolean; placeholder?: boolean }
   | { kind: 'not_found' }
-  | { kind: 'error'; reason: string; rateLimited: boolean; usedBoomlings: boolean }
+  | { kind: 'error'; reason: string; rateLimited: boolean; usedBoomlings: boolean; httpStatus: number | null }
+
+/** True iff `reason` looks like Cloudflare blocking us at the edge (HTTP 403). */
+export function isBoomlingsBlocked(o: FetchOutcome): boolean {
+  return o.kind === 'error' && o.usedBoomlings && o.httpStatus === 403
+}
+
+function statusFromMessage(msg: string): number | null {
+  const m = msg.match(/HTTP (\d{3})/)
+  return m ? Number(m[1]) : null
+}
 
 /**
  * Try gdbrowser, then Boomlings. The 10M-downloads sentinel is gdbrowser's
@@ -276,28 +286,50 @@ export async function fetchFresh(id: number, opts: { timeoutMs?: number } = {}):
   }
 }
 
-/** Same as fetchFresh but classifies the result, including which backend succeeded. */
-export async function fetchOneClassified(id: number, opts: { timeoutMs?: number } = {}): Promise<FetchOutcome> {
+/**
+ * Same as fetchFresh but classifies the result.
+ *
+ * `skipBoomlings` short-circuits the Boomlings fallback. Useful for the cache
+ * warmer once it's seen a sustained 403 from Cloudflare — repeated 403s won't
+ * recover within a single run, so it's better to keep going on gdbrowser data
+ * (placeholder included) than to waste paced requests on a blocked endpoint.
+ *
+ * When `skipBoomlings` is set and gdbrowser returns its placeholder, the
+ * outcome is `{ kind: 'ok', placeholder: true }` so callers can decide whether
+ * caching the placeholder is acceptable for their workflow.
+ */
+export async function fetchOneClassified(
+  id: number,
+  opts: { timeoutMs?: number; skipBoomlings?: boolean } = {},
+): Promise<FetchOutcome> {
   const timeoutMs = opts.timeoutMs ?? 10_000
-  let usedBoomlings = false
+  let gdbrowserPlaceholder: GdInfo | null = null
   try {
     const info = await fetchFromGdBrowser(id, timeoutMs)
     if (info.downloads !== GDBROWSER_PLACEHOLDER_DOWNLOADS) {
       return { kind: 'ok', info, usedBoomlings: false }
     }
+    gdbrowserPlaceholder = info
   } catch (e: any) {
     const msg = String(e?.message ?? 'unknown')
     if (msg === 'not_found') return { kind: 'not_found' }
   }
 
-  usedBoomlings = true
+  if (opts.skipBoomlings) {
+    if (gdbrowserPlaceholder) {
+      return { kind: 'ok', info: gdbrowserPlaceholder, usedBoomlings: false, placeholder: true }
+    }
+    return { kind: 'error', reason: 'gdbrowser failed; boomlings skipped', rateLimited: false, usedBoomlings: false, httpStatus: null }
+  }
+
   try {
     const info = await fetchFromBoomlings(id, timeoutMs)
     return { kind: 'ok', info, usedBoomlings: true }
   } catch (e: any) {
     const msg = String(e?.message ?? 'unknown')
     if (msg === 'not_found') return { kind: 'not_found' }
+    const httpStatus = statusFromMessage(msg)
     const rateLimited = /HTTP (4\d\d|5\d\d)|timeout|EAI|ECONN|ENOTFOUND|socket/i.test(msg)
-    return { kind: 'error', reason: msg, rateLimited, usedBoomlings }
+    return { kind: 'error', reason: msg, rateLimited, usedBoomlings: true, httpStatus }
   }
 }
