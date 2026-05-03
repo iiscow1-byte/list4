@@ -593,6 +593,11 @@ function fmt(n: number | null | undefined) {
           :created="profileData.createdLevels"
           :verified="profileData.verifiedLevels"
         />
+
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments on your profile</h2>
+          <CommentSection kind="profile" :target-id="me.id" />
+        </section>
       </main>
 
       <!-- Right panel: actions -->

@@ -7,6 +7,7 @@ export type InboxKind =
   | 'open_verification_approved'
   | 'open_verification_rejected'
   | 'role_changed'
+  | 'comment'
 
 export function sendInboxMessage(
   db: DatabaseSync,
