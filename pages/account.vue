@@ -5,6 +5,8 @@ useHead({ title: 'Account — All Levels List' })
 const { data: meRes, refresh: refreshMe } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
+// --- About-you edit state ---
+const editing = ref(false)
 const profile = reactive({
   bio: me.value?.bio ?? '',
   country: me.value?.country ?? '',
@@ -15,13 +17,31 @@ const profileError = ref<string | null>(null)
 const profileSaved = ref(false)
 
 watch(me, (val) => {
-  if (val) {
+  if (val && !editing.value) {
     profile.bio = val.bio ?? ''
     profile.country = val.country ?? ''
     profile.subdivision = val.subdivision ?? ''
   }
 }, { immediate: true })
 
+function startEdit() {
+  if (!me.value) return
+  profile.bio = me.value.bio ?? ''
+  profile.country = me.value.country ?? ''
+  profile.subdivision = me.value.subdivision ?? ''
+  profileError.value = null
+  profileSaved.value = false
+  editing.value = true
+}
+function cancelEdit() {
+  if (me.value) {
+    profile.bio = me.value.bio ?? ''
+    profile.country = me.value.country ?? ''
+    profile.subdivision = me.value.subdivision ?? ''
+  }
+  profileError.value = null
+  editing.value = false
+}
 async function saveProfile() {
   if (profileSaving.value) return
   profileError.value = null
@@ -31,6 +51,7 @@ async function saveProfile() {
     await $fetch('/api/account', { method: 'PATCH', body: { ...profile } })
     await refreshMe()
     profileSaved.value = true
+    editing.value = false
     setTimeout(() => (profileSaved.value = false), 2500)
   } catch (e: any) {
     profileError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
@@ -86,6 +107,7 @@ async function loadPendingClaim() {
 }
 onMounted(loadPendingClaim)
 
+const claimOpen = ref(false)
 const claimInput = ref('')
 const claimError = ref<string | null>(null)
 const claimSubmitting = ref(false)
@@ -98,6 +120,7 @@ async function submitClaim() {
     await $fetch('/api/account/claim', { method: 'POST', body: { player_name: claimInput.value.trim() } })
     await loadPendingClaim()
     claimInput.value = ''
+    claimOpen.value = false
   } catch (e: any) {
     claimError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Claim failed.'
   } finally {
@@ -110,13 +133,19 @@ async function cancelClaim() {
   await loadPendingClaim()
 }
 
-// --- Profile data (stats, completed, created) ---
+// --- Profile data (stats, completed, created, progress) ---
 type ProfileData = {
-  account: { username: string; has_avatar: boolean }
+  account: {
+    username: string; role: 'user'|'moderator'|'admin'
+    bio: string | null; country: string | null; subdivision: string | null
+    claimed_player: string | null; has_avatar: boolean
+  }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
   createdLevels: any[]
   verifiedLevels: any[]
+  progressPosts: any[]
+  follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
 }
 const profileData = ref<ProfileData | null>(null)
 
@@ -126,6 +155,10 @@ async function loadProfileData() {
 }
 onMounted(loadProfileData)
 watch(() => me.value?.claimed_player, loadProfileData)
+watch(() => me.value?.bio, loadProfileData)
+
+// --- Progress post composer (inline) ---
+const showProgress = ref(false)
 
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
@@ -140,179 +173,245 @@ function fmt(n: number | null | undefined) {
 </script>
 
 <template>
-  <div v-if="me" class="container-tight py-8 max-w-3xl space-y-8">
-    <header class="flex items-start gap-4 flex-wrap">
-      <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
-        <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
-        <div v-else class="w-full h-full flex items-center justify-center text-2xl text-zinc-600 font-bold">
-          {{ me.username.charAt(0).toUpperCase() }}
-        </div>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-baseline gap-2 flex-wrap">
-          <h1 class="text-3xl font-semibold tracking-tight">{{ me.username }}</h1>
-          <span v-if="me.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30">{{ me.role }}</span>
-        </div>
-        <p class="text-xs text-zinc-500 mt-1">
-          <NuxtLink :to="`/users/${me.username}`" class="hover:text-accent">View public profile ↗</NuxtLink>
-          <span class="mx-2">·</span>
-          <button class="hover:text-accent" @click="logout">Log out</button>
-          <template v-if="me.role === 'admin'">
-            <span class="mx-2">·</span>
-            <NuxtLink to="/admin" class="hover:text-accent">Admin →</NuxtLink>
+  <div v-if="me" class="container-tight py-8 max-w-5xl">
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
+      <!-- Main column: same shape as the public profile -->
+      <main class="space-y-6 min-w-0">
+        <header class="flex items-start gap-4 flex-wrap">
+          <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+            <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
+            <div v-else class="w-full h-full flex items-center justify-center text-2xl text-zinc-600 font-bold">
+              {{ me.username.charAt(0).toUpperCase() }}
+            </div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2 flex-wrap">
+              <h1 class="text-3xl font-semibold tracking-tight">{{ me.username }}</h1>
+              <span v-if="me.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30">{{ me.role }}</span>
+            </div>
+            <p v-if="me.claimed_player" class="text-xs text-zinc-500 mt-1">
+              Claimed as <span class="text-zinc-300">{{ me.claimed_player }}</span>
+            </p>
+            <p v-if="!editing && (me.country || me.subdivision)" class="text-xs text-zinc-500 mt-0.5">
+              <span v-if="me.subdivision">{{ me.subdivision }}, </span>
+              <span v-if="me.country">{{ me.country }}</span>
+            </p>
+          </div>
+        </header>
+
+        <!-- About: read-only display, switches to a form when editing -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">About</h2>
+            <button
+              v-if="!editing"
+              type="button"
+              class="text-xs px-2 py-1 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
+              @click="startEdit"
+            >Edit</button>
+          </div>
+
+          <template v-if="!editing">
+            <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
+            <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
+            <dl v-if="me.country || me.subdivision" class="grid grid-cols-2 gap-4 text-sm mt-3">
+              <div v-if="me.country">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
+                <dd class="text-zinc-100">{{ me.country }}</dd>
+              </div>
+              <div v-if="me.subdivision">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
+                <dd class="text-zinc-100">{{ me.subdivision }}</dd>
+              </div>
+            </dl>
+            <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
           </template>
-        </p>
-      </div>
-    </header>
 
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-      <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Profile picture</h2>
-      <div class="flex items-center gap-3 flex-wrap">
-        <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-sm font-medium px-3 py-1.5 cursor-pointer transition-colors">
-          <span>{{ avatarUploading ? 'Uploading…' : 'Upload image' }}</span>
-          <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onAvatarChange" />
-        </label>
-        <button
-          v-if="me.has_avatar"
-          type="button"
-          class="rounded border border-zinc-800 hover:border-red-900 hover:text-red-400 text-sm px-3 py-1.5 transition-colors"
-          @click="removeAvatar"
-        >Remove</button>
-        <span class="text-[11px] text-zinc-500">PNG, JPEG, GIF, or WebP — up to 1 MB.</span>
-      </div>
-      <p v-if="avatarError" class="text-xs text-red-400 mt-2">{{ avatarError }}</p>
-    </section>
+          <form v-else class="space-y-4" @submit.prevent="saveProfile">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
+              <textarea
+                v-model="profile.bio"
+                rows="3"
+                maxlength="1000"
+                placeholder="Tell people about yourself."
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
+                <input
+                  v-model="profile.country"
+                  maxlength="64"
+                  placeholder="e.g. United States"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
+                <input
+                  v-model="profile.subdivision"
+                  maxlength="64"
+                  placeholder="e.g. California"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="submit"
+                :disabled="profileSaving"
+                class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
+              <button
+                type="button"
+                class="rounded border border-zinc-800 text-zinc-300 text-sm px-3 py-1.5 hover:bg-zinc-900 transition-colors"
+                @click="cancelEdit"
+              >Cancel</button>
+              <span v-if="profileError" class="text-xs text-red-400">{{ profileError }}</span>
+            </div>
+          </form>
+        </section>
 
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-      <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">About you</h2>
-      <form class="space-y-4" @submit.prevent="saveProfile">
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
-          <textarea
-            v-model="profile.bio"
-            rows="3"
-            maxlength="1000"
-            placeholder="Tell people about yourself."
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
+        <section v-if="profileData?.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
+          <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+              <dd class="tabular-nums text-amber-300 text-base">{{ fmt(profileData.player.total_points) }}</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(profileData.player.skill_points) }}</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+              <dd class="text-zinc-100 text-base truncate">{{ profileData.player.hardest ?? '—' }}</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
+              <dd class="text-zinc-100 text-base">{{ profileData.player.tier ?? '—' }}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <ProgressPosts
+          v-if="profileData"
+          v-model:open="showProgress"
+          :posts="profileData.progressPosts"
+          :can-post="true"
+          @changed="loadProfileData()"
+        />
+
+        <ProfileLevelLists
+          v-if="profileData"
+          :completed="profileData.completedLevels"
+          :created="profileData.createdLevels"
+          :verified="profileData.verifiedLevels"
+        />
+      </main>
+
+      <!-- Right panel: actions -->
+      <aside class="space-y-3 lg:sticky lg:top-20 lg:self-start">
+        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Actions</h2>
+          <div class="flex flex-col gap-1.5">
+            <button
+              type="button"
+              class="text-left text-sm px-3 py-1.5 rounded bg-accent text-zinc-950 font-medium hover:bg-accent/90 transition-colors"
+              @click="startEdit"
+            >{{ editing ? 'Editing profile…' : 'Edit profile' }}</button>
+
+            <button
+              type="button"
+              class="text-left text-sm px-3 py-1.5 rounded bg-accent/15 text-accent font-medium hover:bg-accent/25 transition-colors"
+              @click="showProgress = !showProgress"
+            >Post progress</button>
+
+            <NuxtLink
+              to="/records/submit"
+              class="block text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
+            >Submit record</NuxtLink>
+
+            <NuxtLink
+              to="/levels/submit"
+              class="block text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
+            >Submit level</NuxtLink>
+
+            <button
+              v-if="!me.claimed_player && !pendingClaim"
+              type="button"
+              class="text-left text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
+              @click="claimOpen = !claimOpen"
+            >Claim leaderboard player</button>
+          </div>
+
+          <!-- Claim status / inline form -->
+          <div v-if="me.claimed_player" class="mt-3 px-1 text-xs text-zinc-500">
+            Claimed as <span class="text-accent font-medium">{{ me.claimed_player }}</span>.
+            <p class="mt-0.5 text-zinc-600">Contact an admin to change.</p>
+          </div>
+          <div v-else-if="pendingClaim" class="mt-3 px-1 text-xs text-zinc-400">
+            <p>Pending claim for <span class="text-zinc-200 font-medium">{{ pendingClaim.player_name }}</span>.</p>
+            <button
+              type="button"
+              class="mt-1 text-zinc-500 hover:text-red-400 underline"
+              @click="cancelClaim"
+            >Cancel</button>
+          </div>
+          <form v-else-if="claimOpen" class="mt-3 space-y-2" @submit.prevent="submitClaim">
             <input
-              v-model="profile.country"
-              maxlength="64"
-              placeholder="e.g. United States"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              v-model="claimInput"
+              placeholder="Exact leaderboard name"
+              class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
             />
-          </label>
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
-            <input
-              v-model="profile.subdivision"
-              maxlength="64"
-              placeholder="e.g. California"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
+            <div class="flex gap-2">
+              <button
+                type="submit"
+                :disabled="claimSubmitting || !claimInput.trim()"
+                class="flex-1 rounded bg-accent text-zinc-950 text-xs font-medium py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              >Request</button>
+              <button
+                type="button"
+                class="px-2 py-1.5 rounded border border-zinc-800 text-zinc-400 text-xs hover:bg-zinc-900 transition-colors"
+                @click="claimOpen = false"
+              >Cancel</button>
+            </div>
+            <p v-if="claimError" class="text-xs text-red-400">{{ claimError }}</p>
+          </form>
         </div>
-        <div class="flex items-center gap-3">
+
+        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Profile picture</h2>
+          <div class="flex items-center gap-2 flex-wrap">
+            <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium px-2.5 py-1 cursor-pointer transition-colors">
+              <span>{{ avatarUploading ? 'Uploading…' : 'Upload' }}</span>
+              <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onAvatarChange" />
+            </label>
+            <button
+              v-if="me.has_avatar"
+              type="button"
+              class="rounded border border-zinc-800 hover:border-red-900 hover:text-red-400 text-xs px-2.5 py-1 transition-colors"
+              @click="removeAvatar"
+            >Remove</button>
+          </div>
+          <p class="text-[10px] text-zinc-600 mt-2">PNG/JPEG/GIF/WebP, ≤1 MB.</p>
+          <p v-if="avatarError" class="text-xs text-red-400 mt-1">{{ avatarError }}</p>
+        </div>
+
+        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs">
+          <NuxtLink :to="`/users/${me.username}`" class="block text-zinc-400 hover:text-accent transition-colors">View public profile ↗</NuxtLink>
+          <template v-if="me.role === 'admin' || me.role === 'moderator'">
+            <NuxtLink to="/admin" class="block mt-1 text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'admin' ? 'Admin' : 'Mod' }} panel →</NuxtLink>
+          </template>
           <button
-            type="submit"
-            :disabled="profileSaving"
-            class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
-          >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
-          <span v-if="profileSaved" class="text-xs text-emerald-400">Saved.</span>
-          <span v-if="profileError" class="text-xs text-red-400">{{ profileError }}</span>
+            type="button"
+            class="block mt-1 text-zinc-500 hover:text-red-400 transition-colors"
+            @click="logout"
+          >Log out</button>
         </div>
-      </form>
-    </section>
-
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-      <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Leaderboard claim</h2>
-      <div v-if="me.claimed_player">
-        <p class="text-sm text-zinc-300">
-          You're claimed as <span class="font-medium text-accent">{{ me.claimed_player }}</span>.
-        </p>
-        <p class="text-[11px] text-zinc-500 mt-1">To change this, contact an admin.</p>
-      </div>
-      <div v-else-if="pendingClaim">
-        <p class="text-sm text-zinc-300">
-          Pending claim for <span class="font-medium">{{ pendingClaim.player_name }}</span> — waiting on an admin.
-        </p>
-        <button
-          type="button"
-          class="mt-2 text-xs text-zinc-500 hover:text-red-400 underline"
-          @click="cancelClaim"
-        >Cancel claim</button>
-      </div>
-      <form v-else class="flex flex-col sm:flex-row gap-2 sm:items-end" @submit.prevent="submitClaim">
-        <label class="block flex-1">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Player name on the leaderboard</span>
-          <input
-            v-model="claimInput"
-            placeholder="Exactly as it appears on the leaderboard"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-        <button
-          type="submit"
-          :disabled="claimSubmitting || !claimInput.trim()"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
-        >Request claim</button>
-      </form>
-      <p v-if="claimError" class="text-xs text-red-400 mt-2">{{ claimError }}</p>
-    </section>
-
-    <section v-if="profileData?.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-      <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
-      <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-        <div>
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
-          <dd class="tabular-nums text-amber-300 text-base">{{ fmt(profileData.player.total_points) }}</dd>
-        </div>
-        <div>
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
-          <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(profileData.player.skill_points) }}</dd>
-        </div>
-        <div>
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
-          <dd class="text-zinc-100 text-base truncate">{{ profileData.player.hardest ?? '—' }}</dd>
-        </div>
-        <div>
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
-          <dd class="text-zinc-100 text-base">{{ profileData.player.tier ?? '—' }}</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 flex items-center justify-between gap-3 flex-wrap">
-      <div class="min-w-0">
-        <h2 class="text-sm font-medium text-zinc-100">Submit a record</h2>
-        <p class="text-xs text-zinc-500 mt-0.5">Add a completion to be reviewed by a moderator.</p>
-      </div>
-      <NuxtLink
-        to="/records/submit"
-        class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 transition-colors shrink-0"
-      >Submit record</NuxtLink>
-    </section>
-
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 flex items-center justify-between gap-3 flex-wrap">
-      <div class="min-w-0">
-        <h2 class="text-sm font-medium text-zinc-100">Submit a new level</h2>
-        <p class="text-xs text-zinc-500 mt-0.5">Suggest a level to add to the list. A moderator picks placement.</p>
-      </div>
-      <NuxtLink
-        to="/levels/submit"
-        class="rounded border border-accent/40 text-accent font-medium text-sm px-4 py-1.5 hover:bg-accent/10 transition-colors shrink-0"
-      >Submit level</NuxtLink>
-    </section>
-
-    <ProfileLevelLists
-      v-if="profileData"
-      :completed="profileData.completedLevels"
-      :created="profileData.createdLevels"
-      :verified="profileData.verifiedLevels"
-    />
+      </aside>
+    </div>
   </div>
 </template>

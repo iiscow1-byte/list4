@@ -12,11 +12,19 @@ type ProgressPost = {
 const props = defineProps<{
   posts: ProgressPost[]
   canPost?: boolean
+  open?: boolean
 }>()
 
-const emit = defineEmits<{ (e: 'changed'): void }>()
+const emit = defineEmits<{
+  (e: 'changed'): void
+  (e: 'update:open', open: boolean): void
+}>()
 
-const showForm = ref(false)
+const showForm = ref(props.open ?? false)
+watch(() => props.open, (v) => {
+  if (typeof v === 'boolean') showForm.value = v
+})
+watch(showForm, (v) => emit('update:open', v))
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
