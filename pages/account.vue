@@ -4,6 +4,8 @@ import { roleBadgeClass } from '~/utils/role-styles'
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Account — All Levels List' })
 
+const { enabled: profanityFilterEnabled, setEnabled: setProfanityFilter } = useProfanityFilter()
+
 const { data: meRes, refresh: refreshMe } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
@@ -681,16 +683,29 @@ function fmt(n: number | null | undefined) {
           <p v-if="avatarError" class="text-xs text-red-400 mt-1">{{ avatarError }}</p>
         </div>
 
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs">
+        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs space-y-1">
           <NuxtLink :to="`/users/${me.username}`" class="block text-zinc-400 hover:text-accent transition-colors">View public profile ↗</NuxtLink>
           <template v-if="me.role !== 'user'">
-            <NuxtLink to="/admin" class="block mt-1 text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'moderator' ? 'Mod' : 'Admin' }} panel →</NuxtLink>
+            <NuxtLink to="/admin" class="block text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'moderator' ? 'Mod' : 'Admin' }} panel →</NuxtLink>
           </template>
           <button
             type="button"
-            class="block mt-1 text-zinc-500 hover:text-red-400 transition-colors"
+            class="block text-zinc-500 hover:text-red-400 transition-colors"
             @click="logout"
           >Log out</button>
+        </div>
+
+        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Preferences</h2>
+          <label class="flex items-center gap-2 cursor-pointer select-none px-1">
+            <input
+              type="checkbox"
+              :checked="profanityFilterEnabled"
+              class="accent-accent w-3.5 h-3.5"
+              @change="setProfanityFilter(($event.target as HTMLInputElement).checked)"
+            />
+            <span class="text-xs text-zinc-300">Profanity filter</span>
+          </label>
         </div>
       </aside>
     </div>

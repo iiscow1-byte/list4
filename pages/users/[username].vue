@@ -6,7 +6,7 @@ const username = computed(() => String(route.params.username))
 
 const { data, error, refresh } = await useFetch<{
   account: {
-    username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
+    id: number; username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean
   }
@@ -113,6 +113,11 @@ function fmt(n: number | null | undefined) {
         :created="data.createdLevels"
         :verified="data.verifiedLevels"
       />
+
+      <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments</h2>
+        <CommentSection kind="profile" :target-id="data.account.id" />
+      </section>
     </template>
   </div>
 </template>

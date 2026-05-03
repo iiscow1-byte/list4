@@ -272,6 +272,7 @@ function ytEmbed(raw: string | null): string | null {
             class="text-xs text-accent hover:underline break-all"
           >{{ p.video_url }}</a>
         </div>
+        <CommentSection kind="progress" :target-id="p.id" />
       </li>
     </ul>
   </section>

@@ -502,4 +502,22 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_progress_posts_account ON progress_posts(account_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_progress_posts_created ON progress_posts(created_at);
   `)
+
+  // Comments: user-posted comments on profiles, progress posts, and open
+  // verification levels. target_kind + target_id identify the parent:
+  //   profile          → accounts.id of the profile owner
+  //   progress         → progress_posts.id
+  //   open_verification → open_verifications.id
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comments (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      target_kind TEXT    NOT NULL CHECK(target_kind IN ('profile','progress','open_verification')),
+      target_id   INTEGER NOT NULL,
+      body        TEXT    NOT NULL,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_target  ON comments(target_kind, target_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_comments_account ON comments(account_id);
+  `)
 }

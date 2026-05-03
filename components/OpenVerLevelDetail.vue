@@ -150,9 +150,13 @@ const tagList = computed(() => {
       </div>
     </div>
 
-    <section v-if="level.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+    <section v-if="level.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3 mb-6">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
+    </section>
+
+    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+      <CommentSection kind="open_verification" :target-id="level.id" />
     </section>
   </div>
 </template>
