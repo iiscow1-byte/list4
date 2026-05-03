@@ -231,16 +231,15 @@ async function importLevels() {
 
   cleanupDuplicateLevels(db)
 
-  // `rated` is intentionally not imported from the sheet — the GD API is the
-  // source of truth for ratings. `points` is also skipped — values are derived
-  // from gddl_tier + position via recomputePoints() and the sheet column is no
-  // longer authoritative. New rows are inserted with rated = NULL, points = NULL.
+  // `rated` is imported from the sheet only for the 'Challenge' value — every
+  // other rating is sourced from the GD API at query time. `points` is skipped
+  // entirely; values are derived from gddl_tier + position via recomputePoints().
   const insert = db.prepare(`
     INSERT INTO levels
       (position, name, gd_id, gddl_tier, difficulty, placement_source,
        main_skillset, verify_date, verification, verification_url, pov_placement,
-       year_verified, category, source_tab)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?)
+       year_verified, category, source_tab, rated)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?)
   `)
 
   // Levels that have a permanent counterpart are owned by the website, not the
@@ -271,7 +270,7 @@ async function importLevels() {
   // sheet's current ordering.
   let tempPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
 
-  const sheetOrder: { key: string; gdId: number | null; name: string }[] = []
+  const sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[] = []
   let total = 0
   let skipped = 0
   let permSkipped = 0
@@ -308,7 +307,9 @@ async function importLevels() {
         // Already encountered earlier in the sheet (or already in the DB) —
         // record sheet rank but don't re-insert.
         if (sheetOrder.some((s) => s.key === key)) continue
-        sheetOrder.push({ key, gdId, name })
+        const ratedRaw = txt(r[c['rated']!])
+        const sheetRated = ratedRaw?.toLowerCase() === 'challenge' ? 'Challenge' : null
+        sheetOrder.push({ key, gdId, name, rated: sheetRated })
 
         if (existingByKey.has(key)) continue
 
@@ -332,6 +333,7 @@ async function importLevels() {
           pov,
           num(r[c['year verified']!]),
           tab.label,
+          sheetRated,
         )
         existingByKey.set(key, Number(result.lastInsertRowid))
         imported++
@@ -351,6 +353,7 @@ async function importLevels() {
   // sheet (e.g. a level the curators removed) drift to the end of the list,
   // ordered by their previous position; nothing is deleted automatically.
   const orphans = applySheetOrder(db, sheetOrder)
+  applyRatedFromSheet(db, sheetOrder)
 
   // Points are derived from tier + position; recompute against the freshly
   // settled list ordering so every level (including imports just renumbered)
@@ -362,6 +365,52 @@ async function importLevels() {
     `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
     `${permSkipped} skipped — owned by permanent records. Points recomputed.`,
   )
+}
+
+/**
+ * Sync the 'rated' field for non-permanent levels based on the sheet data.
+ * Only the 'Challenge' value is imported from the sheet; all other ratings
+ * come from the GD API at query time and are never overwritten here.
+ * - If sheet says 'Challenge' and DB doesn't → set to 'Challenge'.
+ * - If sheet doesn't say 'Challenge' and DB has 'Challenge' → clear to NULL
+ *   (so it no longer suppresses the GD API rating).
+ * - Other rated values (Featured, Epic, etc.) set by admins are left alone.
+ */
+function applyRatedFromSheet(
+  db: ReturnType<typeof getDb>,
+  sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[],
+): void {
+  const challengeKeys = new Set(
+    sheetOrder.filter((s) => s.rated === 'Challenge').map((s) => s.key),
+  )
+
+  const rows = db
+    .prepare(`SELECT id, gd_id, name, rated FROM levels WHERE permanent = 0 OR permanent IS NULL`)
+    .all() as { id: number; gd_id: number | null; name: string; rated: string | null }[]
+
+  const update = db.prepare(`UPDATE levels SET rated = ? WHERE id = ?`)
+  let changed = 0
+
+  db.exec('BEGIN')
+  try {
+    for (const row of rows) {
+      const key = dupKey(row.gd_id, row.name)
+      const sheetSaysChallenge = challengeKeys.has(key)
+      if (sheetSaysChallenge && row.rated !== 'Challenge') {
+        update.run('Challenge', row.id)
+        changed++
+      } else if (!sheetSaysChallenge && row.rated === 'Challenge') {
+        update.run(null, row.id)
+        changed++
+      }
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+
+  if (changed > 0) console.log(`Challenge rated: ${changed} level(s) updated.`)
 }
 
 /**

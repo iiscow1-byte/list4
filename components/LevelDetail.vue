@@ -201,6 +201,7 @@ const isChallengeTier = computed(
   () => !!props.level.gddl_tier && /^Tier \d+$/.test(props.level.gddl_tier),
 )
 const ratedLabel = computed(() => {
+  if (props.level.rated === 'Challenge') return 'Challenge'
   if (!infoData.value) return null
   const { score, length } = infoData.value
   if (score === 0 && (length === 'Tiny' || length === 'Short') && isChallengeTier.value) {
@@ -436,7 +437,7 @@ async function deleteLevel() {
           <DifficultyFace :difficulty="level.difficulty" :rated="level.rated" :position="level.position" />
           <div>
             <p class="text-sm font-medium text-zinc-200 capitalize">{{ level.difficulty }}</p>
-            <p v-if="level.gddl_tier" class="text-xs text-zinc-400 mt-0.5">Tier {{ level.gddl_tier }}</p>
+            <p v-if="level.gddl_tier" class="text-xs text-zinc-400 mt-0.5">{{ level.gddl_tier }}</p>
           </div>
         </div>
       </div>
