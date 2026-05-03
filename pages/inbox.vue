@@ -53,6 +53,7 @@ function kindLabel(kind: string) {
   switch (kind) {
     case 'level_rejected': return 'Level rejected'
     case 'record_rejected': return 'Record rejected'
+    case 'open_verification_approved': return 'Open Verification Approved'
     case 'awaiting_removed': return 'Removed from awaiting'
     case 'role_changed': return 'Role changed'
     case 'comment': return 'New comment'
