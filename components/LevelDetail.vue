@@ -436,7 +436,7 @@ async function deleteLevel() {
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
           <DifficultyFace
             :difficulty="editing ? (draft.difficulty || level.difficulty) : level.difficulty"
-            :rated="editing ? (draft.rated || null) : level.rated"
+            :rated="editing ? (draft.rated || null) : (ratedLabel ?? level.rated)"
             :position="editing ? (Number(draftPosition) || level.position) : level.position"
           />
           <div>
