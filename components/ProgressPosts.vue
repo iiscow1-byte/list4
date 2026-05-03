@@ -111,6 +111,25 @@ function relative(at: string): string {
   if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`
   return new Date(t).toLocaleDateString()
 }
+
+// Map a YouTube URL to its /embed/ form. Returns null for non-YouTube URLs
+// or unparseable input — those fall back to a plain link.
+function ytEmbed(raw: string | null): string | null {
+  if (!raw) return null
+  let u: URL
+  try { u = new URL(raw) } catch { return null }
+  const host = u.hostname.replace(/^www\./, '')
+  let id: string | null = null
+  if (host === 'youtu.be') {
+    id = u.pathname.slice(1).split('/')[0] ?? null
+  } else if (host === 'youtube.com' || host === 'm.youtube.com') {
+    if (u.pathname === '/watch') id = u.searchParams.get('v')
+    else if (u.pathname.startsWith('/shorts/')) id = u.pathname.split('/')[2] ?? null
+    else if (u.pathname.startsWith('/embed/')) id = u.pathname.split('/')[2] ?? null
+  }
+  if (!id || !/^[A-Za-z0-9_-]{6,}$/.test(id)) return null
+  return `https://www.youtube.com/embed/${id}`
+}
 </script>
 
 <template>
@@ -219,8 +238,6 @@ function relative(at: string): string {
             class="text-sm text-zinc-100 hover:text-accent transition-colors"
           >{{ p.level_name }}</NuxtLink>
           <span v-else class="text-sm text-zinc-100">{{ p.level_name }}</span>
-          <span class="text-xs text-zinc-500 tabular-nums">{{ p.start_percent }}% → {{ p.end_percent }}%</span>
-          <a v-if="p.video_url" :href="p.video_url" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">video</a>
           <span class="text-xs text-zinc-600 ml-auto">{{ relative(p.created_at) }}</span>
           <button
             v-if="canPost"
@@ -229,6 +246,31 @@ function relative(at: string): string {
             @click="remove(p.id)"
             aria-label="Delete progress post"
           >×</button>
+        </div>
+        <div class="mt-1 text-xs text-zinc-400 tabular-nums">
+          {{ p.start_percent }}% → {{ p.end_percent }}%
+        </div>
+        <div v-if="p.video_url" class="mt-2">
+          <div
+            v-if="ytEmbed(p.video_url)"
+            class="w-60 aspect-video rounded overflow-hidden border border-zinc-800 bg-black"
+          >
+            <iframe
+              :src="ytEmbed(p.video_url)!"
+              class="w-full h-full"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+            />
+          </div>
+          <a
+            v-else
+            :href="p.video_url"
+            target="_blank"
+            rel="noopener"
+            class="text-xs text-accent hover:underline break-all"
+          >{{ p.video_url }}</a>
         </div>
       </li>
     </ul>

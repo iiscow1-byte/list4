@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { tierColor, textOn } from '~/utils/tier-colors'
+
 type AwaitingRow = {
   id: number
   name: string
@@ -331,7 +333,10 @@ watch(
               ? 'bg-sky-900/40 text-sky-100'
               : 'text-zinc-300 hover:bg-zinc-900/70'"
           >
-            <span class="text-[10px] uppercase tracking-widest px-2 py-1 w-14 shrink-0 text-center font-medium bg-zinc-900 text-zinc-400">
+            <span
+              class="text-[10px] tabular-nums px-2 py-1 w-20 shrink-0 text-center font-medium whitespace-nowrap"
+              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
+            >
               {{ lvl.gddl_tier ?? lvl.difficulty ?? '—' }}
             </span>
             <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
