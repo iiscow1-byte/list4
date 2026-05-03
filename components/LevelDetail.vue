@@ -406,6 +406,22 @@ async function saveEdit() {
   }
 }
 
+// Move-below quick action: open the comparison drawer; clicking a level there
+// fills draftPosition with the position that places this level immediately
+// below it once Save is clicked.
+type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+const moveBelowOpen = ref(false)
+function onMoveBelowPick(picked: ListLevel) {
+  // Direction-aware: when the picked level is above the current one, the
+  // picked level keeps its position and we land at picked+1. When the picked
+  // level is below the current one, the move shifts it up by one and we land
+  // at picked.position itself (which is right below the now-shifted picked).
+  const cur = props.level.position
+  if (picked.position === cur) return
+  const target = picked.position < cur ? picked.position + 1 : picked.position
+  draftPosition.value = target
+}
+
 async function deleteLevel() {
   if (deleting.value) return
   if (!confirm(`Delete "${props.level.name}" (#${props.level.position})? This shifts everything below up by one and cannot be undone from the UI.`)) return
@@ -488,7 +504,15 @@ async function deleteLevel() {
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
-          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <div class="mt-1 flex items-center gap-2">
+            <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <button
+              type="button"
+              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
+              @click="moveBelowOpen = true"
+              title="Pick a level to place this one immediately below"
+            >Move below…</button>
+          </div>
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
@@ -871,5 +895,13 @@ async function deleteLevel() {
         </div>
       </section>
     </template>
+
+    <LevelComparisonDrawer
+      v-model:open="moveBelowOpen"
+      :confirm-on-pick="true"
+      title="Move below"
+      hint="Click a level to move this one right below it. Save to commit."
+      @confirm="onMoveBelowPick"
+    />
   </div>
 </template>

@@ -6,6 +6,12 @@ type ListLevel = { position: number; name: string; gddl_tier: string | null; dif
 const props = defineProps<{
   open: boolean
   initial?: ListLevel | null
+  // When true, picking a list item immediately emits `confirm` and closes —
+  // skips the secondary "Confirm" button. Used by quick-action callers
+  // (edit-form move-below, admin placement helper).
+  confirmOnPick?: boolean
+  title?: string
+  hint?: string
 }>()
 const emit = defineEmits<{
   (e: 'update:open', v: boolean): void
@@ -93,6 +99,12 @@ function scrollToPickedInList() {
 }
 
 async function pickCompareItem(lvl: ListLevel) {
+  if (props.confirmOnPick) {
+    comparePicked.value = lvl
+    emit('confirm', lvl)
+    emit('update:open', false)
+    return
+  }
   if (compareMode.value === 'browse') {
     comparePicked.value = lvl
     return
@@ -171,9 +183,11 @@ function confirm() {
       <aside class="relative flex flex-col w-full sm:w-[420px] h-full bg-zinc-950 border-r border-zinc-800 shadow-2xl">
         <header class="p-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
           <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-widest text-accent font-semibold">Level comparison</span>
+            <span class="text-xs uppercase tracking-widest text-accent font-semibold">{{ title ?? 'Level comparison' }}</span>
             <span class="text-[11px] text-zinc-500">
-              <template v-if="compareMode === 'search'">Search, then click a level to browse nearby placements.</template>
+              <template v-if="hint">{{ hint }}</template>
+              <template v-else-if="confirmOnPick">Click a level to place this one right below it.</template>
+              <template v-else-if="compareMode === 'search'">Search, then click a level to browse nearby placements.</template>
               <template v-else>Pick a level whose placement matches yours.</template>
             </span>
           </div>
@@ -251,6 +265,7 @@ function confirm() {
             @click="close"
           >Cancel</button>
           <button
+            v-if="!confirmOnPick"
             type="button"
             :disabled="!comparePicked"
             class="rounded bg-accent text-zinc-950 hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium px-2.5 py-1.5 transition-colors"

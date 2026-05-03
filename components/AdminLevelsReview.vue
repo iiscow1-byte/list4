@@ -161,6 +161,15 @@ function youtubeId(url: string | null): string | null {
   return null
 }
 const verificationYtId = computed(() => youtubeId(selected.value?.verification_url ?? null))
+
+// Placement helper: same comparison drawer the submit-level page uses. On
+// pick, set `placement` to the position right below the chosen level — it'll
+// shift everything at-and-below down by one when approved.
+type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+const placementHelperOpen = ref(false)
+function onPlacementHelperPick(picked: ListLevel) {
+  placement.value = String(picked.position + 1)
+}
 </script>
 
 <template>
@@ -312,7 +321,16 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
     <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
         <div>
-          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Placement</p>
+          <div class="flex items-baseline justify-between mb-1">
+            <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement</p>
+            <button
+              v-if="!goesToVoid"
+              type="button"
+              class="text-[10px] uppercase tracking-widest text-accent hover:bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
+              @click="placementHelperOpen = true"
+              title="Open the full main-list browser to pick an anchor"
+            >Placement helper</button>
+          </div>
           <input
             v-model="placement"
             type="number" inputmode="numeric" min="1"
@@ -412,5 +430,13 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
         <p class="text-xs text-zinc-500">Select a submission to review.</p>
       </div>
     </aside>
+
+    <LevelComparisonDrawer
+      v-model:open="placementHelperOpen"
+      :confirm-on-pick="true"
+      title="Placement helper"
+      hint="Click a level to set placement to right below it."
+      @confirm="onPlacementHelperPick"
+    />
   </div>
 </template>
