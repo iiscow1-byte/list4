@@ -360,11 +360,64 @@ async function importLevels() {
   // ends up with a current value.
   recomputePoints(db)
 
+  // Detect natural ties (level has the same points as its position-neighbor
+  // above) and pre-flag them as `same_as_above`. Pure import-time housekeeping —
+  // future moves of the upper level will then keep the lower one in sync.
+  const flagged = flagSameAsAbove(db)
+
   console.log(
     `\nImported ${total} new levels; renumbered all non-permanent rows by sheet order ` +
     `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
-    `${permSkipped} skipped — owned by permanent records. Points recomputed.`,
+    `${permSkipped} skipped — owned by permanent records. Points recomputed. ` +
+    `${flagged} level(s) auto-flagged "same as above".`,
   )
+}
+
+/**
+ * Flag `same_as_above = 1` on any level whose `points` exactly match the level
+ * immediately above it (position − 1). Only writes when the flag is currently
+ * 0 — never clears a flag set elsewhere, and is otherwise a no-op on rerun.
+ * Returns the number of rows updated this call.
+ *
+ * Position-adjacency is required so a gap (e.g. a missing position from a
+ * past delete) doesn't cause us to bridge unrelated rows.
+ */
+function flagSameAsAbove(db: ReturnType<typeof getDb>): number {
+  const rows = db
+    .prepare(
+      `SELECT id, position, points, same_as_above
+         FROM levels
+        ORDER BY position ASC`,
+    )
+    .all() as { id: number; position: number; points: number | null; same_as_above: number }[]
+  if (rows.length < 2) return 0
+
+  const upd = db.prepare(`UPDATE levels SET same_as_above = 1 WHERE id = ?`)
+  let prev: (typeof rows)[number] | null = null
+  let flagged = 0
+
+  db.exec('BEGIN')
+  try {
+    for (const r of rows) {
+      if (
+        prev &&
+        prev.position === r.position - 1 &&
+        prev.points != null &&
+        r.points != null &&
+        Math.abs(prev.points - r.points) < 1e-6 &&
+        !r.same_as_above
+      ) {
+        upd.run(r.id)
+        flagged++
+      }
+      prev = r
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  return flagged
 }
 
 /**
