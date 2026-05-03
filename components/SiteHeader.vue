@@ -126,11 +126,11 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
         >Submit level</NuxtLink>
 
         <NuxtLink
-          v-if="me?.role === 'admin' || me?.role === 'moderator'"
+          v-if="me?.role && me.role !== 'user'"
           to="/admin"
           class="px-3 py-1.5 rounded text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
           active-class="text-accent bg-zinc-900"
-        >{{ me.role === 'admin' ? 'Admin' : 'Mod' }}</NuxtLink>
+        >{{ me.role === 'moderator' ? 'Mod' : 'Admin' }}</NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1" />
 

@@ -683,8 +683,8 @@ function fmt(n: number | null | undefined) {
 
         <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs">
           <NuxtLink :to="`/users/${me.username}`" class="block text-zinc-400 hover:text-accent transition-colors">View public profile ↗</NuxtLink>
-          <template v-if="me.role === 'admin' || me.role === 'moderator'">
-            <NuxtLink to="/admin" class="block mt-1 text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'admin' ? 'Admin' : 'Mod' }} panel →</NuxtLink>
+          <template v-if="me.role !== 'user'">
+            <NuxtLink to="/admin" class="block mt-1 text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'moderator' ? 'Mod' : 'Admin' }} panel →</NuxtLink>
           </template>
           <button
             type="button"
