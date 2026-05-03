@@ -173,8 +173,24 @@ async function postBoomlingsViaProxy(body: string, timeoutMs: number): Promise<s
   return resp.text()
 }
 
-function postBoomlings(body: string, timeoutMs: number): Promise<string> {
-  if (GD_PROXY_URL) return postBoomlingsViaProxy(body, timeoutMs)
+async function postBoomlings(body: string, timeoutMs: number): Promise<string> {
+  // When a proxy is configured, prefer it — but if it's unreachable (DNS
+  // failure, connection refused, timeout), fall through to the direct call so
+  // a stale GD_PROXY_URL doesn't fully break the integration. HTTP errors from
+  // the proxy still bubble up: those mean the proxy reached upstream.
+  if (GD_PROXY_URL) {
+    try {
+      return await postBoomlingsViaProxy(body, timeoutMs)
+    } catch (e: any) {
+      const msg = String(e?.message ?? '')
+      const cause = String((e as any)?.cause?.code ?? (e as any)?.cause?.message ?? '')
+      const isHttpStatus = /HTTP \d{3}/.test(msg)
+      if (isHttpStatus) throw e
+      console.warn(
+        `[gd-fetch] proxy unreachable (${msg}${cause ? `: ${cause}` : ''}), falling back to direct boomlings call`,
+      )
+    }
+  }
   return postBoomlingsDirect(body, timeoutMs)
 }
 
