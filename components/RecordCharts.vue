@@ -23,7 +23,8 @@ const PALETTE = [
 const skillsetSlices = computed(() => {
   const counts = new Map<string, number>()
   for (const l of props.completed) {
-    const key = (l.main_skillset?.trim() || 'Unknown')
+    const key = l.main_skillset?.trim()
+    if (!key) continue
     counts.set(key, (counts.get(key) ?? 0) + 1)
   }
   const total = Array.from(counts.values()).reduce((s, n) => s + n, 0)
@@ -35,6 +36,20 @@ const skillsetSlices = computed(() => {
     slices[i]!.color = PALETTE[i % PALETTE.length]!
   }
   return { total, slices }
+})
+
+const hovered = ref<number | null>(null)
+
+// Top 3 are always shown in the legend; when the user hovers a slice that
+// isn't in the top 3, it gets appended as a temporary 4th row so they can
+// read its stats without having to chase a tooltip.
+const topSlices = computed(() => skillsetSlices.value.slices.slice(0, 3))
+const hoveredExtra = computed(() => {
+  if (hovered.value == null) return null
+  const s = skillsetSlices.value.slices[hovered.value]
+  if (!s) return null
+  if (topSlices.value.some((t) => t.label === s.label)) return null
+  return s
 })
 
 // Build SVG arcs for the pie. radius=80, center=(90,90), with a thin gap
@@ -97,8 +112,6 @@ const tierBars = computed(() => {
   const max = list.reduce((m, r) => Math.max(m, r.n), 0)
   return { list, max }
 })
-
-const hovered = ref<number | null>(null)
 </script>
 
 <template>
@@ -125,16 +138,24 @@ const hovered = ref<number | null>(null)
         </svg>
         <ul class="mt-2 space-y-1">
           <li
-            v-for="(s, i) in skillsetSlices.slices" :key="s.label"
+            v-for="s in topSlices" :key="s.label"
             class="flex items-center gap-2 text-xs px-1 py-0.5 rounded transition-colors"
-            :class="hovered === i ? 'bg-zinc-900' : ''"
-            @mouseenter="hovered = i"
-            @mouseleave="hovered = null"
+            :class="hovered != null && skillsetSlices.slices[hovered]?.label === s.label ? 'bg-zinc-900' : ''"
           >
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: s.color }" />
             <span class="flex-1 truncate text-zinc-200">{{ s.label }}</span>
             <span class="tabular-nums text-zinc-500">{{ s.n }}</span>
             <span class="tabular-nums text-zinc-600 w-9 text-right">{{ Math.round(s.pct * 100) }}%</span>
+          </li>
+          <li
+            v-if="hoveredExtra"
+            :key="`hover-${hoveredExtra.label}`"
+            class="flex items-center gap-2 text-xs px-1 py-0.5 rounded bg-zinc-900 border-t border-zinc-800/80"
+          >
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: hoveredExtra.color }" />
+            <span class="flex-1 truncate text-zinc-200">{{ hoveredExtra.label }}</span>
+            <span class="tabular-nums text-zinc-500">{{ hoveredExtra.n }}</span>
+            <span class="tabular-nums text-zinc-600 w-9 text-right">{{ Math.round(hoveredExtra.pct * 100) }}%</span>
           </li>
         </ul>
       </template>
