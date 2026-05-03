@@ -115,7 +115,7 @@ async function promote() {
 type EditableFields = Pick<Level,
   'name' | 'gd_id' | 'creator' | 'verifier' | 'publisher' | 'enjoyment' |
   'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
-  'verification' | 'verification_url' | 'pov_placement' | 'year_verified' |
+  'verification' | 'verification_url' | 'year_verified' |
   'description_override'
 > & { same_as_above: boolean }
 const editing = ref(false)
@@ -133,7 +133,6 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   main_skillset: '',
   verification: '',
   verification_url: '',
-  pov_placement: '',
   year_verified: '',
   description_override: '',
   same_as_above: false,
@@ -157,7 +156,6 @@ function startEdit() {
   draft.main_skillset = props.level.main_skillset ?? ''
   draft.verification = props.level.verification ?? ''
   draft.verification_url = props.level.verification_url ?? ''
-  draft.pov_placement = props.level.pov_placement ?? ''
   draft.year_verified = props.level.year_verified ?? ''
   draft.description_override = props.level.description_override ?? ''
   draft.same_as_above = !!props.level.same_as_above
@@ -515,10 +513,6 @@ async function deleteLevel() {
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
           <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement on verification</span>
-          <input v-model="draft.pov_placement" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>

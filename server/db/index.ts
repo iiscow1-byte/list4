@@ -381,4 +381,40 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_opinions_status  ON opinions(status);
     CREATE INDEX IF NOT EXISTS idx_opinions_record  ON opinions(source_record_id);
   `)
+
+  // Follows: a follower account "follows" a profile identified by its
+  // canonical name (claimed_player when set, else username for accounts;
+  // the player name for unclaimed leaderboard entries). Storing the name
+  // instead of an account id lets us follow profiles that don't have an
+  // account yet — when the profile later claims an account, the follow
+  // edge survives because the canonical name is preserved.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS follows (
+      follower_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      target_name         TEXT    NOT NULL COLLATE NOCASE,
+      created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (follower_account_id, target_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_account_id);
+    CREATE INDEX IF NOT EXISTS idx_follows_target   ON follows(target_name);
+  `)
+
+  // Progress posts: lightweight, unverified personal updates. They never
+  // grant points or appear on level pages — they're profile-only and feed
+  // the followed-activity sidebar. video_url is optional.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS progress_posts (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      level_id       INTEGER REFERENCES levels(id) ON DELETE SET NULL,
+      level_name     TEXT    NOT NULL,
+      level_position INTEGER,
+      start_percent  INTEGER NOT NULL,
+      end_percent    INTEGER NOT NULL,
+      video_url      TEXT,
+      created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_progress_posts_account ON progress_posts(account_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_progress_posts_created ON progress_posts(created_at);
+  `)
 }

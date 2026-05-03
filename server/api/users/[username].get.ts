@@ -1,6 +1,8 @@
 import { getDb } from '~/server/db'
-import { getPlayerStats, getCompletedLevels, getCreatedLevels, getVerifiedLevels } from '~/server/utils/profile'
+import { getPlayerStats, getCompletedLevels, getCreatedLevels, getVerifiedLevels, getProgressPosts } from '~/server/utils/profile'
 import { computeDerivedStats } from '~/server/utils/leaderboard'
+import { getCurrentAccount } from '~/server/utils/auth'
+import { isFollowing } from '~/server/utils/follows'
 
 export default defineEventHandler((event) => {
   const username = getRouterParam(event, 'username')
@@ -35,6 +37,26 @@ export default defineEventHandler((event) => {
   const completedLevels = getCompletedLevels(db, effectiveName)
   const createdLevels = getCreatedLevels(db, effectiveName)
   const verifiedLevels = getVerifiedLevels(db, effectiveName)
+  const progressPosts = getProgressPosts(db, acc.id)
 
-  return { account: acc, player, completedLevels, createdLevels, verifiedLevels }
+  // Follow status: canonical name is the follow key; the viewer can only
+  // follow if they're signed in and not viewing their own profile.
+  const me = getCurrentAccount(event)
+  const myCanonical = me ? (me.claimed_player ?? me.username) : null
+  const followTarget = effectiveName
+  const isSelf = !!myCanonical && myCanonical.toLowerCase() === followTarget.toLowerCase()
+  const followed = me && !isSelf ? isFollowing(db, me.id, followTarget) : false
+  const followerCount = (db.prepare(
+    `SELECT COUNT(*) AS n FROM follows WHERE target_name = ? COLLATE NOCASE`,
+  ).get(followTarget) as { n: number }).n
+
+  return {
+    account: acc,
+    player,
+    completedLevels,
+    createdLevels,
+    verifiedLevels,
+    progressPosts,
+    follow: { target: followTarget, followed, followerCount, isSelf, canFollow: !!me && !isSelf },
+  }
 })

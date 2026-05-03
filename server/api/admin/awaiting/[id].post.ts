@@ -55,6 +55,8 @@ export default defineEventHandler(async (event) => {
     const insertPos = Math.min(placement, maxPos + 1)
     db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
     db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
+    // pov_placement records the position assigned at acceptance time — it
+    // doesn't follow later admin moves.
     db.prepare(
       `INSERT INTO levels
         (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
@@ -73,7 +75,7 @@ export default defineEventHandler(async (event) => {
       sub.verification_url,
       sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
       sub.enjoyment,
-      sub.pov_placement,
+      insertPos,
       sub.placement_source ?? 'All Levels List',
       submitterId,
     )

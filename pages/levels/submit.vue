@@ -32,7 +32,6 @@ const verification = ref('')
 const verificationUrl = ref('')
 const verifier = ref('')
 const verifyDate = ref('')
-const povPlacement = ref<string>('')
 const placementSource = ref<string>('')
 
 // Existing curated source list (Demon List, Pemonlist, GDDP, …) so submitters
@@ -288,7 +287,6 @@ async function submit() {
         verification_url: verificationUrl.value.trim() || null,
         verifier: verifier.value.trim() || null,
         verify_date: verifyDate.value || null,
-        pov_placement: povPlacement.value !== '' ? Number(povPlacement.value) : null,
         placement_source: placementSource.value || null,
         gddl_tier: gddlTier.value || null,
         difficulty: difficulty.value || null,
@@ -304,7 +302,7 @@ async function submit() {
     success.value = true
     // Reset form (but keep fps/version defaults)
     gdId.value = ''; name.value = ''; verification.value = ''; verificationUrl.value = ''
-    verifier.value = ''; verifyDate.value = ''; povPlacement.value = ''; placementSource.value = ''
+    verifier.value = ''; verifyDate.value = ''; placementSource.value = ''
     gddlTier.value = ''; difficulty.value = ''
     enjoyment.value = ''; skillset.value = ''; notes.value = ''
     placementEstimate.value = ''; comparisonLevel.value = null
@@ -431,21 +429,6 @@ async function submit() {
             />
           </label>
         </div>
-
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-            Placement on verification
-            <span class="text-zinc-600 normal-case">— the verifier's all-time rank when they beat it</span>
-          </span>
-          <input
-            v-model="povPlacement"
-            type="number"
-            inputmode="numeric"
-            min="1"
-            placeholder="e.g. 12"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
 
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification title <span class="text-zinc-600 normal-case">— optional</span></span>

@@ -64,13 +64,25 @@ type LevelRow = {
 }
 
 /**
+ * All defined tiers ordered by ascending point value. Used to find which tier
+ * sits "above" the highest currently-in-use tier when extending the anchor
+ * ramp past the top of the list.
+ */
+const TIER_ORDER = Object.keys(TIER_POINTS).sort((a, b) => TIER_POINTS[a]! - TIER_POINTS[b]!)
+const TIER_INDEX = new Map(TIER_ORDER.map((t, i) => [t, i]))
+
+/**
  * Recompute and persist the `points` column for every main-list level.
  *
  * Algorithm: each tier with at least one level contributes an "anchor" at the
  * median position of its levels and the tier's midpoint points. Anchors are
  * sorted by position (low position = harder = higher points). For every level,
- * points are linearly interpolated between the two surrounding anchors;
- * positions outside the anchor range clamp to the nearest anchor's value.
+ * points are linearly interpolated between the two surrounding anchors.
+ *
+ * To avoid the topmost levels all clamping to a single value, we extend the
+ * anchor list with a phantom anchor at position 0 carrying the *next* tier's
+ * midpoint above the highest in-use tier — i.e. "as if there was a single
+ * level in the next tier". Below the lowest anchor we still clamp.
  *
  * Levels with `same_as_above = 1` inherit the (already-computed) points of the
  * level immediately above them in position order; chains resolve in one pass
@@ -97,13 +109,26 @@ export function recomputePoints(db: DatabaseSync): void {
     g.push(r)
   }
 
-  const anchors: { pos: number; pts: number }[] = []
+  const anchors: { tier: string; pos: number; pts: number }[] = []
   for (const [tier, list] of byTier) {
     list.sort((a, b) => a.position - b.position)
     const mid = list[Math.floor(list.length / 2)]!.position
-    anchors.push({ pos: mid, pts: TIER_POINTS[tier]! })
+    anchors.push({ tier, pos: mid, pts: TIER_POINTS[tier]! })
   }
   anchors.sort((a, b) => a.pos - b.pos)
+
+  // Phantom top anchor: pretend there's one level in the tier above the
+  // highest currently-used tier, sitting at position 0 (above the entire
+  // list). Levels in the topmost real tier now ramp toward that hypothetical
+  // value instead of all clamping to the highest in-use midpoint.
+  if (anchors.length > 0) {
+    const topAnchor = anchors[0]!
+    const topIdx = TIER_INDEX.get(topAnchor.tier)
+    if (topIdx != null && topIdx + 1 < TIER_ORDER.length) {
+      const nextTier = TIER_ORDER[topIdx + 1]!
+      anchors.unshift({ tier: nextTier, pos: 0, pts: TIER_POINTS[nextTier]! })
+    }
+  }
 
   function interpolate(pos: number): number | null {
     if (anchors.length === 0) return null
@@ -137,10 +162,13 @@ export function recomputePoints(db: DatabaseSync): void {
     prev = r
   }
 
-  // Round to a stable precision so reads from the DB compare cleanly.
+  // Round to 3 significant figures for cleaner display values across the full
+  // range (0.0500, 17.3, 250000 all stay sensible). Number(toPrecision()) drops
+  // the exponent string toPrecision yields for large values.
   function round(n: number | null): number | null {
     if (n == null) return null
-    return Math.round(n * 1000) / 1000
+    if (n === 0) return 0
+    return Number(n.toPrecision(3))
   }
 
   const upd = db.prepare(`UPDATE levels SET points = ? WHERE id = ?`)

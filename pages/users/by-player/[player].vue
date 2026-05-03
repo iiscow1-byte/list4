@@ -8,6 +8,7 @@ const { data, error } = await useFetch<{
   derived: boolean
   completedLevels: any[]
   createdLevels: any[]
+  follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
 }>(() => `/api/users/by-player/${encodeURIComponent(playerName.value)}`, { watch: [playerName] })
 
 // Redirect to the canonical /users/<username> page if this player has been claimed.
@@ -38,6 +39,15 @@ function fmt(n: number | null | undefined) {
         <div class="flex-1 min-w-0">
           <h1 class="text-3xl font-semibold tracking-tight">{{ data.player.name }}</h1>
           <p v-if="data.player.country" class="text-xs text-zinc-500 mt-1 uppercase">{{ data.player.country }}</p>
+          <div class="mt-2">
+            <FollowButton
+              :target="data.follow.target"
+              :initial-followed="data.follow.followed"
+              :can-follow="data.follow.canFollow"
+              :is-self="data.follow.isSelf"
+              :follower-count="data.follow.followerCount"
+            />
+          </div>
         </div>
       </header>
 

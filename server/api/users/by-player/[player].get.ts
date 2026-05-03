@@ -1,6 +1,19 @@
 import { getDb } from '~/server/db'
 import { getPlayerStats, getCompletedLevels, getCreatedLevels } from '~/server/utils/profile'
 import { computeDerivedStats } from '~/server/utils/leaderboard'
+import { getCurrentAccount } from '~/server/utils/auth'
+import { isFollowing } from '~/server/utils/follows'
+
+function followInfo(db: ReturnType<typeof getDb>, event: any, target: string) {
+  const me = getCurrentAccount(event)
+  const myCanonical = me ? (me.claimed_player ?? me.username) : null
+  const isSelf = !!myCanonical && myCanonical.toLowerCase() === target.toLowerCase()
+  const followed = me && !isSelf ? isFollowing(db, me.id, target) : false
+  const followerCount = (db.prepare(
+    `SELECT COUNT(*) AS n FROM follows WHERE target_name = ? COLLATE NOCASE`,
+  ).get(target) as { n: number }).n
+  return { target, followed, followerCount, isSelf, canFollow: !!me && !isSelf }
+}
 
 export default defineEventHandler((event) => {
   const playerName = getRouterParam(event, 'player')
@@ -20,6 +33,7 @@ export default defineEventHandler((event) => {
       derived: false,
       completedLevels: getCompletedLevels(db, sheetPlayer.name),
       createdLevels: getCreatedLevels(db, sheetPlayer.name),
+      follow: followInfo(db, event, sheetPlayer.name),
     }
   }
 
@@ -42,5 +56,6 @@ export default defineEventHandler((event) => {
     derived: true,
     completedLevels: getCompletedLevels(db, stats.name),
     createdLevels: getCreatedLevels(db, stats.name),
+    follow: followInfo(db, event, stats.name),
   }
 })

@@ -52,8 +52,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
-           pov_placement, placement_source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           placement_source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -72,7 +72,6 @@ export default defineEventHandler(async (event) => {
         submitter,
         sub.id,
         account.id,
-        sub.pov_placement,
         sub.placement_source ?? 'All Levels List',
       )
       db.prepare(
@@ -126,6 +125,8 @@ export default defineEventHandler(async (event) => {
       const insertPos = Math.min(placement, maxPos + 1)
       db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
       db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
+      // pov_placement is a snapshot of where the level was *first* placed —
+      // recorded once on acceptance, never updated by later position moves.
       db.prepare(
         `INSERT INTO levels
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
@@ -144,7 +145,7 @@ export default defineEventHandler(async (event) => {
         sub.verification_url,
         sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
         sub.enjoyment,
-        sub.pov_placement,
+        insertPos,
         sub.placement_source ?? 'All Levels List',
         sub.submitted_by,
       )

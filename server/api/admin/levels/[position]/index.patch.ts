@@ -17,7 +17,6 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   main_skillset: 'text',
   verification: 'text',
   verification_url: 'text',
-  pov_placement: 'int',
   year_verified: 'int',
   description_override: 'text',
   same_as_above: 'bool',

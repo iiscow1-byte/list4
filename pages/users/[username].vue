@@ -2,7 +2,7 @@
 const route = useRoute()
 const username = computed(() => String(route.params.username))
 
-const { data, error } = await useFetch<{
+const { data, error, refresh } = await useFetch<{
   account: {
     username: string; role: 'user'|'moderator'|'admin'
     bio: string | null; country: string | null; subdivision: string | null
@@ -12,7 +12,15 @@ const { data, error } = await useFetch<{
   completedLevels: any[]
   createdLevels: any[]
   verifiedLevels: any[]
+  progressPosts: any[]
+  follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
+
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
+const isOwnProfile = computed(() =>
+  !!me.value && !!data.value && me.value.username.toLowerCase() === data.value.account.username.toLowerCase(),
+)
 
 useHead(() => ({
   title: data.value ? `${data.value.account.username} — All Levels List` : 'User — All Levels List',
@@ -53,6 +61,15 @@ function fmt(n: number | null | undefined) {
             <span v-if="data.account.subdivision">{{ data.account.subdivision }}, </span>
             <span v-if="data.account.country">{{ data.account.country }}</span>
           </p>
+          <div class="mt-2">
+            <FollowButton
+              :target="data.follow.target"
+              :initial-followed="data.follow.followed"
+              :can-follow="data.follow.canFollow"
+              :is-self="data.follow.isSelf"
+              :follower-count="data.follow.followerCount"
+            />
+          </div>
         </div>
       </header>
 
@@ -82,6 +99,12 @@ function fmt(n: number | null | undefined) {
           </div>
         </dl>
       </section>
+
+      <ProgressPosts
+        :posts="data.progressPosts"
+        :can-post="isOwnProfile"
+        @changed="refresh()"
+      />
 
       <ProfileLevelLists
         :completed="data.completedLevels"

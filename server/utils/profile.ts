@@ -59,3 +59,23 @@ export function getVerifiedLevels(db: DatabaseSync, verifierName: string): Level
       ORDER BY position ASC`,
   ).all(verifierName) as LevelRow[]
 }
+
+export type ProgressPost = {
+  id: number
+  level_name: string
+  level_position: number | null
+  start_percent: number
+  end_percent: number
+  video_url: string | null
+  created_at: string
+}
+
+export function getProgressPosts(db: DatabaseSync, accountId: number): ProgressPost[] {
+  return db.prepare(
+    `SELECT id, level_name, level_position, start_percent, end_percent, video_url, created_at
+       FROM progress_posts
+      WHERE account_id = ?
+      ORDER BY created_at DESC
+      LIMIT 200`,
+  ).all(accountId) as ProgressPost[]
+}
