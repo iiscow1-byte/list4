@@ -9,6 +9,7 @@ type Row = {
   skill_points: number
   hardest: string | null
   tier: string | null
+  badge: string | null
 }
 
 export default defineEventHandler((event) => {
@@ -18,16 +19,27 @@ export default defineEventHandler((event) => {
   const followedOnly = String(q.followed ?? '') === '1'
 
   const db = getDb()
+  // Build a map of player-name → role for accounts with a notable role.
+  // Accounts with a claimed_player are keyed by that name; those without are
+  // keyed by their username (since that's how they surface on the leaderboard).
+  const roleRows = db.prepare(
+    `SELECT COALESCE(claimed_player, username) AS player_name, role
+       FROM accounts
+      WHERE banned_at IS NULL
+        AND role IN ('moderator', 'admin', 'owner', 'developer')`,
+  ).all() as { player_name: string; role: string }[]
+  const roleMap = new Map(roleRows.map((r) => [r.player_name.toLowerCase(), r.role]))
+
   const sheet = db
     .prepare(
       `SELECT name AS player, country, total_points AS points, skill_points, hardest, tier
        FROM players`,
     )
-    .all() as Row[]
+    .all() as Omit<Row, 'badge'>[]
 
   // Players who have accepted records but no row on the sheet's leaderboard
   // tab — their stats are derived from those records.
-  const derived: Row[] = listDerivedPlayers(db).map((d) => ({
+  const derived: Omit<Row, 'badge'>[] = listDerivedPlayers(db).map((d) => ({
     player: d.name,
     country: null,
     points: d.total_points,
@@ -48,7 +60,7 @@ export default defineEventHandler((event) => {
       WHERE banned_at IS NULL`,
   ).all() as { username: string; claimed_player: string | null; country: string | null }[]
 
-  const accountRows: Row[] = []
+  const accountRows: Omit<Row, 'badge'>[] = []
   for (const a of accounts) {
     const name = a.claimed_player ?? a.username
     if (seen.has(name.toLowerCase())) continue
@@ -63,7 +75,12 @@ export default defineEventHandler((event) => {
     })
   }
 
-  let all = [...sheet, ...derived, ...accountRows].sort((a, b) => {
+  const all: Row[] = [...sheet, ...derived, ...accountRows].map((p) => ({
+    ...p,
+    badge: roleMap.get(p.player.toLowerCase()) ?? null,
+  }))
+
+  all.sort((a, b) => {
     const dp = (b.points ?? 0) - (a.points ?? 0)
     if (dp !== 0) return dp
     return a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })

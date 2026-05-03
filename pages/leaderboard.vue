@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { roleBadgeClass } from '~/utils/role-styles'
+
 type LeaderRow = {
   rank: number
   player: string
@@ -7,6 +9,7 @@ type LeaderRow = {
   skill_points: number
   hardest: string | null
   tier: string | null
+  badge: string | null
 }
 
 type FeedItem = {
@@ -137,6 +140,11 @@ function relative(at: string): string {
               <div class="flex-1 min-w-0">
                 <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
                   <span>{{ p.player }}</span>
+                  <span
+                    v-if="p.badge"
+                    class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
+                    :class="roleBadgeClass(p.badge)"
+                  >{{ p.badge }}</span>
                 </div>
                 <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
                   <span v-if="p.skill_points" class="tabular-nums">Skill: {{ fmt(p.skill_points) }}</span>

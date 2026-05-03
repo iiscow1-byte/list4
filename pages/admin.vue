@@ -266,7 +266,7 @@ async function setClaim(u: AdminUser) {
               </div>
               <div class="flex items-center gap-1 text-xs flex-wrap">
                 <button
-                  v-for="r in (['user','moderator','admin','owner','developer'] as const)"
+                  v-for="r in (['user','moderator','owner','developer','admin'] as const)"
                   :key="r"
                   type="button"
                   class="px-2 py-1 rounded border transition-colors"
