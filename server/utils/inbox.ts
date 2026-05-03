@@ -6,6 +6,7 @@ export type InboxKind =
   | 'awaiting_removed'
   | 'open_verification_approved'
   | 'open_verification_rejected'
+  | 'role_changed'
 
 export function sendInboxMessage(
   db: DatabaseSync,

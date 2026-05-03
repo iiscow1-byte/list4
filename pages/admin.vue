@@ -73,6 +73,19 @@ watch(tab, (t) => {
   if (t === 'accounts') loadUsers()
 }, { immediate: true })
 
+// Role hierarchy — owner and developer outrank admin
+const ROLE_RANK: Record<string, number> = {
+  user: 0,
+  moderator: 1,
+  admin: 2,
+  owner: 3,
+  developer: 3,
+}
+function roleAboveMe(role: string): boolean {
+  const myRank = ROLE_RANK[me.value?.role ?? 'user'] ?? 0
+  return (ROLE_RANK[role] ?? 0) > myRank
+}
+
 // --- Banner ---
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 function flash(kind: 'ok' | 'err', msg: string) {
@@ -269,11 +282,14 @@ async function setClaim(u: AdminUser) {
                   v-for="r in (['user','moderator','owner','developer','admin'] as const)"
                   :key="r"
                   type="button"
+                  :disabled="roleAboveMe(r)"
                   class="px-2 py-1 rounded border transition-colors"
-                  :class="u.role === r
-                    ? 'border-accent bg-accent/15 text-accent'
-                    : 'border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'"
-                  @click="setRole(u, r)"
+                  :class="roleAboveMe(r)
+                    ? 'border-zinc-800 text-zinc-700 cursor-not-allowed'
+                    : u.role === r
+                      ? 'border-accent bg-accent/15 text-accent'
+                      : 'border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'"
+                  @click="!roleAboveMe(r) && setRole(u, r)"
                 >{{ r }}</button>
                 <button
                   type="button"

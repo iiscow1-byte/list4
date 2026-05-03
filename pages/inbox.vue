@@ -54,6 +54,7 @@ function kindLabel(kind: string) {
     case 'level_rejected': return 'Level rejected'
     case 'record_rejected': return 'Record rejected'
     case 'awaiting_removed': return 'Removed from awaiting'
+    case 'role_changed': return 'Role changed'
     default: return kind
   }
 }
