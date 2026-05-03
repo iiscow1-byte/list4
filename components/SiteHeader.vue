@@ -26,7 +26,10 @@ const listMenuOpen = ref(false)
 const listMenuRef = ref<HTMLElement | null>(null)
 
 const listActive = computed(() =>
-  route.path.startsWith('/levels') || route.path.startsWith('/awaiting') || route.path.startsWith('/void'),
+  route.path.startsWith('/levels')
+  || route.path.startsWith('/awaiting')
+  || route.path.startsWith('/void')
+  || route.path.startsWith('/open-verifications'),
 )
 
 function onDocClick(e: MouseEvent) {
@@ -98,6 +101,11 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
               role="menuitem"
               class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
             >Void list</NuxtLink>
+            <NuxtLink
+              to="/open-verifications"
+              role="menuitem"
+              class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            >Open verifications</NuxtLink>
           </div>
         </div>
 

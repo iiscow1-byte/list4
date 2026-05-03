@@ -10,7 +10,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!acc) {
     return navigateTo(`/login?next=${encodeURIComponent(to.fullPath)}`)
   }
-  if (acc.role !== 'admin' && acc.role !== 'moderator') {
+  if (acc.role === 'user') {
     return abortNavigation({ statusCode: 403, statusMessage: 'Mods or admins only' })
   }
 })

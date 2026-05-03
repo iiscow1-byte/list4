@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { roleBadgeClass } from '~/utils/role-styles'
+
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Account — All Levels List' })
 
@@ -133,10 +135,104 @@ async function cancelClaim() {
   await loadPendingClaim()
 }
 
+// --- Open-verification submission (collapsible box on the account page) ---
+const TIER_OPTIONS = [
+  '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
+  ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
+]
+const OV_DIFFICULTY_OPTIONS = [
+  '', 'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
+  'Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon',
+]
+const OV_SKILLSET_OPTIONS = [
+  '', 'Wave', 'Memory', 'Timings', 'Ship', 'Solo 2P', 'Controlled Spam', 'Flow',
+  'Nerve Control', 'Chokepoints', 'High CPS', 'Overall', 'Learny', 'Duals', 'Fast Paced',
+  'Consistency', 'Swingcopter', 'Robot', 'Endurance', 'Cube', 'Straight Fly', 'UFO',
+  'Ship Control', 'Ball', 'Spider', 'Spam', 'Framelocked',
+]
+const OV_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
+
+const ovOpen = ref(false)
+const ovGdId = ref('')
+const ovName = ref('')
+const ovFps = ref('any')
+const ovGameVersion = ref('any')
+const ovShowcaseUrl = ref('')
+const ovVerifier = ref('')
+const ovGddlTier = ref('')
+const ovDifficulty = ref('')
+const ovEnjoyment = ref('')
+const ovSkillset = ref('')
+const ovTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
+const ovNotes = ref('')
+
+const ovSubmitting = ref(false)
+const ovError = ref<string | null>(null)
+const ovSuccess = ref(false)
+
+function ovYoutubeId(url: string | null): string | null {
+  if (!url) return null
+  const patterns = [
+    /[?&]v=([A-Za-z0-9_-]{6,})/,
+    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
+  ]
+  for (const re of patterns) {
+    const m = url.match(re)
+    if (m) return m[1]!
+  }
+  return null
+}
+const ovShowcaseYt = computed(() => ovYoutubeId(ovShowcaseUrl.value.trim()))
+
+async function submitOpenVerification() {
+  if (ovSubmitting.value) return
+  ovError.value = null
+  if (!ovGdId.value.trim() || !/^\d+$/.test(ovGdId.value.trim())) {
+    ovError.value = 'A numeric level ID is required.'
+    return
+  }
+  if (!ovName.value.trim()) {
+    ovError.value = 'A level name is required.'
+    return
+  }
+  ovSubmitting.value = true
+  try {
+    await $fetch('/api/open-verifications/submit', {
+      method: 'POST',
+      body: {
+        gd_id: ovGdId.value.trim(),
+        name: ovName.value.trim(),
+        fps: ovFps.value.trim() || 'any',
+        game_version: ovGameVersion.value.trim() || 'any',
+        showcase_url: ovShowcaseUrl.value.trim() || null,
+        verifier: ovVerifier.value.trim() || null,
+        gddl_tier: ovGddlTier.value || null,
+        difficulty: ovDifficulty.value || null,
+        enjoyment: ovEnjoyment.value !== '' ? Number(ovEnjoyment.value) : null,
+        main_skillset: ovSkillset.value || null,
+        tags: OV_TAGS.filter((t) => ovTagSet[t]),
+        notes: ovNotes.value.trim() || null,
+      },
+    })
+    ovSuccess.value = true
+    ovGdId.value = ''; ovName.value = ''; ovShowcaseUrl.value = ''
+    ovVerifier.value = ''; ovGddlTier.value = ''; ovDifficulty.value = ''
+    ovEnjoyment.value = ''; ovSkillset.value = ''; ovNotes.value = ''
+    for (const t of OV_TAGS) ovTagSet[t] = false
+    setTimeout(() => (ovSuccess.value = false), 6000)
+  } catch (e: any) {
+    ovError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
+  } finally {
+    ovSubmitting.value = false
+  }
+}
+
 // --- Profile data (stats, completed, created, progress) ---
 type ProfileData = {
   account: {
-    username: string; role: 'user'|'moderator'|'admin'
+    username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean
   }
@@ -187,7 +283,7 @@ function fmt(n: number | null | undefined) {
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline gap-2 flex-wrap">
               <h1 class="text-3xl font-semibold tracking-tight">{{ me.username }}</h1>
-              <span v-if="me.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30">{{ me.role }}</span>
+              <span v-if="me.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded" :class="roleBadgeClass(me.role)">{{ me.role }}</span>
             </div>
             <p v-if="me.claimed_player" class="text-xs text-zinc-500 mt-1">
               Claimed as <span class="text-zinc-300">{{ me.claimed_player }}</span>
@@ -303,6 +399,191 @@ function fmt(n: number | null | undefined) {
           :can-post="true"
           @changed="loadProfileData()"
         />
+
+        <!-- Open-verification submission -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Submit open verification</h2>
+              <p class="text-[11px] text-zinc-600 mt-0.5">
+                Submit an unverified level. A moderator reviews each submission before it appears on the open verifications list.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 text-xs px-2 py-1 rounded bg-violet-500/15 text-violet-300 hover:bg-violet-500/25 border border-violet-500/30 transition-colors"
+              @click="ovOpen = !ovOpen"
+            >{{ ovOpen ? 'Close' : 'Open form' }}</button>
+          </div>
+
+          <form v-if="ovOpen" class="space-y-5 mt-4" @submit.prevent="submitOpenVerification">
+            <!-- Level ID + name -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label class="block sm:col-span-1">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID <span class="text-red-400">*</span></span>
+                <input
+                  v-model="ovGdId"
+                  inputmode="numeric"
+                  placeholder="e.g. 12345678"
+                  required
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name <span class="text-red-400">*</span></span>
+                <input
+                  v-model="ovName"
+                  required
+                  placeholder="Level name"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+            </div>
+
+            <!-- FPS + Version -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
+                <input
+                  v-model="ovFps"
+                  placeholder="any"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
+                <input
+                  v-model="ovGameVersion"
+                  placeholder="any"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+            </div>
+
+            <!-- Showcase (replaces verification) -->
+            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase <span class="text-zinc-600 normal-case">— optional</span></legend>
+
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                  Showcase link <span class="text-zinc-600 normal-case">— a layout / preview clip, embedded in place of verification</span>
+                </span>
+                <input
+                  v-model="ovShowcaseUrl"
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=…"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+
+              <div v-if="ovShowcaseYt" class="aspect-video rounded-md border border-zinc-800 bg-black overflow-hidden">
+                <iframe
+                  :src="`https://www.youtube.com/embed/${ovShowcaseYt}`"
+                  class="w-full h-full"
+                  title="Showcase preview"
+                  frameborder="0"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowfullscreen
+                  referrerpolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Intended verifier <span class="text-zinc-600 normal-case">— optional</span></span>
+                <input
+                  v-model="ovVerifier"
+                  placeholder="Player name"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+            </fieldset>
+
+            <!-- Difficulty opinion -->
+            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion <span class="text-zinc-600 normal-case">— optional</span></legend>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+                  <select
+                    v-model="ovGddlTier"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
+                  <select
+                    v-model="ovDifficulty"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option v-for="d in OV_DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- Optional metadata -->
+            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info <span class="text-zinc-600 normal-case">— optional</span></legend>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
+                  <input
+                    v-model="ovEnjoyment"
+                    type="number" min="0" max="10" step="0.1" inputmode="decimal"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+                  <select
+                    v-model="ovSkillset"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option v-for="s in OV_SKILLSET_OPTIONS" :key="s" :value="s">{{ s || '— none —' }}</option>
+                  </select>
+                </label>
+              </div>
+              <div>
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags</span>
+                <div class="mt-1.5 flex flex-wrap gap-1.5">
+                  <label
+                    v-for="t in OV_TAGS" :key="t"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    :class="ovTagSet[t]
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="ovTagSet[t]" type="checkbox" class="sr-only" />
+                    {{ t === 'uldm' ? 'ULDM' : t }}
+                  </label>
+                </div>
+              </div>
+            </fieldset>
+
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+              <textarea
+                v-model="ovNotes"
+                rows="3"
+                maxlength="4000"
+                placeholder="Anything the moderator should know."
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+
+            <div class="flex items-center gap-3 pt-1">
+              <button
+                type="submit"
+                :disabled="ovSubmitting"
+                class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              >{{ ovSubmitting ? 'Submitting…' : 'Submit for review' }}</button>
+              <span v-if="ovSuccess" class="text-xs text-emerald-400">Submitted — pending review.</span>
+              <span v-if="ovError" class="text-xs text-red-400">{{ ovError }}</span>
+            </div>
+          </form>
+        </section>
 
         <ProfileLevelLists
           v-if="profileData"

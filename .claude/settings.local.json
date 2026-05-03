@@ -18,7 +18,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gerg1\\\\Documents\\\\code\\\\Geometry dash\\\\ALL\\\\list4\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(npx nuxi *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(npx nuxt *)",
+      "Bash(npx vue-tsc *)"
     ]
   }
 }

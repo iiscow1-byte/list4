@@ -5,7 +5,19 @@ import { getDb } from '~/server/db'
 export const SESSION_COOKIE = 'als_session'
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
-export type Role = 'user' | 'moderator' | 'admin'
+export type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
+
+// Roles that have admin-level permissions. Owner and developer behave exactly
+// like admin server-side; the distinction is only how the role badge renders.
+const ADMIN_ROLES = new Set<Role>(['admin', 'owner', 'developer'])
+
+export function isAdminRole(role: Role): boolean {
+  return ADMIN_ROLES.has(role)
+}
+
+export function isModRole(role: Role): boolean {
+  return role === 'moderator' || ADMIN_ROLES.has(role)
+}
 
 export type Account = {
   id: number
@@ -100,13 +112,13 @@ export function requireAccount(event: H3Event): Account {
 
 export function requireAdmin(event: H3Event): Account {
   const a = requireAccount(event)
-  if (a.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Admin only' })
+  if (!isAdminRole(a.role)) throw createError({ statusCode: 403, statusMessage: 'Admin only' })
   return a
 }
 
 export function requireMod(event: H3Event): Account {
   const a = requireAccount(event)
-  if (a.role !== 'admin' && a.role !== 'moderator') {
+  if (!isModRole(a.role)) {
     throw createError({ statusCode: 403, statusMessage: 'Moderators or admins only' })
   }
   return a

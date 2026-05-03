@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { roleBadgeClass } from '~/utils/role-styles'
+
 const route = useRoute()
 const username = computed(() => String(route.params.username))
 
 const { data, error, refresh } = await useFetch<{
   account: {
-    username: string; role: 'user'|'moderator'|'admin'
+    username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean
   }
@@ -52,7 +54,7 @@ function fmt(n: number | null | undefined) {
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-2 flex-wrap">
             <h1 class="text-3xl font-semibold tracking-tight">{{ data.account.username }}</h1>
-            <span v-if="data.account.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30">{{ data.account.role }}</span>
+            <span v-if="data.account.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded" :class="roleBadgeClass(data.account.role)">{{ data.account.role }}</span>
           </div>
           <p v-if="data.account.claimed_player" class="text-xs text-zinc-500 mt-1">
             Claimed as <span class="text-zinc-300">{{ data.account.claimed_player }}</span>

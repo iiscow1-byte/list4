@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { roleBadgeClass } from '~/utils/role-styles'
+
 definePageMeta({ middleware: 'mod', layout: 'level' })
 useHead({ title: 'Admin — All Levels List' })
 
@@ -6,16 +8,20 @@ const route = useRoute()
 const router = useRouter()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
-const isAdmin = computed(() => me.value?.role === 'admin')
+const isAdmin = computed(() => {
+  const r = me.value?.role
+  return r === 'admin' || r === 'owner' || r === 'developer'
+})
 
-type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'claims' | 'accounts'
+type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'open-verifications' | 'claims' | 'accounts'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
-  { id: 'records',  label: 'Records',  adminOnly: false },
-  { id: 'opinions', label: 'Opinions', adminOnly: false },
-  { id: 'levels',   label: 'Levels',   adminOnly: false },
-  { id: 'awaiting', label: 'Awaiting', adminOnly: false },
-  { id: 'claims',   label: 'Claims',   adminOnly: true },
-  { id: 'accounts', label: 'Accounts', adminOnly: true },
+  { id: 'records',            label: 'Records',         adminOnly: false },
+  { id: 'opinions',           label: 'Opinions',        adminOnly: false },
+  { id: 'levels',             label: 'Levels',          adminOnly: false },
+  { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
+  { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
+  { id: 'claims',             label: 'Claims',          adminOnly: true },
+  { id: 'accounts',           label: 'Accounts',        adminOnly: true },
 ]
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
@@ -38,8 +44,9 @@ async function loadClaims() {
 }
 
 // --- Accounts tab state ---
+type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
 type AdminUser = {
-  id: number; username: string; role: 'user' | 'moderator' | 'admin'
+  id: number; username: string; role: Role
   claimed_player: string | null; created_at: string
   banned_at: string | null; banned_reason: string | null
 }
@@ -83,7 +90,7 @@ async function decideClaim(c: Claim, action: 'approve' | 'reject') {
   }
 }
 
-async function setRole(u: AdminUser, role: 'user' | 'moderator' | 'admin') {
+async function setRole(u: AdminUser, role: Role) {
   if (u.role === role) return
   try {
     await $fetch('/api/admin/role', { method: 'POST', body: { username: u.username, role } })
@@ -174,6 +181,9 @@ async function setClaim(u: AdminUser) {
     <!-- Awaiting tab — approved but unplaced levels -->
     <AdminAwaitingReview v-else-if="tab === 'awaiting'" class="flex-1 min-h-0" />
 
+    <!-- Open verifications tab — pending unverified-level submissions -->
+    <AdminOpenVerificationsReview v-else-if="tab === 'open-verifications'" class="flex-1 min-h-0" />
+
     <!-- Claims tab -->
     <div v-else-if="tab === 'claims'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-4xl">
@@ -228,10 +238,7 @@ async function setClaim(u: AdminUser) {
               <div class="min-w-0">
                 <div class="flex items-baseline gap-2 flex-wrap">
                   <NuxtLink :to="`/users/${u.username}`" class="font-medium text-zinc-100 hover:text-accent">{{ u.username }}</NuxtLink>
-                  <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border" :class="{
-                    'bg-accent/15 text-accent border-accent/30': u.role !== 'user',
-                    'bg-zinc-900 text-zinc-500 border-zinc-800': u.role === 'user',
-                  }">{{ u.role }}</span>
+                  <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded" :class="roleBadgeClass(u.role)">{{ u.role }}</span>
                   <span
                     v-if="u.banned_at"
                     class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border bg-red-950/40 text-red-300 border-red-900/60"
@@ -257,9 +264,9 @@ async function setClaim(u: AdminUser) {
                   @click="setClaim(u)"
                 >Set</button>
               </div>
-              <div class="flex items-center gap-1 text-xs">
+              <div class="flex items-center gap-1 text-xs flex-wrap">
                 <button
-                  v-for="r in (['user','moderator','admin'] as const)"
+                  v-for="r in (['user','moderator','admin','owner','developer'] as const)"
                   :key="r"
                   type="button"
                   class="px-2 py-1 rounded border transition-colors"

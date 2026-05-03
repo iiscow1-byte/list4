@@ -6,7 +6,10 @@ useHead({ title: 'Submit a level — All Levels List' })
 
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
-const isAdmin = computed(() => me.value?.role === 'admin')
+const isAdmin = computed(() => {
+  const r = me.value?.role
+  return r === 'admin' || r === 'owner' || r === 'developer'
+})
 
 const TIER_OPTIONS = [
   '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',

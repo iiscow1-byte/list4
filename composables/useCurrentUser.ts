@@ -1,7 +1,7 @@
 export type CurrentUser = {
   id: number
   username: string
-  role: 'user' | 'moderator' | 'admin'
+  role: 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
   bio: string | null
   country: string | null
   subdivision: string | null

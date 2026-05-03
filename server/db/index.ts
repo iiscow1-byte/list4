@@ -78,7 +78,7 @@ function initSchema(db: DatabaseSync) {
       username        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
       password_hash   TEXT    NOT NULL,
       password_salt   TEXT    NOT NULL,
-      role            TEXT    NOT NULL DEFAULT 'user' CHECK(role IN ('user','moderator','admin')),
+      role            TEXT    NOT NULL DEFAULT 'user' CHECK(role IN ('user','moderator','admin','owner','developer')),
       bio             TEXT,
       avatar_blob     BLOB,
       avatar_type     TEXT,
@@ -398,6 +398,91 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_account_id);
     CREATE INDEX IF NOT EXISTS idx_follows_target   ON follows(target_name);
   `)
+
+  // Open verifications: user-submitted levels that have not been verified yet.
+  // Entries enter as `status = 'pending'` and only show on the public list once
+  // an admin approves them. `showcase_url` is an optional link (e.g. a layout
+  // showcase) embedded in place of a verification video.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS open_verifications (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      gd_id            INTEGER,
+      name             TEXT    NOT NULL,
+      fps              TEXT,
+      game_version     TEXT,
+      showcase_url     TEXT,
+      verifier         TEXT,
+      gddl_tier        TEXT,
+      difficulty       TEXT,
+      enjoyment        REAL,
+      main_skillset    TEXT,
+      tags             TEXT,
+      notes            TEXT,
+      placement_source TEXT,
+      status           TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      submitted_by     INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitted_at     TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_by       INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at       TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_open_ver_status     ON open_verifications(status);
+    CREATE INDEX IF NOT EXISTS idx_open_ver_submitted  ON open_verifications(submitted_at);
+    CREATE INDEX IF NOT EXISTS idx_open_ver_name       ON open_verifications(name COLLATE NOCASE);
+  `)
+
+  // Roles: extend the role CHECK constraint to include 'owner' and 'developer'.
+  // Both function identically to admin server-side; the labels just render
+  // differently on profile/account UI. SQLite can't ALTER a CHECK constraint
+  // in place, so rebuild the table when the existing constraint is the old
+  // 3-role one. Detect via sqlite_master since PRAGMA table_info doesn't
+  // expose CHECK clauses.
+  const accSql = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='accounts'`,
+  ).get() as { sql: string } | undefined)?.sql ?? ''
+  if (!accSql.includes("'owner'")) {
+    // Many other tables FK-reference accounts(id). Follow SQLite's documented
+    // procedure for swapping a table that has incoming FK references: turn
+    // foreign_keys OFF, do the swap inside a transaction, then turn it back on.
+    db.exec('PRAGMA foreign_keys = OFF')
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+        CREATE TABLE accounts__new (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          username        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+          password_hash   TEXT    NOT NULL,
+          password_salt   TEXT    NOT NULL,
+          role            TEXT    NOT NULL DEFAULT 'user' CHECK(role IN ('user','moderator','admin','owner','developer')),
+          bio             TEXT,
+          avatar_blob     BLOB,
+          avatar_type     TEXT,
+          country         TEXT,
+          subdivision     TEXT,
+          claimed_player  TEXT    COLLATE NOCASE,
+          created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+          banned_at       TEXT,
+          banned_reason   TEXT
+        );
+        INSERT INTO accounts__new
+          (id, username, password_hash, password_salt, role, bio, avatar_blob, avatar_type,
+           country, subdivision, claimed_player, created_at, banned_at, banned_reason)
+        SELECT
+           id, username, password_hash, password_salt, role, bio, avatar_blob, avatar_type,
+           country, subdivision, claimed_player, created_at, banned_at, banned_reason
+          FROM accounts;
+        DROP TABLE accounts;
+        ALTER TABLE accounts__new RENAME TO accounts;
+        CREATE INDEX IF NOT EXISTS idx_accounts_username ON accounts(username);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_player ON accounts(claimed_player) WHERE claimed_player IS NOT NULL;
+      `)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      db.exec('PRAGMA foreign_keys = ON')
+      throw e
+    }
+    db.exec('PRAGMA foreign_keys = ON')
+  }
 
   // Progress posts: lightweight, unverified personal updates. They never
   // grant points or appear on level pages — they're profile-only and feed

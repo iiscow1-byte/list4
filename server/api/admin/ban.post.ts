@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   if (target.id === me.id) {
     throw createError({ statusCode: 400, statusMessage: "You can't ban your own account." })
   }
-  if (target.role === 'admin' && action === 'ban') {
+  if ((target.role === 'admin' || target.role === 'owner' || target.role === 'developer') && action === 'ban') {
     throw createError({ statusCode: 400, statusMessage: 'Demote the admin before banning.' })
   }
 

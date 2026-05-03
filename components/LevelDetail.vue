@@ -45,8 +45,9 @@ const emit = defineEmits<{ (e: 'refresh'): void }>()
 const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
 const isLoggedIn = computed(() => !!meRes.value?.account)
-const canPromote = computed(() => role.value === 'admin' && !props.readonly)
-const canEdit = computed(() => (role.value === 'admin' || role.value === 'moderator') && !props.readonly)
+const isAdminLevel = computed(() => role.value === 'admin' || role.value === 'owner' || role.value === 'developer')
+const canPromote = computed(() => isAdminLevel.value && !props.readonly)
+const canEdit = computed(() => (isAdminLevel.value || role.value === 'moderator') && !props.readonly)
 const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
@@ -560,7 +561,7 @@ async function deleteLevel() {
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
               <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
-            <label v-if="role === 'admin'" class="block sm:col-span-2">
+            <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">
                 Description override <span class="text-zinc-600 normal-case">— admin only, replaces the GD description</span>
               </span>
@@ -588,7 +589,7 @@ async function deleteLevel() {
           @click="cancelEdit"
         >Cancel</button>
         <button
-          v-if="role === 'admin'"
+          v-if="isAdminLevel"
           type="button"
           :disabled="deleting"
           class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"

@@ -1,6 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite'
 
-export type InboxKind = 'level_rejected' | 'record_rejected' | 'awaiting_removed'
+export type InboxKind =
+  | 'level_rejected'
+  | 'record_rejected'
+  | 'awaiting_removed'
+  | 'open_verification_approved'
+  | 'open_verification_rejected'
 
 export function sendInboxMessage(
   db: DatabaseSync,

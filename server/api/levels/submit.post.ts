@@ -27,7 +27,8 @@ export default defineEventHandler(async (event) => {
   const gameVersion = strOrNull(body.game_version, 32) ?? 'any'
   const verification = strOrNull(body.verification, 500)
   const verificationUrl = strOrNull(body.verification_url, 500)
-  if (!verificationUrl && account.role !== 'admin') {
+  const accountIsAdmin = account.role === 'admin' || account.role === 'owner' || account.role === 'developer'
+  if (!verificationUrl && !accountIsAdmin) {
     throw createError({ statusCode: 400, statusMessage: 'A verification video link is required.' })
   }
   const verifier = strOrNull(body.verifier, 100)

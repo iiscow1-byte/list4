@@ -39,7 +39,26 @@ export default defineEventHandler((event) => {
 
   // Not on the leaderboard — try to derive stats from accepted records.
   const stats = computeDerivedStats(db, playerName)
+
+  // No leaderboard row AND no accepted records. If a registered account with
+  // this username exists, hand the client a `claimedBy` so it can redirect to
+  // /users/<username> rather than show a 404. Without this, leaderboard /
+  // feed links to players who don't have any list points get stuck on
+  // /users/by-player/<name>.
   if (!stats) {
+    const acc = db.prepare(
+      `SELECT username FROM accounts WHERE username = ? COLLATE NOCASE`,
+    ).get(playerName) as { username: string } | undefined
+    if (acc) {
+      return {
+        player: { name: acc.username, total_points: 0, skill_points: 0, hardest: null, tier: null, country: null },
+        claimedBy: acc.username,
+        derived: true,
+        completedLevels: [],
+        createdLevels: [],
+        follow: followInfo(db, event, acc.username),
+      }
+    }
     throw createError({ statusCode: 404, statusMessage: 'Player not found.' })
   }
 
