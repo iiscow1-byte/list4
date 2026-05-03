@@ -4,12 +4,17 @@
  *
  * Strategy: try gdbrowser first (no rate limit, no UA blocking). If gdbrowser
  * is down OR returns its placeholder response (a sentinel level with exactly
- * 10,000,000 downloads), fall back to Boomlings directly.
+ * 10,000,000 downloads), fall back to Boomlings.
  *
  * Boomlings is hit through node:http with no User-Agent — fetch silently
  * inserts `User-Agent: node` and Boomlings' Cloudflare layer 1020s any
  * UA-bearing request. The official GD client sends none. Must target the
  * `www.` subdomain — the apex hostname is also Cloudflare-blocked.
+ *
+ * Datacenter / Railway egress: Cloudflare 403s direct requests from datacenter
+ * ranges no matter what UA you send. Set GD_PROXY_URL (and GD_PROXY_TOKEN to
+ * match the proxy's secret) to route through the Cloudflare Worker in
+ * worker/boomlings-proxy.js or the local-machine proxy in worker/local-proxy.js.
  */
 
 import http from 'node:http'
@@ -17,6 +22,8 @@ import http from 'node:http'
 const GD_SECRET = 'Wmfd2893gb7'
 const BOOMLINGS_HOST = 'www.boomlings.com'
 const BOOMLINGS_PATH = '/database/downloadGJLevel22.php'
+const GD_PROXY_URL = process.env.GD_PROXY_URL?.replace(/\/+$/, '') ?? ''
+const GD_PROXY_TOKEN = process.env.GD_PROXY_TOKEN ?? ''
 const GDBROWSER_URL = (id: number) => `https://gdbrowser.com/api/level/${id}`
 const GDBROWSER_PLACEHOLDER_DOWNLOADS = 10_000_000
 
@@ -111,7 +118,7 @@ function decodeBase64Url(raw: string): string | null {
   }
 }
 
-function postBoomlings(body: string, timeoutMs: number): Promise<string> {
+function postBoomlingsDirect(body: string, timeoutMs: number): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
@@ -119,7 +126,11 @@ function postBoomlings(body: string, timeoutMs: number): Promise<string> {
         host: BOOMLINGS_HOST,
         port: 80,
         path: BOOMLINGS_PATH,
+        // Per boomlings.dev/endpoints/generic: User-Agent must be empty.
+        // node:http doesn't auto-add it, but setting it explicitly is harmless
+        // and matches the documented spec.
         headers: {
+          'User-Agent': '',
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': body.length,
         },
@@ -143,6 +154,28 @@ function postBoomlings(body: string, timeoutMs: number): Promise<string> {
     req.on('timeout', () => req.destroy(new Error('boomlings timeout')))
     req.end(body)
   })
+}
+
+async function postBoomlingsViaProxy(body: string, timeoutMs: number): Promise<string> {
+  // Proxy expects the same path Boomlings uses; it forwards to www.boomlings.com.
+  // Empty UA is preserved by the proxy on the upstream hop — cf. worker code.
+  const resp = await fetch(`${GD_PROXY_URL}${BOOMLINGS_PATH}`, {
+    method: 'POST',
+    headers: {
+      'User-Agent': '',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      ...(GD_PROXY_TOKEN ? { 'X-Proxy-Token': GD_PROXY_TOKEN } : {}),
+    },
+    body,
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  if (!resp.ok) throw new Error(`boomlings HTTP ${resp.status}`)
+  return resp.text()
+}
+
+function postBoomlings(body: string, timeoutMs: number): Promise<string> {
+  if (GD_PROXY_URL) return postBoomlingsViaProxy(body, timeoutMs)
+  return postBoomlingsDirect(body, timeoutMs)
 }
 
 async function fetchFromGdBrowser(id: number, timeoutMs: number): Promise<GdInfo> {
@@ -194,11 +227,14 @@ async function fetchFromGdBrowser(id: number, timeoutMs: number): Promise<GdInfo
 }
 
 async function fetchFromBoomlings(id: number, timeoutMs: number): Promise<GdInfo> {
+  // gameVersion / binaryVersion track the live GD client. Per
+  // https://boomlings.dev/endpoints/generic, the current values are 22 / 47.
+  // Older values (e.g. 21 / 35) trip Cloudflare's bot heuristics.
   const body = new URLSearchParams({
     secret: GD_SECRET,
     levelID: String(id),
-    gameVersion: '21',
-    binaryVersion: '35',
+    gameVersion: '22',
+    binaryVersion: '47',
     gdw: '0',
   }).toString()
 

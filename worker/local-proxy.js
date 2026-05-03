@@ -42,7 +42,11 @@ const server = http.createServer((req, res) => {
         host: 'www.boomlings.com',
         port: 80,
         path: req.url,
+        // Per boomlings.dev: empty UA is required. Strip whatever the inbound
+        // request sent (fetch typically auto-fills it) so we don't trip
+        // Cloudflare's UA-based bot heuristics.
         headers: {
+          'User-Agent': '',
           'Content-Type': 'application/x-www-form-urlencoded',
           'Content-Length': body.length,
         },
