@@ -434,7 +434,11 @@ async function deleteLevel() {
           <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
         </p>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
-          <DifficultyFace :difficulty="level.difficulty" :rated="level.rated" :position="level.position" />
+          <DifficultyFace
+            :difficulty="editing ? (draft.difficulty || level.difficulty) : level.difficulty"
+            :rated="editing ? (draft.rated || null) : level.rated"
+            :position="editing ? (Number(draftPosition) || level.position) : level.position"
+          />
           <div>
             <p class="text-sm font-medium text-zinc-200 capitalize">{{ level.difficulty }}</p>
             <p v-if="level.gddl_tier" class="text-xs text-zinc-400 mt-0.5">{{ level.gddl_tier }}</p>

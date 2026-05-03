@@ -24,9 +24,11 @@ const RIGHT_ROW: Record<string, number> = {
 const DEMON_SET = new Set(['easy demon', 'medium demon', 'hard demon', 'insane demon', 'extreme demon'])
 const RIGHT_SET = new Set([...DEMON_SET, 'insane'])
 
-// Each cell displayed at 80×80px.
-// Full image rendered at 800×640px (10 cols × 80px, 8 rows × 80px).
-const CELL = 80
+// Image is 2024×1795, cells are 202.4×224.375px (portrait, ratio ≈ 0.902).
+// Display at 72×80 (ratio 0.9) to avoid the ~10% horizontal squash that
+// occurs with a square element. Full image renders at 720×640px.
+const CELL_W = 72
+const CELL_H = 80
 
 const coords = computed(() => {
   const diff = (props.difficulty ?? '').toLowerCase().trim()
@@ -42,7 +44,7 @@ const coords = computed(() => {
 
 const bgPos = computed(() => {
   const { col, row } = coords.value
-  return `-${col * CELL}px -${row * CELL}px`
+  return `-${col * CELL_W}px -${row * CELL_H}px`
 })
 </script>
 
@@ -50,11 +52,11 @@ const bgPos = computed(() => {
   <div
     class="shrink-0"
     :style="{
-      width: `${CELL}px`,
-      height: `${CELL}px`,
+      width: `${CELL_W}px`,
+      height: `${CELL_H}px`,
       backgroundImage: `url('/difficulty-sprites.png')`,
       backgroundRepeat: 'no-repeat',
-      backgroundSize: `${CELL * 10}px ${CELL * 8}px`,
+      backgroundSize: `${CELL_W * 10}px ${CELL_H * 8}px`,
       backgroundPosition: bgPos,
     }"
     :title="difficulty ?? 'Unknown'"
