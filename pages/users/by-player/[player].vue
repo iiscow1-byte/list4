@@ -29,9 +29,13 @@ function fmt(n: number | null | undefined) {
 </script>
 
 <template>
-  <div class="container-tight py-8 max-w-3xl space-y-6">
+  <div class="container-tight py-8 max-w-5xl">
     <div v-if="error" class="text-sm text-zinc-500">No such player on the leaderboard.</div>
-    <template v-else-if="data && !data.claimedBy">
+    <div v-else-if="data && !data.claimedBy" class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-6">
+      <aside class="lg:sticky lg:top-20 lg:self-start">
+        <RecordCharts :completed="data.completedLevels" />
+      </aside>
+      <main class="space-y-6 min-w-0">
       <header class="flex items-start gap-4 flex-wrap">
         <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 flex items-center justify-center text-2xl text-zinc-600 font-bold">
           {{ data.player.name.charAt(0).toUpperCase() }}
@@ -89,6 +93,7 @@ function fmt(n: number | null | undefined) {
         :completed="data.completedLevels"
         :created="data.createdLevels"
       />
-    </template>
+      </main>
+    </div>
   </div>
 </template>

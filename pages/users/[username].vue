@@ -41,9 +41,13 @@ function fmt(n: number | null | undefined) {
 </script>
 
 <template>
-  <div class="container-tight py-8 max-w-3xl space-y-6">
+  <div class="container-tight py-8 max-w-5xl">
     <div v-if="error" class="text-sm text-zinc-500">No such user.</div>
-    <template v-else-if="data">
+    <div v-else-if="data" class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-6">
+      <aside class="lg:sticky lg:top-20 lg:self-start">
+        <RecordCharts :completed="data.completedLevels" />
+      </aside>
+      <main class="space-y-6 min-w-0">
       <header class="flex items-start gap-4 flex-wrap">
         <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
           <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
@@ -118,6 +122,7 @@ function fmt(n: number | null | undefined) {
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments</h2>
         <CommentSection kind="profile" :target-id="data.account.id" />
       </section>
-    </template>
+      </main>
+    </div>
   </div>
 </template>

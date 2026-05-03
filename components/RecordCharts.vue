@@ -1,0 +1,170 @@
+<script setup lang="ts">
+import { tierColor, textOn } from '~/utils/tier-colors'
+
+type CompletedLevel = {
+  position: number
+  name: string
+  points: number | null
+  gddl_tier: string | null
+  main_skillset: string | null
+  percent: number
+}
+
+const props = defineProps<{ completed: CompletedLevel[] }>()
+
+// --- Skillset pie ---
+// Stable color order; recycled if there are more skillsets than colors. Picked
+// to be visually distinct against the dark zinc background.
+const PALETTE = [
+  '#f4c430', '#60a5fa', '#34d399', '#f472b6', '#fb923c', '#a78bfa',
+  '#22d3ee', '#facc15', '#f87171', '#4ade80', '#c084fc', '#fbbf24',
+] as const
+
+const skillsetSlices = computed(() => {
+  const counts = new Map<string, number>()
+  for (const l of props.completed) {
+    const key = (l.main_skillset?.trim() || 'Unknown')
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const total = Array.from(counts.values()).reduce((s, n) => s + n, 0)
+  if (total === 0) return { total: 0, slices: [] as { label: string; n: number; pct: number; color: string }[] }
+  const slices = Array.from(counts.entries())
+    .map(([label, n]) => ({ label, n, pct: n / total, color: '' }))
+    .sort((a, b) => b.n - a.n)
+  for (let i = 0; i < slices.length; i++) {
+    slices[i]!.color = PALETTE[i % PALETTE.length]!
+  }
+  return { total, slices }
+})
+
+// Build SVG arcs for the pie. radius=80, center=(90,90), with a thin gap
+// between slices for visual separation when there are many small wedges.
+const PIE_R = 80
+const PIE_CX = 90
+const PIE_CY = 90
+const piePaths = computed(() => {
+  const slices = skillsetSlices.value.slices
+  if (slices.length === 0) return []
+  if (slices.length === 1) {
+    return [{
+      d: `M ${PIE_CX} ${PIE_CY - PIE_R} a ${PIE_R} ${PIE_R} 0 1 1 -0.001 0 z`,
+      color: slices[0]!.color,
+      label: slices[0]!.label,
+      n: slices[0]!.n,
+      pct: slices[0]!.pct,
+    }]
+  }
+  const out: { d: string; color: string; label: string; n: number; pct: number }[] = []
+  let acc = 0
+  for (const s of slices) {
+    const start = acc * 2 * Math.PI - Math.PI / 2
+    acc += s.pct
+    const end = acc * 2 * Math.PI - Math.PI / 2
+    const x1 = PIE_CX + PIE_R * Math.cos(start)
+    const y1 = PIE_CY + PIE_R * Math.sin(start)
+    const x2 = PIE_CX + PIE_R * Math.cos(end)
+    const y2 = PIE_CY + PIE_R * Math.sin(end)
+    const large = (end - start) > Math.PI ? 1 : 0
+    const d = `M ${PIE_CX} ${PIE_CY} L ${x1.toFixed(3)} ${y1.toFixed(3)} A ${PIE_R} ${PIE_R} 0 ${large} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} Z`
+    out.push({ d, color: s.color, label: s.label, n: s.n, pct: s.pct })
+  }
+  return out
+})
+
+// --- Tier bar chart ---
+function tierOrd(tier: string | null): number | null {
+  if (!tier) return null
+  const sub = tier.match(/^Subtier\s+(\d+)$/i)
+  if (sub) return Number(sub[1])
+  const tier_ = tier.match(/^Tier\s+(\d+)$/i)
+  if (tier_) return 5 + Number(tier_[1])
+  return null
+}
+
+const tierBars = computed(() => {
+  const counts = new Map<string, { n: number; ord: number }>()
+  for (const l of props.completed) {
+    const t = l.gddl_tier?.trim()
+    const ord = tierOrd(t ?? null)
+    if (!t || ord == null) continue
+    const cur = counts.get(t)
+    if (cur) cur.n++
+    else counts.set(t, { n: 1, ord })
+  }
+  const list = Array.from(counts.entries())
+    .map(([tier, v]) => ({ tier, n: v.n, ord: v.ord }))
+    .sort((a, b) => b.ord - a.ord) // hardest first (top of list)
+  const max = list.reduce((m, r) => Math.max(m, r.n), 0)
+  return { list, max }
+})
+
+const hovered = ref<number | null>(null)
+</script>
+
+<template>
+  <div class="space-y-4">
+    <!-- Skillset pie -->
+    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
+        Skillsets
+        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ skillsetSlices.total }} record{{ skillsetSlices.total === 1 ? '' : 's' }}</span>
+      </h2>
+      <div v-if="skillsetSlices.total === 0" class="text-xs text-zinc-600 px-1 py-3 text-center">No records yet.</div>
+      <template v-else>
+        <svg viewBox="0 0 180 180" class="block w-full max-w-[180px] mx-auto" role="img" aria-label="Skillset distribution">
+          <path
+            v-for="(p, i) in piePaths" :key="i"
+            :d="p.d" :fill="p.color"
+            :opacity="hovered == null || hovered === i ? 1 : 0.45"
+            stroke="#0a0a0a"
+            stroke-width="1"
+            class="transition-opacity"
+            @mouseenter="hovered = i"
+            @mouseleave="hovered = null"
+          />
+        </svg>
+        <ul class="mt-2 space-y-1">
+          <li
+            v-for="(s, i) in skillsetSlices.slices" :key="s.label"
+            class="flex items-center gap-2 text-xs px-1 py-0.5 rounded transition-colors"
+            :class="hovered === i ? 'bg-zinc-900' : ''"
+            @mouseenter="hovered = i"
+            @mouseleave="hovered = null"
+          >
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: s.color }" />
+            <span class="flex-1 truncate text-zinc-200">{{ s.label }}</span>
+            <span class="tabular-nums text-zinc-500">{{ s.n }}</span>
+            <span class="tabular-nums text-zinc-600 w-9 text-right">{{ Math.round(s.pct * 100) }}%</span>
+          </li>
+        </ul>
+      </template>
+    </section>
+
+    <!-- Tier bars -->
+    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
+        Difficulty tiers
+        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ tierBars.list.reduce((s, r) => s + r.n, 0) }} tiered</span>
+      </h2>
+      <div v-if="tierBars.list.length === 0" class="text-xs text-zinc-600 px-1 py-3 text-center">No tiered records.</div>
+      <ul v-else class="space-y-0.5">
+        <li v-for="row in tierBars.list" :key="row.tier" class="flex items-center gap-2 text-[11px]">
+          <span
+            class="px-1.5 py-0.5 w-16 shrink-0 text-center font-medium tabular-nums whitespace-nowrap"
+            :style="{ backgroundColor: tierColor(row.tier), color: textOn(tierColor(row.tier)) }"
+          >{{ row.tier }}</span>
+          <div class="flex-1 h-3.5 bg-zinc-900 rounded-sm overflow-hidden">
+            <div
+              class="h-full transition-all"
+              :style="{
+                width: tierBars.max > 0 ? `${(row.n / tierBars.max) * 100}%` : '0%',
+                backgroundColor: tierColor(row.tier),
+              }"
+            />
+          </div>
+          <span class="tabular-nums text-zinc-400 w-7 text-right">{{ row.n }}</span>
+        </li>
+      </ul>
+    </section>
+  </div>
+</template>
