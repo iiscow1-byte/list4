@@ -96,9 +96,9 @@ function paraParts(p: string): { text: string; href: string | null } {
           class="inline-flex items-center gap-1.5 rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
         >Browse the list →</NuxtLink>
         <NuxtLink
-          to="/void/1"
-          class="inline-flex items-center gap-1.5 rounded border border-fuchsia-700/60 bg-fuchsia-900/30 text-fuchsia-200 font-medium text-sm px-4 py-2 hover:bg-fuchsia-900/50 hover:border-fuchsia-600 transition-colors"
-        >Browse the void list →</NuxtLink>
+          to="/records/submit"
+          class="inline-flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
+        >Submit a record +</NuxtLink>
         <NuxtLink
           to="/levels/submit"
           class="inline-flex items-center gap-1.5 rounded border border-accent/40 text-accent bg-accent/5 font-medium text-sm px-4 py-2 hover:bg-accent/15 transition-colors"

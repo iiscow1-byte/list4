@@ -155,6 +155,15 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'banned_reason')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN banned_reason TEXT`)
   }
+  if (!accCols.some((c) => c.name === 'pronouns')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN pronouns TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'discord_handle')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN discord_handle TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'youtube_url')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN youtube_url TEXT`)
+  }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
@@ -226,6 +235,11 @@ function initSchema(db: DatabaseSync) {
   }
   if (!pcols.some((c) => c.name === 'alternate_of_id')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN alternate_of_id INTEGER`)
+  }
+  // Void-level-to-pending submissions: pending row carries a link back to the
+  // void_levels row so an admin approval can remove it from the void list.
+  if (!pcols.some((c) => c.name === 'from_void_level_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_void_level_id INTEGER`)
   }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source

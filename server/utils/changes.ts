@@ -53,7 +53,7 @@ export function loadChanges(
   const limit = Math.max(1, Math.min(opts.limit ?? 500, 2000))
 
   const rows = db.prepare(
-    `SELECT h.from_position, h.to_position, h.changed_at,
+    `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             a.username AS changed_by
        FROM position_history h
@@ -63,6 +63,7 @@ export function loadChanges(
        ORDER BY h.changed_at DESC, h.id DESC
        LIMIT ?`,
   ).all(...params, limit) as Array<{
+    level_id: number
     from_position: number | null
     to_position: number
     changed_at: string
@@ -72,7 +73,43 @@ export function loadChanges(
     changed_by: string | null
   }>
 
-  return rows.map((r) => ({
+  // Condense multiple same-day entries for the same level into one.
+  // Groups are ordered: if a level was moved A→B then B→C on the same UTC day,
+  // we emit a single A→C entry using the earliest from_position and latest
+  // to_position. If a level was added and then moved same day, the "add" entry
+  // wins but its to_position is updated to the final resting place.
+  type Row = (typeof rows)[0]
+  const byKey = new Map<string, Row[]>()
+  for (const row of rows) {
+    const k = `${row.level_id}:${row.changed_at.slice(0, 10)}`
+    const bucket = byKey.get(k)
+    if (bucket) bucket.push(row)
+    else byKey.set(k, [row])
+  }
+
+  const condensed: Row[] = []
+  for (const bucket of byKey.values()) {
+    if (bucket.length === 1) {
+      condensed.push(bucket[0]!)
+      continue
+    }
+    // Sort oldest-first so we read the move chain in order.
+    bucket.sort((a, b) => (a.changed_at < b.changed_at ? -1 : a.changed_at > b.changed_at ? 1 : 0))
+    const first = bucket[0]!
+    const last = bucket[bucket.length - 1]!
+    if (first.from_position === null) {
+      // Level added and moved same day — show the add with the final position.
+      condensed.push({ ...first, to_position: last.to_position, changed_at: last.changed_at })
+    } else {
+      // Multiple moves — earliest from → latest to, use latest metadata.
+      condensed.push({ ...last, from_position: first.from_position })
+    }
+  }
+
+  // Restore newest-first order after grouping.
+  condensed.sort((a, b) => (b.changed_at > a.changed_at ? 1 : b.changed_at < a.changed_at ? -1 : 0))
+
+  return condensed.map((r) => ({
     kind: r.from_position == null ? 'add' : 'move',
     level_position: r.level_position,
     level_name: r.level_name,

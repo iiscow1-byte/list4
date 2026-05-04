@@ -11,7 +11,8 @@ export default defineEventHandler((event) => {
   const db = getDb()
   const acc = db.prepare(
     `SELECT id, username, role, bio, country, subdivision, claimed_player,
-            (avatar_blob IS NOT NULL) AS has_avatar, created_at
+            (avatar_blob IS NOT NULL) AS has_avatar, created_at,
+            pronouns, discord_handle, youtube_url
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })

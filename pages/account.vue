@@ -15,6 +15,9 @@ const profile = reactive({
   bio: me.value?.bio ?? '',
   country: me.value?.country ?? '',
   subdivision: me.value?.subdivision ?? '',
+  pronouns: me.value?.pronouns ?? '',
+  discord_handle: me.value?.discord_handle ?? '',
+  youtube_url: me.value?.youtube_url ?? '',
 })
 const profileSaving = ref(false)
 const profileError = ref<string | null>(null)
@@ -25,6 +28,9 @@ watch(me, (val) => {
     profile.bio = val.bio ?? ''
     profile.country = val.country ?? ''
     profile.subdivision = val.subdivision ?? ''
+    profile.pronouns = val.pronouns ?? ''
+    profile.discord_handle = val.discord_handle ?? ''
+    profile.youtube_url = val.youtube_url ?? ''
   }
 }, { immediate: true })
 
@@ -33,6 +39,9 @@ function startEdit() {
   profile.bio = me.value.bio ?? ''
   profile.country = me.value.country ?? ''
   profile.subdivision = me.value.subdivision ?? ''
+  profile.pronouns = me.value.pronouns ?? ''
+  profile.discord_handle = me.value.discord_handle ?? ''
+  profile.youtube_url = me.value.youtube_url ?? ''
   profileError.value = null
   profileSaved.value = false
   editing.value = true
@@ -42,6 +51,9 @@ function cancelEdit() {
     profile.bio = me.value.bio ?? ''
     profile.country = me.value.country ?? ''
     profile.subdivision = me.value.subdivision ?? ''
+    profile.pronouns = me.value.pronouns ?? ''
+    profile.discord_handle = me.value.discord_handle ?? ''
+    profile.youtube_url = me.value.youtube_url ?? ''
   }
   profileError.value = null
   editing.value = false
@@ -298,6 +310,7 @@ type ProfileData = {
     username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean
+    pronouns: string | null; discord_handle: string | null; youtube_url: string | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
@@ -373,7 +386,7 @@ function fmt(n: number | null | undefined) {
           <template v-if="!editing">
             <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
             <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
-            <dl v-if="me.country || me.subdivision" class="grid grid-cols-2 gap-4 text-sm mt-3">
+            <dl class="grid grid-cols-2 gap-4 text-sm mt-3">
               <div v-if="me.country">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
                 <dd class="text-zinc-100">{{ me.country }}</dd>
@@ -381,6 +394,18 @@ function fmt(n: number | null | undefined) {
               <div v-if="me.subdivision">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
                 <dd class="text-zinc-100">{{ me.subdivision }}</dd>
+              </div>
+              <div v-if="me.pronouns">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Pronouns</dt>
+                <dd class="text-zinc-100">{{ me.pronouns }}</dd>
+              </div>
+              <div v-if="me.discord_handle">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Discord</dt>
+                <dd class="text-zinc-100">{{ me.discord_handle }}</dd>
+              </div>
+              <div v-if="me.youtube_url" class="col-span-2">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">YouTube</dt>
+                <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline break-all text-sm">{{ me.youtube_url }}</a></dd>
               </div>
             </dl>
             <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
@@ -413,6 +438,34 @@ function fmt(n: number | null | undefined) {
                   v-model="profile.subdivision"
                   maxlength="64"
                   placeholder="e.g. California"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns <span class="text-zinc-600 normal-case">— optional</span></span>
+                <input
+                  v-model="profile.pronouns"
+                  maxlength="64"
+                  placeholder="e.g. they/them"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— optional</span></span>
+                <input
+                  v-model="profile.discord_handle"
+                  maxlength="64"
+                  placeholder="e.g. username or username#1234"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">— optional, full URL</span></span>
+                <input
+                  v-model="profile.youtube_url"
+                  type="url"
+                  maxlength="500"
+                  placeholder="https://www.youtube.com/@yourhandle"
                   class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>

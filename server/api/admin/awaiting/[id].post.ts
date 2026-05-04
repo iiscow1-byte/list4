@@ -15,7 +15,17 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'place' | 'remove' | 'return' | 'save_placement'; placement?: number; reason?: string; gddl_tier?: string; difficulty?: string }>(event)
+  const body = await readBody<{
+    action: 'place' | 'remove' | 'return' | 'save_placement'
+    placement?: number
+    reason?: string
+    gddl_tier?: string
+    difficulty?: string
+    same_as_above?: boolean
+    duplicate_of_id?: number | null
+    is_alternate?: boolean
+    alternate_of_id?: number | null
+  }>(event)
   if (body.action !== 'place' && body.action !== 'remove' && body.action !== 'return' && body.action !== 'save_placement') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
@@ -70,6 +80,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'A valid placement (1-based position) is required.' })
   }
 
+  // Admin can override the submitter's flags when placing.
+  const sameAsAbove = typeof body.same_as_above === 'boolean'
+    ? (body.same_as_above ? 1 : 0)
+    : (sub.same_as_above ? 1 : 0)
+  const duplicateOfId = body.duplicate_of_id !== undefined ? (body.duplicate_of_id ?? null) : (sub.duplicate_of_id ?? null)
+  const isAlternate = typeof body.is_alternate === 'boolean'
+    ? (body.is_alternate ? 1 : 0)
+    : (sub.is_alternate ? 1 : 0)
+  const alternateOfId = body.alternate_of_id !== undefined ? (body.alternate_of_id ?? null) : (sub.alternate_of_id ?? null)
+
   db.exec('BEGIN')
   try {
     const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
@@ -100,10 +120,10 @@ export default defineEventHandler(async (event) => {
       insertPos,
       sub.placement_source ?? 'All Levels List',
       submitterId,
-      sub.same_as_above ? 1 : 0,
-      sub.duplicate_of_id ?? null,
-      sub.is_alternate ? 1 : 0,
-      sub.alternate_of_id ?? null,
+      sameAsAbove,
+      duplicateOfId,
+      isAlternate,
+      alternateOfId,
     )
     recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)

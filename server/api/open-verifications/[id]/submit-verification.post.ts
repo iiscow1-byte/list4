@@ -37,8 +37,21 @@ export default defineEventHandler(async (event) => {
   if (!verificationUrl) {
     throw createError({ statusCode: 400, statusMessage: 'A verification video link is required.' })
   }
+  const verificationTitle = strOrNull(body.verification_title, 500)
   const verifyDate = strOrNull(body.verify_date, 32)
   const notes = strOrNull(body.notes, 4000)
+
+  // Field overrides — allow the form to adjust values inherited from the open-verif row.
+  const fpsOverride = strOrNull(body.fps_override, 32)
+  const gameVersionOverride = strOrNull(body.game_version_override, 32)
+  const mainSkillsetOverride = strOrNull(body.main_skillset_override, 100)
+  const tagsOverride = strOrNull(body.tags_override, 500)
+
+  let placementEstimate: number | null = null
+  if (body.placement_estimate != null && body.placement_estimate !== '') {
+    const n = Number(body.placement_estimate)
+    if (Number.isInteger(n) && n > 0) placementEstimate = n
+  }
 
   // Optional opinion-style overrides — same semantics as the record submit.
   let opinionTier = strOrNull(body.opinion_gddl_tier, 32)
@@ -128,27 +141,28 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO pending_levels
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
          gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
-         placement_source, from_open_verification_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         placement_source, from_open_verification_id, placement_estimate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       ov.gd_id,
       ov.name,
-      ov.fps,
-      ov.game_version,
-      null,
+      fpsOverride ?? ov.fps,
+      gameVersionOverride ?? ov.game_version,
+      verificationTitle,
       verificationUrl,
       verifier,
       verifyDate,
       gddlTier,
       difficulty,
       enjoyment,
-      ov.main_skillset,
-      ov.tags,
+      mainSkillsetOverride ?? ov.main_skillset,
+      tagsOverride ?? ov.tags,
       notes ?? ov.notes,
       account.id,
       ov.placement_source ?? 'All Levels List',
       id,
+      placementEstimate,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }

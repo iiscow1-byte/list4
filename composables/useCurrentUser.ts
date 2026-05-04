@@ -8,6 +8,9 @@ export type CurrentUser = {
   claimed_player: string | null
   claimed_aredl_uuid: string | null
   has_avatar: boolean
+  pronouns: string | null
+  discord_handle: string | null
+  youtube_url: string | null
 }
 
 /**
