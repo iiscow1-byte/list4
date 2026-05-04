@@ -357,7 +357,7 @@ async function submit() {
           />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name <span class="text-zinc-600 normal-case">— optional, mods will fill from GD</span></span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level Name</span>
           <input
             v-model="name"
             placeholder="Level name"
@@ -402,234 +402,210 @@ async function submit() {
       </div>
 
       <!-- Verification -->
-      <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification</legend>
-
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-            Verification link <span v-if="!isAdmin" class="text-red-400">*</span>
-            <span v-if="isAdmin" class="text-zinc-600 normal-case">— optional for admins</span>
-          </span>
-          <input
-            v-model="verificationUrl"
-            type="url"
-            :required="!isAdmin"
-            placeholder="https://www.youtube.com/watch?v=…"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-
-        <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black overflow-hidden">
-          <iframe
-            :src="`https://www.youtube.com/embed/${ytId}`"
-            class="w-full h-full"
-            title="Verification preview"
-            frameborder="0"
-            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowfullscreen
-            referrerpolicy="strict-origin-when-cross-origin"
-          />
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <details open class="group rounded-md border border-zinc-800 bg-zinc-950/60">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification</span>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+        <div class="px-4 pb-4 space-y-3">
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+              Verification link
+              <span v-if="!isAdmin" class="text-red-400">*</span>
+            </span>
             <input
-              v-model="verifier"
-              placeholder="Player name"
+              v-model="verificationUrl"
+              type="url"
+              :required="!isAdmin"
+              placeholder="https://www.youtube.com/watch?v=…"
               class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification date</span>
-            <input
-              v-model="verifyDate"
-              type="date"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+
+          <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black overflow-hidden">
+            <iframe
+              :src="`https://www.youtube.com/embed/${ytId}`"
+              class="w-full h-full"
+              title="Verification preview"
+              frameborder="0"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
             />
-          </label>
-        </div>
-
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification title <span class="text-zinc-600 normal-case">— optional</span></span>
-          <input
-            v-model="verification"
-            placeholder='e.g. "Level Name 100% Verified"'
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-
-        <p
-          v-if="verificationWarning"
-          class="text-xs text-amber-300 bg-amber-950/30 border border-amber-900/50 rounded px-3 py-2"
-        >⚠ {{ verificationWarning }}</p>
-      </fieldset>
-
-      <!-- Difficulty opinion -->
-      <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion <span class="text-zinc-600 normal-case">— optional</span></legend>
-
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] text-zinc-500">
-            Not sure where it fits? Compare against an existing level to autofill the tier, demon level, and a placement estimate.
-          </span>
-          <button
-            type="button"
-            class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-            @click="openCompare"
-          >Level comparison</button>
-        </div>
-
-        <div
-          v-if="comparisonLevel"
-          class="rounded border border-accent/40 bg-accent/5 px-3 py-2 text-xs flex items-center gap-2"
-        >
-          <span class="text-zinc-400">Compared to</span>
-          <span class="text-zinc-100 font-medium truncate">#{{ comparisonLevel.position }} {{ comparisonLevel.name }}</span>
-          <span v-if="comparisonLevel.gddl_tier" class="text-zinc-500">· {{ comparisonLevel.gddl_tier }}</span>
-          <span v-if="comparisonLevel.difficulty" class="text-zinc-500">· {{ comparisonLevel.difficulty }}</span>
-          <button type="button" class="ml-auto text-zinc-500 hover:text-red-400" @click="clearComparison">clear</button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-            <select
-              v-model="gddlTier"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
-            <select
-              v-model="difficulty"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
-            </select>
-          </label>
-        </div>
-
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement estimation <span class="text-zinc-600 normal-case">— optional, mods can change it</span></span>
-          <input
-            v-model="placementEstimate"
-            type="number" inputmode="numeric" min="1"
-            placeholder="e.g. 42"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-
-        <label class="flex items-start gap-2 cursor-pointer select-none">
-          <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate (same difficulty as above)</span>
-            <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Inherits the previous level's points and gets tagged as a "Duplicate" on the public list — use for re-released, buffed, or platformer-converted variants of an existing entry.
-            </span>
-          </span>
-        </label>
-        <div v-if="sameAsAbove" class="pl-6 -mt-1">
-          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
-          <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-              @click="duplicateOfPickerOpen = true"
-            >{{ duplicateOfLevel ? 'Change…' : 'Pick a level…' }}</button>
-            <span v-if="duplicateOfLevel" class="text-xs text-zinc-200 truncate">
-              #{{ duplicateOfLevel.position }} {{ duplicateOfLevel.name }}
-            </span>
-            <button
-              v-if="duplicateOfLevel"
-              type="button"
-              class="text-[11px] text-zinc-500 hover:text-red-400"
-              @click="duplicateOfLevel = null"
-            >clear</button>
           </div>
-        </div>
 
-        <label class="flex items-start gap-2 cursor-pointer select-none">
-          <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
-            <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Mark this level as a similar variation of an existing entry (different stats, but related). Tagged as "Alternate" on the public list. Doesn't change point value.
-            </span>
-          </span>
-        </label>
-        <div v-if="isAlternate" class="pl-6 -mt-1">
-          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
-          <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-              @click="alternateOfPickerOpen = true"
-            >{{ alternateOfLevel ? 'Change…' : 'Pick a level…' }}</button>
-            <span v-if="alternateOfLevel" class="text-xs text-zinc-200 truncate">
-              #{{ alternateOfLevel.position }} {{ alternateOfLevel.name }}
-            </span>
-            <button
-              v-if="alternateOfLevel"
-              type="button"
-              class="text-[11px] text-zinc-500 hover:text-red-400"
-              @click="alternateOfLevel = null"
-            >clear</button>
-          </div>
-        </div>
-
-        <p
-          v-if="noOpinion"
-          class="text-xs text-fuchsia-300 bg-fuchsia-950/30 border border-fuchsia-900/50 rounded px-3 py-2"
-        >⚠ Levels submitted without a difficulty opinion will be added to the voided list and will not be placed yet.</p>
-      </fieldset>
-
-      <!-- Optional metadata -->
-      <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info <span class="text-zinc-600 normal-case">— optional</span></legend>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
-            <input
-              v-model="enjoyment"
-              type="number"
-              min="0"
-              max="10"
-              step="0.1"
-              inputmode="decimal"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-            <select
-              v-model="skillset"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option v-for="s in SKILLSET_OPTIONS" :key="s" :value="s">{{ s || '— none —' }}</option>
-            </select>
-          </label>
-        </div>
-
-        <div>
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags</span>
-          <div class="mt-1.5 flex flex-wrap gap-1.5">
-            <label
-              v-for="t in ALL_TAGS" :key="t"
-              class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-              :class="tagSet[t]
-                ? 'border-accent/60 text-accent bg-accent/10'
-                : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-            >
-              <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
-              {{ t === 'uldm' ? 'ULDM' : t }}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <input
+                v-model="verifier"
+                placeholder="Player name"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification date</span>
+              <input
+                v-model="verifyDate"
+                type="date"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
             </label>
           </div>
+
+          <p
+            v-if="verificationWarning"
+            class="text-xs text-amber-300 bg-amber-950/30 border border-amber-900/50 rounded px-3 py-2"
+          >⚠ {{ verificationWarning }}</p>
         </div>
-      </fieldset>
+      </details>
+
+      <!-- Difficulty opinion -->
+      <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion <span class="font-normal normal-case tracking-normal text-zinc-600">— optional</span></span>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+        <div class="px-4 pb-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] text-zinc-500">
+              Not sure where it fits? Compare against an existing level to autofill tier, demon level, and placement.
+            </span>
+            <button
+              type="button"
+              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              @click="openCompare"
+            >Compare</button>
+          </div>
+
+          <div
+            v-if="comparisonLevel"
+            class="rounded border border-accent/40 bg-accent/5 px-3 py-2 text-xs flex items-center gap-2"
+          >
+            <span class="text-zinc-400">Compared to</span>
+            <span class="text-zinc-100 font-medium truncate">#{{ comparisonLevel.position }} {{ comparisonLevel.name }}</span>
+            <span v-if="comparisonLevel.gddl_tier" class="text-zinc-500">· {{ comparisonLevel.gddl_tier }}</span>
+            <span v-if="comparisonLevel.difficulty" class="text-zinc-500">· {{ comparisonLevel.difficulty }}</span>
+            <button type="button" class="ml-auto text-zinc-500 hover:text-red-400" @click="clearComparison">clear</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <select
+                v-model="gddlTier"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
+              <select
+                v-model="difficulty"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement estimate</span>
+            <input
+              v-model="placementEstimate"
+              type="number" inputmode="numeric" min="1"
+              placeholder="e.g. 42"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer select-none">
+            <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
+            <span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">Same difficulty as the level above it. Gets tagged as "Duplicate" on the public list.</span>
+            </span>
+          </label>
+          <div v-if="sameAsAbove" class="pl-6 -mt-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                @click="duplicateOfPickerOpen = true"
+              >{{ duplicateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
+              <span v-if="duplicateOfLevel" class="text-xs text-zinc-200 truncate">#{{ duplicateOfLevel.position }} {{ duplicateOfLevel.name }}</span>
+              <button v-if="duplicateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="duplicateOfLevel = null">clear</button>
+            </div>
+          </div>
+
+          <label class="flex items-start gap-2 cursor-pointer select-none">
+            <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+            <span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">A variation of an existing entry. Tagged as "Alternate" on the public list.</span>
+            </span>
+          </label>
+          <div v-if="isAlternate" class="pl-6 -mt-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                @click="alternateOfPickerOpen = true"
+              >{{ alternateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
+              <span v-if="alternateOfLevel" class="text-xs text-zinc-200 truncate">#{{ alternateOfLevel.position }} {{ alternateOfLevel.name }}</span>
+              <button v-if="alternateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="alternateOfLevel = null">clear</button>
+            </div>
+          </div>
+
+          <p
+            v-if="noOpinion"
+            class="text-xs text-fuchsia-300 bg-fuchsia-950/30 border border-fuchsia-900/50 rounded px-3 py-2"
+          >⚠ Levels submitted without a difficulty opinion will be added to the voided list and will not be placed yet.</p>
+        </div>
+      </details>
+
+      <!-- Extra info -->
+      <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info <span class="font-normal normal-case tracking-normal text-zinc-600">— optional</span></span>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+        <div class="px-4 pb-4 space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
+              <input
+                v-model="enjoyment"
+                type="number" min="0" max="10" step="0.1" inputmode="decimal"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <select
+                v-model="skillset"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="s in SKILLSET_OPTIONS" :key="s" :value="s">{{ s || '— none —' }}</option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags</span>
+            <div class="mt-1.5 flex flex-wrap gap-1.5">
+              <label
+                v-for="t in ALL_TAGS" :key="t"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                :class="tagSet[t] ? 'border-accent/60 text-accent bg-accent/10' : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
+                {{ t === 'uldm' ? 'ULDM' : t }}
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <!-- Notes -->
       <label class="block">

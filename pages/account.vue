@@ -364,29 +364,22 @@ function fmt(n: number | null | undefined) {
             <p v-if="me.claimed_player" class="text-xs text-zinc-500 mt-1">
               Claimed as <span class="text-zinc-300">{{ me.claimed_player }}</span>
             </p>
-            <p v-if="!editing && (me.country || me.subdivision)" class="text-xs text-zinc-500 mt-0.5">
+            <p v-if="me.country || me.subdivision" class="text-xs text-zinc-500 mt-0.5">
               <span v-if="me.subdivision">{{ me.subdivision }}, </span>
               <span v-if="me.country">{{ me.country }}</span>
             </p>
           </div>
         </header>
 
-        <!-- About: read-only display, switches to a form when editing -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-          <div class="flex items-center justify-between gap-2 mb-3">
-            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">About</h2>
-            <button
-              v-if="!editing"
-              type="button"
-              class="text-xs px-2 py-1 rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
-              @click="startEdit"
-            >Edit</button>
-          </div>
+        <!-- About: always-visible display + collapsible edit dropdown below -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">About</h2>
 
-          <template v-if="!editing">
+          <!-- Read-only display — always visible -->
+          <div>
             <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
             <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
-            <dl class="grid grid-cols-2 gap-4 text-sm mt-3">
+            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
               <div v-if="me.country">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
                 <dd class="text-zinc-100">{{ me.country }}</dd>
@@ -405,85 +398,96 @@ function fmt(n: number | null | undefined) {
               </div>
               <div v-if="me.youtube_url" class="col-span-2">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">YouTube</dt>
-                <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline break-all text-sm">{{ me.youtube_url }}</a></dd>
+                <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
               </div>
             </dl>
             <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
-          </template>
+          </div>
 
-          <form v-else class="space-y-4" @submit.prevent="saveProfile">
-            <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
-              <textarea
-                v-model="profile.bio"
-                rows="3"
-                maxlength="1000"
-                placeholder="Tell people about yourself."
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </label>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Edit dropdown -->
+          <details :open="editing" class="group" @toggle="(e) => { if (!(e.target as HTMLDetailsElement).open && editing) cancelEdit() }">
+            <summary
+              class="cursor-pointer select-none list-none flex items-center justify-between gap-2 rounded border border-zinc-800 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+              @click.prevent="editing ? cancelEdit() : startEdit()"
+            >
+              <span>{{ editing ? 'Editing profile…' : 'Edit profile' }}</span>
+              <span class="text-zinc-600 group-open:rotate-180 transition-transform">▾</span>
+            </summary>
+
+            <form class="space-y-4 pt-4" @submit.prevent="saveProfile">
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
-                <input
-                  v-model="profile.country"
-                  maxlength="64"
-                  placeholder="e.g. United States"
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
+                <textarea
+                  v-model="profile.bio"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="Tell people about yourself."
                   class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>
-              <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
-                <input
-                  v-model="profile.subdivision"
-                  maxlength="64"
-                  placeholder="e.g. California"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </label>
-              <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns <span class="text-zinc-600 normal-case">— optional</span></span>
-                <input
-                  v-model="profile.pronouns"
-                  maxlength="64"
-                  placeholder="e.g. they/them"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </label>
-              <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— optional</span></span>
-                <input
-                  v-model="profile.discord_handle"
-                  maxlength="64"
-                  placeholder="e.g. username or username#1234"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </label>
-              <label class="block sm:col-span-2">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">— optional, full URL</span></span>
-                <input
-                  v-model="profile.youtube_url"
-                  type="url"
-                  maxlength="500"
-                  placeholder="https://www.youtube.com/@yourhandle"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </label>
-            </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                type="submit"
-                :disabled="profileSaving"
-                class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
-              >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
-              <button
-                type="button"
-                class="rounded border border-zinc-800 text-zinc-300 text-sm px-3 py-1.5 hover:bg-zinc-900 transition-colors"
-                @click="cancelEdit"
-              >Cancel</button>
-              <span v-if="profileError" class="text-xs text-red-400">{{ profileError }}</span>
-            </div>
-          </form>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
+                  <input
+                    v-model="profile.country"
+                    maxlength="64"
+                    placeholder="e.g. United States"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
+                  <input
+                    v-model="profile.subdivision"
+                    maxlength="64"
+                    placeholder="e.g. California"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <input
+                    v-model="profile.pronouns"
+                    maxlength="64"
+                    placeholder="e.g. they/them"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <input
+                    v-model="profile.discord_handle"
+                    maxlength="64"
+                    placeholder="e.g. username or username#1234"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">— optional, full URL</span></span>
+                  <input
+                    v-model="profile.youtube_url"
+                    type="url"
+                    maxlength="500"
+                    placeholder="https://www.youtube.com/@yourhandle"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  type="submit"
+                  :disabled="profileSaving"
+                  class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
+                <button
+                  type="button"
+                  class="rounded border border-zinc-800 text-zinc-300 text-sm px-3 py-1.5 hover:bg-zinc-900 transition-colors"
+                  @click="cancelEdit"
+                >Cancel</button>
+                <span v-if="profileError" class="text-xs text-red-400">{{ profileError }}</span>
+              </div>
+            </form>
+          </details>
         </section>
 
         <section v-if="profileData?.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
@@ -723,7 +727,7 @@ function fmt(n: number | null | undefined) {
               type="button"
               class="text-left text-sm px-3 py-1.5 rounded bg-accent text-zinc-950 font-medium hover:bg-accent/90 transition-colors"
               @click="startEdit"
-            >{{ editing ? 'Editing profile…' : 'Edit profile' }}</button>
+            >Edit profile</button>
 
             <button
               type="button"

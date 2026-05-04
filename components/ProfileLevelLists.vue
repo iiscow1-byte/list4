@@ -31,9 +31,11 @@ function fmt(n: number | null) {
             class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded"
             :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
           >#{{ l.position }}</span>
-          <span class="truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">{{ l.name }}</span>
-          <span v-if="l.percent < 100" class="ml-auto tabular-nums text-[11px] text-zinc-500">{{ l.percent }}%</span>
-          <span class="tabular-nums text-xs text-amber-300 shrink-0 ml-3">{{ fmt(l.points) }}</span>
+          <span class="truncate flex-1 text-sm text-zinc-200 group-hover:text-accent transition-colors">{{ l.name }}</span>
+          <span class="ml-auto flex items-center gap-2 shrink-0">
+            <span v-if="l.percent < 100" class="tabular-nums text-[11px] text-zinc-500">{{ l.percent }}%</span>
+            <span class="tabular-nums text-xs text-amber-300">{{ fmt(l.points) }}</span>
+          </span>
         </NuxtLink>
       </li>
     </ul>
