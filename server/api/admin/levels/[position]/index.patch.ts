@@ -20,6 +20,9 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   year_verified: 'int',
   description_override: 'text',
   same_as_above: 'bool',
+  duplicate_of_id: 'int',
+  is_alternate: 'bool',
+  alternate_of_id: 'int',
 }
 
 function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string | number | null {

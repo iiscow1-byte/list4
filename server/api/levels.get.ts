@@ -83,8 +83,11 @@ export default defineEventHandler((event) => {
   const tierMax = q.tierMax != null && q.tierMax !== '' ? Number(q.tierMax) : null
   const tags = asArray(q.tags).map((s) => s.toLowerCase()).filter((s) => KNOWN_TAG_SUFFIXES.has(s))
   const skillsets = asArray(q.skillsets).map((s) => s.trim()).filter(Boolean)
-  // 'show' (default) | 'hide' | 'only' for same_as_above ("alternate versions").
+  // 'show' (default) | 'hide' | 'only' for same_as_above ("Duplicate" tag).
+  // Param name kept as `altVersions` for backwards compatibility with bookmarks.
   const altVersions = q.altVersions === 'hide' || q.altVersions === 'only' ? q.altVersions : 'show'
+  // Same tri-state for the new `is_alternate` flag ("Alternate" tag).
+  const alternates = q.alternates === 'hide' || q.alternates === 'only' ? q.alternates : 'show'
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
   const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''
@@ -141,6 +144,9 @@ export default defineEventHandler((event) => {
 
   if (altVersions === 'hide') filterConds.push(`COALESCE(same_as_above, 0) = 0`)
   else if (altVersions === 'only') filterConds.push(`COALESCE(same_as_above, 0) = 1`)
+
+  if (alternates === 'hide') filterConds.push(`COALESCE(is_alternate, 0) = 0`)
+  else if (alternates === 'only') filterConds.push(`COALESCE(is_alternate, 0) = 1`)
 
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }
@@ -205,7 +211,7 @@ export default defineEventHandler((event) => {
     const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
     const sql = `
       WITH ranked AS (
-        SELECT position, name, difficulty, points, gddl_tier,
+        SELECT id, position, name, difficulty, points, gddl_tier,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
         ${filterWhere}
@@ -220,7 +226,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT position, name, difficulty, points, gddl_tier
+      `SELECT id, position, name, difficulty, points, gddl_tier
        FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,

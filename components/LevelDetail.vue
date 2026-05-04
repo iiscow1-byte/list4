@@ -30,6 +30,11 @@ type Level = {
   enjoyment?: number | null
   description_override?: string | null
   same_as_above?: number | null
+  duplicate_of_id?: number | null
+  is_alternate?: number | null
+  alternate_of_id?: number | null
+  duplicate_of?: { position: number; name: string } | null
+  alternate_of?: { position: number; name: string } | null
   submitter?: string | null
   community?: Community | null
   position_history?: PositionHistoryEntry[]
@@ -53,18 +58,34 @@ const canEdit = computed(() => (isAdminLevel.value || role.value === 'moderator'
 const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
-const tags = computed(() => {
-  const list: string[] = []
-  if (props.level.gddl_tier) list.push(props.level.gddl_tier)
-  if (props.level.difficulty) list.push(props.level.difficulty)
-  if (props.level.main_skillset) list.push(props.level.main_skillset)
+type Tag = { label: string; to?: string; title?: string }
+const tags = computed<Tag[]>(() => {
+  const list: Tag[] = []
+  if (props.level.gddl_tier) list.push({ label: props.level.gddl_tier })
+  if (props.level.difficulty) list.push({ label: props.level.difficulty })
+  if (props.level.main_skillset) list.push({ label: props.level.main_skillset })
   // Use the source-overridden label so the chip stays consistent with the
   // Rated tile when a challenge-source forces the rating.
   const sourceForced = isChallengeSource(props.level.placement_source)
-  if (sourceForced) list.push('Challenge')
-  else if (props.level.rated) list.push(props.level.rated)
-  if (props.level.placement_source) list.push(props.level.placement_source)
-  if (props.level.same_as_above) list.push('Alternate version')
+  if (sourceForced) list.push({ label: 'Challenge' })
+  else if (props.level.rated) list.push({ label: props.level.rated })
+  if (props.level.placement_source) list.push({ label: props.level.placement_source })
+  if (props.level.same_as_above) {
+    const dup = props.level.duplicate_of
+    list.push({
+      label: 'Duplicate',
+      to: dup ? `/levels/${dup.position}` : undefined,
+      title: dup ? `Duplicate of #${dup.position} ${dup.name}` : undefined,
+    })
+  }
+  if (props.level.is_alternate) {
+    const alt = props.level.alternate_of
+    list.push({
+      label: 'Alternate',
+      to: alt ? `/levels/${alt.position}` : undefined,
+      title: alt ? `Alternate of #${alt.position} ${alt.name}` : undefined,
+    })
+  }
   return list
 })
 
@@ -125,7 +146,12 @@ type EditableFields = Pick<Level,
   'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
   'verification' | 'verification_url' | 'year_verified' |
   'description_override'
-> & { same_as_above: boolean }
+> & {
+  same_as_above: boolean
+  duplicate_of_id: number | null
+  is_alternate: boolean
+  alternate_of_id: number | null
+}
 const editing = ref(false)
 const apiOverridesOpen = ref(false)
 const draft = reactive<Record<keyof EditableFields, any>>({
@@ -144,7 +170,16 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   year_verified: '',
   description_override: '',
   same_as_above: false,
+  duplicate_of_id: null,
+  is_alternate: false,
+  alternate_of_id: null,
 })
+// Display-side cache of the picked originals, so the edit panel can show
+// "#42 Foo" without an extra fetch. Pre-populated from props on edit start.
+const draftDuplicateOf = ref<{ position: number; name: string } | null>(null)
+const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
+const editDuplicatePickerOpen = ref(false)
+const editAlternatePickerOpen = ref(false)
 const draftPosition = ref<number | string>('')
 const saving = ref(false)
 const saveError = ref<string | null>(null)
@@ -167,6 +202,11 @@ function startEdit() {
   draft.year_verified = props.level.year_verified ?? ''
   draft.description_override = props.level.description_override ?? ''
   draft.same_as_above = !!props.level.same_as_above
+  draft.duplicate_of_id = props.level.duplicate_of_id ?? null
+  draft.is_alternate = !!props.level.is_alternate
+  draft.alternate_of_id = props.level.alternate_of_id ?? null
+  draftDuplicateOf.value = props.level.duplicate_of ?? null
+  draftAlternateOf.value = props.level.alternate_of ?? null
   draftPosition.value = props.level.position
   saveError.value = null
   deleteError.value = null
@@ -397,7 +437,12 @@ async function saveEdit() {
   saving.value = true
   saveError.value = null
   try {
-    await $fetch(`/api/admin/levels/${props.level.position}`, { method: 'PATCH', body: { ...draft } })
+    // Clear the linked-original ids if their toggle is off — stops stale ids
+    // from sticking around after the user un-toggles Duplicate / Alternate.
+    const payload: Record<string, unknown> = { ...draft }
+    if (!draft.same_as_above) payload.duplicate_of_id = null
+    if (!draft.is_alternate)  payload.alternate_of_id = null
+    await $fetch(`/api/admin/levels/${props.level.position}`, { method: 'PATCH', body: payload })
     // If position changed, do the structural move after the metadata save —
     // it shifts neighboring rows so it's a separate atomic op.
     const newPos = Number(draftPosition.value)
@@ -531,10 +576,58 @@ async function deleteLevel() {
         <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none mt-2 sm:mt-6">
           <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Same difficulty as above</span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
             <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
           </span>
         </label>
+
+        <div v-if="draft.same_as_above" class="sm:col-span-2 -mt-2 pl-6">
+          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              @click="editDuplicatePickerOpen = true"
+            >{{ draftDuplicateOf ? 'Change…' : 'Pick a level…' }}</button>
+            <span v-if="draftDuplicateOf" class="text-xs text-zinc-200 truncate">
+              #{{ draftDuplicateOf.position }} {{ draftDuplicateOf.name }}
+            </span>
+            <button
+              v-if="draftDuplicateOf"
+              type="button"
+              class="text-[11px] text-zinc-500 hover:text-red-400"
+              @click="draftDuplicateOf = null; draft.duplicate_of_id = null"
+            >clear</button>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2">
+          <input v-model="draft.is_alternate" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
+            <span class="text-zinc-500 normal-case">— mark this level as a related variation of an existing entry. Doesn't affect points.</span>
+          </span>
+        </label>
+
+        <div v-if="draft.is_alternate" class="sm:col-span-2 -mt-2 pl-6">
+          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              @click="editAlternatePickerOpen = true"
+            >{{ draftAlternateOf ? 'Change…' : 'Pick a level…' }}</button>
+            <span v-if="draftAlternateOf" class="text-xs text-zinc-200 truncate">
+              #{{ draftAlternateOf.position }} {{ draftAlternateOf.name }}
+            </span>
+            <button
+              v-if="draftAlternateOf"
+              type="button"
+              class="text-[11px] text-zinc-500 hover:text-red-400"
+              @click="draftAlternateOf = null; draft.alternate_of_id = null"
+            >clear</button>
+          </div>
+        </div>
 
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Creator(s) <span class="text-zinc-600 normal-case">— comma-separated</span></span>
@@ -683,13 +776,19 @@ async function deleteLevel() {
 
       <!-- Tags -->
       <div v-if="tags.length || level.gd_id" class="flex flex-wrap items-center gap-2 mb-6">
-        <span
-          v-for="t in tags"
-          :key="t"
-          class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300"
-        >
-          {{ t }}
-        </span>
+        <template v-for="(t, i) in tags" :key="`${i}-${t.label}`">
+          <NuxtLink
+            v-if="t.to"
+            :to="t.to"
+            :title="t.title"
+            class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+          >{{ t.label }}</NuxtLink>
+          <span
+            v-else
+            :title="t.title"
+            class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300"
+          >{{ t.label }}</span>
+        </template>
 
         <div v-if="level.gd_id" class="relative">
           <button
@@ -912,6 +1011,20 @@ async function deleteLevel() {
       title="Move below"
       hint="Click a level to move this one right below it. Save to commit."
       @confirm="onMoveBelowPick"
+    />
+    <LevelComparisonDrawer
+      v-model:open="editDuplicatePickerOpen"
+      :confirm-on-pick="true"
+      title="Pick the original level"
+      hint="Click the level this one is a duplicate of."
+      @confirm="(lvl) => { draft.duplicate_of_id = lvl.id ?? null; draftDuplicateOf = { position: lvl.position, name: lvl.name } }"
+    />
+    <LevelComparisonDrawer
+      v-model:open="editAlternatePickerOpen"
+      :confirm-on-pick="true"
+      title="Pick the original level"
+      hint="Click the level this one is an alternate of."
+      @confirm="(lvl) => { draft.alternate_of_id = lvl.id ?? null; draftAlternateOf = { position: lvl.position, name: lvl.name } }"
     />
   </div>
 </template>

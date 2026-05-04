@@ -84,6 +84,15 @@ export default defineEventHandler(async (event) => {
   }
   const comparisonLevelName = strOrNull(body.comparison_level_name, 200)
   const sameAsAbove = body.same_as_above === true || body.same_as_above === 1 || body.same_as_above === '1' ? 1 : 0
+  const isAlternate = body.is_alternate === true || body.is_alternate === 1 || body.is_alternate === '1' ? 1 : 0
+
+  function optLevelId(v: unknown): number | null {
+    if (v == null || v === '') return null
+    const n = Number(v)
+    return Number.isInteger(n) && n > 0 ? n : null
+  }
+  const duplicateOfId = optLevelId(body.duplicate_of_id)
+  const alternateOfId = optLevelId(body.alternate_of_id)
 
   const db = getDb()
 
@@ -108,14 +117,14 @@ export default defineEventHandler(async (event) => {
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
          gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
          placement_estimate, comparison_level_id, comparison_level_name,
-         placement_source, same_as_above)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       gdId, name, fps, gameVersion, verification, verificationUrl, verifier, verifyDate,
       gddlTier, difficulty, enjoyment, skillset, tags, notes, account.id,
       placementEstimate, comparisonLevelId, comparisonLevelName,
-      placementSource, sameAsAbove,
+      placementSource, sameAsAbove, duplicateOfId, isAlternate, alternateOfId,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }

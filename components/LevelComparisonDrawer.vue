@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 
-type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type ListLevel = { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }
 
 const props = defineProps<{
   open: boolean

@@ -42,5 +42,27 @@ export default defineEventHandler((event) => {
     )
     .all(level.id)
 
-  return { ...level, enjoyment, records, community, position_history, submitter }
+  // Resolve duplicate_of_id / alternate_of_id (stored as the original level's
+  // levels.id) into the current position + name so the public Duplicate /
+  // Alternate tag chips can render a link that survives reordering.
+  function resolveOriginal(id: number | null) {
+    if (!id) return null
+    const r = db
+      .prepare(`SELECT position, name FROM levels WHERE id = ?`)
+      .get(id) as { position: number; name: string } | undefined
+    return r ?? null
+  }
+  const duplicate_of = resolveOriginal(level.duplicate_of_id ?? null)
+  const alternate_of = resolveOriginal(level.alternate_of_id ?? null)
+
+  return {
+    ...level,
+    enjoyment,
+    records,
+    community,
+    position_history,
+    submitter,
+    duplicate_of,
+    alternate_of,
+  }
 })

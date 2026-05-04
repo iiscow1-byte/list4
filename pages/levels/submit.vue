@@ -58,13 +58,21 @@ const notes = ref('')
 const placementEstimate = ref<string>('')
 const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
 const sameAsAbove = ref(false)
+const isAlternate = ref(false)
+// Optional original-level pointers for the Duplicate / Alternate tags. Stored
+// as the levels.id on the server so the link survives reorders.
+type OriginalLevel = { id?: number; position: number; name: string }
+const duplicateOfLevel = ref<OriginalLevel | null>(null)
+const alternateOfLevel = ref<OriginalLevel | null>(null)
+const duplicateOfPickerOpen = ref(false)
+const alternateOfPickerOpen = ref(false)
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
 const success = ref(false)
 
 // --- Level comparison drawer ---
-type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type ListLevel = { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }
 const COMPARE_PAGE_SIZE = 500
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
@@ -302,6 +310,9 @@ async function submit() {
         comparison_level_id: comparisonLevel.value?.position ?? null,
         comparison_level_name: comparisonLevel.value?.name ?? null,
         same_as_above: sameAsAbove.value,
+        duplicate_of_id: sameAsAbove.value ? duplicateOfLevel.value?.id ?? null : null,
+        is_alternate: isAlternate.value,
+        alternate_of_id: isAlternate.value ? alternateOfLevel.value?.id ?? null : null,
       },
     })
     success.value = true
@@ -312,6 +323,9 @@ async function submit() {
     enjoyment.value = ''; skillset.value = ''; notes.value = ''
     placementEstimate.value = ''; comparisonLevel.value = null
     sameAsAbove.value = false
+    isAlternate.value = false
+    duplicateOfLevel.value = null
+    alternateOfLevel.value = null
     for (const t of ALL_TAGS) tagSet[t] = false
     setTimeout(() => (success.value = false), 6000)
   } catch (e: any) {
@@ -511,12 +525,60 @@ async function submit() {
         <label class="flex items-start gap-2 cursor-pointer select-none">
           <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Same difficulty as above</span>
+            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate (same difficulty as above)</span>
             <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Inherits the previous level's points and gets tagged as an "alternate version" on the public list — use for re-released, buffed, or platformer-converted variants of an existing entry.
+              Inherits the previous level's points and gets tagged as a "Duplicate" on the public list — use for re-released, buffed, or platformer-converted variants of an existing entry.
             </span>
           </span>
         </label>
+        <div v-if="sameAsAbove" class="pl-6 -mt-1">
+          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              @click="duplicateOfPickerOpen = true"
+            >{{ duplicateOfLevel ? 'Change…' : 'Pick a level…' }}</button>
+            <span v-if="duplicateOfLevel" class="text-xs text-zinc-200 truncate">
+              #{{ duplicateOfLevel.position }} {{ duplicateOfLevel.name }}
+            </span>
+            <button
+              v-if="duplicateOfLevel"
+              type="button"
+              class="text-[11px] text-zinc-500 hover:text-red-400"
+              @click="duplicateOfLevel = null"
+            >clear</button>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2 cursor-pointer select-none">
+          <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">
+              Mark this level as a similar variation of an existing entry (different stats, but related). Tagged as "Alternate" on the public list. Doesn't change point value.
+            </span>
+          </span>
+        </label>
+        <div v-if="isAlternate" class="pl-6 -mt-1">
+          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              @click="alternateOfPickerOpen = true"
+            >{{ alternateOfLevel ? 'Change…' : 'Pick a level…' }}</button>
+            <span v-if="alternateOfLevel" class="text-xs text-zinc-200 truncate">
+              #{{ alternateOfLevel.position }} {{ alternateOfLevel.name }}
+            </span>
+            <button
+              v-if="alternateOfLevel"
+              type="button"
+              class="text-[11px] text-zinc-500 hover:text-red-400"
+              @click="alternateOfLevel = null"
+            >clear</button>
+          </div>
+        </div>
 
         <p
           v-if="noOpinion"
@@ -591,6 +653,22 @@ async function submit() {
         <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
       </div>
     </form>
+
+    <!-- Original-level pickers for the Duplicate / Alternate tags -->
+    <LevelComparisonDrawer
+      v-model:open="duplicateOfPickerOpen"
+      :confirm-on-pick="true"
+      title="Pick the original level"
+      hint="Click the level this one is a duplicate of."
+      @confirm="(lvl) => (duplicateOfLevel = { id: lvl.id, position: lvl.position, name: lvl.name })"
+    />
+    <LevelComparisonDrawer
+      v-model:open="alternateOfPickerOpen"
+      :confirm-on-pick="true"
+      title="Pick the original level"
+      hint="Click the level this one is an alternate of."
+      @confirm="(lvl) => (alternateOfLevel = { id: lvl.id, position: lvl.position, name: lvl.name })"
+    />
 
     <!-- Level comparison drawer -->
     <Teleport to="body">

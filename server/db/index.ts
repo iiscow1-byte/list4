@@ -122,8 +122,19 @@ function initSchema(db: DatabaseSync) {
   if (!has('description_override')) db.exec(`ALTER TABLE levels ADD COLUMN description_override TEXT`)
   // `same_as_above`: when 1, this level's points mirror the level immediately
   // above it (position - 1). Lets curators tag exact-difficulty ties without
-  // overriding the auto-computed point value.
+  // overriding the auto-computed point value. Public UI labels this as
+  // "Duplicate" — the column name predates the rename and is kept for
+  // backwards compatibility.
   if (!has('same_as_above')) db.exec(`ALTER TABLE levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
+  // `duplicate_of_id` / `is_alternate` / `alternate_of_id`: optional pointers
+  // to the levels.id row that this level duplicates / is an alternate of.
+  // `is_alternate` is the toggle that controls whether the "Alternate" tag
+  // appears at all; `alternate_of_id` makes that tag link to the original.
+  // For duplicates, `same_as_above` is the toggle and `duplicate_of_id` is
+  // the optional link target. All three are nullable / default-0.
+  if (!has('duplicate_of_id'))  db.exec(`ALTER TABLE levels ADD COLUMN duplicate_of_id  INTEGER`)
+  if (!has('is_alternate'))     db.exec(`ALTER TABLE levels ADD COLUMN is_alternate     INTEGER NOT NULL DEFAULT 0`)
+  if (!has('alternate_of_id'))  db.exec(`ALTER TABLE levels ADD COLUMN alternate_of_id  INTEGER`)
   // `submitted_by`: account that originally submitted the level (only set for
   // levels that came in through the submit flow, not sheet imports).
   if (!has('submitted_by')) {
@@ -201,9 +212,20 @@ function initSchema(db: DatabaseSync) {
   }
   // Submitter (or admin pre-approve) can flag a level as "same difficulty as
   // above" so on approval it inherits the previous level's points and gets the
-  // "alternate version" tag on the public list.
+  // "Duplicate" tag on the public list.
   if (!pcols.some((c) => c.name === 'same_as_above')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
+  }
+  // Mirrors of the levels-table columns above for the duplicate / alternate
+  // tag system. Carried through pending → awaiting → levels on approval.
+  if (!pcols.some((c) => c.name === 'duplicate_of_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN duplicate_of_id INTEGER`)
+  }
+  if (!pcols.some((c) => c.name === 'is_alternate')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN is_alternate INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!pcols.some((c) => c.name === 'alternate_of_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN alternate_of_id INTEGER`)
   }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
@@ -258,6 +280,15 @@ function initSchema(db: DatabaseSync) {
   }
   if (!acols.some((c) => c.name === 'same_as_above')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!acols.some((c) => c.name === 'duplicate_of_id')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN duplicate_of_id INTEGER`)
+  }
+  if (!acols.some((c) => c.name === 'is_alternate')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN is_alternate INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!acols.some((c) => c.name === 'alternate_of_id')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN alternate_of_id INTEGER`)
   }
 
   db.exec(`

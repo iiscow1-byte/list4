@@ -22,6 +22,9 @@ type PendingLevel = {
   comparison_level_name: string | null
   from_open_verification_id: number | null
   same_as_above: number
+  duplicate_of_id: number | null
+  is_alternate: number
+  alternate_of_id: number | null
 }
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
@@ -549,9 +552,9 @@ function onPlacementHelperPick(picked: ListLevel) {
         <label class="flex items-start gap-2 cursor-pointer select-none border-t border-zinc-900 pt-3">
           <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Same difficulty as above</span>
+            <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Duplicate (same difficulty as above)</span>
             <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Inherits the previous level's points. The level shows as an "alternate version" on the public list.
+              Inherits the previous level's points. The level shows as a "Duplicate" on the public list.
               <span v-if="selected.same_as_above" class="text-accent">Submitter requested this.</span>
             </span>
           </span>
