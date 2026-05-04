@@ -486,6 +486,7 @@ function onMoveBelowPick(picked: ListLevel) {
   const target = picked.position < cur ? picked.position + 1 : picked.position
   draftPosition.value = target
   if (picked.gddl_tier) draft.gddl_tier = picked.gddl_tier
+  if (picked.difficulty) draft.difficulty = picked.difficulty
 }
 
 async function deleteLevel() {

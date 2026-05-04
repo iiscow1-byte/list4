@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'place' | 'remove'; placement?: number; reason?: string; gddl_tier?: string }>(event)
+  const body = await readBody<{ action: 'place' | 'remove'; placement?: number; reason?: string; gddl_tier?: string; difficulty?: string }>(event)
   if (body.action !== 'place' && body.action !== 'remove') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
       sub.name,
       sub.gd_id,
       (typeof body.gddl_tier === 'string' && body.gddl_tier.trim()) ? body.gddl_tier.trim() : sub.gddl_tier,
-      sub.difficulty,
+      (typeof body.difficulty === 'string' && body.difficulty.trim()) ? body.difficulty.trim() : sub.difficulty,
       sub.main_skillset,
       sub.verify_date,
       sub.verification,

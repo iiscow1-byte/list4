@@ -25,12 +25,12 @@ export type WebhookRow = {
  * be called from a cron tick — safe to run frequently because of the
  * date-comparison guard.
  */
-export async function postDailyChangesIfDue(opts: { upToDate?: string } = {}): Promise<{
+export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurrent?: boolean } = {}): Promise<{
   posted: { webhookId: number; date: string; status: string }[]
 }> {
   const db = getDb()
-  const yesterday = ymdUtcMinusDays(1)
-  const upToDate = opts.upToDate ?? yesterday
+  const today = ymdUtc(new Date())
+  const upToDate = opts.upToDate ?? ymdUtcMinusDays(1)
 
   const webhooks = db
     .prepare(`SELECT id, url, active, last_posted_date FROM discord_webhooks WHERE active = 1`)
@@ -48,14 +48,26 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string } = {}): P
       : upToDate
     if (cursor < earliest) cursor = earliest
 
+    // forceCurrent: if the cursor has already advanced past upToDate (because
+    // last_posted_date >= upToDate), reset it so the current day is always
+    // re-posted on manual "post now" triggers.
+    if (opts.forceCurrent && cursor > upToDate) cursor = upToDate
+
     while (cursor <= upToDate) {
       const status = await postOneDay(wh, cursor)
       posted.push({ webhookId: wh.id, date: cursor, status })
-      // Always advance the cursor on a definitive outcome so a permanently
-      // bad URL doesn't loop forever.
-      db.prepare(
-        `UPDATE discord_webhooks SET last_posted_date = ?, last_post_status = ? WHERE id = ?`,
-      ).run(cursor, status, wh.id)
+      // Don't permanently record today in last_posted_date — keeping it
+      // re-postable means "post now" always reflects the latest changes.
+      // Only advance the cursor for completed (past) days.
+      if (cursor < today) {
+        db.prepare(
+          `UPDATE discord_webhooks SET last_posted_date = ?, last_post_status = ? WHERE id = ?`,
+        ).run(cursor, status, wh.id)
+      } else {
+        db.prepare(
+          `UPDATE discord_webhooks SET last_post_status = ? WHERE id = ?`,
+        ).run(status, wh.id)
+      }
       cursor = incrementDate(cursor)
     }
   }

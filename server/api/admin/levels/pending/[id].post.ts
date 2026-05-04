@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
     reason?: string
     same_as_above?: boolean
     gddl_tier?: string
+    difficulty?: string
   }>(event)
   if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
@@ -159,7 +160,7 @@ export default defineEventHandler(async (event) => {
         sub.name ?? `Level ${sub.gd_id}`,
         sub.gd_id,
         (typeof body.gddl_tier === 'string' && body.gddl_tier.trim()) ? body.gddl_tier.trim() : sub.gddl_tier,
-        sub.difficulty,
+        (typeof body.difficulty === 'string' && body.difficulty.trim()) ? body.difficulty.trim() : sub.difficulty,
         sub.main_skillset,
         sub.verify_date,
         sub.verification,

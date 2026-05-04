@@ -102,6 +102,7 @@ async function decide(action: 'place' | 'remove') {
     if (action === 'place') {
       body.placement = Number(placement.value)
       if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
+      if (difficultyOverride.value.trim()) body.difficulty = difficultyOverride.value.trim()
     }
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
     await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
@@ -109,6 +110,7 @@ async function decide(action: 'place' | 'remove') {
     selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
+    difficultyOverride.value = ''
     removeReason.value = ''
     preview.value = null
     await load()
@@ -125,13 +127,16 @@ const placementHelperOpen = ref(false)
 function onPlacementHelperPick(picked: { position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
   placement.value = String(picked.position + 1)
   if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
+  if (picked.difficulty) difficultyOverride.value = picked.difficulty
 }
 
 const tierOverride = ref('')
+const difficultyOverride = ref('')
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
   if (above?.gddl_tier) tierOverride.value = above.gddl_tier
+  if (above?.difficulty) difficultyOverride.value = above.difficulty
 })
 
 function youtubeId(url: string | null): string | null {
@@ -304,6 +309,16 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             v-model="tierOverride"
             type="text"
             placeholder="e.g. Tier 15"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <input
+            v-model="difficultyOverride"
+            type="text"
+            placeholder="e.g. Extreme Demon"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>

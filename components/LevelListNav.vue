@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { parseTierShortcut } from '~/utils/tier-shortcut'
 
 type LevelRow = {
   position: number
@@ -206,6 +207,28 @@ await loadMore()
 
 let debounce: ReturnType<typeof setTimeout> | null = null
 let lastGdIdLookup = ''
+let lastTierLookup = ''
+
+async function maybeJumpToTier(): Promise<boolean> {
+  const tier = parseTierShortcut(search.value)
+  if (!tier) return false
+  if (tier === lastTierLookup) return false
+  lastTierLookup = tier
+  try {
+    const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
+      '/api/levels/tier-midpoint', { query: { tier } },
+    )
+    if (res?.midpoint) {
+      search.value = ''
+      lastTierLookup = ''
+      await navigateTo(`/levels/${res.midpoint}`)
+      return true
+    }
+  } catch { /* non-fatal */ }
+  lastTierLookup = ''
+  return false
+}
+
 async function maybeJumpToGdId(): Promise<boolean> {
   // If the user typed/pasted a pure positive integer that matches a level's
   // gd_id, jump straight to that level's page. Don't repeat the lookup for
@@ -233,6 +256,7 @@ async function maybeJumpToGdId(): Promise<boolean> {
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
   const run = async () => {
+    if (await maybeJumpToTier()) return
     if (await maybeJumpToGdId()) return
     router.replace({ query: { ...route.query, q: search.value || undefined } })
     reset()
@@ -303,7 +327,7 @@ watch(
         <input
           v-model="search"
           type="search"
-          placeholder="Search…"
+          placeholder="Search… or [25] / [S5] for tier"
           class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <button

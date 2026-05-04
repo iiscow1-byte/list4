@@ -208,6 +208,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     if (action === 'approve') {
       body.placement = Number(placement.value)
       if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
+      if (difficultyOverride.value.trim()) body.difficulty = difficultyOverride.value.trim()
     }
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
@@ -223,6 +224,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
+    difficultyOverride.value = ''
     rejectReason.value = ''
     preview.value = null
     await load()
@@ -259,14 +261,17 @@ const placementHelperOpen = ref(false)
 function onPlacementHelperPick(picked: ListLevel) {
   placement.value = String(picked.position + 1)
   if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
+  if (picked.difficulty) difficultyOverride.value = picked.difficulty
 }
 
-// Tier auto-fill: inherit the tier of the level immediately above the placement.
+// Tier + difficulty auto-fill: inherit from the level immediately above the placement.
 const tierOverride = ref('')
+const difficultyOverride = ref('')
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
   if (above?.gddl_tier) tierOverride.value = above.gddl_tier
+  if (above?.difficulty) difficultyOverride.value = above.difficulty
 })
 </script>
 
@@ -568,6 +573,16 @@ watch(preview, (p) => {
             v-model="tierOverride"
             type="text"
             placeholder="e.g. Tier 15"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+
+        <label v-if="!goesToVoid" class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <input
+            v-model="difficultyOverride"
+            type="text"
+            placeholder="e.g. Extreme Demon"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
