@@ -1,6 +1,9 @@
 import type { Change } from '~/server/utils/changes'
 
 const SITE_URL = (process.env.SITE_URL ?? '').replace(/\/+$/, '')
+// Only use as a link base if it's a valid http(s) URL — Discord won't render
+// markdown links with bare hostnames (no scheme) as clickable hyperlinks.
+const SITE_URL_VALID = (SITE_URL && /^https?:\/\//.test(SITE_URL)) ? SITE_URL : ''
 const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+\/?$/
 
 export function isValidDiscordWebhook(url: string): boolean {
@@ -8,16 +11,27 @@ export function isValidDiscordWebhook(url: string): boolean {
 }
 
 function levelLink(name: string, position: number): string {
-  if (!SITE_URL) return name
-  // Discord-flavored markdown: title-case-friendly link.
-  return `[${name}](${SITE_URL}/levels/${position})`
+  if (!SITE_URL_VALID) return name
+  return `[${name}](${SITE_URL_VALID}/levels/${position})`
+}
+
+function tierEmojiStr(tier: string | null): string {
+  if (!tier) return ''
+  if (/^Subtier \d/.test(tier)) return ':tierunrated:'
+  const t = tier.match(/^Tier (\d{1,2})$/)
+  if (t) return `:Tier${t[1]}:`
+  return ''
 }
 
 /**
  * Build the Discord embed payload for a single day's changes. Returns null
  * when the day has no changes — caller should skip the post.
  */
-export function buildDailyEmbed(date: string, changes: Change[]): { embeds: unknown[] } | null {
+export function buildDailyEmbed(
+  date: string,
+  changes: Change[],
+  opts: { tierEmoji?: boolean } = {},
+): { embeds: unknown[] } | null {
   if (!changes.length) return null
 
   const adds = changes.filter((c) => c.kind === 'add')
@@ -35,21 +49,36 @@ export function buildDailyEmbed(date: string, changes: Change[]): { embeds: unkn
   if (adds.length) {
     lines.push(`**Added (${adds.length})**`)
     for (const c of adds) {
-      lines.push(`+ #${c.to_position} · ${levelLink(c.level_name, c.level_position)}`)
+      if (opts.tierEmoji) {
+        const emoji = tierEmojiStr(c.level_gddl_tier)
+        lines.push(`+ ${levelLink(c.level_name, c.level_position)}${emoji ? ` ${emoji}` : ''} #${c.to_position}`)
+      } else {
+        lines.push(`+ #${c.to_position} · ${levelLink(c.level_name, c.level_position)}`)
+      }
     }
     lines.push('')
   }
   if (movesUp.length) {
     lines.push(`**Moved up (${movesUp.length})**`)
     for (const c of movesUp) {
-      lines.push(`▲ ${levelLink(c.level_name, c.level_position)}: #${c.from_position} → #${c.to_position}`)
+      if (opts.tierEmoji) {
+        const emoji = tierEmojiStr(c.level_gddl_tier)
+        lines.push(`▲ ${levelLink(c.level_name, c.level_position)}${emoji ? ` ${emoji}` : ''} #${c.from_position} → #${c.to_position}`)
+      } else {
+        lines.push(`▲ ${levelLink(c.level_name, c.level_position)}: #${c.from_position} → #${c.to_position}`)
+      }
     }
     lines.push('')
   }
   if (movesDown.length) {
     lines.push(`**Moved down (${movesDown.length})**`)
     for (const c of movesDown) {
-      lines.push(`▼ ${levelLink(c.level_name, c.level_position)}: #${c.from_position} → #${c.to_position}`)
+      if (opts.tierEmoji) {
+        const emoji = tierEmojiStr(c.level_gddl_tier)
+        lines.push(`▼ ${levelLink(c.level_name, c.level_position)}${emoji ? ` ${emoji}` : ''} #${c.from_position} → #${c.to_position}`)
+      } else {
+        lines.push(`▼ ${levelLink(c.level_name, c.level_position)}: #${c.from_position} → #${c.to_position}`)
+      }
     }
   }
 
@@ -63,7 +92,7 @@ export function buildDailyEmbed(date: string, changes: Change[]): { embeds: unkn
     embeds: [
       {
         title: `The All Levels List — Recent Changes for ${date}`,
-        url: (SITE_URL && /^https?:\/\//.test(SITE_URL)) ? SITE_URL : undefined,
+        url: SITE_URL_VALID || undefined,
         description,
         color: 0xf4c430,
         footer: { text: `${changes.length} change${changes.length === 1 ? '' : 's'}` },

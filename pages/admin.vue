@@ -75,6 +75,7 @@ type DiscordWebhook = {
   url: string
   label: string | null
   active: 0 | 1
+  tier_emoji: 0 | 1
   created_at: string
   created_by: string | null
   last_posted_date: string | null
@@ -114,6 +115,17 @@ async function toggleWebhook(w: DiscordWebhook) {
   try {
     await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
       method: 'PATCH', body: { active: !w.active },
+    })
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function toggleTierEmoji(w: DiscordWebhook) {
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
+      method: 'PATCH', body: { tier_emoji: !w.tier_emoji },
     })
     await loadWebhooks()
   } catch (e: any) {
@@ -463,7 +475,15 @@ async function setClaim(u: AdminUser) {
                   <span v-if="w.last_post_status" class="text-zinc-500"> ({{ w.last_post_status }})</span>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
+                <label
+                  class="flex items-center gap-1.5 cursor-pointer select-none text-xs transition-colors"
+                  :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
+                  :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in embeds'"
+                >
+                  <input type="checkbox" :checked="!!w.tier_emoji" class="accent-accent" @change="toggleTierEmoji(w)" />
+                  Tier emoji
+                </label>
                 <button
                   type="button"
                   class="rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-2.5 py-1 transition-colors"

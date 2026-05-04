@@ -419,6 +419,11 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_discord_webhooks_active ON discord_webhooks(active);
   `)
 
+  const dwCols = db.prepare(`PRAGMA table_info(discord_webhooks)`).all() as { name: string }[]
+  if (!dwCols.some((c) => c.name === 'tier_emoji')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN tier_emoji INTEGER NOT NULL DEFAULT 0`)
+  }
+
   // Opinions: per-user difficulty / enjoyment ratings on a level. Approved
   // opinions feed the "community tier" tile + bar chart on the level page.
   // list_kind disambiguates main-list and void-list levels since their tables

@@ -17,6 +17,7 @@ export type WebhookRow = {
   url: string
   active: number
   last_posted_date: string | null
+  tier_emoji: number
 }
 
 /**
@@ -36,8 +37,8 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
   // `active` flag gates the automated scheduler only.
   const webhooks = db
     .prepare(opts.allWebhooks
-      ? `SELECT id, url, active, last_posted_date FROM discord_webhooks`
-      : `SELECT id, url, active, last_posted_date FROM discord_webhooks WHERE active = 1`)
+      ? `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks`
+      : `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE active = 1`)
     .all() as WebhookRow[]
   if (!webhooks.length) return { posted: [] }
 
@@ -86,7 +87,7 @@ export async function postOneDay(wh: WebhookRow, date: string): Promise<string> 
   const until = `${date} 23:59:59`
   // Pull oldest-first so the embed reads chronologically.
   const changes = loadChanges(db, { since, until, limit: 1000 }).reverse()
-  const payload = buildDailyEmbed(date, changes)
+  const payload = buildDailyEmbed(date, changes, { tierEmoji: !!wh.tier_emoji })
   if (!payload) return 'no changes'
   return postToDiscordWebhook(wh.url, payload)
 }
