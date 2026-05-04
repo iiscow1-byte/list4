@@ -14,6 +14,7 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   difficulty: 'text',
   gddl_tier: 'text',
   rated: 'text',
+  placement_source: 'text',
   main_skillset: 'text',
   verification: 'text',
   verification_url: 'text',

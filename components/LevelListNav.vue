@@ -82,6 +82,22 @@ const enjoyMax = ref<string>('')
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 
+type ListVariant = 'Classic' | 'Rated' | 'Challenge'
+const listVariant = ref<ListVariant>('Classic')
+function applyVariant(v: ListVariant) {
+  listVariant.value = v
+  for (const r of RATINGS) ratingSet[r] = false
+  if (v === 'Rated') {
+    ratingSet['Rated'] = true
+    ratingSet['Featured'] = true
+    ratingSet['Epic'] = true
+    ratingSet['Legendary'] = true
+    ratingSet['Mythic'] = true
+  } else if (v === 'Challenge') {
+    ratingSet['Challenge'] = true
+  }
+}
+
 const activeFilterCount = computed(() => {
   let n = 0
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
@@ -180,6 +196,7 @@ function resetFilters() {
   enjoyMax.value = ''
   sort.value = 'position'
   rankByFilter.value = false
+  listVariant.value = 'Classic'
 }
 
 // Initial load
@@ -277,7 +294,7 @@ watch(
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800 shrink-0">
       <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="text-xs uppercase tracking-widest text-accent font-semibold">Classic</span>
+        <span class="text-xs uppercase tracking-widest text-accent font-semibold">{{ listVariant }}</span>
       </div>
 
       <div class="flex items-stretch gap-1.5">
@@ -352,6 +369,24 @@ watch(
           <div class="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-0 flex-1 overflow-hidden">
             <!-- Left column: general filters -->
             <div class="p-4 space-y-4 text-xs overflow-y-auto md:border-r border-zinc-800">
+              <!-- List variants -->
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">List variants</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="v in (['Classic', 'Rated', 'Challenge'] as const)"
+                    :key="v"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="listVariant === v
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input type="radio" :value="v" :checked="listVariant === v" class="sr-only" @change="applyVariant(v)" />
+                    {{ v }}
+                  </label>
+                </div>
+              </div>
+
               <!-- Tier range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
@@ -464,16 +499,6 @@ watch(
                 </select>
               </label>
 
-              <!-- Rank-by-filter toggle -->
-              <label class="flex items-start gap-2 cursor-pointer select-none">
-                <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
-                <span>
-                  <span class="text-[11px] text-zinc-200">Rank by filter position</span>
-                  <span class="block text-[10px] text-zinc-500">
-                    Numbers reflect each level's place within the filtered list rather than the global list. Search narrows what's shown without changing ranks.
-                  </span>
-                </span>
-              </label>
             </div>
 
             <!-- Right column: tags -->
@@ -481,22 +506,6 @@ watch(
               <div class="flex items-center justify-between">
                 <h3 class="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Tags</h3>
                 <span v-if="tagsDropdownActiveCount" class="text-[10px] text-accent">{{ tagsDropdownActiveCount }} selected</span>
-              </div>
-
-              <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Modifiers</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="t in TAGS" :key="t"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-                    :class="tagSet[t]
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
-                    {{ t === 'uldm' ? 'ULDM' : t }}
-                  </label>
-                </div>
               </div>
 
               <div>
@@ -549,6 +558,16 @@ watch(
                   </label>
                 </div>
                 <p class="text-[10px] text-zinc-600 mt-1">"Alternates" are levels marked as a related variation of an existing entry.</p>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rank by filter</div>
+                <label class="flex items-start gap-2 cursor-pointer select-none">
+                  <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
+                  <span class="text-[10px] text-zinc-500">
+                    Numbers reflect each level's place within the filtered list rather than the global list.
+                  </span>
+                </label>
               </div>
             </div>
           </div>

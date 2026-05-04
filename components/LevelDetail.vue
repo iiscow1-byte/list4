@@ -143,7 +143,7 @@ async function promote() {
 // --- Edit ---
 type EditableFields = Pick<Level,
   'name' | 'gd_id' | 'creator' | 'verifier' | 'publisher' | 'enjoyment' |
-  'difficulty' | 'gddl_tier' | 'rated' | 'main_skillset' |
+  'difficulty' | 'gddl_tier' | 'rated' | 'placement_source' | 'main_skillset' |
   'verification' | 'verification_url' | 'year_verified' |
   'description_override'
 > & {
@@ -164,6 +164,7 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   difficulty: '',
   gddl_tier: '',
   rated: '',
+  placement_source: '',
   main_skillset: '',
   verification: '',
   verification_url: '',
@@ -196,6 +197,7 @@ function startEdit() {
   draft.difficulty = props.level.difficulty ?? ''
   draft.gddl_tier = props.level.gddl_tier ?? ''
   draft.rated = props.level.rated ?? ''
+  draft.placement_source = props.level.placement_source ?? ''
   draft.main_skillset = props.level.main_skillset ?? ''
   draft.verification = props.level.verification ?? ''
   draft.verification_url = props.level.verification_url ?? ''
@@ -576,8 +578,8 @@ async function deleteLevel() {
         <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none mt-2 sm:mt-6">
           <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
-            <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate levels</span>
+            <span class="text-zinc-500 normal-case">Example: Red Slaughterhouse</span>
           </span>
         </label>
 
@@ -604,8 +606,8 @@ async function deleteLevel() {
         <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2">
           <input v-model="draft.is_alternate" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
-            <span class="text-zinc-500 normal-case">— mark this level as a related variation of an existing entry. Doesn't affect points.</span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate versions</span>
+            <span class="text-zinc-500 normal-case">Tidal Wave Buffed</span>
           </span>
         </label>
 
@@ -638,8 +640,21 @@ async function deleteLevel() {
           <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
+            <span class="text-[11px] text-zinc-400 tabular-nums">
+              {{ draft.enjoyment !== '' && draft.enjoyment != null ? Number(draft.enjoyment).toFixed(1) : '—' }}
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-zinc-600">0</span>
+            <input
+              v-model.number="draft.enjoyment"
+              type="range" min="0" max="10" step="0.5"
+              class="flex-1 accent-accent"
+            />
+            <span class="text-[11px] text-zinc-600">10</span>
+          </div>
         </label>
 
         <label class="block">
@@ -699,6 +714,10 @@ async function deleteLevel() {
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
               <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
+              <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">
