@@ -146,9 +146,35 @@ function resetFilters() {
 await loadMore()
 
 let debounce: ReturnType<typeof setTimeout> | null = null
+let lastGdIdLookup = ''
+async function maybeJumpToGdId(): Promise<boolean> {
+  // If the user typed/pasted a pure positive integer that matches a level's
+  // gd_id, jump straight to that level's page. Don't repeat the lookup for
+  // the same input on rapid keystrokes.
+  const q = search.value.trim()
+  if (!/^\d+$/.test(q)) return false
+  const n = Number(q)
+  if (!Number.isInteger(n) || n <= 0) return false
+  if (q === lastGdIdLookup) return false
+  lastGdIdLookup = q
+  try {
+    const res = await $fetch<{ position: number; name: string }>(
+      `/api/levels/by-gd-id/${n}`,
+    )
+    if (res?.position) {
+      await navigateTo(`/levels/${res.position}`)
+      return true
+    }
+  } catch {
+    // 404 is the expected miss — fall through to normal search.
+  }
+  return false
+}
+
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
   const run = async () => {
+    if (await maybeJumpToGdId()) return
     router.replace({ query: { ...route.query, q: search.value || undefined } })
     reset()
     await loadMore()

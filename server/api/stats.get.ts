@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
 
 const TIER_ORD_SQL = `
   CASE
@@ -59,14 +60,20 @@ export default defineEventHandler((event) => {
     .filter((r) => r.count > 0)
 
   // Rating order matches GD's rating tiers + the list-specific extras.
-  // Levels with no admin-set `rated` value but whose cached GD info reports
-  // score 0 + Tiny/Short length are reclassified as Challenge here, mirroring
-  // the filter logic in /api/levels and the label in LevelDetail.vue.
+  // A level is bucketed as Challenge if any of:
+  //   - its placement_source is in the curated challenge-source list;
+  //   - the admin/sheet pinned `rated = 'Challenge'`;
+  //   - or it's unrated (score 0) + Tiny/Short per the cached GD API info.
+  // The first two reasons override any other `rated` value, mirroring the
+  // filter logic in /api/levels and the label in LevelDetail.vue.
+  const sourceChallengeSql = challengeSourceSqlExpr('placement_source')
   const ratingOrder = ['Mythic', 'Legendary', 'Epic', 'Featured', 'Rated', 'Unrated', 'Challenge', 'Official']
   const ratingRows = db
     .prepare(
       `SELECT
          CASE
+           WHEN ${sourceChallengeSql} THEN 'Challenge'
+           WHEN rated = 'Challenge' THEN 'Challenge'
            WHEN rated IS NOT NULL AND rated <> '' THEN rated
            WHEN COALESCE(
                   json_extract(c.info_json, '$.score') = 0

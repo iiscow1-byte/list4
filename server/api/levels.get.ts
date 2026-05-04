@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
 
 const TIER_ORD_SQL = `
   CASE
@@ -7,33 +8,40 @@ const TIER_ORD_SQL = `
   END
 `
 
-// Whether a level is a "Challenge" per the GD API (cached in gd_info_cache).
-// Mirrors the UI rule in LevelDetail.vue: unrated (score 0) + Tiny/Short length,
-// AND placed at Tier 1+ on the list (Subtiers don't qualify).
-// Returns 0/1 (never NULL) so it's safe to AND/NOT against without NULL pitfalls.
-const API_CHALLENGE_SQL = `
+// Sources that always classify a level as Challenge regardless of `rated`.
+const SOURCE_CHALLENGE_SQL = challengeSourceSqlExpr('placement_source')
+
+// Whether a level is a "Challenge" — three independent reasons:
+//   1) placement_source is one of the curated challenge-list sources;
+//   2) admin/sheet pinned `rated = 'Challenge'`;
+//   3) GD API reports unrated (score 0) + Tiny/Short length, and the level
+//      sits at Tier 1+ on this list (Subtiers don't qualify).
+// Reasons (1) and (2) override any other `rated` value. Returns 0/1 (never
+// NULL) so it's safe to AND/NOT against.
+const IS_CHALLENGE_SQL = `
   COALESCE(
-    json_extract(c.info_json, '$.score') = 0
-    AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short')
-    AND gddl_tier LIKE 'Tier %',
+    ${SOURCE_CHALLENGE_SQL}
+    OR rated = 'Challenge'
+    OR ((rated IS NULL OR rated = '')
+        AND json_extract(c.info_json, '$.score') = 0
+        AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short')
+        AND gddl_tier LIKE 'Tier %'),
     0
   )
 `
 
 // Numeric ladder for rating sorts. Higher number = "more rated". Mapped against
 // the stored `rated` column (Mythic > Legendary > Epic > Featured > Rated >
-// Unrated > Challenge). NULL/empty rows sort with Unrated, except those the GD
-// API reports as Challenge — those sort with Challenge to stay consistent with
-// how they're labeled in the detail view.
+// Unrated > Challenge). Rows that qualify as Challenge by any of the three
+// reasons above sort as Challenge, even if `rated` is set to something else.
 const RATING_ORD_SQL = `
   CASE
+    WHEN ${IS_CHALLENGE_SQL} THEN 0
     WHEN rated = 'Mythic'    THEN 6
     WHEN rated = 'Legendary' THEN 5
     WHEN rated = 'Epic'      THEN 4
     WHEN rated = 'Featured'  THEN 3
     WHEN rated = 'Rated'     THEN 2
-    WHEN rated = 'Challenge' THEN 0
-    WHEN (rated IS NULL OR rated = '') AND ${API_CHALLENGE_SQL} THEN 0
     ELSE 1
   END
 `
@@ -139,11 +147,13 @@ export default defineEventHandler((event) => {
 
     const parts: string[] = []
     if (expanded.length) {
-      parts.push(`rated IN (${expanded.map(() => '?').join(',')})`)
+      // Source-flagged levels are reclassified as Challenge above, so exclude
+      // them from their old tiered bucket here.
+      parts.push(`(rated IN (${expanded.map(() => '?').join(',')}) AND NOT ${IS_CHALLENGE_SQL})`)
       filterParams.push(...expanded)
     }
-    if (includesUnrated) parts.push(`((rated IS NULL OR rated = '' OR rated = 'Unrated') AND NOT ${API_CHALLENGE_SQL})`)
-    if (includesChallenge) parts.push(`(rated = 'Challenge' OR ((rated IS NULL OR rated = '') AND ${API_CHALLENGE_SQL}))`)
+    if (includesUnrated) parts.push(`((rated IS NULL OR rated = '' OR rated = 'Unrated') AND NOT ${IS_CHALLENGE_SQL})`)
+    if (includesChallenge) parts.push(`${IS_CHALLENGE_SQL}`)
     filterConds.push(`(${parts.join(' OR ')})`)
   }
 

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isChallengeSource } from '~/utils/challenge-sources'
+
 type Community = {
   count: number
   community_tier: string | null
@@ -56,7 +58,11 @@ const tags = computed(() => {
   if (props.level.gddl_tier) list.push(props.level.gddl_tier)
   if (props.level.difficulty) list.push(props.level.difficulty)
   if (props.level.main_skillset) list.push(props.level.main_skillset)
-  if (props.level.rated) list.push(props.level.rated)
+  // Use the source-overridden label so the chip stays consistent with the
+  // Rated tile when a challenge-source forces the rating.
+  const sourceForced = isChallengeSource(props.level.placement_source)
+  if (sourceForced) list.push('Challenge')
+  else if (props.level.rated) list.push(props.level.rated)
   if (props.level.placement_source) list.push(props.level.placement_source)
   return list
 })
@@ -201,6 +207,9 @@ const isChallengeTier = computed(
   () => !!props.level.gddl_tier && /^Tier \d+$/.test(props.level.gddl_tier),
 )
 const ratedLabel = computed(() => {
+  // Source-driven Challenge override: certain placement_source values pin the
+  // rating to Challenge regardless of what the GD API or `rated` column says.
+  if (isChallengeSource(props.level.placement_source)) return 'Challenge'
   if (props.level.rated === 'Challenge') return 'Challenge'
   if (!infoData.value) return null
   const { score, length } = infoData.value
