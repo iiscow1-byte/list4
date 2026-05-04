@@ -609,7 +609,7 @@ watch(
                     {{ opt }}
                   </label>
                 </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Tidal Wave Buffed</p>
+                <p class="text-[10px] text-zinc-600 mt-1">Example: Tidal Wave (Buffed)</p>
               </div>
 
               <div>

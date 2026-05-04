@@ -214,10 +214,10 @@ function paraParts(p: string): { text: string; href: string | null } {
             v-for="t in [...stats.subtiers, ...stats.tiers]"
             :key="t.tier"
             class="px-3 py-2.5"
-            :style="box(tierColor(t.tier))"
+            :style="t.count > 0 ? box(tierColor(t.tier)) : { backgroundColor: '#09090b', color: '#3f3f46' }"
           >
-            <div class="text-[10px] uppercase tracking-wider" :style="{ color: mutedOn(tierColor(t.tier)) }">{{ t.tier }}</div>
-            <div class="tabular-nums text-sm">{{ t.count.toLocaleString() }}</div>
+            <div class="text-[10px] uppercase tracking-wider" :style="t.count > 0 ? { color: mutedOn(tierColor(t.tier)) } : { color: '#3f3f46' }">{{ t.tier }}</div>
+            <div v-if="t.count > 0" class="tabular-nums text-sm">{{ t.count.toLocaleString() }}</div>
           </div>
         </div>
       </div>

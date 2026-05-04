@@ -11,25 +11,38 @@ const TIER_ORD_SQL = `
 export default defineEventHandler((event) => {
   const db = getDb()
 
-  const tiers = db
+  const tierRows = db
     .prepare(
       `SELECT gddl_tier AS tier, COUNT(*) AS count
        FROM levels
        WHERE gddl_tier LIKE 'Tier %'
-       GROUP BY gddl_tier
-       ORDER BY ${TIER_ORD_SQL} ASC`,
+       GROUP BY gddl_tier`,
     )
     .all() as { tier: string; count: number }[]
+  const tierMap = new Map(tierRows.map((r) => [r.tier, r.count]))
+  const maxTierInDb = tierRows.reduce((max, r) => {
+    const n = parseInt(r.tier.replace('Tier ', ''), 10)
+    return isNaN(n) ? max : Math.max(max, n)
+  }, 0)
+  const maxTier = Math.max(maxTierInDb, 39)
+  const tiers = Array.from({ length: maxTier }, (_, i) => {
+    const label = `Tier ${i + 1}`
+    return { tier: label, count: tierMap.get(label) ?? 0 }
+  })
 
-  const subtiers = db
+  const subtierRows = db
     .prepare(
       `SELECT gddl_tier AS tier, COUNT(*) AS count
        FROM levels
        WHERE gddl_tier LIKE 'Subtier %'
-       GROUP BY gddl_tier
-       ORDER BY ${TIER_ORD_SQL} ASC`,
+       GROUP BY gddl_tier`,
     )
     .all() as { tier: string; count: number }[]
+  const subtierMap = new Map(subtierRows.map((r) => [r.tier, r.count]))
+  const subtiers = Array.from({ length: 6 }, (_, i) => {
+    const label = `Subtier ${i}`
+    return { tier: label, count: subtierMap.get(label) ?? 0 }
+  })
 
   const years = db
     .prepare(

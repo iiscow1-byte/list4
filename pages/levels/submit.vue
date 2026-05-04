@@ -25,7 +25,7 @@ const SKILLSET_OPTIONS = [
   'Consistency', 'Swingcopter', 'Robot', 'Endurance', 'Cube', 'Straight Fly', 'UFO',
   'Ship Control', 'Ball', 'Spider', 'Spam', 'Framelocked',
 ]
-const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
+const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed', 'unnerfed', 'easy', 'shitty'] as const
 
 const gdId = ref('')
 const name = ref('')
@@ -53,7 +53,7 @@ const gddlTier = ref('')
 const difficulty = ref('')
 const enjoyment = ref('')
 const skillset = ref('')
-const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
+const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false, unnerfed: false, easy: false, shitty: false })
 const notes = ref('')
 const placementEstimate = ref<string>('')
 const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
@@ -524,7 +524,7 @@ async function submit() {
             <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
             <span>
               <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate</span>
-              <span class="block text-[11px] text-zinc-500 mt-0.5">Same difficulty as the level above it. Gets tagged as "Duplicate" on the public list.</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">Same difficulty as the level above it. Gets tagged as "Duplicate" on the public list. Example: Red Slaughterhouse, Trans Acu</span>
             </span>
           </label>
           <div v-if="sameAsAbove" class="pl-6 -mt-1">
@@ -543,7 +543,7 @@ async function submit() {
             <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
             <span>
               <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
-              <span class="block text-[11px] text-zinc-500 mt-0.5">A variation of an existing entry. Tagged as "Alternate" on the public list.</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">A variation of an existing entry. Tagged as "Alternate" on the public list. Example: Tidal Wave (Buffed), Acheron (Zoink)</span>
             </span>
           </label>
           <div v-if="isAlternate" class="pl-6 -mt-1">
@@ -561,7 +561,7 @@ async function submit() {
           <p
             v-if="noOpinion"
             class="text-xs text-fuchsia-300 bg-fuchsia-950/30 border border-fuchsia-900/50 rounded px-3 py-2"
-          >⚠ Levels submitted without a difficulty opinion will be added to the voided list and will not be placed yet.</p>
+          >⚠ Levels submitted without a difficulty opinion will be added to the voided list where level's go without a difficulty opinion and will not go to pending.</p>
         </div>
       </details>
 
@@ -592,7 +592,10 @@ async function submit() {
             </label>
           </div>
           <div>
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Suffix</span>
+              <span class="text-[11px] text-zinc-600">Example: Level (Suffix)</span>
+            </div>
             <div class="mt-1.5 flex flex-wrap gap-1.5">
               <label
                 v-for="t in ALL_TAGS" :key="t"
