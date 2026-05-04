@@ -518,6 +518,28 @@ async function deleteHistoryEntry(entryId: number) {
     deletingHistoryId.value = null
   }
 }
+
+function formatHistoryDay(changedAt: string): string {
+  const ymd = changedAt.slice(0, 10)
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ymd
+  const date = new Date(Date.UTC(y, m - 1, d))
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+  })
+}
+
+const historyByDay = computed(() => {
+  const history = props.level.position_history
+  if (!history?.length) return []
+  const map = new Map<string, { date: string; label: string; entries: PositionHistoryEntry[] }>()
+  for (const entry of history) {
+    const date = entry.changed_at.slice(0, 10)
+    if (!map.has(date)) map.set(date, { date, label: formatHistoryDay(entry.changed_at), entries: [] })
+    map.get(date)!.entries.push(entry)
+  }
+  return [...map.values()]
+})
 </script>
 
 <template>
@@ -1068,40 +1090,62 @@ async function deleteHistoryEntry(entryId: number) {
       </section>
 
       <!-- Position history: most recent first. Recorded on admin moves. -->
-      <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
-        <h2 class="text-[10px] uppercase tracking-[0.2em] tabular-nums text-zinc-500 px-4 pt-3 pb-2 flex items-center gap-2">
-          Position History
-        </h2>
-        <ul
-          v-if="level.position_history && level.position_history.length"
-          class="px-4 pb-3 text-xs divide-y divide-zinc-900/60"
-        >
-          <li
-            v-for="entry in level.position_history"
-            :key="entry.id"
-            class="py-2 flex items-center gap-3 tabular-nums"
-          >
-            <span class="text-zinc-300">
-              <template v-if="entry.from_position != null">
-                #{{ entry.from_position }} <span class="text-zinc-600">→</span> #{{ entry.to_position }}
-              </template>
-              <template v-else>
-                Placed at #{{ entry.to_position }}
-              </template>
-            </span>
-            <span v-if="entry.changed_by" class="text-zinc-500">by {{ entry.changed_by }}</span>
-            <span class="text-zinc-600 ml-auto">{{ entry.changed_at }}</span>
-            <button
-              v-if="isAdminLevel"
-              type="button"
-              :disabled="deletingHistoryId != null"
-              class="shrink-0 text-[10px] text-zinc-700 hover:text-red-400 transition-colors disabled:opacity-40"
-              title="Remove from changelog"
-              @click="deleteHistoryEntry(entry.id)"
-            >✕</button>
-          </li>
-        </ul>
-        <div v-else class="px-4 pb-4 text-xs text-zinc-600">
+      <section class="space-y-3">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Position History</h2>
+        <div v-if="historyByDay.length" class="space-y-4">
+          <div v-for="day in historyByDay" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
+            <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
+              <h3 class="text-sm font-medium text-zinc-100">{{ day.label }}</h3>
+              <span class="text-[11px] text-zinc-500 tabular-nums">
+                {{ day.entries.length }} change{{ day.entries.length === 1 ? '' : 's' }}
+              </span>
+            </div>
+            <ul class="divide-y divide-zinc-900/60">
+              <li
+                v-for="entry in day.entries"
+                :key="entry.id"
+                class="px-4 py-2 text-sm flex items-center gap-2"
+              >
+                <span
+                  v-if="entry.from_position == null"
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
+                  title="Added to the main list"
+                >Added</span>
+                <span
+                  v-else-if="entry.to_position < entry.from_position"
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
+                  title="Moved up"
+                >▲ Moved</span>
+                <span
+                  v-else
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  title="Moved down"
+                >▼ Moved</span>
+
+                <span v-if="entry.changed_by" class="text-zinc-500 text-xs truncate">{{ entry.changed_by }}</span>
+
+                <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
+                  <template v-if="entry.from_position == null">#{{ entry.to_position }}</template>
+                  <template v-else>
+                    <span class="text-zinc-500">#{{ entry.from_position }}</span>
+                    <span class="text-zinc-600 mx-1">→</span>
+                    <span class="text-accent">#{{ entry.to_position }}</span>
+                  </template>
+                </span>
+
+                <button
+                  v-if="isAdminLevel"
+                  type="button"
+                  :disabled="deletingHistoryId != null"
+                  class="shrink-0 text-[10px] text-zinc-700 hover:text-red-400 transition-colors disabled:opacity-40"
+                  title="Remove from changelog"
+                  @click="deleteHistoryEntry(entry.id)"
+                >✕</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div v-else class="text-xs text-zinc-600">
           No placement changes recorded. Current placement: <span class="text-zinc-300 tabular-nums">#{{ level.position }}</span>.
         </div>
       </section>

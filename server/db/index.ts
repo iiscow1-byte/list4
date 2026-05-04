@@ -155,6 +155,15 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'banned_reason')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN banned_reason TEXT`)
   }
+  if (!accCols.some((c) => c.name === 'pronouns')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN pronouns TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'discord_handle')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN discord_handle TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'youtube_url')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN youtube_url TEXT`)
+  }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)

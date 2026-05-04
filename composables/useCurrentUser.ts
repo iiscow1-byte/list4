@@ -7,6 +7,9 @@ export type CurrentUser = {
   subdivision: string | null
   claimed_player: string | null
   has_avatar: boolean
+  pronouns: string | null
+  discord_handle: string | null
+  youtube_url: string | null
 }
 
 /**
