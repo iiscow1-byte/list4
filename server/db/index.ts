@@ -199,6 +199,12 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'from_open_verification_id')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN from_open_verification_id INTEGER`)
   }
+  // Submitter (or admin pre-approve) can flag a level as "same difficulty as
+  // above" so on approval it inherits the previous level's points and gets the
+  // "alternate version" tag on the public list.
+  if (!pcols.some((c) => c.name === 'same_as_above')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
@@ -249,6 +255,9 @@ function initSchema(db: DatabaseSync) {
   }
   if (!acols.some((c) => c.name === 'placement_source')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN placement_source TEXT`)
+  }
+  if (!acols.some((c) => c.name === 'same_as_above')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN same_as_above INTEGER NOT NULL DEFAULT 0`)
   }
 
   db.exec(`
@@ -355,7 +364,25 @@ function initSchema(db: DatabaseSync) {
       changed_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
       changed_at    TEXT    NOT NULL DEFAULT (datetime('now'))
     );
-    CREATE INDEX IF NOT EXISTS idx_position_history_level ON position_history(level_id, changed_at);
+    CREATE INDEX IF NOT EXISTS idx_position_history_level   ON position_history(level_id, changed_at);
+    CREATE INDEX IF NOT EXISTS idx_position_history_changed ON position_history(changed_at);
+  `)
+
+  // Discord webhooks: admin-managed list of URLs that receive a daily summary
+  // of level additions and movements. last_posted_date is the YYYY-MM-DD of
+  // the most recently summarised day so the scheduler doesn't double-post.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS discord_webhooks (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      url               TEXT    NOT NULL,
+      label             TEXT,
+      active            INTEGER NOT NULL DEFAULT 1,
+      created_by        INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
+      last_posted_date  TEXT,
+      last_post_status  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_discord_webhooks_active ON discord_webhooks(active);
   `)
 
   // Opinions: per-user difficulty / enjoyment ratings on a level. Approved

@@ -82,6 +82,9 @@ export default defineEventHandler((event) => {
   const tierMin = q.tierMin != null && q.tierMin !== '' ? Number(q.tierMin) : null
   const tierMax = q.tierMax != null && q.tierMax !== '' ? Number(q.tierMax) : null
   const tags = asArray(q.tags).map((s) => s.toLowerCase()).filter((s) => KNOWN_TAG_SUFFIXES.has(s))
+  const skillsets = asArray(q.skillsets).map((s) => s.trim()).filter(Boolean)
+  // 'show' (default) | 'hide' | 'only' for same_as_above ("alternate versions").
+  const altVersions = q.altVersions === 'hide' || q.altVersions === 'only' ? q.altVersions : 'show'
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
   const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''
@@ -130,6 +133,14 @@ export default defineEventHandler((event) => {
     filterConds.push(`placement_source = ?`)
     filterParams.push(source)
   }
+
+  if (skillsets.length) {
+    filterConds.push(`main_skillset IN (${skillsets.map(() => '?').join(',')})`)
+    filterParams.push(...skillsets)
+  }
+
+  if (altVersions === 'hide') filterConds.push(`COALESCE(same_as_above, 0) = 0`)
+  else if (altVersions === 'only') filterConds.push(`COALESCE(same_as_above, 0) = 1`)
 
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }

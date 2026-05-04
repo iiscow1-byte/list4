@@ -33,6 +33,15 @@ const SORTS = [
 
 const TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 const RATINGS = ['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+// Skillset options match the submit form's SKILLSET_OPTIONS so users see the
+// same vocabulary in both places. Sorted alphabetically for the dropdown.
+const SKILLSETS = [
+  'Ball', 'Chokepoints', 'Consistency', 'Controlled Spam', 'Cube', 'Duals',
+  'Endurance', 'Fast Paced', 'Flow', 'Framelocked', 'High CPS', 'Learny',
+  'Memory', 'Nerve Control', 'Overall', 'Robot', 'Ship', 'Ship Control',
+  'Solo 2P', 'Spam', 'Spider', 'Straight Fly', 'Swingcopter', 'Timings',
+  'UFO', 'Wave',
+] as const
 
 function ordToTier(ord: number): string {
   if (ord <= 5) return `Subtier ${ord}`
@@ -45,6 +54,12 @@ const filtersOpen = ref(false)
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
+const skillsetSet = reactive<Record<string, boolean>>(
+  Object.fromEntries(SKILLSETS.map((s) => [s, false])),
+)
+type AltVersionMode = 'show' | 'hide' | 'only'
+const altVersions = ref<AltVersionMode>('show')
+const tagsDropdownOpen = ref(false)
 const creator = ref('')
 const sourceFilter = ref('')
 const sources = ref<{ source: string; count: number }[]>([])
@@ -61,7 +76,7 @@ const rankByFilter = ref(false)
 const activeFilterCount = computed(() => {
   let n = 0
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
-  if (TAGS.some((t) => tagSet[t])) n++
+  if (TAGS.some((t) => tagSet[t]) || SKILLSETS.some((s) => skillsetSet[s]) || altVersions.value !== 'show') n++
   if (creator.value.trim()) n++
   if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
@@ -69,6 +84,14 @@ const activeFilterCount = computed(() => {
   if (enjoyMin.value !== '' || enjoyMax.value !== '') n++
   if (sort.value !== 'position') n++
   if (rankByFilter.value) n++
+  return n
+})
+
+const tagsDropdownActiveCount = computed(() => {
+  let n = 0
+  for (const t of TAGS) if (tagSet[t]) n++
+  for (const s of SKILLSETS) if (skillsetSet[s]) n++
+  if (altVersions.value !== 'show') n++
   return n
 })
 
@@ -82,6 +105,7 @@ const done = computed(() => items.value.length >= total.value && initialLoaded.v
 
 function buildQuery() {
   const tags = TAGS.filter((t) => tagSet[t])
+  const skillsets = SKILLSETS.filter((s) => skillsetSet[s])
   const ratings = RATINGS.filter((r) => ratingSet[r])
   return {
     page: nextPage.value,
@@ -90,6 +114,8 @@ function buildQuery() {
     tierMin: tierMin.value > 0 ? tierMin.value : undefined,
     tierMax: tierMax.value < TIER_MAX_ORD ? tierMax.value : undefined,
     tags: tags.length ? tags.join(',') : undefined,
+    skillsets: skillsets.length ? skillsets.join(',') : undefined,
+    altVersions: altVersions.value !== 'show' ? altVersions.value : undefined,
     creator: creator.value.trim() || undefined,
     source: sourceFilter.value || undefined,
     verifyFrom: verifyFrom.value || undefined,
@@ -131,6 +157,8 @@ function resetFilters() {
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of TAGS) tagSet[t] = false
+  for (const s of SKILLSETS) skillsetSet[s] = false
+  altVersions.value = 'show'
   creator.value = ''
   sourceFilter.value = ''
   verifyFrom.value = ''
@@ -194,6 +222,8 @@ watch(sort, () => refilter(true))
 watch(tierMin, () => { if (tierMin.value > tierMax.value) tierMin.value = tierMax.value; refilter() })
 watch(tierMax, () => { if (tierMax.value < tierMin.value) tierMax.value = tierMin.value; refilter() })
 watch(tagSet,    () => refilter(true), { deep: true })
+watch(skillsetSet, () => refilter(true), { deep: true })
+watch(altVersions, () => refilter(true))
 watch(ratingSet, () => refilter(true), { deep: true })
 watch(rankByFilter, () => refilter(true))
 
@@ -292,22 +322,72 @@ watch(
           </div>
         </div>
 
-        <!-- Tags -->
-        <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tags</div>
-          <div class="flex flex-wrap gap-1.5">
-            <label
-              v-for="t in TAGS" :key="t"
-              class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-              :class="tagSet[t]
-                ? 'border-accent/60 text-accent bg-accent/10'
-                : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-            >
-              <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
-              {{ t === 'uldm' ? 'ULDM' : t }}
-            </label>
+        <!-- Tags + skillsets + alt-version dropdown -->
+        <details
+          :open="tagsDropdownOpen"
+          class="rounded border border-zinc-800 bg-zinc-900/40"
+          @toggle="(e) => (tagsDropdownOpen = (e.target as HTMLDetailsElement).open)"
+        >
+          <summary class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 text-[10px] uppercase tracking-widest text-zinc-400 hover:text-zinc-100 transition-colors">
+            <span>
+              Tags
+              <span v-if="tagsDropdownActiveCount" class="ml-1 normal-case tracking-normal text-accent">{{ tagsDropdownActiveCount }} selected</span>
+            </span>
+            <span class="text-zinc-600">{{ tagsDropdownOpen ? '▾' : '▸' }}</span>
+          </summary>
+
+          <div class="px-2 pb-2 pt-1 space-y-2.5">
+            <div>
+              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Modifiers</div>
+              <div class="flex flex-wrap gap-1.5">
+                <label
+                  v-for="t in TAGS" :key="t"
+                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                  :class="tagSet[t]
+                    ? 'border-accent/60 text-accent bg-accent/10'
+                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                >
+                  <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
+                  {{ t === 'uldm' ? 'ULDM' : t }}
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Skillset</div>
+              <div class="flex flex-wrap gap-1.5">
+                <label
+                  v-for="s in SKILLSETS" :key="s"
+                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                  :class="skillsetSet[s]
+                    ? 'border-accent/60 text-accent bg-accent/10'
+                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                >
+                  <input v-model="skillsetSet[s]" type="checkbox" class="sr-only" />
+                  {{ s }}
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternate versions</div>
+              <div class="flex flex-wrap gap-1.5">
+                <label
+                  v-for="opt in (['show', 'hide', 'only'] as const)"
+                  :key="opt"
+                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                  :class="altVersions === opt
+                    ? 'border-accent/60 text-accent bg-accent/10'
+                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                >
+                  <input v-model="altVersions" type="radio" :value="opt" class="sr-only" />
+                  {{ opt }}
+                </label>
+              </div>
+              <p class="text-[10px] text-zinc-600 mt-1">"Alternate versions" are levels marked Same difficulty as above.</p>
+            </div>
           </div>
-        </div>
+        </details>
 
         <!-- Ratings -->
         <div>

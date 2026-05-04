@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { recomputePoints } from '~/server/utils/points'
+import { recordPlacement } from '~/server/utils/changes'
 
 /**
  * Move an awaiting-placement level onto the main list at `placement`, or
@@ -57,12 +58,12 @@ export default defineEventHandler(async (event) => {
     db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
     // pov_placement records the position assigned at acceptance time — it
     // doesn't follow later admin moves.
-    db.prepare(
+    const result = db.prepare(
       `INSERT INTO levels
         (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
          verification, verification_url, year_verified, category, source_tab,
-         creator, permanent, enjoyment, pov_placement, placement_source, submitted_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?)`,
+         creator, permanent, enjoyment, pov_placement, placement_source, submitted_by, same_as_above)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?)`,
     ).run(
       insertPos,
       sub.name,
@@ -78,7 +79,9 @@ export default defineEventHandler(async (event) => {
       insertPos,
       sub.placement_source ?? 'All Levels List',
       submitterId,
+      sub.same_as_above ? 1 : 0,
     )
+    recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
     db.exec('COMMIT')
   } catch (e) {

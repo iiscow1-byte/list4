@@ -64,6 +64,7 @@ const tags = computed(() => {
   if (sourceForced) list.push('Challenge')
   else if (props.level.rated) list.push(props.level.rated)
   if (props.level.placement_source) list.push(props.level.placement_source)
+  if (props.level.same_as_above) list.push('Alternate version')
   return list
 })
 

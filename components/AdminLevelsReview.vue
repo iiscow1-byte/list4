@@ -21,6 +21,7 @@ type PendingLevel = {
   comparison_level_id: number | null
   comparison_level_name: string | null
   from_open_verification_id: number | null
+  same_as_above: number
 }
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
@@ -40,6 +41,7 @@ const placement = ref<string>('')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
 const rejectReason = ref<string>('')
+const sameAsAbove = ref(false)
 
 // --- Pending-list filters ---
 const TIER_MAX_ORD = 44
@@ -140,6 +142,7 @@ onMounted(load)
 
 watch(selected, async (s) => {
   preview.value = null
+  sameAsAbove.value = !!s?.same_as_above
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
@@ -198,7 +201,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
   }
   decideLoading.value = true
   try {
-    const body: any = { action }
+    const body: any = { action, same_as_above: sameAsAbove.value }
     if (action === 'approve') body.placement = Number(placement.value)
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
@@ -542,6 +545,17 @@ function onPlacementHelperPick(picked: ListLevel) {
             <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>
           </p>
         </div>
+
+        <label class="flex items-start gap-2 cursor-pointer select-none border-t border-zinc-900 pt-3">
+          <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Same difficulty as above</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">
+              Inherits the previous level's points. The level shows as an "alternate version" on the public list.
+              <span v-if="selected.same_as_above" class="text-accent">Submitter requested this.</span>
+            </span>
+          </span>
+        </label>
 
         <!-- Preview rows around the candidate placement -->
         <div v-if="!goesToVoid">

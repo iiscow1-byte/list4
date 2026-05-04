@@ -27,8 +27,34 @@ function mutedOn(bg: string) {
   return textOn(bg) === '#0a0a0a' ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.7)'
 }
 
+type Change = {
+  kind: 'add' | 'move'
+  level_position: number
+  level_name: string
+  from_position: number | null
+  to_position: number
+  changed_at: string
+  changed_by: string | null
+}
+type ChangesDay = { date: string; changes: Change[] }
+type Changes = { days: ChangesDay[] }
+
 const { data: landing } = await useFetch<Landing>('/api/landing')
 const { data: stats } = await useFetch<Stats>('/api/stats')
+const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
+  query: { days: 14, limit: 300 },
+})
+
+function formatDay(ymd: string): string {
+  // Friendly date — "May 3, 2026" — using UTC so the heading matches the
+  // grouping logic on the server.
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ymd
+  const date = new Date(Date.UTC(y, m - 1, d))
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+  })
+}
 
 useHead({ title: 'The All Levels List' })
 
@@ -74,6 +100,50 @@ function paraParts(p: string): { text: string; href: string | null } {
         >Legacy ALL ↗</a>
       </div>
     </header>
+
+    <!-- Recent Changes -->
+    <section v-if="changes?.days?.length" class="space-y-3">
+      <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Recent Changes</h2>
+      <div class="space-y-4">
+        <div v-for="day in changes.days" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
+          <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
+            <h3 class="text-sm font-medium text-zinc-100">{{ formatDay(day.date) }}</h3>
+            <span class="text-[11px] text-zinc-500 tabular-nums">
+              {{ day.changes.length }} change{{ day.changes.length === 1 ? '' : 's' }}
+            </span>
+          </div>
+          <ul class="divide-y divide-zinc-900/60">
+            <li v-for="(c, i) in day.changes" :key="`${day.date}-${i}`" class="px-4 py-1.5 text-sm flex items-center gap-2">
+              <span
+                v-if="c.kind === 'add'"
+                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
+                title="Added to the main list"
+              >Added</span>
+              <span
+                v-else-if="c.from_position != null && c.to_position < c.from_position"
+                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
+                title="Moved up"
+              >▲ Moved</span>
+              <span
+                v-else
+                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                title="Moved down"
+              >▼ Moved</span>
+
+              <NuxtLink
+                :to="`/levels/${c.level_position}`"
+                class="truncate text-zinc-200 hover:text-accent transition-colors"
+              >{{ c.level_name }}</NuxtLink>
+
+              <span class="shrink-0 text-[11px] tabular-nums text-zinc-500 ml-auto">
+                <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
+                <template v-else>#{{ c.from_position }} → #{{ c.to_position }}</template>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
 
     <!-- FAQ -->
     <section v-if="landing?.faq?.length" class="space-y-3">

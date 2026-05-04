@@ -13,7 +13,7 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'open-verifications' | 'claims' | 'accounts'
+type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
@@ -22,6 +22,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
   { id: 'claims',             label: 'Claims',          adminOnly: true },
   { id: 'accounts',           label: 'Accounts',        adminOnly: true },
+  { id: 'discord',            label: 'Discord',         adminOnly: true },
 ]
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
@@ -68,9 +69,100 @@ watch(userSearch, () => {
   userSearchDebounce = setTimeout(loadUsers, 200)
 })
 
+// --- Discord tab state ---
+type DiscordWebhook = {
+  id: number
+  url: string
+  label: string | null
+  active: 0 | 1
+  created_at: string
+  created_by: string | null
+  last_posted_date: string | null
+  last_post_status: string | null
+}
+const webhooks = ref<DiscordWebhook[]>([])
+const newWebhookUrl = ref('')
+const newWebhookLabel = ref('')
+const webhookBusy = ref(false)
+
+async function loadWebhooks() {
+  if (!isAdmin.value) return
+  const res = await $fetch<{ items: DiscordWebhook[] }>('/api/admin/discord-webhooks')
+  webhooks.value = res.items
+}
+
+async function addWebhook() {
+  if (webhookBusy.value) return
+  webhookBusy.value = true
+  try {
+    await $fetch('/api/admin/discord-webhooks', {
+      method: 'POST',
+      body: { url: newWebhookUrl.value.trim(), label: newWebhookLabel.value.trim() || null },
+    })
+    flash('ok', 'Webhook added.')
+    newWebhookUrl.value = ''
+    newWebhookLabel.value = ''
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  } finally {
+    webhookBusy.value = false
+  }
+}
+
+async function toggleWebhook(w: DiscordWebhook) {
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
+      method: 'PATCH', body: { active: !w.active },
+    })
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function removeWebhook(w: DiscordWebhook) {
+  if (!confirm(`Remove webhook ${w.label || w.url}?`)) return
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}`, { method: 'DELETE' })
+    flash('ok', 'Webhook removed.')
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function testWebhook(w: DiscordWebhook) {
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}/test`, { method: 'POST' })
+    flash('ok', 'Test message sent.')
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Test failed.')
+  }
+}
+
+async function postNow() {
+  try {
+    const res = await $fetch<{ posted: { webhookId: number; date: string; status: string }[] }>(
+      '/api/admin/discord-webhooks/post-now',
+      { method: 'POST' },
+    )
+    if (res.posted.length === 0) {
+      flash('ok', 'Nothing to post — already up to date.')
+    } else {
+      flash('ok', `Posted ${res.posted.length} day${res.posted.length === 1 ? '' : 's'} of changes.`)
+    }
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
 watch(tab, (t) => {
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
+  if (t === 'discord')  loadWebhooks()
 }, { immediate: true })
 
 // Role hierarchy — owner and developer outrank admin
@@ -302,6 +394,87 @@ async function setClaim(u: AdminUser) {
               </div>
             </li>
           </ul>
+        </section>
+      </div>
+    </div>
+
+    <!-- Discord tab -->
+    <div v-else-if="tab === 'discord'" class="flex-1 overflow-y-auto">
+      <div class="container-tight py-8 max-w-3xl space-y-6">
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+          <div class="px-4 pt-3 pb-2 flex items-baseline justify-between">
+            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Discord webhooks</h2>
+            <button
+              type="button"
+              class="text-[11px] text-accent hover:underline"
+              @click="postNow"
+              title="Run the daily-summary post job now"
+            >Post pending changes now</button>
+          </div>
+          <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
+            Each active webhook receives a summary of the previous day's level additions and movements, posted shortly after midnight UTC.
+            Set the <code class="text-zinc-300">SITE_URL</code> env var to enable level links inside the embeds.
+          </p>
+
+          <div class="px-4 pb-4 border-t border-zinc-900 pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+            <input
+              v-model="newWebhookUrl"
+              placeholder="https://discord.com/api/webhooks/…/…"
+              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <input
+              v-model="newWebhookLabel"
+              placeholder="Label (optional)"
+              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <button
+              type="button"
+              :disabled="webhookBusy || !newWebhookUrl.trim()"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="addWebhook"
+            >{{ webhookBusy ? 'Adding…' : 'Add' }}</button>
+          </div>
+
+          <ul v-if="webhooks.length" class="divide-y divide-zinc-900">
+            <li v-for="w in webhooks" :key="w.id" class="px-4 py-3 flex flex-wrap gap-3 items-center" :class="{ 'opacity-60': !w.active }">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-2 flex-wrap">
+                  <span class="font-medium text-zinc-100 text-sm truncate">{{ w.label || 'Unnamed webhook' }}</span>
+                  <span
+                    class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border"
+                    :class="w.active
+                      ? 'border-emerald-900/60 bg-emerald-950/40 text-emerald-300'
+                      : 'border-zinc-800 bg-zinc-900 text-zinc-500'"
+                  >{{ w.active ? 'Active' : 'Paused' }}</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 truncate font-mono" :title="w.url">{{ w.url }}</div>
+                <div class="text-[10px] text-zinc-600 mt-0.5">
+                  Added {{ w.created_at }}<span v-if="w.created_by"> by {{ w.created_by }}</span>
+                  · Last posted: <span class="text-zinc-400">{{ w.last_posted_date ?? '—' }}</span>
+                  <span v-if="w.last_post_status" class="text-zinc-500"> ({{ w.last_post_status }})</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  class="rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-2.5 py-1 transition-colors"
+                  @click="testWebhook(w)"
+                >Test</button>
+                <button
+                  type="button"
+                  class="rounded border border-zinc-700 text-xs px-2.5 py-1 transition-colors"
+                  :class="w.active ? 'hover:border-amber-700 hover:text-amber-300' : 'hover:border-emerald-700 hover:text-emerald-300'"
+                  @click="toggleWebhook(w)"
+                >{{ w.active ? 'Pause' : 'Resume' }}</button>
+                <button
+                  type="button"
+                  class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-2.5 py-1 transition-colors"
+                  @click="removeWebhook(w)"
+                >Remove</button>
+              </div>
+            </li>
+          </ul>
+          <div v-else class="px-4 pb-4 text-xs text-zinc-600">No webhooks configured.</div>
         </section>
       </div>
     </div>

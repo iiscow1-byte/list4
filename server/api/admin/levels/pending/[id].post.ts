@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { recomputePoints } from '~/server/utils/points'
+import { recordPlacement } from '~/server/utils/changes'
 
 /**
  * Approve or reject a pending level submission.
@@ -15,7 +16,12 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'approve' | 'reject' | 'await'; placement?: number; reason?: string }>(event)
+  const body = await readBody<{
+    action: 'approve' | 'reject' | 'await'
+    placement?: number
+    reason?: string
+    same_as_above?: boolean
+  }>(event)
   if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
@@ -24,6 +30,12 @@ export default defineEventHandler(async (event) => {
   const db = getDb()
   const sub = db.prepare(`SELECT * FROM pending_levels WHERE id = ? AND status = 'pending'`).get(id) as any
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Submission not found or already decided.' })
+
+  // Admin can override the submitter's flag from the review UI before approving.
+  const sameAsAbove = typeof body.same_as_above === 'boolean'
+    ? (body.same_as_above ? 1 : 0)
+    : (sub.same_as_above ? 1 : 0)
+  sub.same_as_above = sameAsAbove
 
   if (body.action === 'reject') {
     db.prepare(`UPDATE pending_levels SET status='rejected', decided_by=?, decided_at=datetime('now') WHERE id = ?`)
@@ -52,8 +64,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
-           placement_source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           placement_source, same_as_above)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -73,6 +85,7 @@ export default defineEventHandler(async (event) => {
         sub.id,
         account.id,
         sub.placement_source ?? 'All Levels List',
+        sub.same_as_above ? 1 : 0,
       )
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
@@ -130,12 +143,12 @@ export default defineEventHandler(async (event) => {
       db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
       // pov_placement is a snapshot of where the level was *first* placed —
       // recorded once on acceptance, never updated by later position moves.
-      db.prepare(
+      const result = db.prepare(
         `INSERT INTO levels
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
-           creator, permanent, enjoyment, pov_placement, placement_source, submitted_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?)`,
+           creator, permanent, enjoyment, pov_placement, placement_source, submitted_by, same_as_above)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -151,7 +164,10 @@ export default defineEventHandler(async (event) => {
         insertPos,
         sub.placement_source ?? 'All Levels List',
         sub.submitted_by,
+        sub.same_as_above ? 1 : 0,
       )
+      // Record the addition so it shows up on the recent-changes feed.
+      recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
     }
 
     db.prepare(`UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now'), placement=? WHERE id = ?`)

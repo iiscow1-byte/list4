@@ -57,6 +57,7 @@ const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buff
 const notes = ref('')
 const placementEstimate = ref<string>('')
 const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
+const sameAsAbove = ref(false)
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
@@ -300,6 +301,7 @@ async function submit() {
         placement_estimate: placementEstimate.value !== '' ? Number(placementEstimate.value) : null,
         comparison_level_id: comparisonLevel.value?.position ?? null,
         comparison_level_name: comparisonLevel.value?.name ?? null,
+        same_as_above: sameAsAbove.value,
       },
     })
     success.value = true
@@ -309,6 +311,7 @@ async function submit() {
     gddlTier.value = ''; difficulty.value = ''
     enjoyment.value = ''; skillset.value = ''; notes.value = ''
     placementEstimate.value = ''; comparisonLevel.value = null
+    sameAsAbove.value = false
     for (const t of ALL_TAGS) tagSet[t] = false
     setTimeout(() => (success.value = false), 6000)
   } catch (e: any) {
@@ -503,6 +506,16 @@ async function submit() {
             placeholder="e.g. 42"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
+        </label>
+
+        <label class="flex items-start gap-2 cursor-pointer select-none">
+          <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
+          <span>
+            <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Same difficulty as above</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">
+              Inherits the previous level's points and gets tagged as an "alternate version" on the public list — use for re-released, buffed, or platformer-converted variants of an existing entry.
+            </span>
+          </span>
         </label>
 
         <p
