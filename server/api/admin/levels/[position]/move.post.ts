@@ -51,10 +51,24 @@ export default defineEventHandler(async (event) => {
     // 3. Place the moved row at its new position.
     db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(target, STASH)
 
-    db.prepare(
-      `INSERT INTO position_history (level_id, from_position, to_position, changed_by)
-       VALUES (?, ?, ?, ?)`,
-    ).run(existing.id, fromPos, target, account.id)
+    // If this level was already moved today (UTC), update the original entry's
+    // to_position so the changelog shows one condensed #X → #Y, not N hops.
+    const existingToday = db.prepare(
+      `SELECT id FROM position_history
+       WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now')
+       ORDER BY changed_at ASC, id ASC LIMIT 1`,
+    ).get(existing.id) as { id: number } | undefined
+    if (existingToday) {
+      db.prepare(`UPDATE position_history SET to_position = ?, changed_at = datetime('now'), changed_by = ? WHERE id = ?`)
+        .run(target, account.id, existingToday.id)
+      db.prepare(`DELETE FROM position_history WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now') AND id != ?`)
+        .run(existing.id, existingToday.id)
+    } else {
+      db.prepare(
+        `INSERT INTO position_history (level_id, from_position, to_position, changed_by)
+         VALUES (?, ?, ?, ?)`,
+      ).run(existing.id, fromPos, target, account.id)
+    }
 
     db.exec('COMMIT')
   } catch (e) {

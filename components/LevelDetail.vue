@@ -40,6 +40,7 @@ type Level = {
   position_history?: PositionHistoryEntry[]
 }
 type PositionHistoryEntry = {
+  id: number
   from_position: number | null
   to_position: number
   changed_at: string
@@ -127,7 +128,7 @@ const promoting = ref(false)
 const promoteError = ref<string | null>(null)
 async function promote() {
   if (promoting.value) return
-  if (!confirm('Promote this level to permanent? Future sheet imports will skip its gd_id.')) return
+
   promoting.value = true
   promoteError.value = null
   try {
@@ -501,6 +502,20 @@ async function deleteLevel() {
     deleteError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
   } finally {
     deleting.value = false
+  }
+}
+
+const deletingHistoryId = ref<number | null>(null)
+async function deleteHistoryEntry(entryId: number) {
+  if (deletingHistoryId.value != null) return
+  deletingHistoryId.value = entryId
+  try {
+    await $fetch(`/api/admin/position-history/${entryId}`, { method: 'DELETE' })
+    emit('refresh')
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
+  } finally {
+    deletingHistoryId.value = null
   }
 }
 </script>
@@ -1063,7 +1078,7 @@ async function deleteLevel() {
         >
           <li
             v-for="entry in level.position_history"
-            :key="entry.changed_at + ':' + entry.to_position"
+            :key="entry.id"
             class="py-2 flex items-center gap-3 tabular-nums"
           >
             <span class="text-zinc-300">
@@ -1076,6 +1091,14 @@ async function deleteLevel() {
             </span>
             <span v-if="entry.changed_by" class="text-zinc-500">by {{ entry.changed_by }}</span>
             <span class="text-zinc-600 ml-auto">{{ entry.changed_at }}</span>
+            <button
+              v-if="isAdminLevel"
+              type="button"
+              :disabled="deletingHistoryId != null"
+              class="shrink-0 text-[10px] text-zinc-700 hover:text-red-400 transition-colors disabled:opacity-40"
+              title="Remove from changelog"
+              @click="deleteHistoryEntry(entry.id)"
+            >✕</button>
           </li>
         </ul>
         <div v-else class="px-4 pb-4 text-xs text-zinc-600">

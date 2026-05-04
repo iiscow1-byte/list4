@@ -45,6 +45,8 @@ const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
 const rejectReason = ref<string>('')
 const sameAsAbove = ref(false)
+const placementSaved = ref(false)
+let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 // --- Pending-list filters ---
 const TIER_MAX_ORD = 44
@@ -186,6 +188,19 @@ watch(placement, (v) => {
       previewLoading.value = false
     }
   }, 200)
+  // Auto-save placement_estimate to DB after a short delay
+  if (placementSaveDebounce) clearTimeout(placementSaveDebounce)
+  if (selected.value) {
+    placementSaveDebounce = setTimeout(async () => {
+      try {
+        await $fetch(`/api/admin/levels/pending/${selected.value!.id}`, {
+          method: 'POST', body: { action: 'save_placement', placement: n },
+        })
+        placementSaved.value = true
+        setTimeout(() => (placementSaved.value = false), 1500)
+      } catch { /* non-fatal */ }
+    }, 600)
+  }
 })
 
 function flash(kind: 'ok' | 'err', msg: string) {
@@ -231,6 +246,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     difficultyOverride.value = ''
     awaitPlacementSuggestion.value = ''
     rejectReason.value = ''
+    placementSaved.value = false
     preview.value = null
     await load()
   } catch (e: any) {
@@ -561,12 +577,15 @@ watch(preview, (p) => {
             :disabled="goesToVoid && false"
             class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
-          <p
-            v-if="selected?.placement_estimate != null"
-            class="text-[10px] text-accent mt-1"
-          >
-            Submitter estimated #{{ selected.placement_estimate }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
-          </p>
+          <div class="flex items-center gap-2 mt-1">
+            <p
+              v-if="selected?.placement_estimate != null"
+              class="text-[10px] text-accent"
+            >
+              Submitter estimated #{{ selected.placement_estimate }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
+            </p>
+            <p v-if="placementSaved" class="text-[10px] text-emerald-400">Saved</p>
+          </div>
           <p class="text-[10px] text-zinc-500 mt-1">
             <template v-if="goesToVoid">Position in the void list (no difficulty opinion).</template>
             <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>

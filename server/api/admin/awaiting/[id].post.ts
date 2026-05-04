@@ -15,8 +15,8 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
-  const body = await readBody<{ action: 'place' | 'remove'; placement?: number; reason?: string; gddl_tier?: string; difficulty?: string }>(event)
-  if (body.action !== 'place' && body.action !== 'remove') {
+  const body = await readBody<{ action: 'place' | 'remove' | 'return' | 'save_placement'; placement?: number; reason?: string; gddl_tier?: string; difficulty?: string }>(event)
+  if (body.action !== 'place' && body.action !== 'remove' && body.action !== 'return' && body.action !== 'save_placement') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
   const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
@@ -29,6 +29,26 @@ export default defineEventHandler(async (event) => {
   const submitterId: number | null = sub.pending_id
     ? (db.prepare(`SELECT submitted_by FROM pending_levels WHERE id = ?`).get(sub.pending_id) as { submitted_by: number | null } | undefined)?.submitted_by ?? null
     : null
+
+  if (body.action === 'save_placement') {
+    const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null
+    db.prepare(`UPDATE awaiting_levels SET placement_suggestion = ? WHERE id = ?`).run(n, id)
+    return { ok: true }
+  }
+
+  if (body.action === 'return') {
+    if (!sub.pending_id) throw createError({ statusCode: 400, statusMessage: 'No linked pending submission to return to.' })
+    db.exec('BEGIN')
+    try {
+      db.prepare(`UPDATE pending_levels SET status='pending', decided_by=NULL, decided_at=NULL WHERE id = ?`).run(sub.pending_id)
+      db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      throw e
+    }
+    return { ok: true, returned: true }
+  }
 
   if (body.action === 'remove') {
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)

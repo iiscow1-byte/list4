@@ -34,7 +34,7 @@ export default defineEventHandler((event) => {
 
   const position_history = db
     .prepare(
-      `SELECT h.from_position, h.to_position, h.changed_at, a.username AS changed_by
+      `SELECT h.id, h.from_position, h.to_position, h.changed_at, a.username AS changed_by
        FROM position_history h
        LEFT JOIN accounts a ON a.id = h.changed_by
        WHERE h.level_id = ?

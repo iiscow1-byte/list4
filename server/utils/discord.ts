@@ -21,7 +21,7 @@ function tierEmojiStr(tier: string | null): string {
   if (!tier) return ''
   if (/^Subtier \d/.test(tier)) return ':tierunrated:'
   const t = tier.match(/^Tier (\d{1,2})$/)
-  if (t) return `:tier${t[1]}:`
+  if (t) return `:tier${t[1]!.padStart(2, '0')}:`
   return ''
 }
 

@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'approve' | 'reject' | 'await'
+    action: 'approve' | 'reject' | 'await' | 'save_placement'
     placement?: number
     reason?: string
     same_as_above?: boolean
@@ -25,12 +25,19 @@ export default defineEventHandler(async (event) => {
     difficulty?: string
     placement_suggestion?: number
   }>(event)
-  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
+  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await' && body.action !== 'save_placement') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
-  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
 
   const db = getDb()
+
+  if (body.action === 'save_placement') {
+    const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null
+    db.prepare(`UPDATE pending_levels SET placement_estimate = ? WHERE id = ?`).run(n, id)
+    return { ok: true }
+  }
+
+  const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
   const sub = db.prepare(`SELECT * FROM pending_levels WHERE id = ? AND status = 'pending'`).get(id) as any
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Submission not found or already decided.' })
 
@@ -65,7 +72,7 @@ export default defineEventHandler(async (event) => {
     try {
       const placementSuggestion = (typeof body.placement_suggestion === 'number' && Number.isInteger(body.placement_suggestion) && body.placement_suggestion > 0)
         ? body.placement_suggestion
-        : null
+        : (sub.placement_estimate != null ? sub.placement_estimate : null)
       db.prepare(
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,

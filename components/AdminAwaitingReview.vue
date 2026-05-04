@@ -40,6 +40,8 @@ const placement = ref<string>('')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
 const removeReason = ref<string>('')
+const placementSaved = ref(false)
+let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 async function load() {
   const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
@@ -84,6 +86,19 @@ watch(placement, (v) => {
       previewLoading.value = false
     }
   }, 200)
+  // Auto-save placement_suggestion to DB after a short delay
+  if (placementSaveDebounce) clearTimeout(placementSaveDebounce)
+  if (selectedId.value) {
+    placementSaveDebounce = setTimeout(async () => {
+      try {
+        await $fetch(`/api/admin/awaiting/${selectedId.value}`, {
+          method: 'POST', body: { action: 'save_placement', placement: n },
+        })
+        placementSaved.value = true
+        setTimeout(() => (placementSaved.value = false), 1500)
+      } catch { /* non-fatal */ }
+    }, 600)
+  }
 })
 
 function flash(kind: 'ok' | 'err', msg: string) {
@@ -111,6 +126,26 @@ async function decide(action: 'place' | 'remove') {
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
     await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
     flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
+    selectedId.value = null
+    placement.value = ''
+    tierOverride.value = ''
+    difficultyOverride.value = ''
+    removeReason.value = ''
+    preview.value = null
+    await load()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  } finally {
+    decideLoading.value = false
+  }
+}
+
+async function returnToLevels() {
+  if (!selected.value || decideLoading.value) return
+  decideLoading.value = true
+  try {
+    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body: { action: 'return' } })
+    flash('ok', 'Returned to the levels tab.')
     selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
@@ -302,9 +337,12 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               @click="placementHelperOpen = true"
             >Helper…</button>
           </div>
-          <p v-if="selected?.placement_suggestion != null" class="text-[10px] text-accent mt-1">
-            Pre-filled from placement suggestion #{{ selected.placement_suggestion }}.
-          </p>
+          <div class="flex items-center gap-2 mt-1">
+            <p v-if="selected?.placement_suggestion != null" class="text-[10px] text-accent">
+              Pre-filled from suggestion #{{ selected.placement_suggestion }}.
+            </p>
+            <p v-if="placementSaved" class="text-[10px] text-emerald-400">Saved</p>
+          </div>
           <p class="text-[10px] text-zinc-500 mt-1">
             Position in the main list. Existing levels at and below shift down by one.
           </p>
@@ -385,6 +423,13 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
             @click="decide('place')"
           >Place at #{{ placement || '—' }}</button>
+          <button
+            type="button"
+            :disabled="decideLoading"
+            class="w-full rounded border border-zinc-700 hover:border-sky-600 hover:text-sky-300 text-sm py-2 transition-colors disabled:opacity-60"
+            @click="returnToLevels"
+            title="Send back to the levels (pending) tab."
+          >Return to levels tab</button>
           <button
             type="button"
             :disabled="decideLoading"
