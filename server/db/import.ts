@@ -738,10 +738,19 @@ export async function importVoidList() {
       if (!gdId && !verifyDate && days == null && !demonRank && !source) continue
       pos++
       const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+      // Prefer an explicit date from the sheet; fall back to computing one from
+      // the `days` count so the display auto-updates every day rather than
+      // staying frozen at the import snapshot.
+      const explicitAddedOn = txt(r[c['added to pending on']!])
+      const addedOn = explicitAddedOn || (days != null ? (() => {
+        const d = new Date()
+        d.setUTCDate(d.getUTCDate() - Math.max(0, days))
+        return d.toISOString().slice(0, 10)
+      })() : null)
       insert.run(
         pos, name, gdId, verifyDate, days, demonRank, source,
         verCol != null ? txt(r[verCol]) : null, verHref,
-        txt(r[c['added to pending on']!]),
+        addedOn,
       )
       imported++
     }

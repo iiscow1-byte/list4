@@ -21,6 +21,9 @@ export default defineEventHandler(async (event) => {
     placement?: number
     reason?: string
     same_as_above?: boolean
+    duplicate_of_id?: number | null
+    is_alternate?: boolean
+    alternate_of_id?: number | null
     gddl_tier?: string
     difficulty?: string
     placement_suggestion?: number
@@ -41,11 +44,19 @@ export default defineEventHandler(async (event) => {
   const sub = db.prepare(`SELECT * FROM pending_levels WHERE id = ? AND status = 'pending'`).get(id) as any
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Submission not found or already decided.' })
 
-  // Admin can override the submitter's flag from the review UI before approving.
+  // Admin can override the submitter's flags from the review UI before approving.
   const sameAsAbove = typeof body.same_as_above === 'boolean'
     ? (body.same_as_above ? 1 : 0)
     : (sub.same_as_above ? 1 : 0)
+  const isAlternate = typeof body.is_alternate === 'boolean'
+    ? (body.is_alternate ? 1 : 0)
+    : (sub.is_alternate ? 1 : 0)
+  const duplicateOfId = body.duplicate_of_id !== undefined ? (body.duplicate_of_id ?? null) : (sub.duplicate_of_id ?? null)
+  const alternateOfId = body.alternate_of_id !== undefined ? (body.alternate_of_id ?? null) : (sub.alternate_of_id ?? null)
   sub.same_as_above = sameAsAbove
+  sub.is_alternate = isAlternate
+  sub.duplicate_of_id = duplicateOfId
+  sub.alternate_of_id = alternateOfId
 
   if (body.action === 'reject') {
     db.prepare(`UPDATE pending_levels SET status='rejected', decided_by=?, decided_at=datetime('now') WHERE id = ?`)

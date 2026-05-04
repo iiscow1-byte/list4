@@ -44,7 +44,15 @@ const placement = ref<string>('')
 const preview = ref<Preview | null>(null)
 const previewLoading = ref(false)
 const rejectReason = ref<string>('')
-const sameAsAbove = ref(false)
+const flagsOpen = ref(false)
+const isDuplicate = ref(false)
+const duplicateOfId = ref<number | null>(null)
+const draftDuplicateOf = ref<{ position: number; name: string } | null>(null)
+const flagsDuplicatePickerOpen = ref(false)
+const isAlternate = ref(false)
+const alternateOfId = ref<number | null>(null)
+const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
+const flagsAlternatePickerOpen = ref(false)
 const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
@@ -147,7 +155,12 @@ onMounted(load)
 
 watch(selected, async (s) => {
   preview.value = null
-  sameAsAbove.value = !!s?.same_as_above
+  isDuplicate.value = !!s?.same_as_above
+  duplicateOfId.value = s?.duplicate_of_id ?? null
+  draftDuplicateOf.value = null
+  isAlternate.value = !!s?.is_alternate
+  alternateOfId.value = s?.alternate_of_id ?? null
+  draftAlternateOf.value = null
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
@@ -219,7 +232,13 @@ async function decide(action: 'approve' | 'reject' | 'await') {
   }
   decideLoading.value = true
   try {
-    const body: any = { action, same_as_above: sameAsAbove.value }
+    const body: any = {
+      action,
+      same_as_above: isDuplicate.value,
+      duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
+      is_alternate: isAlternate.value,
+      alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+    }
     if (action === 'approve') {
       body.placement = Number(placement.value)
       if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
@@ -246,6 +265,12 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     difficultyOverride.value = ''
     awaitPlacementSuggestion.value = ''
     rejectReason.value = ''
+    isDuplicate.value = false
+    duplicateOfId.value = null
+    draftDuplicateOf.value = null
+    isAlternate.value = false
+    alternateOfId.value = null
+    draftAlternateOf.value = null
     placementSaved.value = false
     preview.value = null
     await load()
@@ -283,6 +308,15 @@ function onPlacementHelperPick(picked: ListLevel) {
   placement.value = String(picked.position + 1)
   if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
   if (picked.difficulty) difficultyOverride.value = picked.difficulty
+}
+
+function onFlagsDuplicatePick(lvl: ListLevel) {
+  duplicateOfId.value = lvl.id ?? null
+  draftDuplicateOf.value = { position: lvl.position, name: lvl.name }
+}
+function onFlagsAlternatePick(lvl: ListLevel) {
+  alternateOfId.value = lvl.id ?? null
+  draftAlternateOf.value = { position: lvl.position, name: lvl.name }
 }
 
 // Tier + difficulty auto-fill: inherit from the level immediately above the placement.
@@ -612,16 +646,78 @@ watch(preview, (p) => {
           />
         </label>
 
-        <label class="flex items-start gap-2 cursor-pointer select-none border-t border-zinc-900 pt-3">
-          <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Duplicate (same difficulty as above)</span>
-            <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Inherits the previous level's points. The level shows as a "Duplicate" on the public list.
-              <span v-if="selected.same_as_above" class="text-accent">Submitter requested this.</span>
+        <!-- Flags: duplicate + alternate (collapsible, mirrors the edit-level form) -->
+        <div class="rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="flagsOpen"
+            @click="flagsOpen = !flagsOpen"
+          >
+            <span>Flags
+              <span v-if="isDuplicate || isAlternate" class="normal-case tracking-normal text-accent ml-1">
+                {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate'].filter(Boolean).join(', ') }}
+              </span>
             </span>
-          </span>
-        </label>
+            <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="flagsOpen" class="px-3 pb-3 space-y-3">
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none pt-1">
+              <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
+                <span class="text-zinc-500 normal-case">— inherits the previous level's points.</span>
+                <span v-if="selected.same_as_above" class="text-accent ml-1">Submitter requested this.</span>
+              </span>
+            </label>
+            <div v-if="isDuplicate" class="pl-6">
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+              <div class="mt-1 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  @click="flagsDuplicatePickerOpen = true"
+                >{{ draftDuplicateOf ? 'Change…' : 'Pick a level…' }}</button>
+                <span v-if="draftDuplicateOf" class="text-xs text-zinc-200 truncate">#{{ draftDuplicateOf.position }} {{ draftDuplicateOf.name }}</span>
+                <span v-else-if="duplicateOfId" class="text-xs text-zinc-500">DB ID {{ duplicateOfId }} — use picker to change</span>
+                <button
+                  v-if="draftDuplicateOf || duplicateOfId"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-red-400"
+                  @click="draftDuplicateOf = null; duplicateOfId = null"
+                >clear</button>
+              </div>
+            </div>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
+                <span class="text-zinc-500 normal-case">— related variation; doesn't affect points.</span>
+                <span v-if="selected.is_alternate" class="text-accent ml-1">Submitter requested this.</span>
+              </span>
+            </label>
+            <div v-if="isAlternate" class="pl-6">
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+              <div class="mt-1 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  @click="flagsAlternatePickerOpen = true"
+                >{{ draftAlternateOf ? 'Change…' : 'Pick a level…' }}</button>
+                <span v-if="draftAlternateOf" class="text-xs text-zinc-200 truncate">#{{ draftAlternateOf.position }} {{ draftAlternateOf.name }}</span>
+                <span v-else-if="alternateOfId" class="text-xs text-zinc-500">DB ID {{ alternateOfId }} — use picker to change</span>
+                <button
+                  v-if="draftAlternateOf || alternateOfId"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-red-400"
+                  @click="draftAlternateOf = null; alternateOfId = null"
+                >clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Preview rows around the candidate placement -->
         <div v-if="!goesToVoid">
@@ -719,6 +815,20 @@ watch(preview, (p) => {
       title="Placement helper"
       hint="Click a level to set placement to right below it."
       @confirm="onPlacementHelperPick"
+    />
+    <LevelComparisonDrawer
+      v-model:open="flagsDuplicatePickerOpen"
+      :confirm-on-pick="true"
+      title="Pick original (duplicate)"
+      hint="Click the level this one is a duplicate of."
+      @confirm="onFlagsDuplicatePick"
+    />
+    <LevelComparisonDrawer
+      v-model:open="flagsAlternatePickerOpen"
+      :confirm-on-pick="true"
+      title="Pick original (alternate)"
+      hint="Click the level this one is an alternate of."
+      @confirm="onFlagsAlternatePick"
     />
   </div>
 </template>
