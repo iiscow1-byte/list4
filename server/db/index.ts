@@ -290,6 +290,9 @@ function initSchema(db: DatabaseSync) {
   if (!acols.some((c) => c.name === 'alternate_of_id')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN alternate_of_id INTEGER`)
   }
+  if (!acols.some((c) => c.name === 'placement_suggestion')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN placement_suggestion INTEGER`)
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS void_levels (

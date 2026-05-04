@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
     same_as_above?: boolean
     gddl_tier?: string
     difficulty?: string
+    placement_suggestion?: number
   }>(event)
   if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
@@ -62,12 +63,15 @@ export default defineEventHandler(async (event) => {
       : null
     db.exec('BEGIN')
     try {
+      const placementSuggestion = (typeof body.placement_suggestion === 'number' && Number.isInteger(body.placement_suggestion) && body.placement_suggestion > 0)
+        ? body.placement_suggestion
+        : null
       db.prepare(
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
-           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, placement_suggestion)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -91,6 +95,7 @@ export default defineEventHandler(async (event) => {
         sub.duplicate_of_id ?? null,
         sub.is_alternate ? 1 : 0,
         sub.alternate_of_id ?? null,
+        placementSuggestion,
       )
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,

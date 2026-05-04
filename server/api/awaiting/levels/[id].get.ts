@@ -10,7 +10,7 @@ export default defineEventHandler((event) => {
     .prepare(
       `SELECT id, gd_id, name, fps, game_version, verification, verification_url, verifier,
               verify_date, gddl_tier, difficulty, enjoyment, main_skillset, tags, notes,
-              submitter, approved_at
+              submitter, approved_at, placement_suggestion
        FROM awaiting_levels WHERE id = ?`,
     )
     .get(id) as any

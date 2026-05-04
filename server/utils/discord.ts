@@ -63,7 +63,7 @@ export function buildDailyEmbed(date: string, changes: Change[]): { embeds: unkn
     embeds: [
       {
         title: `The All Levels List — Recent Changes for ${date}`,
-        url: SITE_URL || undefined,
+        url: (SITE_URL && /^https?:\/\//.test(SITE_URL)) ? SITE_URL : undefined,
         description,
         color: 0xf4c430,
         footer: { text: `${changes.length} change${changes.length === 1 ? '' : 's'}` },

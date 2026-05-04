@@ -17,6 +17,7 @@ type AwaitingLevel = {
   notes: string | null
   submitter: string | null
   approved_at: string
+  placement_suggestion: number | null
 }
 
 type AwaitingRow = Pick<AwaitingLevel, 'id' | 'name' | 'gd_id' | 'gddl_tier' | 'difficulty' | 'main_skillset' | 'approved_at'>
@@ -57,6 +58,9 @@ watch(selectedId, async (id) => {
   if (id == null) { selected.value = null; return }
   try {
     selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
+    if (selected.value?.placement_suggestion != null) {
+      placement.value = String(selected.value.placement_suggestion)
+    }
   } catch {
     selected.value = null
   }
@@ -298,6 +302,9 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               @click="placementHelperOpen = true"
             >Helper…</button>
           </div>
+          <p v-if="selected?.placement_suggestion != null" class="text-[10px] text-accent mt-1">
+            Pre-filled from placement suggestion #{{ selected.placement_suggestion }}.
+          </p>
           <p class="text-[10px] text-zinc-500 mt-1">
             Position in the main list. Existing levels at and below shift down by one.
           </p>

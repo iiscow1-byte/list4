@@ -210,6 +210,10 @@ async function decide(action: 'approve' | 'reject' | 'await') {
       if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
       if (difficultyOverride.value.trim()) body.difficulty = difficultyOverride.value.trim()
     }
+    if (action === 'await') {
+      const n = Number(awaitPlacementSuggestion.value)
+      if (Number.isInteger(n) && n > 0) body.placement_suggestion = n
+    }
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
       method: 'POST', body,
@@ -225,6 +229,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
+    awaitPlacementSuggestion.value = ''
     rejectReason.value = ''
     preview.value = null
     await load()
@@ -267,6 +272,7 @@ function onPlacementHelperPick(picked: ListLevel) {
 // Tier + difficulty auto-fill: inherit from the level immediately above the placement.
 const tierOverride = ref('')
 const difficultyOverride = ref('')
+const awaitPlacementSuggestion = ref('')
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
@@ -653,6 +659,15 @@ watch(preview, (p) => {
             class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
             @click="decide('approve')"
           >Approve at #{{ placement || '—' }}</button>
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">— optional, pre-fills awaiting tab</span></span>
+            <input
+              v-model="awaitPlacementSuggestion"
+              type="number" inputmode="numeric" min="1"
+              placeholder="position #"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
           <button
             type="button"
             :disabled="decideLoading"
