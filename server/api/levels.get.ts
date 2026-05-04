@@ -30,18 +30,35 @@ const IS_CHALLENGE_SQL = `
   )
 `
 
-// Numeric ladder for rating sorts. Higher number = "more rated". Mapped against
-// the stored `rated` column (Mythic > Legendary > Epic > Featured > Rated >
-// Unrated > Challenge). Rows that qualify as Challenge by any of the three
-// reasons above sort as Challenge, even if `rated` is set to something else.
-const RATING_ORD_SQL = `
+// Effective rating name for a level. The stored `rated` column only carries
+// admin/sheet overrides (and the 'Challenge' pin) — every other tiered rating
+// is sourced from the cached GD API response (info_json.score). Mirror the
+// same fallback chain used by /api/stats and LevelDetail's ratedLabel so
+// filters and sorts agree with what the user sees on the level page.
+//   score 5 → Mythic, 4 → Legendary, 3 → Epic, 2 → Featured, 1 → Rated, 0/null → Unrated
+const EFFECTIVE_RATED_SQL = `
   CASE
-    WHEN ${IS_CHALLENGE_SQL} THEN 0
-    WHEN rated = 'Mythic'    THEN 6
-    WHEN rated = 'Legendary' THEN 5
-    WHEN rated = 'Epic'      THEN 4
-    WHEN rated = 'Featured'  THEN 3
-    WHEN rated = 'Rated'     THEN 2
+    WHEN ${IS_CHALLENGE_SQL} THEN 'Challenge'
+    WHEN rated IS NOT NULL AND rated <> '' THEN rated
+    WHEN json_extract(c.info_json, '$.score') = 5 THEN 'Mythic'
+    WHEN json_extract(c.info_json, '$.score') = 4 THEN 'Legendary'
+    WHEN json_extract(c.info_json, '$.score') = 3 THEN 'Epic'
+    WHEN json_extract(c.info_json, '$.score') = 2 THEN 'Featured'
+    WHEN json_extract(c.info_json, '$.score') = 1 THEN 'Rated'
+    ELSE 'Unrated'
+  END
+`
+
+// Numeric ladder for rating sorts. Higher number = "more rated"
+// (Mythic > Legendary > Epic > Featured > Rated > Unrated > Challenge).
+const RATING_ORD_SQL = `
+  CASE (${EFFECTIVE_RATED_SQL})
+    WHEN 'Challenge' THEN 0
+    WHEN 'Mythic'    THEN 6
+    WHEN 'Legendary' THEN 5
+    WHEN 'Epic'      THEN 4
+    WHEN 'Featured'  THEN 3
+    WHEN 'Rated'     THEN 2
     ELSE 1
   END
 `
@@ -152,8 +169,9 @@ export default defineEventHandler((event) => {
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }
 
   if (ratings.length) {
-    const includesUnrated = ratings.includes('Unrated')
-    const includesChallenge = ratings.includes('Challenge')
+    // "Featured" means "Featured-or-better" — picking any tiered rating
+    // expands upward through the ladder. Challenge / Unrated are buckets in
+    // their own right and don't expand.
     const tieredChosen = ratings.filter((r) => TIERED_RATING_LEVEL[r] != null)
     const minLevel = tieredChosen.length
       ? Math.min(...tieredChosen.map((r) => TIERED_RATING_LEVEL[r]!))
@@ -162,16 +180,12 @@ export default defineEventHandler((event) => {
       ? TIERED_RATING_NAMES.filter((r) => TIERED_RATING_LEVEL[r]! >= minLevel)
       : []
 
-    const parts: string[] = []
-    if (expanded.length) {
-      // Source-flagged levels are reclassified as Challenge above, so exclude
-      // them from their old tiered bucket here.
-      parts.push(`(rated IN (${expanded.map(() => '?').join(',')}) AND NOT ${IS_CHALLENGE_SQL})`)
-      filterParams.push(...expanded)
-    }
-    if (includesUnrated) parts.push(`((rated IS NULL OR rated = '' OR rated = 'Unrated') AND NOT ${IS_CHALLENGE_SQL})`)
-    if (includesChallenge) parts.push(`${IS_CHALLENGE_SQL}`)
-    filterConds.push(`(${parts.join(' OR ')})`)
+    const buckets: string[] = [...expanded]
+    if (ratings.includes('Unrated')) buckets.push('Unrated')
+    if (ratings.includes('Challenge')) buckets.push('Challenge')
+
+    filterConds.push(`(${EFFECTIVE_RATED_SQL}) IN (${buckets.map(() => '?').join(',')})`)
+    filterParams.push(...buckets)
   }
 
   if (Number.isFinite(enjoyMin)) { filterConds.push(`enjoyment >= ?`); filterParams.push(enjoyMin) }

@@ -20,7 +20,8 @@
       "Bash(npx nuxi *)",
       "Bash(npx tsc *)",
       "Bash(npx nuxt *)",
-      "Bash(npx vue-tsc *)"
+      "Bash(npx vue-tsc *)",
+      "Bash(npx -y tsc --noEmit -p tsconfig.json)"
     ]
   }
 }
