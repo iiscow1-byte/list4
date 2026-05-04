@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { countryNumericToAlpha2 } from '~/utils/country-codes'
 
 /**
  * Aredl player profile. Combines our cached snapshot of the player from the
@@ -90,7 +91,7 @@ export default defineEventHandler(async (event) => {
     username: player.username,
     global_name: player.global_name,
     description,
-    country: player.country,
+    country: countryNumericToAlpha2(player.country),
     discord_id: player.discord_id,
     total_points: player.total_points,
     pack_points: player.pack_points,

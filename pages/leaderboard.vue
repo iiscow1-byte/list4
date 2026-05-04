@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { roleBadgeClass } from '~/utils/role-styles'
 
-type LeaderRow = {
+type AllRow = {
   rank: number
+  source?: undefined
   player: string
   country: string | null
   points: number
@@ -11,6 +12,19 @@ type LeaderRow = {
   tier: string | null
   badge: string | null
 }
+type GlobalRow = {
+  rank: number
+  source: 'aredl'
+  uuid: string
+  player: string
+  country: string | null
+  points: number
+  pack_points: number
+  extremes: number
+  hardest: string | null
+  claimed_account: { username: string } | null
+}
+type Row = AllRow | GlobalRow
 
 type FeedItem = {
   kind: 'record' | 'verify' | 'level' | 'progress'
@@ -27,7 +41,8 @@ type FeedItem = {
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
-const tab = ref<'all' | 'followed'>('all')
+type Tab = 'all' | 'global' | 'followed'
+const tab = ref<Tab>('all')
 const search = ref('')
 const debounced = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -36,21 +51,28 @@ watch(search, (v) => {
   debounceTimer = setTimeout(() => { debounced.value = v.trim() }, 200)
 })
 
-const query = computed(() => ({
-  limit: 200,
-  q: debounced.value || undefined,
-  followed: tab.value === 'followed' ? '1' : undefined,
-}))
+// The "All" and "Followed" tabs share /api/leaderboard; "Global" hits the
+// separate /api/leaderboard/global so AREDL rows can be rendered with their
+// own row shape (claimed-pill + UUID-keyed link).
+const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
+const query = computed(() => {
+  if (tab.value === 'global') {
+    return { limit: 200, q: debounced.value || undefined, source: 'aredl' }
+  }
+  return {
+    limit: 200,
+    q: debounced.value || undefined,
+    followed: tab.value === 'followed' ? '1' : undefined,
+  }
+})
 
-const { data, pending, refresh } = await useFetch<{ total: number; items: LeaderRow[] }>(
-  '/api/leaderboard',
-  { query, watch: [query] },
+const { data, pending, refresh } = await useFetch<{ total: number; items: Row[] }>(
+  url,
+  { query, watch: [url, query] },
 )
 
-// If a user logs in/out while on this page, the followed tab needs new data.
 watch(me, () => { if (tab.value === 'followed') refresh() })
 
-// Activity feed only loads on the followed tab.
 const feed = ref<FeedItem[]>([])
 const feedLoading = ref(false)
 async function loadFeed() {
@@ -89,13 +111,30 @@ function relative(at: string): string {
   if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`
   return new Date(t).toLocaleDateString()
 }
+
+// Polymorphic row link: AREDL rows go to the Aredl player profile page (keyed
+// by UUID), everything else goes to the existing by-player route.
+function rowLink(p: Row): string {
+  if (p.source === 'aredl') return `/aredl-players/${p.uuid}`
+  return `/users/by-player/${encodeURIComponent(p.player)}`
+}
+function rowKey(p: Row, i: number): string {
+  return p.source === 'aredl' ? `aredl-${p.uuid}` : `all-${p.player}-${i}`
+}
 </script>
 
 <template>
   <div class="container-tight py-8">
     <div class="mb-6">
       <h1 class="text-3xl font-semibold tracking-tight">Leaderboard</h1>
-      <p class="text-zinc-400 mt-1 text-sm">Players ranked by total points across the All Levels List.</p>
+      <p class="text-zinc-400 mt-1 text-sm">
+        <template v-if="tab === 'global'">
+          Players from external lists. AREDL for now — more list integrations coming.
+        </template>
+        <template v-else>
+          Players ranked by total points across the All Levels List.
+        </template>
+      </p>
     </div>
 
     <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -106,6 +145,12 @@ function relative(at: string): string {
           :class="tab === 'all' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
           @click="tab = 'all'"
         >All</button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800"
+          :class="tab === 'global' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
+          @click="tab = 'global'"
+        >Global</button>
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800"
@@ -131,24 +176,43 @@ function relative(at: string): string {
       <div>
         <div v-if="pending" class="text-sm text-zinc-500">loading…</div>
         <ol v-else class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden">
-          <li v-for="p in data?.items ?? []" :key="p.player">
+          <li v-for="(p, i) in data?.items ?? []" :key="rowKey(p, i)">
             <NuxtLink
-              :to="`/users/by-player/${encodeURIComponent(p.player)}`"
+              :to="rowLink(p)"
               class="flex items-center gap-4 px-4 py-3 hover:bg-zinc-900/60 transition-colors group"
             >
               <span class="rank-badge" :class="rankClass(p.rank)">#{{ p.rank }}</span>
               <div class="flex-1 min-w-0">
                 <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
                   <span>{{ p.player }}</span>
-                  <span
-                    v-if="p.badge"
-                    class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
-                    :class="roleBadgeClass(p.badge)"
-                  >{{ p.badge }}</span>
+                  <!-- Role badge intentionally excluded from AREDL rows: they
+                       are list mirrors, not site identities. -->
+                  <template v-if="p.source !== 'aredl'">
+                    <span
+                      v-if="(p as AllRow).badge"
+                      class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
+                      :class="roleBadgeClass((p as AllRow).badge!)"
+                    >{{ (p as AllRow).badge }}</span>
+                  </template>
+                  <template v-else>
+                    <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">AREDL</span>
+                    <span
+                      v-if="(p as GlobalRow).claimed_account"
+                      class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300 shrink-0"
+                      :title="`Claimed by @${(p as GlobalRow).claimed_account!.username}`"
+                    >Claimed</span>
+                  </template>
                 </div>
                 <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-                  <span v-if="p.skill_points" class="tabular-nums">Skill: {{ fmt(p.skill_points) }}</span>
-                  <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
+                  <template v-if="p.source !== 'aredl'">
+                    <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill: {{ fmt((p as AllRow).skill_points) }}</span>
+                    <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
+                  </template>
+                  <template v-else>
+                    <span v-if="p.country" class="uppercase tabular-nums">{{ p.country }}</span>
+                    <span v-if="(p as GlobalRow).extremes" class="tabular-nums">{{ (p as GlobalRow).extremes }} extremes</span>
+                    <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
+                  </template>
                 </div>
               </div>
               <span
@@ -160,6 +224,12 @@ function relative(at: string): string {
           <li v-if="!pending && (data?.items?.length ?? 0) === 0" class="px-4 py-12 text-center text-sm text-zinc-500">
             <template v-if="tab === 'followed'">
               You're not following anyone yet. Open a profile and click "Follow".
+            </template>
+            <template v-else-if="tab === 'global' && debounced">
+              No global players match "{{ debounced }}".
+            </template>
+            <template v-else-if="tab === 'global'">
+              No global players imported yet.
             </template>
             <template v-else-if="debounced">
               No players or accounts match "{{ debounced }}".

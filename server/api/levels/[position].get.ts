@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { communityStats } from '~/server/utils/opinions'
+import { countryNumericToAlpha2 } from '~/utils/country-codes'
 
 export default defineEventHandler((event) => {
   const position = Number(getRouterParam(event, 'position'))
@@ -31,13 +32,13 @@ export default defineEventHandler((event) => {
   // dropped any record with an exact-match (player_name + gd_id) in the ALL
   // records, so concatenating is safe — the dedup happened upstream.
   const aredl_records = level.gd_id
-    ? db
+    ? (db
         .prepare(
           `SELECT 100 AS percent,
                   NULL AS hz,
                   ar.video_url AS video,
                   ar.player_name AS player,
-                  ap.country,
+                  ap.country AS country_numeric,
                   'aredl' AS source,
                   ar.is_verification AS is_verification,
                   ar.mobile,
@@ -47,7 +48,12 @@ export default defineEventHandler((event) => {
             WHERE ar.level_gd_id = ?
             ORDER BY ar.achieved_at DESC`,
         )
-        .all(level.gd_id)
+        .all(level.gd_id) as any[])
+        .map((r) => ({
+          ...r,
+          country: countryNumericToAlpha2(r.country_numeric),
+          country_numeric: undefined,
+        }))
     : []
 
   const community = communityStats(db, 'main', level.id)
