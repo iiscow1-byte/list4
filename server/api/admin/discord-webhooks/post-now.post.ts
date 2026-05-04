@@ -8,6 +8,6 @@ import { postDailyChangesIfDue, ymdUtc } from '~/server/utils/daily-discord'
  */
 export default defineEventHandler(async (event) => {
   requireAdmin(event)
-  const result = await postDailyChangesIfDue({ upToDate: ymdUtc(new Date()), forceCurrent: true })
+  const result = await postDailyChangesIfDue({ upToDate: ymdUtc(new Date()), forceCurrent: true, allWebhooks: true })
   return result
 })

@@ -149,9 +149,18 @@ async function postNow() {
       { method: 'POST' },
     )
     if (res.posted.length === 0) {
-      flash('ok', 'Nothing to post — already up to date.')
+      flash('err', 'No webhooks found — add one above or check that at least one is configured.')
     } else {
-      flash('ok', `Posted ${res.posted.length} day${res.posted.length === 1 ? '' : 's'} of changes.`)
+      const ok = res.posted.filter((p) => p.status === 'ok')
+      const noChanges = res.posted.filter((p) => p.status === 'no changes')
+      const errors = res.posted.filter((p) => p.status !== 'ok' && p.status !== 'no changes')
+      if (errors.length) {
+        flash('err', `Webhook error: ${errors[0]!.status}`)
+      } else if (ok.length) {
+        flash('ok', `Posted to Discord. (${ok.length} webhook${ok.length === 1 ? '' : 's'})`)
+      } else {
+        flash('ok', `No changes to post for today — only level placements and moves appear in the summary.`)
+      }
     }
     await loadWebhooks()
   } catch (e: any) {

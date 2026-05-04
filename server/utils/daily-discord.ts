@@ -25,15 +25,19 @@ export type WebhookRow = {
  * be called from a cron tick — safe to run frequently because of the
  * date-comparison guard.
  */
-export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurrent?: boolean } = {}): Promise<{
+export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurrent?: boolean; allWebhooks?: boolean } = {}): Promise<{
   posted: { webhookId: number; date: string; status: string }[]
 }> {
   const db = getDb()
   const today = ymdUtc(new Date())
   const upToDate = opts.upToDate ?? ymdUtcMinusDays(1)
 
+  // allWebhooks: manual "post now" should reach paused webhooks too. The
+  // `active` flag gates the automated scheduler only.
   const webhooks = db
-    .prepare(`SELECT id, url, active, last_posted_date FROM discord_webhooks WHERE active = 1`)
+    .prepare(opts.allWebhooks
+      ? `SELECT id, url, active, last_posted_date FROM discord_webhooks`
+      : `SELECT id, url, active, last_posted_date FROM discord_webhooks WHERE active = 1`)
     .all() as WebhookRow[]
   if (!webhooks.length) return { posted: [] }
 

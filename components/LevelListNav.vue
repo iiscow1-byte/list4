@@ -208,6 +208,7 @@ await loadMore()
 let debounce: ReturnType<typeof setTimeout> | null = null
 let lastGdIdLookup = ''
 let lastTierLookup = ''
+let suppressNextRefilter = false
 
 async function maybeJumpToTier(): Promise<boolean> {
   const tier = parseTierShortcut(search.value)
@@ -219,9 +220,21 @@ async function maybeJumpToTier(): Promise<boolean> {
       '/api/levels/tier-midpoint', { query: { tier } },
     )
     if (res?.midpoint) {
-      search.value = ''
       lastTierLookup = ''
+      // Clear the search without triggering a list reset — the watcher fires
+      // immediately, but the flag makes refilter() return early.
+      suppressNextRefilter = true
+      search.value = ''
+      // Navigate to the level at the tier midpoint (same as clicking it).
       await navigateTo(`/levels/${res.midpoint}`)
+      // Load the sidebar page that contains the midpoint so the auto-scroll
+      // watcher can find [data-pos] and bring it into view.
+      reset()
+      nextPage.value = Math.max(1, Math.ceil(res.midpoint / PAGE_SIZE))
+      await loadMore()
+      await nextTick()
+      scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${res.midpoint}"]`)
+        ?.scrollIntoView({ block: 'nearest' })
       return true
     }
   } catch { /* non-fatal */ }
@@ -255,6 +268,7 @@ async function maybeJumpToGdId(): Promise<boolean> {
 
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
+  if (suppressNextRefilter) { suppressNextRefilter = false; return }
   const run = async () => {
     if (await maybeJumpToTier()) return
     if (await maybeJumpToGdId()) return
