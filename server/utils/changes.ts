@@ -109,7 +109,8 @@ export function loadChanges(
   // Restore newest-first order after grouping.
   condensed.sort((a, b) => (b.changed_at > a.changed_at ? 1 : b.changed_at < a.changed_at ? -1 : 0))
 
-  return condensed.map((r) => ({
+  // Drop net-zero moves: level moved but ended up back at its original position.
+  return condensed.filter((r) => r.from_position === null || r.from_position !== r.to_position).map((r) => ({
     kind: r.from_position == null ? 'add' : 'move',
     level_position: r.level_position,
     level_name: r.level_name,

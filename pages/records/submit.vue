@@ -261,22 +261,25 @@ async function submit() {
           A moderator will review your submission before it appears on the level page.
         </p>
       </div>
-      <label class="shrink-0 flex items-center gap-2 cursor-pointer select-none mt-1">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Multiple</span>
-        <button
-          type="button"
-          role="switch"
-          :aria-checked="multi"
-          class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-          :class="multi ? 'bg-accent' : 'bg-zinc-800'"
-          @click="toggleMulti"
-        >
-          <span
-            class="inline-block h-4 w-4 rounded-full bg-zinc-50 transition-transform"
-            :class="multi ? 'translate-x-4' : 'translate-x-0.5'"
-          />
-        </button>
-      </label>
+      <div class="shrink-0 flex flex-col items-end gap-1 mt-1">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Submit multiple records</span>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="multi"
+            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+            :class="multi ? 'bg-accent' : 'bg-zinc-800'"
+            @click="toggleMulti"
+          >
+            <span
+              class="inline-block h-4 w-4 rounded-full bg-zinc-50 transition-transform"
+              :class="multi ? 'translate-x-4' : 'translate-x-0.5'"
+            />
+          </button>
+        </label>
+        <span v-if="!multi" class="text-[10px] text-zinc-600">Fill in a row and the next appears</span>
+      </div>
     </div>
 
     <form class="space-y-4" @submit.prevent="submit">
