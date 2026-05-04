@@ -51,6 +51,13 @@ function ordToTier(ord: number): string {
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filtersOpen = ref(false)
 
+function closeFilters() { filtersOpen.value = false }
+function onFiltersKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && filtersOpen.value) closeFilters()
+}
+onMounted(() => window.addEventListener('keydown', onFiltersKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onFiltersKeydown))
+
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
@@ -62,7 +69,6 @@ type AltVersionMode = 'show' | 'hide' | 'only'
 // `alternates` filters on the new `is_alternate` flag.
 const altVersions = ref<AltVersionMode>('show')
 const alternates = ref<AltVersionMode>('show')
-const tagsDropdownOpen = ref(false)
 const creator = ref('')
 const sourceFilter = ref('')
 const sources = ref<{ source: string; count: number }[]>([])
@@ -299,226 +305,256 @@ watch(
         </button>
       </div>
 
-      <!-- Advanced filter panel -->
-      <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
-        <!-- Tier range -->
-        <div>
-          <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
-            <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
-          </div>
-          <div class="relative h-6">
-            <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-zinc-800" />
-            <div
-              class="absolute top-1/2 -translate-y-1/2 h-1 rounded bg-accent/70"
-              :style="{
-                left: `${(tierMin / TIER_MAX_ORD) * 100}%`,
-                right: `${100 - (tierMax / TIER_MAX_ORD) * 100}%`,
-              }"
-            />
-            <input
-              v-model.number="tierMin"
-              type="range" :min="0" :max="TIER_MAX_ORD" step="1"
-              class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
-            />
-            <input
-              v-model.number="tierMax"
-              type="range" :min="0" :max="TIER_MAX_ORD" step="1"
-              class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
-            />
-          </div>
-        </div>
+    </div>
 
-        <!-- Tags + skillsets + alt-version dropdown -->
-        <details
-          :open="tagsDropdownOpen"
-          class="rounded border border-zinc-800 bg-zinc-900/40"
-          @toggle="(e) => (tagsDropdownOpen = (e.target as HTMLDetailsElement).open)"
+    <!-- Advanced filter popup -->
+    <Teleport to="body">
+      <div
+        v-if="filtersOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        @click.self="closeFilters"
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Advanced search"
+          class="relative w-full max-w-4xl max-h-[90vh] rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
         >
-          <summary class="cursor-pointer select-none flex items-center justify-between px-2 py-1.5 text-[10px] uppercase tracking-widest text-zinc-400 hover:text-zinc-100 transition-colors">
-            <span>
-              Tags
-              <span v-if="tagsDropdownActiveCount" class="ml-1 normal-case tracking-normal text-accent">{{ tagsDropdownActiveCount }} selected</span>
-            </span>
-            <span class="text-zinc-600">{{ tagsDropdownOpen ? '▾' : '▸' }}</span>
-          </summary>
-
-          <div class="px-2 pb-2 pt-1 space-y-2.5">
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Modifiers</div>
-              <div class="flex flex-wrap gap-1.5">
-                <label
-                  v-for="t in TAGS" :key="t"
-                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-                  :class="tagSet[t]
-                    ? 'border-accent/60 text-accent bg-accent/10'
-                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                >
-                  <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
-                  {{ t === 'uldm' ? 'ULDM' : t }}
-                </label>
-              </div>
+          <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+            <div class="flex items-center gap-2">
+              <h2 class="text-xs uppercase tracking-widest text-zinc-200 font-semibold">Advanced search</h2>
+              <span v-if="activeFilterCount" class="text-[10px] text-accent normal-case tracking-normal">
+                {{ activeFilterCount }} active
+              </span>
+              <span v-if="challengeMode" class="text-[10px] text-accent normal-case tracking-normal">
+                — Showing challenge ranks
+              </span>
             </div>
-
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Skillset</div>
-              <div class="flex flex-wrap gap-1.5">
-                <label
-                  v-for="s in SKILLSETS" :key="s"
-                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
-                  :class="skillsetSet[s]
-                    ? 'border-accent/60 text-accent bg-accent/10'
-                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                >
-                  <input v-model="skillsetSet[s]" type="checkbox" class="sr-only" />
-                  {{ s }}
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Duplicates</div>
-              <div class="flex flex-wrap gap-1.5">
-                <label
-                  v-for="opt in (['show', 'hide', 'only'] as const)"
-                  :key="opt"
-                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-                  :class="altVersions === opt
-                    ? 'border-accent/60 text-accent bg-accent/10'
-                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                >
-                  <input v-model="altVersions" type="radio" :value="opt" class="sr-only" />
-                  {{ opt }}
-                </label>
-              </div>
-              <p class="text-[10px] text-zinc-600 mt-1">"Duplicates" are levels marked Same difficulty as above.</p>
-            </div>
-
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternates</div>
-              <div class="flex flex-wrap gap-1.5">
-                <label
-                  v-for="opt in (['show', 'hide', 'only'] as const)"
-                  :key="`alt-${opt}`"
-                  class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
-                  :class="alternates === opt
-                    ? 'border-accent/60 text-accent bg-accent/10'
-                    : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                >
-                  <input v-model="alternates" type="radio" :value="opt" class="sr-only" />
-                  {{ opt }}
-                </label>
-              </div>
-              <p class="text-[10px] text-zinc-600 mt-1">"Alternates" are levels marked as a related variation of an existing entry.</p>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                @click="resetFilters"
+              >Reset filters</button>
+              <button
+                type="button"
+                class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                aria-label="Close"
+                @click="closeFilters"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
-        </details>
 
-        <!-- Ratings -->
-        <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rating</div>
-          <div class="flex flex-wrap gap-1.5">
-            <label
-              v-for="r in RATINGS" :key="r"
-              class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
-              :class="ratingSet[r]
-                ? 'border-accent/60 text-accent bg-accent/10'
-                : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-            >
-              <input v-model="ratingSet[r]" type="checkbox" class="sr-only" />
-              {{ r }}
-            </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-0 flex-1 overflow-hidden">
+            <!-- Left column: general filters -->
+            <div class="p-4 space-y-4 text-xs overflow-y-auto md:border-r border-zinc-800">
+              <!-- Tier range -->
+              <div>
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+                  <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
+                </div>
+                <div class="relative h-6">
+                  <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-zinc-800" />
+                  <div
+                    class="absolute top-1/2 -translate-y-1/2 h-1 rounded bg-accent/70"
+                    :style="{
+                      left: `${(tierMin / TIER_MAX_ORD) * 100}%`,
+                      right: `${100 - (tierMax / TIER_MAX_ORD) * 100}%`,
+                    }"
+                  />
+                  <input
+                    v-model.number="tierMin"
+                    type="range" :min="0" :max="TIER_MAX_ORD" step="1"
+                    class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
+                  />
+                  <input
+                    v-model.number="tierMax"
+                    type="range" :min="0" :max="TIER_MAX_ORD" step="1"
+                    class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              <!-- Ratings -->
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rating</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="r in RATINGS" :key="r"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="ratingSet[r]
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="ratingSet[r]" type="checkbox" class="sr-only" />
+                    {{ r }}
+                  </label>
+                </div>
+              </div>
+
+              <!-- Creator -->
+              <label class="block">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Creator</span>
+                <input
+                  v-model="creator"
+                  type="text" placeholder="Creator name"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </label>
+
+              <!-- Source -->
+              <label class="block">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Source</span>
+                <select
+                  v-model="sourceFilter"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">All sources</option>
+                  <option v-for="s in sources" :key="s.source" :value="s.source">
+                    {{ s.source }} ({{ s.count.toLocaleString() }})
+                  </option>
+                </select>
+              </label>
+
+              <!-- Verify date range -->
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Verify date</div>
+                <div class="flex items-center gap-1.5">
+                  <input
+                    v-model="verifyFrom" type="date"
+                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <span class="text-zinc-600">→</span>
+                  <input
+                    v-model="verifyTo" type="date"
+                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+              </div>
+
+              <!-- Enjoyment range -->
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Enjoyment</div>
+                <div class="flex items-center gap-1.5">
+                  <input
+                    v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
+                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <span class="text-zinc-600">→</span>
+                  <input
+                    v-model="enjoyMax" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="max"
+                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+              </div>
+
+              <!-- Sort -->
+              <label class="block">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
+                <select
+                  v-model="sort"
+                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+              </label>
+
+              <!-- Rank-by-filter toggle -->
+              <label class="flex items-start gap-2 cursor-pointer select-none">
+                <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
+                <span>
+                  <span class="text-[11px] text-zinc-200">Rank by filter position</span>
+                  <span class="block text-[10px] text-zinc-500">
+                    Numbers reflect each level's place within the filtered list rather than the global list. Search narrows what's shown without changing ranks.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <!-- Right column: tags -->
+            <div class="p-4 space-y-3 text-xs overflow-y-auto border-t md:border-t-0 border-zinc-800">
+              <div class="flex items-center justify-between">
+                <h3 class="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Tags</h3>
+                <span v-if="tagsDropdownActiveCount" class="text-[10px] text-accent">{{ tagsDropdownActiveCount }} selected</span>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Modifiers</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="t in TAGS" :key="t"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    :class="tagSet[t]
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
+                    {{ t === 'uldm' ? 'ULDM' : t }}
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Skillset</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="s in SKILLSETS" :key="s"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="skillsetSet[s]
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="skillsetSet[s]" type="checkbox" class="sr-only" />
+                    {{ s }}
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Duplicates</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="opt in (['show', 'hide', 'only'] as const)"
+                    :key="opt"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    :class="altVersions === opt
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="altVersions" type="radio" :value="opt" class="sr-only" />
+                    {{ opt }}
+                  </label>
+                </div>
+                <p class="text-[10px] text-zinc-600 mt-1">"Duplicates" are levels marked Same difficulty as above.</p>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternates</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="opt in (['show', 'hide', 'only'] as const)"
+                    :key="`alt-${opt}`"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    :class="alternates === opt
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="alternates" type="radio" :value="opt" class="sr-only" />
+                    {{ opt }}
+                  </label>
+                </div>
+                <p class="text-[10px] text-zinc-600 mt-1">"Alternates" are levels marked as a related variation of an existing entry.</p>
+              </div>
+            </div>
           </div>
-        </div>
-
-        <!-- Creator -->
-        <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Creator</span>
-          <input
-            v-model="creator"
-            type="text" placeholder="Creator name"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-
-        <!-- Source -->
-        <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Source</span>
-          <select
-            v-model="sourceFilter"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            <option value="">All sources</option>
-            <option v-for="s in sources" :key="s.source" :value="s.source">
-              {{ s.source }} ({{ s.count.toLocaleString() }})
-            </option>
-          </select>
-        </label>
-
-        <!-- Verify date range -->
-        <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Verify date</div>
-          <div class="flex items-center gap-1.5">
-            <input
-              v-model="verifyFrom" type="date"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <span class="text-zinc-600">→</span>
-            <input
-              v-model="verifyTo" type="date"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-        </div>
-
-        <!-- Enjoyment range -->
-        <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Enjoyment</div>
-          <div class="flex items-center gap-1.5">
-            <input
-              v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <span class="text-zinc-600">→</span>
-            <input
-              v-model="enjoyMax" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="max"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </div>
-        </div>
-
-        <!-- Sort -->
-        <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
-          <select
-            v-model="sort"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          >
-            <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
-          </select>
-        </label>
-
-        <!-- Rank-by-filter toggle -->
-        <label class="flex items-start gap-2 cursor-pointer select-none">
-          <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="text-[11px] text-zinc-200">Rank by filter position</span>
-            <span class="block text-[10px] text-zinc-500">
-              Numbers reflect each level's place within the filtered list rather than the global list. Search narrows what's shown without changing ranks.
-            </span>
-          </span>
-        </label>
-
-        <div class="flex items-center justify-between pt-1">
-          <button
-            type="button"
-            class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
-            @click="resetFilters"
-          >Reset filters</button>
-          <span v-if="challengeMode" class="text-[10px] text-accent">Showing challenge ranks</span>
         </div>
       </div>
-    </div>
+    </Teleport>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
       <ul class="divide-y divide-zinc-900/60">
