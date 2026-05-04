@@ -23,6 +23,7 @@ export type Change = {
   kind: ChangeKind
   level_position: number     // current position on the main list (for linking)
   level_name: string
+  level_gddl_tier: string | null
   from_position: number | null
   to_position: number
   changed_at: string         // raw datetime('now') from SQLite, UTC
@@ -53,7 +54,7 @@ export function loadChanges(
 
   const rows = db.prepare(
     `SELECT h.from_position, h.to_position, h.changed_at,
-            l.position AS level_position, l.name AS level_name,
+            l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             a.username AS changed_by
        FROM position_history h
        JOIN levels   l ON l.id = h.level_id
@@ -67,6 +68,7 @@ export function loadChanges(
     changed_at: string
     level_position: number
     level_name: string
+    level_gddl_tier: string | null
     changed_by: string | null
   }>
 
@@ -74,6 +76,7 @@ export function loadChanges(
     kind: r.from_position == null ? 'add' : 'move',
     level_position: r.level_position,
     level_name: r.level_name,
+    level_gddl_tier: r.level_gddl_tier,
     from_position: r.from_position,
     to_position: r.to_position,
     changed_at: r.changed_at,

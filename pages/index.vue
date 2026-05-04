@@ -2,6 +2,16 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
 
+function shortTier(tier: string | null): string | null {
+  if (!tier) return null
+  // "Tier 12" → "T12", "Subtier 3" → "S3"
+  const t = tier.match(/^Tier (\d{1,2})$/)
+  if (t) return `T${t[1]}`
+  const s = tier.match(/^Subtier (\d{1,2})$/)
+  if (s) return `S${s[1]}`
+  return tier
+}
+
 type Landing = {
   intro: string[]
   faq: string[]
@@ -31,6 +41,7 @@ type Change = {
   kind: 'add' | 'move'
   level_position: number
   level_name: string
+  level_gddl_tier: string | null
   from_position: number | null
   to_position: number
   changed_at: string
@@ -102,9 +113,18 @@ function paraParts(p: string): { text: string; href: string | null } {
     </header>
 
     <!-- Recent Changes -->
-    <section v-if="changes?.days?.length" class="space-y-3">
-      <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Recent Changes</h2>
-      <div class="space-y-4">
+    <details v-if="changes?.days?.length" open class="space-y-3 group">
+      <summary class="cursor-pointer select-none flex items-baseline justify-between gap-2 list-none">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold flex items-center gap-2">
+          Recent Changes
+          <span class="text-zinc-500 text-[10px] normal-case tracking-normal group-open:hidden">click to expand</span>
+        </h2>
+        <span class="text-zinc-500 text-xs">
+          <span class="hidden group-open:inline">▾</span>
+          <span class="group-open:hidden">▸</span>
+        </span>
+      </summary>
+      <div class="space-y-4 pt-3">
         <div v-for="day in changes.days" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
           <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
             <h3 class="text-sm font-medium text-zinc-100">{{ formatDay(day.date) }}</h3>
@@ -113,7 +133,7 @@ function paraParts(p: string): { text: string; href: string | null } {
             </span>
           </div>
           <ul class="divide-y divide-zinc-900/60">
-            <li v-for="(c, i) in day.changes" :key="`${day.date}-${i}`" class="px-4 py-1.5 text-sm flex items-center gap-2">
+            <li v-for="(c, i) in day.changes" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2">
               <span
                 v-if="c.kind === 'add'"
                 class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
@@ -135,15 +155,26 @@ function paraParts(p: string): { text: string; href: string | null } {
                 class="truncate text-zinc-200 hover:text-accent transition-colors"
               >{{ c.level_name }}</NuxtLink>
 
-              <span class="shrink-0 text-[11px] tabular-nums text-zinc-500 ml-auto">
+              <span
+                v-if="c.level_gddl_tier"
+                class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-medium leading-none"
+                :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
+                :title="c.level_gddl_tier"
+              >{{ shortTier(c.level_gddl_tier) }}</span>
+
+              <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
                 <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
-                <template v-else>#{{ c.from_position }} → #{{ c.to_position }}</template>
+                <template v-else>
+                  <span class="text-zinc-500">#{{ c.from_position }}</span>
+                  <span class="text-zinc-600 mx-1">→</span>
+                  <span class="text-accent">#{{ c.to_position }}</span>
+                </template>
               </span>
             </li>
           </ul>
         </div>
       </div>
-    </section>
+    </details>
 
     <!-- FAQ -->
     <section v-if="landing?.faq?.length" class="space-y-3">
