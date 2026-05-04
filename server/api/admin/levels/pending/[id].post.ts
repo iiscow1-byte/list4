@@ -134,7 +134,7 @@ export default defineEventHandler(async (event) => {
       db.prepare(
         `INSERT INTO void_levels (position, name, gd_id, verify_date, demon_ranking, placement_source,
                                   verification, verification_url, added_on)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -144,6 +144,7 @@ export default defineEventHandler(async (event) => {
         sub.placement_source ?? 'All Levels List',
         sub.verification,
         sub.verification_url,
+        sub.submitted_at ?? null,
       )
     } else {
       // Shift main list positions down by one. Same negate-then-flip pattern.
