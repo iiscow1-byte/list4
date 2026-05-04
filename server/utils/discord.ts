@@ -1,9 +1,11 @@
 import type { Change } from '~/server/utils/changes'
 
-const SITE_URL = (process.env.SITE_URL ?? '').replace(/\/+$/, '')
-// Only use as a link base if it's a valid http(s) URL — Discord won't render
-// markdown links with bare hostnames (no scheme) as clickable hyperlinks.
-const SITE_URL_VALID = (SITE_URL && /^https?:\/\//.test(SITE_URL)) ? SITE_URL : ''
+// Auto-prepend https:// if SITE_URL is set but has no scheme — Discord won't
+// render markdown links with bare hostnames (no scheme) as clickable hyperlinks.
+const _rawUrl = (process.env.SITE_URL ?? '').replace(/\/+$/, '')
+const SITE_URL_VALID = _rawUrl
+  ? (/^https?:\/\//.test(_rawUrl) ? _rawUrl : `https://${_rawUrl}`)
+  : ''
 const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+\/?$/
 
 export function isValidDiscordWebhook(url: string): boolean {
@@ -19,7 +21,7 @@ function tierEmojiStr(tier: string | null): string {
   if (!tier) return ''
   if (/^Subtier \d/.test(tier)) return ':tierunrated:'
   const t = tier.match(/^Tier (\d{1,2})$/)
-  if (t) return `:Tier${t[1]}:`
+  if (t) return `:tier${t[1]}:`
   return ''
 }
 
