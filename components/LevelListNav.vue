@@ -77,8 +77,8 @@ const verifyTo = ref('')
 const ratingSet = reactive<Record<string, boolean>>(
   Object.fromEntries(RATINGS.map((r) => [r, false])),
 )
-const enjoyMin = ref<string>('')
-const enjoyMax = ref<string>('')
+const enjoyMin = ref(0)
+const enjoyMax = ref(10)
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 
@@ -93,8 +93,10 @@ function applyVariant(v: ListVariant) {
     ratingSet['Epic'] = true
     ratingSet['Legendary'] = true
     ratingSet['Mythic'] = true
+    rankByFilter.value = true
   } else if (v === 'Challenge') {
     ratingSet['Challenge'] = true
+    rankByFilter.value = true
   }
 }
 
@@ -106,7 +108,7 @@ const activeFilterCount = computed(() => {
   if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
   if (RATINGS.some((r) => ratingSet[r])) n++
-  if (enjoyMin.value !== '' || enjoyMax.value !== '') n++
+  if (enjoyMin.value > 0 || enjoyMax.value < 10) n++
   if (sort.value !== 'position') n++
   if (rankByFilter.value) n++
   return n
@@ -148,8 +150,8 @@ function buildQuery() {
     verifyFrom: verifyFrom.value || undefined,
     verifyTo: verifyTo.value || undefined,
     ratings: ratings.length ? ratings.join(',') : undefined,
-    enjoyMin: enjoyMin.value !== '' ? enjoyMin.value : undefined,
-    enjoyMax: enjoyMax.value !== '' ? enjoyMax.value : undefined,
+    enjoyMin: enjoyMin.value > 0 ? enjoyMin.value : undefined,
+    enjoyMax: enjoyMax.value < 10 ? enjoyMax.value : undefined,
     sort: sort.value !== 'position' ? sort.value : undefined,
     rankByFilter: rankByFilter.value ? 1 : undefined,
   }
@@ -192,8 +194,8 @@ function resetFilters() {
   verifyFrom.value = ''
   verifyTo.value = ''
   for (const r of RATINGS) ratingSet[r] = false
-  enjoyMin.value = ''
-  enjoyMax.value = ''
+  enjoyMin.value = 0
+  enjoyMax.value = 10
   sort.value = 'position'
   rankByFilter.value = false
   listVariant.value = 'Classic'
@@ -474,16 +476,28 @@ watch(
 
               <!-- Enjoyment range -->
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Enjoyment</div>
-                <div class="flex items-center gap-1.5">
-                  <input
-                    v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
-                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Enjoyment</span>
+                  <span class="text-[10px] text-zinc-400 tabular-nums">{{ enjoyMin }} → {{ enjoyMax }}</span>
+                </div>
+                <div class="relative h-6">
+                  <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-zinc-800" />
+                  <div
+                    class="absolute top-1/2 -translate-y-1/2 h-1 rounded bg-accent/70"
+                    :style="{
+                      left: `${(enjoyMin / 10) * 100}%`,
+                      right: `${100 - (enjoyMax / 10) * 100}%`,
+                    }"
                   />
-                  <span class="text-zinc-600">→</span>
                   <input
-                    v-model="enjoyMax" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="max"
-                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    v-model.number="enjoyMin"
+                    type="range" :min="0" :max="10" step="0.5"
+                    class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
+                  />
+                  <input
+                    v-model.number="enjoyMax"
+                    type="range" :min="0" :max="10" step="0.5"
+                    class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
                   />
                 </div>
               </div>
@@ -525,7 +539,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Duplicates</div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Duplicate levels</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -539,11 +553,11 @@ watch(
                     {{ opt }}
                   </label>
                 </div>
-                <p class="text-[10px] text-zinc-600 mt-1">"Duplicates" are levels marked Same difficulty as above.</p>
+                <p class="text-[10px] text-zinc-600 mt-1">Example: Red Slaughterhouse</p>
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternates</div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternate versions</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -557,7 +571,7 @@ watch(
                     {{ opt }}
                   </label>
                 </div>
-                <p class="text-[10px] text-zinc-600 mt-1">"Alternates" are levels marked as a related variation of an existing entry.</p>
+                <p class="text-[10px] text-zinc-600 mt-1">Tidal Wave Buffed</p>
               </div>
 
               <div>

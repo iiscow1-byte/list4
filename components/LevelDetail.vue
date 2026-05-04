@@ -578,8 +578,8 @@ async function deleteLevel() {
         <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none mt-2 sm:mt-6">
           <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate levels</span>
-            <span class="text-zinc-500 normal-case">Example: Red Slaughterhouse</span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
+            <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
           </span>
         </label>
 
@@ -606,8 +606,8 @@ async function deleteLevel() {
         <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2">
           <input v-model="draft.is_alternate" type="checkbox" class="mt-0.5 accent-accent" />
           <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate versions</span>
-            <span class="text-zinc-500 normal-case">Tidal Wave Buffed</span>
+            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
+            <span class="text-zinc-500 normal-case">— mark this level as a related variation of an existing entry. Doesn't affect points.</span>
           </span>
         </label>
 
@@ -640,21 +640,8 @@ async function deleteLevel() {
           <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
-          <div class="flex items-center justify-between mb-1">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
-            <span class="text-[11px] text-zinc-400 tabular-nums">
-              {{ draft.enjoyment !== '' && draft.enjoyment != null ? Number(draft.enjoyment).toFixed(1) : '—' }}
-            </span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] text-zinc-600">0</span>
-            <input
-              v-model.number="draft.enjoyment"
-              type="range" min="0" max="10" step="0.5"
-              class="flex-1 accent-accent"
-            />
-            <span class="text-[11px] text-zinc-600">10</span>
-          </div>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
 
         <label class="block">
