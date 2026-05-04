@@ -227,6 +227,11 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'alternate_of_id')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN alternate_of_id INTEGER`)
   }
+  // Void-level-to-pending submissions: pending row carries a link back to the
+  // void_levels row so an admin approval can remove it from the void list.
+  if (!pcols.some((c) => c.name === 'from_void_level_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_void_level_id INTEGER`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are

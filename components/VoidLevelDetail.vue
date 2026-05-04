@@ -19,6 +19,75 @@ const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
 const isAdmin = computed(() => role.value === 'admin' || role.value === 'owner' || role.value === 'developer')
 const canEdit = computed(() => isAdmin.value || role.value === 'moderator')
+const isLoggedIn = computed(() => !!meRes.value?.account)
+
+// --- Send to pending ---
+const TIER_OPTIONS = [
+  'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
+  ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
+]
+const DIFFICULTY_OPTIONS = [
+  'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
+  'Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon',
+]
+const pendingFormOpen = ref(false)
+const pendingTier = ref('')
+const pendingDifficulty = ref('')
+const pendingVerifier = ref('')
+const pendingVideoUrl = ref('')
+const pendingVerifyDate = ref('')
+const pendingEnjoyment = ref('')
+const pendingNote = ref('')
+const pendingSubmitting = ref(false)
+const pendingError = ref<string | null>(null)
+const pendingSuccess = ref(false)
+
+watch(() => props.level.position, () => {
+  pendingFormOpen.value = false
+  pendingTier.value = ''
+  pendingDifficulty.value = ''
+  pendingVerifier.value = ''
+  pendingVideoUrl.value = ''
+  pendingVerifyDate.value = ''
+  pendingEnjoyment.value = ''
+  pendingNote.value = ''
+  pendingError.value = null
+  pendingSuccess.value = false
+})
+
+async function submitToPending() {
+  if (pendingSubmitting.value) return
+  pendingError.value = null
+  if (!pendingTier.value) { pendingError.value = 'Select a GDDL tier.'; return }
+  if (!pendingDifficulty.value) { pendingError.value = 'Select a difficulty.'; return }
+  pendingSubmitting.value = true
+  try {
+    await $fetch(`/api/void/levels/${props.level.position}/submit`, {
+      method: 'POST',
+      body: {
+        gddl_tier: pendingTier.value,
+        difficulty: pendingDifficulty.value,
+        verifier: pendingVerifier.value.trim() || null,
+        verification_url: pendingVideoUrl.value.trim() || null,
+        verify_date: pendingVerifyDate.value || null,
+        enjoyment: pendingEnjoyment.value !== '' ? Number(pendingEnjoyment.value) : null,
+        notes: pendingNote.value.trim() || null,
+      },
+    })
+    pendingSuccess.value = true
+    pendingTier.value = ''
+    pendingDifficulty.value = ''
+    pendingVerifier.value = ''
+    pendingVideoUrl.value = ''
+    pendingVerifyDate.value = ''
+    pendingEnjoyment.value = ''
+    pendingNote.value = ''
+  } catch (e: any) {
+    pendingError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
+  } finally {
+    pendingSubmitting.value = false
+  }
+}
 
 const editing = ref(false)
 const draft = reactive({
@@ -301,6 +370,118 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
         <dt class="text-zinc-500">Verification</dt>
         <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
       </dl>
+    </section>
+
+    <!-- Send to pending -->
+    <section v-if="isLoggedIn" class="rounded-md border border-fuchsia-800/40 bg-fuchsia-950/20 mt-6">
+      <button
+        type="button"
+        class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-fuchsia-300 hover:text-fuchsia-200 transition-colors"
+        :aria-expanded="pendingFormOpen"
+        @click="pendingFormOpen = !pendingFormOpen"
+      >
+        <span class="flex items-center gap-2">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 shrink-0" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          Send to pending list
+        </span>
+        <svg :class="{ 'rotate-180': pendingFormOpen }" class="w-4 h-4 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+        </svg>
+      </button>
+
+      <div v-if="pendingFormOpen" class="border-t border-fuchsia-800/30 px-4 pb-4 pt-3 space-y-4">
+        <p class="text-xs text-fuchsia-200/70">
+          Submit this level to the pending list with a tier and difficulty opinion. A moderator will review before the level moves to the main list. If approved, it is removed from the void list.
+        </p>
+
+        <div v-if="pendingSuccess" class="rounded border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
+          Submitted — a moderator will review your submission.
+        </div>
+        <template v-else>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier <span class="text-red-400">*</span></span>
+              <select
+                v-model="pendingTier"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">— select —</option>
+                <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty <span class="text-red-400">*</span></span>
+              <select
+                v-model="pendingDifficulty"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option value="">— select —</option>
+                <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier <span class="text-zinc-600 normal-case">— optional</span></span>
+              <input
+                v-model="pendingVerifier"
+                placeholder="Player name"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date <span class="text-zinc-600 normal-case">— optional</span></span>
+              <input
+                v-model="pendingVerifyDate"
+                type="date"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          </div>
+
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification video <span class="text-zinc-600 normal-case">— optional</span></span>
+            <input
+              v-model="pendingVideoUrl"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=…"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— optional, 0–10</span></span>
+            <input
+              v-model="pendingEnjoyment"
+              type="number" min="0" max="10" step="0.1" inputmode="decimal"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for mods <span class="text-zinc-600 normal-case">— optional</span></span>
+            <textarea
+              v-model="pendingNote"
+              rows="2"
+              maxlength="4000"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </label>
+
+          <div class="flex items-center gap-3 pt-1">
+            <button
+              type="button"
+              :disabled="pendingSubmitting"
+              class="rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-zinc-50 font-medium text-sm px-4 py-1.5 disabled:opacity-60 transition-colors"
+              @click="submitToPending"
+            >{{ pendingSubmitting ? 'Submitting…' : 'Submit to pending' }}</button>
+            <span v-if="pendingError" class="text-xs text-red-400">{{ pendingError }}</span>
+          </div>
+        </template>
+      </div>
     </section>
   </div>
 </template>

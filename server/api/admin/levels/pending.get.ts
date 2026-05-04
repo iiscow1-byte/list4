@@ -10,7 +10,7 @@ export default defineEventHandler((event) => {
               p.verifier, p.verify_date, p.gddl_tier, p.difficulty, p.enjoyment, p.main_skillset,
               p.tags, p.notes, p.submitted_at,
               p.placement_estimate, p.comparison_level_id, p.comparison_level_name, p.pov_placement,
-              p.from_open_verification_id, p.same_as_above,
+              p.from_open_verification_id, p.from_void_level_id, p.same_as_above,
               p.duplicate_of_id, p.is_alternate, p.alternate_of_id,
               a.username AS submitter
        FROM pending_levels p

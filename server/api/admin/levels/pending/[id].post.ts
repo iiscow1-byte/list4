@@ -121,6 +121,9 @@ export default defineEventHandler(async (event) => {
       if (sub.from_open_verification_id) {
         db.prepare(`DELETE FROM open_verifications WHERE id = ?`).run(sub.from_open_verification_id)
       }
+      if (sub.from_void_level_id) {
+        db.prepare(`DELETE FROM void_levels WHERE id = ?`).run(sub.from_void_level_id)
+      }
       db.exec('COMMIT')
     } catch (e) {
       db.exec('ROLLBACK')
@@ -210,6 +213,9 @@ export default defineEventHandler(async (event) => {
     // verifier credited.
     if (sub.from_open_verification_id) {
       db.prepare(`DELETE FROM open_verifications WHERE id = ?`).run(sub.from_open_verification_id)
+    }
+    if (sub.from_void_level_id) {
+      db.prepare(`DELETE FROM void_levels WHERE id = ?`).run(sub.from_void_level_id)
     }
     db.exec('COMMIT')
   } catch (e) {

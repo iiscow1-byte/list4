@@ -21,6 +21,7 @@ type PendingLevel = {
   comparison_level_id: number | null
   comparison_level_name: string | null
   from_open_verification_id: number | null
+  from_void_level_id: number | null
   same_as_above: number
   duplicate_of_id: number | null
   is_alternate: number
@@ -457,6 +458,11 @@ watch(preview, (p) => {
                   class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-violet-900/40 text-violet-300 border border-violet-800/60"
                   title="Verification submitted for an open-verification level"
                 >Verif</span>
+                <span
+                  v-if="r.from_void_level_id"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
+                  title="Submitted from the void list with a difficulty opinion"
+                >Void</span>
               </div>
               <div class="text-[11px] text-zinc-500 truncate">
                 #{{ r.gd_id ?? '?' }} · by {{ r.submitter ?? 'unknown' }}
@@ -510,6 +516,13 @@ watch(preview, (p) => {
           >
             Verification of open-verif #{{ selected.from_open_verification_id }} ↗
           </NuxtLink>
+          <span
+            v-if="selected.from_void_level_id"
+            class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
+            title="Approving will remove the level from the void list"
+          >
+            From void list (ID {{ selected.from_void_level_id }}) — approval removes it from void
+          </span>
         </div>
 
         <!-- Stats grid -->
