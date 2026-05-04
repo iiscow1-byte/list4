@@ -3,7 +3,7 @@ import { groupByDay, loadChanges } from '~/server/utils/changes'
 import { buildDailyEmbed, postToDiscordWebhook } from '~/server/utils/discord'
 
 /** YYYY-MM-DD for `date` in UTC. */
-function ymdUtc(date: Date): string {
+export function ymdUtc(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
@@ -25,11 +25,12 @@ export type WebhookRow = {
  * be called from a cron tick — safe to run frequently because of the
  * date-comparison guard.
  */
-export async function postDailyChangesIfDue(): Promise<{
+export async function postDailyChangesIfDue(opts: { upToDate?: string } = {}): Promise<{
   posted: { webhookId: number; date: string; status: string }[]
 }> {
   const db = getDb()
   const yesterday = ymdUtcMinusDays(1)
+  const upToDate = opts.upToDate ?? yesterday
 
   const webhooks = db
     .prepare(`SELECT id, url, active, last_posted_date FROM discord_webhooks WHERE active = 1`)
@@ -39,15 +40,15 @@ export async function postDailyChangesIfDue(): Promise<{
   const posted: { webhookId: number; date: string; status: string }[] = []
 
   for (const wh of webhooks) {
-    // Catch up from `last_posted_date + 1` to yesterday — but cap at 7 days
+    // Catch up from `last_posted_date + 1` to upToDate — but cap at 7 days
     // back so a long outage doesn't dump weeks of posts.
     const earliest = ymdUtcMinusDays(7)
     let cursor = wh.last_posted_date
       ? incrementDate(wh.last_posted_date)
-      : yesterday
+      : upToDate
     if (cursor < earliest) cursor = earliest
 
-    while (cursor <= yesterday) {
+    while (cursor <= upToDate) {
       const status = await postOneDay(wh, cursor)
       posted.push({ webhookId: wh.id, date: cursor, status })
       // Always advance the cursor on a definitive outcome so a permanently

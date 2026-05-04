@@ -19,6 +19,14 @@ const emit = defineEmits<{
 }>()
 
 const COMPARE_PAGE_SIZE = 500
+const TIER_MAX_ORD = 44
+const RATINGS = ['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+
+function ordToTier(ord: number): string {
+  if (ord <= 5) return `Subtier ${ord}`
+  return `Tier ${ord - 5}`
+}
+
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
 const compareItems = ref<ListLevel[]>([])
@@ -28,6 +36,20 @@ const compareTotal = ref(0)
 const comparePageLow = ref(0)
 const comparePageHigh = ref(0)
 const compareInitialized = ref(false)
+
+// --- Filters ---
+const filtersOpen = ref(false)
+const tierMin = ref(0)
+const tierMax = ref(TIER_MAX_ORD)
+const ratingSet = reactive<Record<string, boolean>>(
+  Object.fromEntries(RATINGS.map((r) => [r, false])),
+)
+const activeCompareFilterCount = computed(() => {
+  let n = 0
+  if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
+  if (RATINGS.some((r) => ratingSet[r])) n++
+  return n
+})
 const compareTopDone = computed(() => compareInitialized.value && comparePageLow.value <= 1)
 const compareBottomDone = computed(
   () => compareInitialized.value
@@ -57,6 +79,10 @@ async function loadComparePage(page: number, where: 'append' | 'prepend') {
     if (compareMode.value === 'search' && compareSearch.value) {
       query.search = compareSearch.value
     }
+    if (tierMin.value > 0) query.tierMin = tierMin.value
+    if (tierMax.value < TIER_MAX_ORD) query.tierMax = tierMax.value
+    const selectedRatings = RATINGS.filter((r) => ratingSet[r])
+    if (selectedRatings.length) query.ratings = selectedRatings.join(',')
     const res = await $fetch<{ total: number; items: ListLevel[] }>('/api/levels', { query })
     compareTotal.value = res.total
     if (where === 'append') {
@@ -141,6 +167,17 @@ watch(compareSearch, () => {
   }, 200)
 })
 
+watch([tierMin, tierMax], () => {
+  if (!compareInitialized.value) return
+  resetCompareList()
+  loadComparePage(1, 'append')
+})
+watch(ratingSet, () => {
+  if (!compareInitialized.value) return
+  resetCompareList()
+  loadComparePage(1, 'append')
+}, { deep: true })
+
 watch(() => props.open, async (open) => {
   await nextTick()
   if (open) {
@@ -207,11 +244,70 @@ function confirm() {
             class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <button
+            type="button"
+            class="shrink-0 px-2 py-1.5 rounded border text-xs font-medium transition-colors flex items-center gap-1"
+            :class="filtersOpen || activeCompareFilterCount
+              ? 'border-accent/60 text-accent bg-accent/10'
+              : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
+            :aria-expanded="filtersOpen"
+            @click="filtersOpen = !filtersOpen"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
+              <path d="M3 4h18l-7 9v6l-4 2v-8z" />
+            </svg>
+            <span v-if="activeCompareFilterCount" class="tabular-nums">{{ activeCompareFilterCount }}</span>
+          </button>
+          <button
             v-if="compareMode === 'browse'"
             type="button"
             class="shrink-0 text-[11px] text-zinc-400 hover:text-zinc-100 px-2 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
             @click="backToSearch"
           >Back to search</button>
+        </div>
+
+        <!-- Filter panel -->
+        <div v-if="filtersOpen" class="p-3 border-b border-zinc-800 shrink-0 space-y-3 text-xs">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+              <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
+            </div>
+            <div class="relative h-6">
+              <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded bg-zinc-800" />
+              <div
+                class="absolute top-1/2 -translate-y-1/2 h-1 rounded bg-accent/70"
+                :style="{
+                  left: `${(tierMin / TIER_MAX_ORD) * 100}%`,
+                  right: `${100 - (tierMax / TIER_MAX_ORD) * 100}%`,
+                }"
+              />
+              <input
+                v-model.number="tierMin"
+                type="range" :min="0" :max="TIER_MAX_ORD" step="1"
+                class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
+              />
+              <input
+                v-model.number="tierMax"
+                type="range" :min="0" :max="TIER_MAX_ORD" step="1"
+                class="range-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
+              />
+            </div>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rating</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="r in RATINGS" :key="r"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="ratingSet[r]
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="ratingSet[r]" type="checkbox" class="sr-only" />
+                {{ r }}
+              </label>
+            </div>
+          </div>
         </div>
 
         <div ref="compareScrollEl" class="flex-1 min-h-0 overflow-y-auto">
@@ -276,3 +372,31 @@ function confirm() {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 100%;
+}
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 14px; height: 14px;
+  border-radius: 9999px;
+  background: rgb(244 196 48);
+  border: 2px solid rgb(24 24 27);
+  cursor: pointer;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px; height: 14px;
+  border-radius: 9999px;
+  background: rgb(244 196 48);
+  border: 2px solid rgb(24 24 27);
+  cursor: pointer;
+}
+.range-thumb::-webkit-slider-runnable-track { background: transparent; }
+.range-thumb::-moz-range-track { background: transparent; }
+</style>

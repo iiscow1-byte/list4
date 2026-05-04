@@ -117,6 +117,11 @@ async function decide(action: 'place' | 'remove') {
 
 function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
+const placementHelperOpen = ref(false)
+function onPlacementHelperPick(picked: { position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
+  placement.value = String(picked.position + 1)
+}
+
 function youtubeId(url: string | null): string | null {
   if (!url) return null
   const patterns = [
@@ -263,12 +268,19 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
         <div>
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Placement</p>
-          <input
-            v-model="placement"
-            type="number" inputmode="numeric" min="1"
-            placeholder="position #"
-            class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
+          <div class="flex items-center gap-1.5">
+            <input
+              v-model="placement"
+              type="number" inputmode="numeric" min="1"
+              placeholder="position #"
+              class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <button
+              type="button"
+              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
+              @click="placementHelperOpen = true"
+            >Helper…</button>
+          </div>
           <p class="text-[10px] text-zinc-500 mt-1">
             Position in the main list. Existing levels at and below shift down by one.
           </p>
@@ -349,4 +361,12 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
       </div>
     </aside>
   </div>
+
+  <LevelComparisonDrawer
+    v-model:open="placementHelperOpen"
+    title="Placement helper"
+    hint="Click a level to place the awaiting level right below it."
+    :confirmOnPick="true"
+    @confirm="onPlacementHelperPick"
+  />
 </template>

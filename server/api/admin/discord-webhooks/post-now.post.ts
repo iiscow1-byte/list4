@@ -1,13 +1,13 @@
 import { requireAdmin } from '~/server/utils/auth'
-import { postDailyChangesIfDue } from '~/server/utils/daily-discord'
+import { postDailyChangesIfDue, ymdUtc } from '~/server/utils/daily-discord'
 
 /**
- * Manually run the daily-changes posting routine. Useful for catching up
- * after long downtime or for sanity-checking the format. Same guard as the
- * scheduler — won't double-post a day that's already been sent.
+ * Manually run the daily-changes posting routine. Extends the window to
+ * today (UTC) so changes made earlier today are included — the scheduler
+ * only runs up to yesterday to avoid posting a partial day automatically.
  */
 export default defineEventHandler(async (event) => {
   requireAdmin(event)
-  const result = await postDailyChangesIfDue()
+  const result = await postDailyChangesIfDue({ upToDate: ymdUtc(new Date()) })
   return result
 })
