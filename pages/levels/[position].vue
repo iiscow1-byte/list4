@@ -23,6 +23,6 @@ useHead(() => ({
       </div>
       <LevelDetail v-else-if="level" :level="level" @refresh="refresh" />
     </section>
-    <LevelRecords :records="level?.records ?? []" />
+    <LevelRecords :records="[...(level?.records ?? []), ...(level?.aredl_records ?? [])]" />
   </div>
 </template>

@@ -17,13 +17,28 @@ export default defineEventHandler(async (event) => {
   }
 
   if (action === 'approve') {
-    const taken = db.prepare(
-      `SELECT 1 FROM accounts WHERE claimed_player = ? COLLATE NOCASE AND id != ?`,
-    ).get(claim.player_name, claim.account_id)
-    if (taken) {
-      throw createError({ statusCode: 409, statusMessage: 'That player has already been claimed by someone else.' })
+    if (claim.source === 'aredl') {
+      if (!claim.aredl_player_uuid) {
+        throw createError({ statusCode: 400, statusMessage: 'AREDL claim is missing player UUID.' })
+      }
+      const taken = db.prepare(
+        `SELECT 1 FROM accounts WHERE claimed_aredl_uuid = ? AND id != ?`,
+      ).get(claim.aredl_player_uuid, claim.account_id)
+      if (taken) {
+        throw createError({ statusCode: 409, statusMessage: 'That AREDL player has already been claimed by someone else.' })
+      }
+      db.prepare(`UPDATE accounts SET claimed_aredl_uuid = ? WHERE id = ?`).run(claim.aredl_player_uuid, claim.account_id)
+      db.prepare(`UPDATE aredl_players SET claimed_account_id = ? WHERE uuid = ?`)
+        .run(claim.account_id, claim.aredl_player_uuid)
+    } else {
+      const taken = db.prepare(
+        `SELECT 1 FROM accounts WHERE claimed_player = ? COLLATE NOCASE AND id != ?`,
+      ).get(claim.player_name, claim.account_id)
+      if (taken) {
+        throw createError({ statusCode: 409, statusMessage: 'That player has already been claimed by someone else.' })
+      }
+      db.prepare(`UPDATE accounts SET claimed_player = ? WHERE id = ?`).run(claim.player_name, claim.account_id)
     }
-    db.prepare(`UPDATE accounts SET claimed_player = ? WHERE id = ?`).run(claim.player_name, claim.account_id)
   }
 
   db.prepare(

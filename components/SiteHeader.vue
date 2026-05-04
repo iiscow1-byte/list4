@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const links = [
   { to: '/leaderboard', label: 'Leaderboard' },
+  { to: '/global', label: 'Global' },
 ]
 
 const route = useRoute()

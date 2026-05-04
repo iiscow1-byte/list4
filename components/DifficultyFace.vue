@@ -32,14 +32,18 @@ const IMG_SRC = 2750
 const CELL_DISPLAY = 80
 const SCALE = CELL_DISPLAY / CELL_SRC
 
+const topThreshold = useAredlTopThreshold()
+
 const coords = computed(() => {
   const diff = (props.difficulty ?? '').toLowerCase().trim()
   // 'challenge' rated means unrated in GD → col offset 0
   const ratedKey = (props.rated ?? '').toLowerCase().trim()
   const colOffset = ratedKey === 'challenge' ? 0 : (RATING_COL[ratedKey] ?? 0)
   const isDemon = DEMON_SET.has(diff)
-  const isTop150 = isDemon && props.position != null && props.position <= 150
-  if (isTop150) return { col: 5 + colOffset, row: 7 }
+  // The cutoff is now the ALL-list position of Aredl's #150 (typically ~552
+  // on a freshly-imported DB). Falls back to 150 when Aredl data isn't loaded.
+  const isTopExtreme = isDemon && props.position != null && props.position <= topThreshold.value
+  if (isTopExtreme) return { col: 5 + colOffset, row: 7 }
   if (RIGHT_SET.has(diff)) return { col: 5 + colOffset, row: RIGHT_ROW[diff] ?? 0 }
   return { col: colOffset, row: LEFT_ROW[diff] ?? 0 }
 })
