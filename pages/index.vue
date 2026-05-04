@@ -6,7 +6,7 @@ function shortTier(tier: string | null): string | null {
   if (!tier) return null
   // "Tier 12" → "T12", "Subtier 3" → "S3"
   const t = tier.match(/^Tier (\d{1,2})$/)
-  if (t) return `T${t[1]}`
+  if (t) return `${t[1]}`
   const s = tier.match(/^Subtier (\d{1,2})$/)
   if (s) return `S${s[1]}`
   return tier
