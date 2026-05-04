@@ -99,12 +99,16 @@ async function decide(action: 'place' | 'remove') {
   decideLoading.value = true
   try {
     const body: any = { action }
-    if (action === 'place') body.placement = Number(placement.value)
+    if (action === 'place') {
+      body.placement = Number(placement.value)
+      if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
+    }
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
     await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
     flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
     selectedId.value = null
     placement.value = ''
+    tierOverride.value = ''
     removeReason.value = ''
     preview.value = null
     await load()
@@ -120,7 +124,15 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
 const placementHelperOpen = ref(false)
 function onPlacementHelperPick(picked: { position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
   placement.value = String(picked.position + 1)
+  if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
 }
+
+const tierOverride = ref('')
+watch(preview, (p) => {
+  if (!p) return
+  const above = p.above[p.above.length - 1]
+  if (above?.gddl_tier) tierOverride.value = above.gddl_tier
+})
 
 function youtubeId(url: string | null): string | null {
   if (!url) return null
@@ -285,6 +297,16 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             Position in the main list. Existing levels at and below shift down by one.
           </p>
         </div>
+
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GDDL Tier <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <input
+            v-model="tierOverride"
+            type="text"
+            placeholder="e.g. Tier 15"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
 
         <!-- Preview rows around the candidate placement -->
         <div>

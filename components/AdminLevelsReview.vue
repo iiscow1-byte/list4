@@ -205,7 +205,10 @@ async function decide(action: 'approve' | 'reject' | 'await') {
   decideLoading.value = true
   try {
     const body: any = { action, same_as_above: sameAsAbove.value }
-    if (action === 'approve') body.placement = Number(placement.value)
+    if (action === 'approve') {
+      body.placement = Number(placement.value)
+      if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
+    }
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
       method: 'POST', body,
@@ -219,6 +222,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     }
     selectedId.value = null
     placement.value = ''
+    tierOverride.value = ''
     rejectReason.value = ''
     preview.value = null
     await load()
@@ -254,7 +258,16 @@ type ListLevel = { position: number; name: string; gddl_tier: string | null; dif
 const placementHelperOpen = ref(false)
 function onPlacementHelperPick(picked: ListLevel) {
   placement.value = String(picked.position + 1)
+  if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
 }
+
+// Tier auto-fill: inherit the tier of the level immediately above the placement.
+const tierOverride = ref('')
+watch(preview, (p) => {
+  if (!p) return
+  const above = p.above[p.above.length - 1]
+  if (above?.gddl_tier) tierOverride.value = above.gddl_tier
+})
 </script>
 
 <template>
@@ -548,6 +561,16 @@ function onPlacementHelperPick(picked: ListLevel) {
             <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>
           </p>
         </div>
+
+        <label v-if="!goesToVoid" class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GDDL Tier <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <input
+            v-model="tierOverride"
+            type="text"
+            placeholder="e.g. Tier 15"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
 
         <label class="flex items-start gap-2 cursor-pointer select-none border-t border-zinc-900 pt-3">
           <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />

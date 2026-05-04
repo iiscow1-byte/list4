@@ -154,6 +154,10 @@ type EditableFields = Pick<Level,
 }
 const editing = ref(false)
 const apiOverridesOpen = ref(false)
+const gameplayOpen = ref(false)
+const creditsOpen = ref(false)
+const verificationOpen = ref(false)
+const flagsOpen = ref(false)
 const draft = reactive<Record<keyof EditableFields, any>>({
   name: '',
   gd_id: '',
@@ -213,6 +217,10 @@ function startEdit() {
   saveError.value = null
   deleteError.value = null
   apiOverridesOpen.value = false
+  gameplayOpen.value = false
+  creditsOpen.value = false
+  verificationOpen.value = false
+  flagsOpen.value = false
   editing.value = true
 }
 
@@ -477,6 +485,7 @@ function onMoveBelowPick(picked: ListLevel) {
   if (picked.position === cur) return
   const target = picked.position < cur ? picked.position + 1 : picked.position
   draftPosition.value = target
+  if (picked.gddl_tier) draft.gddl_tier = picked.gddl_tier
 }
 
 async function deleteLevel() {
@@ -555,6 +564,7 @@ async function deleteLevel() {
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <!-- Always-visible: name, position, level ID -->
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
           <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
@@ -575,100 +585,162 @@ async function deleteLevel() {
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
           <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
-        <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none mt-2 sm:mt-6">
-          <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
-            <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
-          </span>
-        </label>
 
-        <div v-if="draft.same_as_above" class="sm:col-span-2 -mt-2 pl-6">
-          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
-          <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-              @click="editDuplicatePickerOpen = true"
-            >{{ draftDuplicateOf ? 'Change…' : 'Pick a level…' }}</button>
-            <span v-if="draftDuplicateOf" class="text-xs text-zinc-200 truncate">
-              #{{ draftDuplicateOf.position }} {{ draftDuplicateOf.name }}
-            </span>
-            <button
-              v-if="draftDuplicateOf"
-              type="button"
-              class="text-[11px] text-zinc-500 hover:text-red-400"
-              @click="draftDuplicateOf = null; draft.duplicate_of_id = null"
-            >clear</button>
+        <!-- Gameplay section -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="gameplayOpen"
+            @click="gameplayOpen = !gameplayOpen"
+          >
+            <span>Gameplay</span>
+            <svg :class="{ 'rotate-180': gameplayOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="gameplayOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <input v-model="draft.gddl_tier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+              <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+              <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>
+              <input v-model="draft.year_verified" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
           </div>
         </div>
 
-        <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2">
-          <input v-model="draft.is_alternate" type="checkbox" class="mt-0.5 accent-accent" />
-          <span>
-            <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
-            <span class="text-zinc-500 normal-case">— mark this level as a related variation of an existing entry. Doesn't affect points.</span>
-          </span>
-        </label>
-
-        <div v-if="draft.is_alternate" class="sm:col-span-2 -mt-2 pl-6">
-          <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
-          <div class="mt-1 flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-              @click="editAlternatePickerOpen = true"
-            >{{ draftAlternateOf ? 'Change…' : 'Pick a level…' }}</button>
-            <span v-if="draftAlternateOf" class="text-xs text-zinc-200 truncate">
-              #{{ draftAlternateOf.position }} {{ draftAlternateOf.name }}
-            </span>
-            <button
-              v-if="draftAlternateOf"
-              type="button"
-              class="text-[11px] text-zinc-500 hover:text-red-400"
-              @click="draftAlternateOf = null; draft.alternate_of_id = null"
-            >clear</button>
+        <!-- Credits section -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="creditsOpen"
+            @click="creditsOpen = !creditsOpen"
+          >
+            <span>Credits</span>
+            <svg :class="{ 'rotate-180': creditsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="creditsOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block sm:col-span-2">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Creator(s) <span class="text-zinc-600 normal-case">— comma-separated</span></span>
+              <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
           </div>
         </div>
 
-        <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Creator(s) <span class="text-zinc-600 normal-case">— comma-separated</span></span>
-          <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
-          <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
+        <!-- Verification section -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="verificationOpen"
+            @click="verificationOpen = !verificationOpen"
+          >
+            <span>Verification</span>
+            <svg :class="{ 'rotate-180': verificationOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="verificationOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block sm:col-span-2">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
+              <input v-model="draft.verification" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+              <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+        </div>
 
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-          <input v-model="draft.gddl_tier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-          <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-          <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>
-          <input v-model="draft.year_verified" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-
-        <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
-          <input v-model="draft.verification" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
-        <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-          <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-        </label>
+        <!-- Flags section -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="flagsOpen"
+            @click="flagsOpen = !flagsOpen"
+          >
+            <span>Flags</span>
+            <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="flagsOpen" class="px-3 pb-3 space-y-3">
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none pt-1">
+              <input v-model="draft.same_as_above" type="checkbox" class="mt-0.5 accent-accent" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
+                <span class="text-zinc-500 normal-case">— inherits the previous level's points (auto-derived from tier).</span>
+              </span>
+            </label>
+            <div v-if="draft.same_as_above" class="pl-6">
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+              <div class="mt-1 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  @click="editDuplicatePickerOpen = true"
+                >{{ draftDuplicateOf ? 'Change…' : 'Pick a level…' }}</button>
+                <span v-if="draftDuplicateOf" class="text-xs text-zinc-200 truncate">
+                  #{{ draftDuplicateOf.position }} {{ draftDuplicateOf.name }}
+                </span>
+                <button
+                  v-if="draftDuplicateOf"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-red-400"
+                  @click="draftDuplicateOf = null; draft.duplicate_of_id = null"
+                >clear</button>
+              </div>
+            </div>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input v-model="draft.is_alternate" type="checkbox" class="mt-0.5 accent-accent" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
+                <span class="text-zinc-500 normal-case">— mark this level as a related variation of an existing entry. Doesn't affect points.</span>
+              </span>
+            </label>
+            <div v-if="draft.is_alternate" class="pl-6">
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+              <div class="mt-1 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  @click="editAlternatePickerOpen = true"
+                >{{ draftAlternateOf ? 'Change…' : 'Pick a level…' }}</button>
+                <span v-if="draftAlternateOf" class="text-xs text-zinc-200 truncate">
+                  #{{ draftAlternateOf.position }} {{ draftAlternateOf.name }}
+                </span>
+                <button
+                  v-if="draftAlternateOf"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-red-400"
+                  @click="draftAlternateOf = null; draft.alternate_of_id = null"
+                >clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Fields that override values pulled from the GD API. Collapsed by
              default since they're only used to correct/replace API data. -->
