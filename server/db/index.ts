@@ -592,4 +592,110 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_comments_target  ON comments(target_kind, target_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_comments_account ON comments(account_id);
   `)
+
+  // --- External-list mirrors (currently only Aredl; designed so additional
+  // sources can reuse the same shape later). Stored separately from the
+  // legacy `players`/`records` tables so name collisions don't conflict and
+  // a re-import never clobbers ALL-list data.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS aredl_players (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid               TEXT    NOT NULL UNIQUE,
+      username           TEXT    NOT NULL COLLATE NOCASE,
+      global_name        TEXT    NOT NULL COLLATE NOCASE,
+      description        TEXT,
+      country            INTEGER,
+      discord_id         TEXT,
+      placeholder        INTEGER NOT NULL DEFAULT 0,
+      total_points       INTEGER NOT NULL DEFAULT 0,
+      pack_points        INTEGER NOT NULL DEFAULT 0,
+      extremes           INTEGER NOT NULL DEFAULT 0,
+      rank               INTEGER,
+      hardest_uuid       TEXT,
+      hardest_name       TEXT,
+      claimed_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      fetched_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aredl_players_global ON aredl_players(global_name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_aredl_players_total  ON aredl_players(total_points DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_aredl_players_claim ON aredl_players(claimed_account_id) WHERE claimed_account_id IS NOT NULL;
+
+    -- Aredl-only levels (i.e. levels not present on the ALL list yet).
+    -- Levels that overlap with the ALL list are merged into the levels table
+    -- instead; we only store the Aredl-side metadata for cross-list lookups
+    -- (the aredl_position / tags / edel_enjoyment columns added on levels below).
+    CREATE TABLE IF NOT EXISTS aredl_levels (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid            TEXT    NOT NULL UNIQUE,
+      gd_id           INTEGER NOT NULL UNIQUE,
+      position        INTEGER NOT NULL,
+      name            TEXT    NOT NULL,
+      points          INTEGER,
+      legacy          INTEGER NOT NULL DEFAULT 0,
+      two_player      INTEGER NOT NULL DEFAULT 0,
+      tags            TEXT,
+      description     TEXT,
+      song            INTEGER,
+      edel_enjoyment  REAL,
+      is_edel_pending INTEGER NOT NULL DEFAULT 0,
+      gddl_tier       REAL,
+      nlw_tier        TEXT,
+      publisher_uuid  TEXT,
+      publisher_name  TEXT,
+      verifier_name   TEXT,
+      verification_url TEXT,
+      creators_json   TEXT,
+      promoted_to_position INTEGER,
+      fetched_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aredl_levels_gd_id    ON aredl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_aredl_levels_position ON aredl_levels(position);
+    CREATE INDEX IF NOT EXISTS idx_aredl_levels_promoted ON aredl_levels(promoted_to_position);
+
+    CREATE TABLE IF NOT EXISTS aredl_records (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      uuid            TEXT    NOT NULL UNIQUE,
+      level_uuid      TEXT    NOT NULL,
+      level_gd_id     INTEGER,
+      player_uuid     TEXT    NOT NULL,
+      player_name     TEXT    NOT NULL COLLATE NOCASE,
+      mobile          INTEGER NOT NULL DEFAULT 0,
+      video_url       TEXT,
+      hide_video      INTEGER NOT NULL DEFAULT 0,
+      is_verification INTEGER NOT NULL DEFAULT 0,
+      achieved_at     TEXT,
+      fetched_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aredl_records_level_gd ON aredl_records(level_gd_id);
+    CREATE INDEX IF NOT EXISTS idx_aredl_records_level    ON aredl_records(level_uuid);
+    CREATE INDEX IF NOT EXISTS idx_aredl_records_player   ON aredl_records(player_uuid);
+    CREATE INDEX IF NOT EXISTS idx_aredl_records_name     ON aredl_records(player_name COLLATE NOCASE);
+  `)
+
+  // Cross-list metadata on `levels`: tracks where an ALL-list level appears on
+  // other lists. `aredl_position` is the level's rank on Aredl (NULL if not on
+  // Aredl); `aredl_tags` is the JSON array of Aredl-side tags so the level
+  // page can merge them with the ALL list's existing tags; `edel_enjoyment`
+  // is Aredl's community enjoyment score (separate from our `enjoyment`).
+  if (!has('aredl_position'))  db.exec(`ALTER TABLE levels ADD COLUMN aredl_position INTEGER`)
+  if (!has('aredl_tags'))      db.exec(`ALTER TABLE levels ADD COLUMN aredl_tags TEXT`)
+  if (!has('edel_enjoyment'))  db.exec(`ALTER TABLE levels ADD COLUMN edel_enjoyment REAL`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_aredl_position ON levels(aredl_position)`)
+
+  // Allow account-level claims to specify which list source the claim is
+  // against. NULL/'all' = legacy ALL-list player (the existing flow);
+  // 'aredl' = an Aredl player. The `aredl_player_uuid` column on accounts
+  // mirrors `claimed_player` for the new source.
+  const accCols2 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
+  if (!accCols2.some((c) => c.name === 'claimed_aredl_uuid')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN claimed_aredl_uuid TEXT`)
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_aredl_claim ON accounts(claimed_aredl_uuid) WHERE claimed_aredl_uuid IS NOT NULL`)
+  }
+  const claimCols = db.prepare(`PRAGMA table_info(claim_requests)`).all() as { name: string }[]
+  if (!claimCols.some((c) => c.name === 'source')) {
+    db.exec(`ALTER TABLE claim_requests ADD COLUMN source TEXT NOT NULL DEFAULT 'all' CHECK(source IN ('all','aredl'))`)
+  }
+  if (!claimCols.some((c) => c.name === 'aredl_player_uuid')) {
+    db.exec(`ALTER TABLE claim_requests ADD COLUMN aredl_player_uuid TEXT`)
+  }
 }

@@ -27,6 +27,7 @@ export type Account = {
   country: string | null
   subdivision: string | null
   claimed_player: string | null
+  claimed_aredl_uuid: string | null
   has_avatar: boolean
 }
 
@@ -76,6 +77,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
   const db = getDb()
   const row = db.prepare(
     `SELECT a.id, a.username, a.role, a.bio, a.country, a.subdivision, a.claimed_player,
+            a.claimed_aredl_uuid,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at
        FROM sessions s
        JOIN accounts a ON a.id = s.account_id
@@ -100,6 +102,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
     country: row.country,
     subdivision: row.subdivision,
     claimed_player: row.claimed_player,
+    claimed_aredl_uuid: row.claimed_aredl_uuid,
     has_avatar: !!row.has_avatar,
   }
 }

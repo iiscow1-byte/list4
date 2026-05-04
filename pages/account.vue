@@ -98,7 +98,13 @@ async function removeAvatar() {
 }
 
 // --- Claim (client-only fetch — endpoint requires auth) ---
-type PendingClaim = { id: number; player_name: string; created_at: string }
+type PendingClaim = {
+  id: number
+  player_name: string
+  source: 'all' | 'aredl' | null
+  aredl_player_uuid: string | null
+  created_at: string
+}
 const pendingClaim = ref<PendingClaim | null>(null)
 
 async function loadPendingClaim() {
@@ -112,18 +118,73 @@ async function loadPendingClaim() {
 onMounted(loadPendingClaim)
 
 const claimOpen = ref(false)
+const claimSource = ref<'all' | 'aredl'>('all')
 const claimInput = ref('')
+const claimAredlUuid = ref<string | null>(null)
 const claimError = ref<string | null>(null)
 const claimSubmitting = ref(false)
+
+// Aredl autocomplete (only fetched when source = 'aredl')
+type AredlSearchHit = { uuid: string; global_name: string; username: string; total_points: number; claimed_account_id: number | null }
+const aredlSuggestions = ref<AredlSearchHit[]>([])
+let aredlDebounce: ReturnType<typeof setTimeout> | null = null
+
+watch([claimInput, claimSource], () => {
+  if (aredlDebounce) clearTimeout(aredlDebounce)
+  if (claimSource.value !== 'aredl' || !claimInput.value.trim()) {
+    aredlSuggestions.value = []
+    claimAredlUuid.value = null
+    return
+  }
+  aredlDebounce = setTimeout(async () => {
+    try {
+      const res = await $fetch<{ items: AredlSearchHit[] }>('/api/aredl-players/search', {
+        query: { q: claimInput.value.trim() },
+      })
+      aredlSuggestions.value = res.items
+    } catch {
+      aredlSuggestions.value = []
+    }
+  }, 200)
+})
+
+function pickAredlSuggestion(hit: AredlSearchHit) {
+  claimInput.value = hit.global_name
+  claimAredlUuid.value = hit.uuid
+  aredlSuggestions.value = []
+}
 
 async function submitClaim() {
   if (claimSubmitting.value || !claimInput.value.trim()) return
   claimError.value = null
   claimSubmitting.value = true
   try {
-    await $fetch('/api/account/claim', { method: 'POST', body: { player_name: claimInput.value.trim() } })
+    if (claimSource.value === 'aredl') {
+      if (!claimAredlUuid.value) {
+        // Resolve via search before submitting; user typed but didn't pick.
+        const res = await $fetch<{ items: AredlSearchHit[] }>('/api/aredl-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        const exact = res.items.find((x) => x.global_name.toLowerCase() === claimInput.value.trim().toLowerCase())
+        if (!exact) {
+          claimError.value = 'Pick an AREDL player from the suggestions.'
+          return
+        }
+        claimAredlUuid.value = exact.uuid
+      }
+      await $fetch('/api/account/claim', {
+        method: 'POST',
+        body: { source: 'aredl', aredl_player_uuid: claimAredlUuid.value },
+      })
+    } else {
+      await $fetch('/api/account/claim', {
+        method: 'POST',
+        body: { source: 'all', player_name: claimInput.value.trim() },
+      })
+    }
     await loadPendingClaim()
     claimInput.value = ''
+    claimAredlUuid.value = null
     claimOpen.value = false
   } catch (e: any) {
     claimError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Claim failed.'
@@ -628,20 +689,28 @@ function fmt(n: number | null | undefined) {
             >Submit level</NuxtLink>
 
             <button
-              v-if="!me.claimed_player && !pendingClaim"
+              v-if="(!me.claimed_player || !me.claimed_aredl_uuid) && !pendingClaim"
               type="button"
               class="text-left text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
               @click="claimOpen = !claimOpen"
-            >Claim leaderboard player</button>
+            >Claim an account</button>
           </div>
 
           <!-- Claim status / inline form -->
-          <div v-if="me.claimed_player" class="mt-3 px-1 text-xs text-zinc-500">
-            Claimed as <span class="text-accent font-medium">{{ me.claimed_player }}</span>.
-            <p class="mt-0.5 text-zinc-600">Contact an admin to change.</p>
+          <div v-if="me.claimed_player || me.claimed_aredl_uuid" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
+            <p v-if="me.claimed_player">
+              ALL list: <span class="text-accent font-medium">{{ me.claimed_player }}</span>
+            </p>
+            <p v-if="me.claimed_aredl_uuid">
+              AREDL: <span class="text-accent font-medium">claimed</span>
+            </p>
+            <p class="text-zinc-600">Contact an admin to change.</p>
           </div>
           <div v-else-if="pendingClaim" class="mt-3 px-1 text-xs text-zinc-400">
-            <p>Pending claim for <span class="text-zinc-200 font-medium">{{ pendingClaim.player_name }}</span>.</p>
+            <p>
+              Pending {{ pendingClaim.source === 'aredl' ? 'AREDL' : 'ALL' }} claim for
+              <span class="text-zinc-200 font-medium">{{ pendingClaim.player_name }}</span>.
+            </p>
             <button
               type="button"
               class="mt-1 text-zinc-500 hover:text-red-400 underline"
@@ -649,11 +718,42 @@ function fmt(n: number | null | undefined) {
             >Cancel</button>
           </div>
           <form v-else-if="claimOpen" class="mt-3 space-y-2" @submit.prevent="submitClaim">
-            <input
-              v-model="claimInput"
-              placeholder="Exact leaderboard name"
-              class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
-            />
+            <select
+              v-model="claimSource"
+              class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-accent/50"
+            >
+              <option value="all">Claim legacy ALL</option>
+              <option value="aredl">Claim AREDL</option>
+            </select>
+            <div class="relative">
+              <input
+                v-model="claimInput"
+                :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : 'Exact leaderboard name'"
+                class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
+                autocomplete="off"
+                @input="claimAredlUuid = null"
+              />
+              <ul
+                v-if="claimSource === 'aredl' && aredlSuggestions.length"
+                class="absolute z-10 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded border border-zinc-800 bg-zinc-900 text-xs shadow-lg"
+              >
+                <li
+                  v-for="hit in aredlSuggestions"
+                  :key="hit.uuid"
+                  class="px-2 py-1.5 cursor-pointer hover:bg-zinc-800 flex justify-between gap-2"
+                  :class="hit.claimed_account_id ? 'opacity-60 cursor-not-allowed' : ''"
+                  @click="hit.claimed_account_id ? null : pickAredlSuggestion(hit)"
+                >
+                  <span class="truncate">
+                    {{ hit.global_name }}
+                    <span v-if="hit.username !== hit.global_name" class="text-zinc-500">@{{ hit.username }}</span>
+                  </span>
+                  <span class="tabular-nums text-zinc-500 shrink-0">
+                    {{ hit.claimed_account_id ? 'claimed' : `${hit.total_points} pts` }}
+                  </span>
+                </li>
+              </ul>
+            </div>
             <div class="flex gap-2">
               <button
                 type="submit"

@@ -28,6 +28,10 @@ type Level = {
   verifier?: string | null
   publisher?: string | null
   enjoyment?: number | null
+  edel_enjoyment?: number | null
+  aredl_position?: number | null
+  aredl_tags?: string[] | null
+  other_lists?: OtherListEntry[]
   description_override?: string | null
   same_as_above?: number | null
   duplicate_of_id?: number | null
@@ -39,6 +43,7 @@ type Level = {
   community?: Community | null
   position_history?: PositionHistoryEntry[]
 }
+type OtherListEntry = { list: string; position: number; url?: string | null }
 type PositionHistoryEntry = {
   id: number
   from_position: number | null
@@ -86,6 +91,16 @@ const tags = computed<Tag[]>(() => {
       to: alt ? `/levels/${alt.position}` : undefined,
       title: alt ? `Alternate of #${alt.position} ${alt.name}` : undefined,
     })
+  }
+  // Merge Aredl tags after the local ones, case-insensitively deduped against
+  // anything we already added so we don't repeat the rated/difficulty chips.
+  const seen = new Set(list.map((t) => t.label.toLowerCase()))
+  for (const t of props.level.aredl_tags ?? []) {
+    if (!t) continue
+    const key = t.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    list.push({ label: t })
   }
   return list
 })
@@ -362,7 +377,7 @@ const infoRows = computed<CreditRow[]>(() => {
 // original layout — the first is identity/scoring, the second is gameplay
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
-type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'gddl_tier' | 'verify_date'
+type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
 type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
 
 const community = computed<Community | null>(() => props.level.community ?? null)
@@ -374,6 +389,7 @@ const visibleTiles1 = computed<Tile1[]>(() => {
   if (props.level.gd_id)             out.push('level_id')
   if (props.level.points != null)    out.push('list_points')
   if (props.level.enjoyment != null) out.push('enjoyment')
+  if (props.level.edel_enjoyment != null) out.push('edel_enjoyment')
   if (props.level.gddl_tier)         out.push('gddl_tier')
   if (props.level.verify_date)       out.push('verify_date')
   return out
@@ -972,6 +988,10 @@ async function deleteHistoryEntry(entryId: number) {
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
           <div class="tabular-nums text-base text-zinc-100">{{ Number(level.enjoyment).toFixed(1) }}</div>
         </div>
+        <div v-if="visibleTiles1.includes('edel_enjoyment')" class="bg-zinc-950 p-4" title="Aredl community enjoyment">
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">EDEL Enjoyment</div>
+          <div class="tabular-nums text-base text-zinc-100">{{ Number(level.edel_enjoyment).toFixed(1) }}</div>
+        </div>
         <div v-if="visibleTiles1.includes('gddl_tier')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
           <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier }}</div>
@@ -1106,6 +1126,34 @@ async function deleteHistoryEntry(entryId: number) {
         </div>
       </section>
     </template>
+
+    <!-- Rankings on other lists. Currently only Aredl; future list integrations
+         render the same way once backend `other_lists` includes them. -->
+    <section
+      v-if="(level.other_lists?.length ?? 0) > 0"
+      class="mt-6 rounded-md border border-zinc-900 bg-zinc-950"
+    >
+      <h3 class="px-4 py-3 text-xs uppercase tracking-widest text-zinc-500 border-b border-zinc-900">
+        Rankings on other lists
+      </h3>
+      <ul class="divide-y divide-zinc-900">
+        <li
+          v-for="entry in level.other_lists"
+          :key="entry.list"
+          class="flex items-center gap-3 px-4 py-3"
+        >
+          <span class="text-sm font-medium text-zinc-200">{{ entry.list }}</span>
+          <a
+            v-if="entry.url"
+            :href="entry.url"
+            target="_blank"
+            rel="noopener"
+            class="ml-auto tabular-nums text-base text-amber-300 hover:underline"
+          >#{{ entry.position }}</a>
+          <span v-else class="ml-auto tabular-nums text-base text-amber-300">#{{ entry.position }}</span>
+        </li>
+      </ul>
+    </section>
 
     <LevelComparisonDrawer
       v-model:open="moveBelowOpen"
