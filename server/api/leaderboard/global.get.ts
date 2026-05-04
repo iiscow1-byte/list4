@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { countryNumericToAlpha2 } from '~/utils/country-codes'
 
 /**
  * Global leaderboard — players from every external list we mirror, with the
@@ -44,13 +45,16 @@ export default defineEventHandler((event) => {
         source: 'aredl',
         uuid: r.uuid,
         player: r.player,
-        country: r.country,
+        country: countryNumericToAlpha2(r.country),
         points: r.total_points,
         pack_points: r.pack_points,
         extremes: r.extremes,
         hardest: r.hardest_name,
+        // Role badge intentionally omitted — AREDL leaderboard rows are list
+        // mirrors, not site identities, so the site-role chip would be
+        // misleading here. The "Claimed" pill in the UI is enough.
         claimed_account: r.claimed_username
-          ? { username: r.claimed_username, role: r.role, badge: r.role }
+          ? { username: r.claimed_username }
           : null,
       })
     }

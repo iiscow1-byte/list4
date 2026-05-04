@@ -59,7 +59,13 @@
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\({position:j.position,name:j.name,aredl_position:j.aredl_position,records_n:j.records?.length,aredl_records_n:j.aredl_records?.length,first_aredl_record:j.aredl_records?.[0]}\\)}\\)\")",
       "Bash(curl -sS \"http://localhost:3000/global\")",
       "Bash(curl -sS \"http://localhost:3000/levels/1\")",
-      "Bash(curl -sS \"http://localhost:3000/aredl-players/b3a8d110-d1c3-4bd1-b803-18fb8719231a\")"
+      "Bash(curl -sS \"http://localhost:3000/aredl-players/b3a8d110-d1c3-4bd1-b803-18fb8719231a\")",
+      "Bash(curl -sS \"http://localhost:3000/api/aredl-players/b3a8d110-d1c3-4bd1-b803-18fb8719231a\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\({global_name:j.global_name,country:j.country,total_points:j.total_points,records_n:j.records?.length}\\)}\\)\")",
+      "Bash(curl -sS \"http://localhost:3000/api/levels/5982\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);const r=j.aredl_records?.[0];console.log\\({first_aredl_record:{player:r?.player,country:r?.country,country_numeric:r?.country_numeric}}\\)}\\)\")",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://localhost:3000/global\")",
+      "Bash(curl -sS \"http://localhost:3000/leaderboard\")"
     ]
   }
 }
