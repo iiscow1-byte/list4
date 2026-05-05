@@ -138,7 +138,10 @@ function sourceLabel(p: Row): string | null {
       <h1 class="text-3xl font-semibold tracking-tight">Leaderboard</h1>
       <p class="text-zinc-400 mt-1 text-sm">
         <template v-if="tab === 'global'">
-          Combined rankings from all tracked lists — AREDL, Pointercrate, and ALL members.
+          <template v-if="globalSource === 'all'">Rankings from AREDL, Pointercrate, and the ALL list — each shown with their source-native rank.</template>
+          <template v-else-if="globalSource === 'aredl'">AREDL players ranked by their AREDL standing.</template>
+          <template v-else-if="globalSource === 'pointercrate'">Pointercrate players ranked by their Pointercrate standing.</template>
+          <template v-else>ALL list members ranked by their ALL list points.</template>
         </template>
         <template v-else-if="tab === 'members'">
           ALL list members ranked by total points.
@@ -181,7 +184,7 @@ function sourceLabel(p: Row): string | null {
           class="px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors border-l first:border-l-0 border-zinc-800"
           :class="globalSource === opt ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           @click="globalSource = opt"
-        >{{ opt === 'all' ? 'All' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : 'ALL' }}</button>
+        >{{ opt === 'all' ? 'All Lists' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : 'ALL' }}</button>
       </div>
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input

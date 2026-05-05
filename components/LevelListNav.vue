@@ -90,7 +90,7 @@ const enjoyMax = ref(10)
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 
-type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'Pointercrate'
+type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL'
 const listVariant = ref<ListVariant>('Classic')
 const externalList = ref('')
 
@@ -113,15 +113,11 @@ function applyVariant(v: ListVariant) {
   } else if (v === 'AREDL') {
     externalList.value = 'aredl'
     sort.value = 'aredl_asc'
-  } else if (v === 'Pointercrate') {
-    externalList.value = 'pointercrate'
-    sort.value = 'pointercrate_asc'
   }
 }
 
 function displayNum(lvl: LevelRow): number {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return lvl.aredl_position
-  if (listVariant.value === 'Pointercrate' && lvl.pointercrate_position != null) return lvl.pointercrate_position
   return lvl.displayRank ?? lvl.position
 }
 
@@ -495,16 +491,14 @@ watch(
                 <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Ranked by external list</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
-                    v-for="v in (['AREDL', 'Pointercrate'] as const)"
-                    :key="v"
                     class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
-                    :class="listVariant === v
+                    :class="listVariant === 'AREDL'
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                    :title="v === 'AREDL' ? 'Levels ranked on AREDL, sorted by their AREDL position' : 'Levels ranked on Pointercrate, sorted by their Pointercrate position'"
+                    title="Levels ranked on AREDL, sorted by their AREDL position"
                   >
-                    <input type="radio" :value="v" :checked="listVariant === v" class="sr-only" @change="applyVariant(v)" />
-                    {{ v === 'Pointercrate' ? 'PC' : v }}
+                    <input type="radio" value="AREDL" :checked="listVariant === 'AREDL'" class="sr-only" @change="applyVariant('AREDL')" />
+                    AREDL
                   </label>
                 </div>
               </div>

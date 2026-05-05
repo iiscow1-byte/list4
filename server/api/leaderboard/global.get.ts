@@ -2,20 +2,16 @@ import { getDb } from '~/server/db'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 
 /**
- * Global leaderboard — players from every external list we mirror, with the
- * existing /leaderboard reserved for the canonical ALL-list players.
+ * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
  *
- * Aredl + Pointercrate currently. Each source has its own row shape (Aredl
- * uses int total_points, Pointercrate uses float score) so they're unioned
- * on a normalized `points` field for sorting + display.
- *
- * `source` query param: 'all' (default), 'aredl', or 'pointercrate'.
+ * When source='all' (All Lists), each source gets an equal slice of the limit
+ * so ALL list players always appear alongside AREDL and Pointercrate players.
+ * Each player's rank reflects their standing within their own source list.
  */
 
 type Row = {
   rank: number
   source: 'aredl' | 'pointercrate' | 'alllist'
-  /** uuid for aredl, pc_id for pointercrate, player name for alllist */
   id: string | number
   player: string
   country: string | null
@@ -30,8 +26,11 @@ export default defineEventHandler((event) => {
   const limit = Math.max(1, Math.min(500, Number(q.limit) || 200))
   const search = String(q.q ?? '').trim()
   const source = String(q.source ?? 'all').toLowerCase()
-  // 'all' merges every source including the ALL list; individual sources can
-  // be requested by their name; 'alllist' targets the ALL list specifically.
+
+  // For the combined 'all' view, divide the limit equally across sources so
+  // every list is represented. For single-source views, use the full limit.
+  const sourcesInView = (source === 'all' ? 3 : 1)
+  const subLimit = Math.ceil(limit / sourcesInView)
 
   const db = getDb()
   const rows: Row[] = []
@@ -41,8 +40,7 @@ export default defineEventHandler((event) => {
     let where = ''
     if (search) {
       where = `WHERE ap.global_name LIKE ? COLLATE NOCASE OR ap.username LIKE ? COLLATE NOCASE`
-      const like = `%${search}%`
-      params.push(like, like)
+      params.push(`%${search}%`, `%${search}%`)
     }
     const sql = `
       SELECT ap.uuid, ap.global_name AS player, ap.country,
@@ -52,10 +50,10 @@ export default defineEventHandler((event) => {
         FROM aredl_players ap
         LEFT JOIN accounts a ON a.id = ap.claimed_account_id
        ${where}
-       ORDER BY ap.total_points DESC, ap.global_name COLLATE NOCASE ASC
+       ORDER BY ap.rank ASC, ap.global_name COLLATE NOCASE ASC
        LIMIT ?
     `
-    params.push(limit)
+    params.push(subLimit)
     const aredlRows = db.prepare(sql).all(...params) as any[]
     for (const r of aredlRows) {
       rows.push({
@@ -86,10 +84,10 @@ export default defineEventHandler((event) => {
         FROM pointercrate_players pp
         LEFT JOIN accounts a ON a.id = pp.claimed_account_id
        ${where}
-       ORDER BY pp.score DESC, pp.name COLLATE NOCASE ASC
+       ORDER BY pp.rank ASC, pp.name COLLATE NOCASE ASC
        LIMIT ?
     `
-    params.push(limit)
+    params.push(subLimit)
     const pcRows = db.prepare(sql).all(...params) as any[]
     for (const r of pcRows) {
       rows.push({
@@ -115,14 +113,15 @@ export default defineEventHandler((event) => {
     }
     const sql = `
       SELECT p.name AS player, p.country, p.total_points AS points, p.hardest,
-             a.username AS claimed_username
+             MAX(a.username) AS claimed_username
         FROM players p
         LEFT JOIN accounts a ON LOWER(a.claimed_player) = LOWER(p.name)
        ${where}
-       ORDER BY p.total_points DESC, p.name COLLATE NOCASE ASC
+       GROUP BY p.name
+       ORDER BY p.total_points DESC NULLS LAST, p.name COLLATE NOCASE ASC
        LIMIT ?
     `
-    params.push(limit)
+    params.push(subLimit)
     const allRows = db.prepare(sql).all(...params) as any[]
     let allRank = 1
     for (const r of allRows) {
@@ -140,9 +139,15 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // Re-rank merged results by points.
+  // For combined view: sort by source order (AREDL→PC→ALL), then by rank within
+  // each source. This keeps source-native rankings intact and ensures ALL list
+  // players always appear rather than being crowded out by incompatible point scales.
   if (source === 'all') {
-    rows.sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+    const order: Record<string, number> = { aredl: 0, pointercrate: 1, alllist: 2 }
+    rows.sort((a, b) => {
+      const d = (order[a.source] ?? 3) - (order[b.source] ?? 3)
+      return d !== 0 ? d : (a.rank ?? 0) - (b.rank ?? 0)
+    })
   }
 
   return { total: rows.length, items: rows.slice(0, limit) }
