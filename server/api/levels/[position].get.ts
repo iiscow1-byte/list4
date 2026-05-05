@@ -129,13 +129,6 @@ export default defineEventHandler((event) => {
       url: level.gd_id ? `https://aredl.net/level/${level.gd_id}` : null,
     })
   }
-  if (level.pointercrate_position != null) {
-    other_lists.push({
-      list: 'Pointercrate',
-      position: level.pointercrate_position,
-      url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
-    })
-  }
 
   return {
     ...level,

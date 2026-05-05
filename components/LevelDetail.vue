@@ -1237,7 +1237,7 @@ const historyByDay = computed(() => {
     <!-- Rankings on other lists — always shown as a collapsible. When the level
          has no real rankings, an estimated AREDL position is fetched on open. -->
     <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
-      <details :open="(level.other_lists?.length ?? 0) > 0" class="group" @toggle="onOtherListsToggle">
+      <details :open="(level.other_lists?.length ?? 0) > 0" class="group">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
@@ -1264,35 +1264,7 @@ const historyByDay = computed(() => {
             <span class="text-sm font-medium text-zinc-200">AREDL</span>
             <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
           </li>
-          <li v-if="!level.other_lists?.some(e => e.list === 'Pointercrate')" class="flex items-center gap-3 px-4 py-3">
-            <span class="text-sm font-medium text-zinc-200">Pointercrate</span>
-            <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-          </li>
         </ul>
-
-        <!-- AREDL estimated placement (only when not ranked on AREDL) -->
-        <div v-if="!level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading estimate…</div>
-          <template v-else-if="estimatedData">
-            <div v-if="estimatedData.estimated_aredl" class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
-              <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
-            </div>
-            <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
-              Based on nearby ranked levels:
-              <template v-if="estimatedData.bracket.above">
-                <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
-                (AREDL #{{ estimatedData.bracket.above.aredl_position }})
-              </template>
-              <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
-              <template v-if="estimatedData.bracket.below">
-                <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accept">{{ estimatedData.bracket.below.name }}</NuxtLink>
-                (AREDL #{{ estimatedData.bracket.below.aredl_position }})
-              </template>
-            </p>
-            <p v-else class="text-[11px] text-zinc-600">No nearby AREDL-ranked levels found for estimation.</p>
-          </template>
-        </div>
       </details>
     </section>
 

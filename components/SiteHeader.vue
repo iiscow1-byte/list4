@@ -121,14 +121,14 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
 
         <NuxtLink
           to="/records/submit"
-          class="px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-          active-class="text-zinc-100 bg-zinc-900"
-        >Submit record</NuxtLink>
+          class="px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+          active-class="bg-zinc-700 text-zinc-100"
+        >Submit Record</NuxtLink>
         <NuxtLink
           to="/levels/submit"
-          class="px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-          active-class="text-zinc-100 bg-zinc-900"
-        >Submit level</NuxtLink>
+          class="px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap bg-zinc-800 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
+          active-class="bg-zinc-700 text-zinc-100"
+        >Submit Level</NuxtLink>
 
         <NuxtLink
           v-if="me?.role && me.role !== 'user'"

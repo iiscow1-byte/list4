@@ -192,15 +192,15 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // For combined view: sort by points descending and assign unified ranks so
-  // the highest-scoring player is always #1. This also means search results
-  // are re-ranked 1,2,3… among the matched subset by their relative points.
+  // For combined view: sort by points descending so the highest-scoring player
+  // appears first. Source-specific ranks (AREDL rank, PC rank, ALL list rank)
+  // are preserved so a player's displayed rank always reflects their real
+  // standing in their own list, unaffected by search filtering.
   if (source === 'all') {
     rows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
-    rows.forEach((r, i) => { r.rank = i + 1 })
   }
 
   return { total: rows.length, items: rows.slice(0, limit) }

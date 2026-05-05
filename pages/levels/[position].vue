@@ -37,7 +37,7 @@ watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null 
     class="grid grid-rows-[minmax(0,1fr)] h-full transition-[grid-template-columns] duration-200"
     :class="sidebarOpen ? 'grid-cols-[20%_60%_20%]' : 'grid-cols-[0px_80%_20%]'"
   >
-    <div class="overflow-hidden min-w-0">
+    <div class="flex flex-col overflow-hidden min-w-0">
       <LevelListNav
         v-show="sidebarOpen"
         :active-position="position"
