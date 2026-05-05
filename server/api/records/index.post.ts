@@ -44,6 +44,20 @@ export default defineEventHandler(async (event) => {
   const db = getDb()
   const level = db.prepare(`SELECT id, verifier FROM levels WHERE position = ?`).get(position) as { id: number; verifier: string | null } | undefined
   if (!level) throw createError({ statusCode: 404, statusMessage: 'No such level.' })
+
+  // Reject duplicate submissions for the same player on the same level.
+  const existing = db.prepare(
+    `SELECT id, permanent FROM records WHERE level_id = ? AND player_name = ? COLLATE NOCASE LIMIT 1`,
+  ).get(level.id, holder) as { id: number; permanent: number } | undefined
+  if (existing) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: existing.permanent
+        ? 'A record for this player already exists on this level.'
+        : 'A record for this player is already pending review for this level.',
+    })
+  }
+
   // Silently ignore the claim if the level already has a verifier — the UI hides
   // the checkbox in this case, but enforce on the server too.
   const verificationClaim = isVerificationClaim && !level.verifier ? 1 : 0

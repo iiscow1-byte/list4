@@ -322,6 +322,22 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => observer?.disconnect())
 
+// Poll for list changes every 60s and reload automatically when the stamp changes.
+let pollStamp = -1
+let pollTimer: ReturnType<typeof setInterval> | null = null
+async function checkVersion() {
+  try {
+    const res = await $fetch<{ stamp: number }>('/api/levels/version')
+    if (pollStamp === -1) { pollStamp = res.stamp; return }
+    if (res.stamp !== pollStamp) {
+      pollStamp = res.stamp
+      refilter(true)
+    }
+  } catch { /* non-fatal */ }
+}
+onMounted(() => { pollTimer = setInterval(checkVersion, 60_000) })
+onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
+
 // Auto-scroll active item into view
 watch(
   () => props.activePosition,

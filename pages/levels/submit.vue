@@ -275,6 +275,18 @@ function youtubeId(url: string | null): string | null {
 }
 const ytId = computed(() => youtubeId(verificationUrl.value.trim()))
 
+const dateLoading = ref(false)
+watch(ytId, async (id) => {
+  if (!id) return
+  dateLoading.value = true
+  try {
+    const res = await $fetch<{ date: string }>(`/api/youtube/upload-date?id=${id}`)
+    if (res?.date) verifyDate.value = res.date
+  } catch { /* ignore — user can fill manually */ } finally {
+    dateLoading.value = false
+  }
+})
+
 async function submit() {
   if (submitting.value) return
   error.value = null
@@ -372,13 +384,13 @@ async function submit() {
           Source
           <span class="text-zinc-600 normal-case">— where you found this level. Leave on "None" if it's first-party to the All Levels List.</span>
         </span>
-        <select
+        <SearchableSelect
           v-model="placementSource"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        >
-          <option value="">None</option>
-          <option v-for="s in sourceOptions" :key="s" :value="s">{{ s }}</option>
-        </select>
+          :options="sourceOptions"
+          empty-label="None"
+          placeholder="None"
+          class="mt-1"
+        />
       </label>
 
       <!-- FPS + Version -->
@@ -444,7 +456,10 @@ async function submit() {
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification date</span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                Verification date
+                <span v-if="dateLoading" class="normal-case tracking-normal text-zinc-600 ml-1">fetching…</span>
+              </span>
               <input
                 v-model="verifyDate"
                 type="date"
@@ -583,12 +598,13 @@ async function submit() {
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-              <select
+              <SearchableSelect
                 v-model="skillset"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              >
-                <option v-for="s in SKILLSET_OPTIONS" :key="s" :value="s">{{ s || '— none —' }}</option>
-              </select>
+                :options="SKILLSET_OPTIONS.filter(Boolean)"
+                empty-label="— none —"
+                placeholder="— none —"
+                class="mt-1"
+              />
             </label>
           </div>
           <div>

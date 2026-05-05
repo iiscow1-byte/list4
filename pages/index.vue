@@ -56,6 +56,13 @@ const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
   query: { days: 14, limit: 300 },
 })
 
+const listsSearch = ref('')
+const filteredLists = computed(() => {
+  const q = listsSearch.value.trim().toLowerCase()
+  if (!q) return landing.value?.lists ?? []
+  return (landing.value?.lists ?? []).filter((l) => l.name.toLowerCase().includes(q))
+})
+
 function formatDay(ymd: string): string {
   // Friendly date — "May 3, 2026" — using UTC so the heading matches the
   // grouping logic on the server.
@@ -258,10 +265,19 @@ function paraParts(p: string): { text: string; href: string | null } {
 
     <!-- All Demonlists Used -->
     <section v-if="landing?.lists?.length" class="space-y-3">
-      <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">All Demonlists Used</h2>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
+      <div class="flex items-center gap-3 flex-wrap">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">All Demonlists Used</h2>
+        <input
+          v-model="listsSearch"
+          type="search"
+          placeholder="Search lists…"
+          class="ml-auto rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
+      </div>
+      <p v-if="filteredLists.length === 0" class="text-sm text-zinc-500 py-2">No matching lists.</p>
+      <ul v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
         <li
-          v-for="(l, i) in landing.lists"
+          v-for="(l, i) in filteredLists"
           :key="`l-${i}`"
           class="bg-zinc-950"
         >

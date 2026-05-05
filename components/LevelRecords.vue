@@ -83,9 +83,17 @@ async function deleteRecord(id: number) {
           :key="`${r.source ?? 'all'}-${r.player}-${r.percent}-${idx}`"
           class="px-3 py-2.5 hover:bg-zinc-900/60 transition-colors group"
         >
+          <!-- Line 1: player name · video link · percent · delete -->
           <div class="flex items-baseline justify-between gap-2">
             <span class="text-sm font-medium truncate">{{ r.player }}</span>
-            <div class="flex items-center gap-1.5 shrink-0">
+            <div class="flex items-center gap-2 shrink-0">
+              <a
+                v-if="r.video"
+                :href="r.video"
+                target="_blank"
+                rel="noopener"
+                class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
+              >video ↗</a>
               <span class="tabular-nums text-xs text-amber-300">{{ r.percent }}%</span>
               <button
                 v-if="isAdmin && r.id && (!r.source || r.source === 'all')"
@@ -97,9 +105,15 @@ async function deleteRecord(id: number) {
               >✕</button>
             </div>
           </div>
+          <!-- Line 2: country · hz · source badge (consistent for all records) -->
           <div class="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-500">
             <span v-if="r.country" class="uppercase">{{ r.country }}</span>
             <span v-if="r.hz" class="tabular-nums">{{ r.hz }}hz</span>
+            <span
+              v-if="!r.source || r.source === 'all'"
+              class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
+              title="ALL list record"
+            >ALL</span>
             <span
               v-if="r.source === 'aredl'"
               class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
@@ -110,7 +124,6 @@ async function deleteRecord(id: number) {
               class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
               :title="r.is_legacy ? 'From Pointercrate Legacy' : (r.is_verification ? 'Verifier on Pointercrate' : 'Imported from Pointercrate')"
             >PC{{ r.is_legacy ? ' Legacy' : '' }}</span>
-            <a v-if="r.video" :href="r.video" target="_blank" rel="noopener" class="hover:text-accent ml-auto">video ↗</a>
           </div>
         </li>
       </ul>
