@@ -8,6 +8,7 @@ type AllRow = {
   country: string | null
   points: number
   skill_points: number
+  extremes?: number
   hardest: string | null
   tier: string | null
   badge: string | null
@@ -235,6 +236,7 @@ function sourceLabel(p: Row): string | null {
                 <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
                   <template v-if="!sourceLabel(p)">
                     <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill: {{ fmt((p as AllRow).skill_points) }}</span>
+                    <span v-if="(p as AllRow).extremes" class="tabular-nums">{{ (p as AllRow).extremes }} extremes</span>
                     <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
                   </template>
                   <template v-else>

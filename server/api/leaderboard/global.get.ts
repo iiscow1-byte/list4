@@ -114,7 +114,14 @@ export default defineEventHandler((event) => {
       points: number
       hardest: string | null
       claimed_username: string | null
+      extremes: number
     }
+
+    // Count accepted records per ALL list player (every ALL list level is an extreme).
+    const extremesMap = new Map<string, number>()
+    ;(db.prepare(
+      `SELECT LOWER(player_name) AS k, COUNT(*) AS n FROM records WHERE permanent = 1 GROUP BY LOWER(player_name)`,
+    ).all() as { k: string; n: number }[]).forEach((r) => extremesMap.set(r.k, r.n))
 
     const sheetRows = db.prepare(
       `SELECT p.name AS player, p.country, p.total_points AS points, p.hardest,
@@ -130,6 +137,7 @@ export default defineEventHandler((event) => {
       points: r.points ?? 0,
       hardest: r.hardest,
       claimed_username: r.claimed_username,
+      extremes: extremesMap.get(r.player.toLowerCase()) ?? 0,
     }))
 
     const seenAll = new Set<string>(allEntries.map((e) => e.player.toLowerCase()))
@@ -146,6 +154,7 @@ export default defineEventHandler((event) => {
         points: d.total_points,
         hardest: d.hardest,
         claimed_username: acc?.username ?? null,
+        extremes: extremesMap.get(d.name.toLowerCase()) ?? 0,
       })
     }
 
@@ -155,7 +164,7 @@ export default defineEventHandler((event) => {
       const name = a.claimed_player ?? a.username
       if (seenAll.has(name.toLowerCase())) continue
       seenAll.add(name.toLowerCase())
-      allEntries.push({ player: name, country: a.country, points: 0, hardest: null, claimed_username: a.username })
+      allEntries.push({ player: name, country: a.country, points: 0, hardest: null, claimed_username: a.username, extremes: extremesMap.get(name.toLowerCase()) ?? 0 })
     }
 
     allEntries.sort((a, b) => {
@@ -163,7 +172,7 @@ export default defineEventHandler((event) => {
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
 
-    // Assign true ranks before filtering so badges show the real global rank.
+    // Assign true ranks before filtering so search shows the real global rank.
     const ranked = allEntries.map((e, i) => ({ ...e, rank: i + 1 }))
     const needle = search.toLowerCase()
     const filtered = search ? ranked.filter((e) => e.player.toLowerCase().includes(needle)) : ranked
@@ -176,21 +185,22 @@ export default defineEventHandler((event) => {
         player: r.player,
         country: r.country,
         points: r.points,
-        extras: {},
+        extras: { extremes: r.extremes },
         hardest: r.hardest,
         claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
       })
     }
   }
 
-  // For combined view: sort by points descending across all sources and
-  // re-assign unified ranks so the display reflects true cross-list standing.
+  // For combined view: sort by points descending so the highest-scoring player
+  // across all three sources appears first. Source-specific ranks are preserved
+  // (not re-assigned) so a player's displayed rank reflects their standing in
+  // their own list regardless of search filtering.
   if (source === 'all') {
     rows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
-    rows.forEach((r, i) => { r.rank = i + 1 })
   }
 
   return { total: rows.length, items: rows.slice(0, limit) }
