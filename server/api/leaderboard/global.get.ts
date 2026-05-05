@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
+import { listDerivedPlayers } from '~/server/utils/leaderboard'
 
 /**
  * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
@@ -105,33 +106,76 @@ export default defineEventHandler((event) => {
   }
 
   if (source === 'all' || source === 'alllist') {
-    const params: any[] = []
-    let where = ''
-    if (search) {
-      where = `WHERE p.name LIKE ? COLLATE NOCASE`
-      params.push(`%${search}%`)
+    // Same three-category logic as leaderboard.get.ts so all accounts appear:
+    // 1. sheet players, 2. derived (records-only), 3. zero-point registered accounts
+    type AllEntry = {
+      player: string
+      country: string | null
+      points: number
+      hardest: string | null
+      claimed_username: string | null
     }
-    const sql = `
-      SELECT p.name AS player, p.country, p.total_points AS points, p.hardest,
-             MAX(a.username) AS claimed_username
-        FROM players p
-        LEFT JOIN accounts a ON LOWER(a.claimed_player) = LOWER(p.name)
-       ${where}
-       GROUP BY p.name
-       ORDER BY p.total_points DESC NULLS LAST, p.name COLLATE NOCASE ASC
-       LIMIT ?
-    `
-    params.push(subLimit)
-    const allRows = db.prepare(sql).all(...params) as any[]
-    let allRank = 1
-    for (const r of allRows) {
+
+    const sheetRows = db.prepare(
+      `SELECT p.name AS player, p.country, p.total_points AS points, p.hardest,
+              MAX(a.username) AS claimed_username
+         FROM players p
+         LEFT JOIN accounts a ON LOWER(a.claimed_player) = LOWER(p.name)
+        GROUP BY p.name`,
+    ).all() as any[]
+
+    const allEntries: AllEntry[] = sheetRows.map((r: any) => ({
+      player: r.player,
+      country: r.country,
+      points: r.points ?? 0,
+      hardest: r.hardest,
+      claimed_username: r.claimed_username,
+    }))
+
+    const seenAll = new Set<string>(allEntries.map((e) => e.player.toLowerCase()))
+
+    for (const d of listDerivedPlayers(db)) {
+      if (seenAll.has(d.name.toLowerCase())) continue
+      seenAll.add(d.name.toLowerCase())
+      const acc = db.prepare(
+        `SELECT username FROM accounts WHERE LOWER(claimed_player) = LOWER(?) AND banned_at IS NULL LIMIT 1`,
+      ).get(d.name) as { username: string } | undefined
+      allEntries.push({
+        player: d.name,
+        country: null,
+        points: d.total_points,
+        hardest: d.hardest,
+        claimed_username: acc?.username ?? null,
+      })
+    }
+
+    for (const a of db.prepare(
+      `SELECT username, claimed_player, country FROM accounts WHERE banned_at IS NULL`,
+    ).all() as { username: string; claimed_player: string | null; country: string | null }[]) {
+      const name = a.claimed_player ?? a.username
+      if (seenAll.has(name.toLowerCase())) continue
+      seenAll.add(name.toLowerCase())
+      allEntries.push({ player: name, country: a.country, points: 0, hardest: null, claimed_username: a.username })
+    }
+
+    allEntries.sort((a, b) => {
+      const dp = (b.points ?? 0) - (a.points ?? 0)
+      return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
+    })
+
+    // Assign true ranks before filtering so badges show the real global rank.
+    const ranked = allEntries.map((e, i) => ({ ...e, rank: i + 1 }))
+    const needle = search.toLowerCase()
+    const filtered = search ? ranked.filter((e) => e.player.toLowerCase().includes(needle)) : ranked
+
+    for (const r of filtered.slice(0, subLimit)) {
       rows.push({
-        rank: allRank++,
+        rank: r.rank,
         source: 'alllist',
         id: r.player,
         player: r.player,
         country: r.country,
-        points: r.points ?? 0,
+        points: r.points,
         extras: {},
         hardest: r.hardest,
         claimed_account: r.claimed_username ? { username: r.claimed_username } : null,

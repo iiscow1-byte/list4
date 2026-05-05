@@ -5,46 +5,72 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid video ID.' })
   }
 
-  // Primary: YouTube's internal player API (used by yt-dlp, ytdl-core, etc.)
-  // Returns structured JSON including publishDate without requiring an API key.
-  try {
-    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
-        'X-YouTube-Client-Name': '3',
-        'X-YouTube-Client-Version': '19.09.37',
-      },
-      body: JSON.stringify({
-        videoId: id,
-        context: {
-          client: {
-            hl: 'en',
-            gl: 'US',
-            clientName: 'ANDROID',
-            clientVersion: '19.09.37',
-            androidSdkVersion: 30,
-          },
+  // Strategy 1: YouTube internal API with IOS client context (avoids bot detection
+  // better than ANDROID client; no API key required).
+  for (const client of [
+    {
+      name: 'IOS',
+      version: '19.09.3',
+      clientNum: '5',
+      ua: 'com.google.ios.youtube/19.09.3 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
+      extra: { deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '17.5.1.21F90' },
+    },
+    {
+      name: 'ANDROID',
+      version: '19.09.37',
+      clientNum: '3',
+      ua: 'com.google.android.youtube/19.09.37 (Linux; U; Android 11) gzip',
+      extra: { androidSdkVersion: 30 },
+    },
+    {
+      name: 'WEB',
+      version: '2.20240726.00.00',
+      clientNum: '1',
+      ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      extra: {},
+    },
+  ]) {
+    try {
+      const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': client.ua,
+          'X-YouTube-Client-Name': client.clientNum,
+          'X-YouTube-Client-Version': client.version,
+          ...(client.name === 'WEB' ? { Origin: 'https://www.youtube.com', Referer: 'https://www.youtube.com/' } : {}),
         },
-      }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      const date: string | undefined = data?.microformat?.playerMicroformatRenderer?.publishDate
-      if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-        return { date }
+        body: JSON.stringify({
+          videoId: id,
+          context: {
+            client: {
+              hl: 'en',
+              gl: 'US',
+              clientName: client.name,
+              clientVersion: client.version,
+              ...client.extra,
+            },
+          },
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json() as any
+        const date: string | undefined = data?.microformat?.playerMicroformatRenderer?.publishDate
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) return { date }
+        // Some clients return a different date path
+        const date2: string | undefined = data?.videoDetails?.publishDate
+        if (date2 && /^\d{4}-\d{2}-\d{2}$/.test(date2)) return { date: date2 }
       }
-    }
-  } catch { /* fall through */ }
+    } catch { /* try next client */ }
+  }
 
-  // Fallback: scrape the watch page with several regex patterns.
+  // Strategy 2: scrape the watch page.
   try {
     const res = await fetch(`https://www.youtube.com/watch?v=${id}`, {
       headers: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Cookie': 'CONSENT=YES+cb; SOCS=CAISHAgBEhJnd3NfMjAyMzA3MThfMF9SQzIaAmVuIAEaBgiA_LSnBg',
+        Cookie: 'CONSENT=YES+cb; SOCS=CAISHAgBEhJnd3NfMjAyMzA3MThfMF9SQzIaAmVuIAEaBgiA_LSnBg',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
       },
     })
@@ -64,5 +90,6 @@ export default defineEventHandler(async (event) => {
     }
   } catch { /* fall through */ }
 
-  throw createError({ statusCode: 404, statusMessage: 'Could not determine upload date.' })
+  // Return null date rather than throwing so the client can handle it gracefully.
+  return { date: null }
 })

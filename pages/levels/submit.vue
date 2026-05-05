@@ -280,7 +280,7 @@ watch(ytId, async (id) => {
   if (!id) return
   dateLoading.value = true
   try {
-    const res = await $fetch<{ date: string }>(`/api/youtube/upload-date?id=${id}`)
+    const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
     if (res?.date) verifyDate.value = res.date
   } catch { /* ignore — user can fill manually */ } finally {
     dateLoading.value = false
