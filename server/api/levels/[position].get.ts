@@ -28,9 +28,9 @@ export default defineEventHandler((event) => {
     )
     .all(level.id)
 
-  // Aredl records for this level (matched by gd_id). The importer already
-  // dropped any record with an exact-match (player_name + gd_id) in the ALL
-  // records, so concatenating is safe — the dedup happened upstream.
+  // External-list records for this level (matched by gd_id). Importers
+  // already deduped against ALL records (and Pointercrate also deduped
+  // against Aredl), so concatenating is safe.
   const aredl_records = level.gd_id
     ? (db
         .prepare(
@@ -54,6 +54,26 @@ export default defineEventHandler((event) => {
           country: countryNumericToAlpha2(r.country_numeric),
           country_numeric: undefined,
         }))
+    : []
+
+  const pointercrate_records = level.gd_id
+    ? db
+        .prepare(
+          `SELECT pcr.progress AS percent,
+                  NULL AS hz,
+                  pcr.video,
+                  pcr.player_name AS player,
+                  pp.nationality AS country,
+                  'pointercrate' AS source,
+                  pcr.is_verification,
+                  pcr.is_legacy,
+                  pcr.demon_position AS demon_position
+             FROM pointercrate_records pcr
+        LEFT JOIN pointercrate_players pp ON pp.pc_id = pcr.player_pc_id
+            WHERE pcr.level_gd_id = ?
+            ORDER BY pcr.progress DESC, pcr.player_name COLLATE NOCASE ASC`,
+        )
+        .all(level.gd_id)
     : []
 
   const community = communityStats(db, 'main', level.id)
@@ -99,7 +119,8 @@ export default defineEventHandler((event) => {
   }
 
   // "Other lists" rankings — the level's position on every external list we
-  // mirror. Currently just Aredl; future list integrations slot in here.
+  // mirror. Pointercrate Main + Extended are merged into a single chip per
+  // the design call (legacy demons don't get a position chip).
   const other_lists: Array<{ list: string; position: number; url?: string | null }> = []
   if (level.aredl_position != null) {
     other_lists.push({
@@ -108,12 +129,20 @@ export default defineEventHandler((event) => {
       url: level.gd_id ? `https://aredl.net/level/${level.gd_id}` : null,
     })
   }
+  if (level.pointercrate_position != null) {
+    other_lists.push({
+      list: 'Pointercrate',
+      position: level.pointercrate_position,
+      url: level.gd_id ? `https://pointercrate.com/demonlist/${level.pointercrate_position}` : null,
+    })
+  }
 
   return {
     ...level,
     enjoyment,
     records,
     aredl_records,
+    pointercrate_records,
     aredl_tags,
     other_lists,
     community,

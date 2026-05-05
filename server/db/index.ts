@@ -718,4 +718,114 @@ function initSchema(db: DatabaseSync) {
   if (!claimCols.some((c) => c.name === 'aredl_player_uuid')) {
     db.exec(`ALTER TABLE claim_requests ADD COLUMN aredl_player_uuid TEXT`)
   }
+  if (!claimCols.some((c) => c.name === 'pointercrate_player_id')) {
+    db.exec(`ALTER TABLE claim_requests ADD COLUMN pointercrate_player_id INTEGER`)
+  }
+
+  // Allow 'pointercrate' as a third claim source. SQLite can't ALTER a CHECK
+  // constraint in place; if the existing CHECK still only allows ('all','aredl')
+  // we rebuild the table to widen it. Idempotent: no-op once 'pointercrate'
+  // is already in the constraint definition.
+  const claimSql = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='claim_requests'`,
+  ).get() as { sql: string } | undefined)?.sql ?? ''
+  if (!claimSql.includes("'pointercrate'")) {
+    db.exec('PRAGMA foreign_keys = OFF')
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+        CREATE TABLE claim_requests__new (
+          id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id               INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          player_name              TEXT    NOT NULL,
+          status                   TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+          decided_at               TEXT,
+          decided_by               INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          source                   TEXT    NOT NULL DEFAULT 'all' CHECK(source IN ('all','aredl','pointercrate')),
+          aredl_player_uuid        TEXT,
+          pointercrate_player_id   INTEGER
+        );
+        INSERT INTO claim_requests__new
+          (id, account_id, player_name, status, created_at, decided_at, decided_by,
+           source, aredl_player_uuid, pointercrate_player_id)
+        SELECT
+           id, account_id, player_name, status, created_at, decided_at, decided_by,
+           source, aredl_player_uuid, pointercrate_player_id
+          FROM claim_requests;
+        DROP TABLE claim_requests;
+        ALTER TABLE claim_requests__new RENAME TO claim_requests;
+        CREATE INDEX IF NOT EXISTS idx_claims_account ON claim_requests(account_id);
+        CREATE INDEX IF NOT EXISTS idx_claims_status  ON claim_requests(status);
+      `)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      db.exec('PRAGMA foreign_keys = ON')
+      throw e
+    }
+    db.exec('PRAGMA foreign_keys = ON')
+  }
+
+  // --- Pointercrate mirrors. Players-only (Pointercrate has no levels we
+  // don't already have via Aredl). Records are deduped against records and
+  // aredl_records on insert (player_name + gd_id, percent=100). Legacy demons
+  // (position > extended_list_size) are tracked in pointercrate_legacy_imported
+  // so their records are pulled exactly once and never re-fetched.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pointercrate_players (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      pc_id              INTEGER NOT NULL UNIQUE,
+      name               TEXT    NOT NULL COLLATE NOCASE,
+      banned             INTEGER NOT NULL DEFAULT 0,
+      nationality        TEXT,
+      subdivision        TEXT,
+      rank               INTEGER,
+      score              REAL    NOT NULL DEFAULT 0,
+      hardest_pc_id      INTEGER,
+      hardest_name       TEXT,
+      claimed_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      fetched_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pc_players_name  ON pointercrate_players(name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_pc_players_score ON pointercrate_players(score DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_pc_players_claim ON pointercrate_players(claimed_account_id) WHERE claimed_account_id IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS pointercrate_records (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      pc_id           INTEGER NOT NULL UNIQUE,
+      demon_pc_id     INTEGER NOT NULL,
+      demon_position  INTEGER,
+      demon_name      TEXT,
+      level_gd_id     INTEGER,
+      player_pc_id    INTEGER NOT NULL,
+      player_name     TEXT    NOT NULL COLLATE NOCASE,
+      progress        INTEGER NOT NULL DEFAULT 100,
+      video           TEXT,
+      is_legacy       INTEGER NOT NULL DEFAULT 0,
+      is_verification INTEGER NOT NULL DEFAULT 0,
+      fetched_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_pc_records_demon  ON pointercrate_records(demon_pc_id);
+    CREATE INDEX IF NOT EXISTS idx_pc_records_player ON pointercrate_records(player_pc_id);
+    CREATE INDEX IF NOT EXISTS idx_pc_records_level  ON pointercrate_records(level_gd_id);
+    CREATE INDEX IF NOT EXISTS idx_pc_records_name   ON pointercrate_records(player_name COLLATE NOCASE);
+
+    -- Per-demon flag: a Pointercrate legacy demon's records are pulled once
+    -- (the user's design call — legacy entries are stable). On re-runs the
+    -- importer skips any demon with a row here.
+    CREATE TABLE IF NOT EXISTS pointercrate_legacy_imported (
+      pc_demon_id INTEGER PRIMARY KEY,
+      fetched_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+
+  if (!has('pointercrate_position')) db.exec(`ALTER TABLE levels ADD COLUMN pointercrate_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_pc_position ON levels(pointercrate_position)`)
+
+  const accCols3 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
+  if (!accCols3.some((c) => c.name === 'claimed_pointercrate_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN claimed_pointercrate_id INTEGER`)
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_pc_claim ON accounts(claimed_pointercrate_id) WHERE claimed_pointercrate_id IS NOT NULL`)
+  }
 }

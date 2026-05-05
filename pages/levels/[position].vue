@@ -53,6 +53,13 @@ watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null 
         @end-move-below="onEndMoveBelow"
       />
     </section>
-    <LevelRecords :records="[...(level?.records ?? []), ...(level?.aredl_records ?? [])]" @refresh="refresh" />
+    <LevelRecords
+      :records="[
+        ...(level?.records ?? []),
+        ...(level?.aredl_records ?? []),
+        ...(level?.pointercrate_records ?? []),
+      ]"
+      @refresh="refresh"
+    />
   </div>
 </template>

@@ -123,8 +123,9 @@ async function removeAvatar() {
 type PendingClaim = {
   id: number
   player_name: string
-  source: 'all' | 'aredl' | null
+  source: 'all' | 'aredl' | 'pointercrate' | null
   aredl_player_uuid: string | null
+  pointercrate_player_id: number | null
   created_at: string
 }
 const pendingClaim = ref<PendingClaim | null>(null)
@@ -140,33 +141,42 @@ async function loadPendingClaim() {
 onMounted(loadPendingClaim)
 
 const claimOpen = ref(false)
-const claimSource = ref<'all' | 'aredl'>('all')
+const claimSource = ref<'all' | 'aredl' | 'pointercrate'>('all')
 const claimInput = ref('')
 const claimAredlUuid = ref<string | null>(null)
+const claimPcId = ref<number | null>(null)
 const claimError = ref<string | null>(null)
 const claimSubmitting = ref(false)
 
-// Aredl autocomplete (only fetched when source = 'aredl')
+// External-list autocomplete (Aredl and Pointercrate share the same UI shape).
 type AredlSearchHit = { uuid: string; global_name: string; username: string; total_points: number; claimed_account_id: number | null }
+type PcSearchHit = { pc_id: number; name: string; nationality: string | null; score: number; claimed_account_id: number | null }
 const aredlSuggestions = ref<AredlSearchHit[]>([])
-let aredlDebounce: ReturnType<typeof setTimeout> | null = null
+const pcSuggestions = ref<PcSearchHit[]>([])
+let claimDebounce: ReturnType<typeof setTimeout> | null = null
 
 watch([claimInput, claimSource], () => {
-  if (aredlDebounce) clearTimeout(aredlDebounce)
-  if (claimSource.value !== 'aredl' || !claimInput.value.trim()) {
-    aredlSuggestions.value = []
-    claimAredlUuid.value = null
-    return
-  }
-  aredlDebounce = setTimeout(async () => {
+  if (claimDebounce) clearTimeout(claimDebounce)
+  aredlSuggestions.value = []
+  pcSuggestions.value = []
+  claimAredlUuid.value = null
+  claimPcId.value = null
+  if (claimSource.value === 'all' || !claimInput.value.trim()) return
+  const src = claimSource.value
+  claimDebounce = setTimeout(async () => {
     try {
-      const res = await $fetch<{ items: AredlSearchHit[] }>('/api/aredl-players/search', {
-        query: { q: claimInput.value.trim() },
-      })
-      aredlSuggestions.value = res.items
-    } catch {
-      aredlSuggestions.value = []
-    }
+      if (src === 'aredl') {
+        const res = await $fetch<{ items: AredlSearchHit[] }>('/api/aredl-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        aredlSuggestions.value = res.items
+      } else if (src === 'pointercrate') {
+        const res = await $fetch<{ items: PcSearchHit[] }>('/api/pointercrate-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        pcSuggestions.value = res.items
+      }
+    } catch { /* ignore */ }
   }, 200)
 })
 
@@ -174,6 +184,11 @@ function pickAredlSuggestion(hit: AredlSearchHit) {
   claimInput.value = hit.global_name
   claimAredlUuid.value = hit.uuid
   aredlSuggestions.value = []
+}
+function pickPcSuggestion(hit: PcSearchHit) {
+  claimInput.value = hit.name
+  claimPcId.value = hit.pc_id
+  pcSuggestions.value = []
 }
 
 async function submitClaim() {
@@ -183,7 +198,6 @@ async function submitClaim() {
   try {
     if (claimSource.value === 'aredl') {
       if (!claimAredlUuid.value) {
-        // Resolve via search before submitting; user typed but didn't pick.
         const res = await $fetch<{ items: AredlSearchHit[] }>('/api/aredl-players/search', {
           query: { q: claimInput.value.trim() },
         })
@@ -198,6 +212,22 @@ async function submitClaim() {
         method: 'POST',
         body: { source: 'aredl', aredl_player_uuid: claimAredlUuid.value },
       })
+    } else if (claimSource.value === 'pointercrate') {
+      if (!claimPcId.value) {
+        const res = await $fetch<{ items: PcSearchHit[] }>('/api/pointercrate-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        const exact = res.items.find((x) => x.name.toLowerCase() === claimInput.value.trim().toLowerCase())
+        if (!exact) {
+          claimError.value = 'Pick a Pointercrate player from the suggestions.'
+          return
+        }
+        claimPcId.value = exact.pc_id
+      }
+      await $fetch('/api/account/claim', {
+        method: 'POST',
+        body: { source: 'pointercrate', pointercrate_player_id: claimPcId.value },
+      })
     } else {
       await $fetch('/api/account/claim', {
         method: 'POST',
@@ -207,6 +237,7 @@ async function submitClaim() {
     await loadPendingClaim()
     claimInput.value = ''
     claimAredlUuid.value = null
+    claimPcId.value = null
     claimOpen.value = false
   } catch (e: any) {
     claimError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Claim failed.'
@@ -799,7 +830,7 @@ function fmt(n: number | null | undefined) {
             >Submit level</NuxtLink>
 
             <button
-              v-if="(!me.claimed_player || !me.claimed_aredl_uuid) && !pendingClaim"
+              v-if="(!me.claimed_player || !me.claimed_aredl_uuid || !me.claimed_pointercrate_id) && !pendingClaim"
               type="button"
               class="text-left text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
               @click="claimOpen = !claimOpen"
@@ -807,18 +838,23 @@ function fmt(n: number | null | undefined) {
           </div>
 
           <!-- Claim status / inline form -->
-          <div v-if="me.claimed_player || me.claimed_aredl_uuid" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
+          <div v-if="me.claimed_player || me.claimed_aredl_uuid || me.claimed_pointercrate_id" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
             <p v-if="me.claimed_player">
               ALL list: <span class="text-accent font-medium">{{ me.claimed_player }}</span>
             </p>
             <p v-if="me.claimed_aredl_uuid">
               AREDL: <span class="text-accent font-medium">claimed</span>
             </p>
+            <p v-if="me.claimed_pointercrate_id">
+              Pointercrate: <span class="text-accent font-medium">claimed</span>
+            </p>
             <p class="text-zinc-600">Contact an admin to change.</p>
           </div>
           <div v-else-if="pendingClaim" class="mt-3 px-1 text-xs text-zinc-400">
             <p>
-              Pending {{ pendingClaim.source === 'aredl' ? 'AREDL' : 'ALL' }} claim for
+              Pending
+              {{ pendingClaim.source === 'aredl' ? 'AREDL' : pendingClaim.source === 'pointercrate' ? 'Pointercrate' : 'ALL' }}
+              claim for
               <span class="text-zinc-200 font-medium">{{ pendingClaim.player_name }}</span>.
             </p>
             <button
@@ -834,14 +870,15 @@ function fmt(n: number | null | undefined) {
             >
               <option value="all">Claim legacy ALL</option>
               <option value="aredl">Claim AREDL</option>
+              <option value="pointercrate">Claim Pointercrate</option>
             </select>
             <div class="relative">
               <input
                 v-model="claimInput"
-                :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : 'Exact leaderboard name'"
+                :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : claimSource === 'pointercrate' ? 'Search Pointercrate player name…' : 'Exact leaderboard name'"
                 class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
                 autocomplete="off"
-                @input="claimAredlUuid = null"
+                @input="claimAredlUuid = null; claimPcId = null"
               />
               <ul
                 v-if="claimSource === 'aredl' && aredlSuggestions.length"
@@ -860,6 +897,26 @@ function fmt(n: number | null | undefined) {
                   </span>
                   <span class="tabular-nums text-zinc-500 shrink-0">
                     {{ hit.claimed_account_id ? 'claimed' : `${hit.total_points} pts` }}
+                  </span>
+                </li>
+              </ul>
+              <ul
+                v-if="claimSource === 'pointercrate' && pcSuggestions.length"
+                class="absolute z-10 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded border border-zinc-800 bg-zinc-900 text-xs shadow-lg"
+              >
+                <li
+                  v-for="hit in pcSuggestions"
+                  :key="hit.pc_id"
+                  class="px-2 py-1.5 cursor-pointer hover:bg-zinc-800 flex justify-between gap-2"
+                  :class="hit.claimed_account_id ? 'opacity-60 cursor-not-allowed' : ''"
+                  @click="hit.claimed_account_id ? null : pickPcSuggestion(hit)"
+                >
+                  <span class="truncate">
+                    {{ hit.name }}
+                    <span v-if="hit.nationality" class="text-zinc-500 uppercase">{{ hit.nationality }}</span>
+                  </span>
+                  <span class="tabular-nums text-zinc-500 shrink-0">
+                    {{ hit.claimed_account_id ? 'claimed' : `${Math.round(hit.score)} pts` }}
                   </span>
                 </li>
               </ul>

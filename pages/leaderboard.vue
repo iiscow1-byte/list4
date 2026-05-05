@@ -14,13 +14,12 @@ type AllRow = {
 }
 type GlobalRow = {
   rank: number
-  source: 'aredl'
-  uuid: string
+  source: 'aredl' | 'pointercrate'
+  id: string | number
   player: string
   country: string | null
   points: number
-  pack_points: number
-  extremes: number
+  extras: { extremes?: number; pack_points?: number }
   hardest: string | null
   claimed_account: { username: string } | null
 }
@@ -55,9 +54,11 @@ watch(search, (v) => {
 // separate /api/leaderboard/global so AREDL rows can be rendered with their
 // own row shape (claimed-pill + UUID-keyed link).
 const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
+// Sub-filter on the global tab: 'all' merges Aredl + Pointercrate, or pick one.
+const globalSource = ref<'all' | 'aredl' | 'pointercrate'>('all')
 const query = computed(() => {
   if (tab.value === 'global') {
-    return { limit: 200, q: debounced.value || undefined, source: 'aredl' }
+    return { limit: 200, q: debounced.value || undefined, source: globalSource.value }
   }
   return {
     limit: 200,
@@ -115,11 +116,18 @@ function relative(at: string): string {
 // Polymorphic row link: AREDL rows go to the Aredl player profile page (keyed
 // by UUID), everything else goes to the existing by-player route.
 function rowLink(p: Row): string {
-  if (p.source === 'aredl') return `/aredl-players/${p.uuid}`
+  if (p.source === 'aredl') return `/aredl-players/${p.id}`
+  if (p.source === 'pointercrate') return `/pointercrate-players/${p.id}`
   return `/users/by-player/${encodeURIComponent(p.player)}`
 }
 function rowKey(p: Row, i: number): string {
-  return p.source === 'aredl' ? `aredl-${p.uuid}` : `all-${p.player}-${i}`
+  if (p.source === 'aredl' || p.source === 'pointercrate') return `${p.source}-${p.id}`
+  return `all-${p.player}-${i}`
+}
+function sourceLabel(p: Row): string | null {
+  if (p.source === 'aredl') return 'AREDL'
+  if (p.source === 'pointercrate') return 'PC'
+  return null
 }
 </script>
 
@@ -158,6 +166,19 @@ function rowKey(p: Row, i: number): string {
           @click="tab = 'followed'"
         >Followed</button>
       </div>
+      <div
+        v-if="tab === 'global'"
+        class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
+      >
+        <button
+          v-for="opt in (['all','aredl','pointercrate'] as const)"
+          :key="opt"
+          type="button"
+          class="px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors border-l first:border-l-0 border-zinc-800"
+          :class="globalSource === opt ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          @click="globalSource = opt"
+        >{{ opt === 'all' ? 'Both' : opt === 'aredl' ? 'AREDL' : 'PC' }}</button>
+      </div>
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input
           v-model="search"
@@ -185,9 +206,10 @@ function rowKey(p: Row, i: number): string {
               <div class="flex-1 min-w-0">
                 <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
                   <span>{{ p.player }}</span>
-                  <!-- Role badge intentionally excluded from AREDL rows: they
-                       are list mirrors, not site identities. -->
-                  <template v-if="p.source !== 'aredl'">
+                  <!-- Role badge intentionally excluded from external-list rows
+                       (Aredl, Pointercrate): they are list mirrors, not site
+                       identities, so the site-role chip would be misleading. -->
+                  <template v-if="!sourceLabel(p)">
                     <span
                       v-if="(p as AllRow).badge"
                       class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
@@ -195,7 +217,7 @@ function rowKey(p: Row, i: number): string {
                     >{{ (p as AllRow).badge }}</span>
                   </template>
                   <template v-else>
-                    <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">AREDL</span>
+                    <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">{{ sourceLabel(p) }}</span>
                     <span
                       v-if="(p as GlobalRow).claimed_account"
                       class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300 shrink-0"
@@ -204,13 +226,13 @@ function rowKey(p: Row, i: number): string {
                   </template>
                 </div>
                 <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-                  <template v-if="p.source !== 'aredl'">
+                  <template v-if="!sourceLabel(p)">
                     <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill: {{ fmt((p as AllRow).skill_points) }}</span>
                     <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
                   </template>
                   <template v-else>
                     <span v-if="p.country" class="uppercase tabular-nums">{{ p.country }}</span>
-                    <span v-if="(p as GlobalRow).extremes" class="tabular-nums">{{ (p as GlobalRow).extremes }} extremes</span>
+                    <span v-if="(p as GlobalRow).extras?.extremes" class="tabular-nums">{{ (p as GlobalRow).extras.extremes }} extremes</span>
                     <span v-if="p.hardest">Hardest: {{ p.hardest }}</span>
                   </template>
                 </div>

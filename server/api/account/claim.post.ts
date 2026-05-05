@@ -2,10 +2,10 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 
 /**
- * Submit a claim. The legacy "ALL list" claim resolves a player_name against
- * the local `players` table; the new "AREDL" claim resolves an aredl player
- * UUID against `aredl_players`. Both share the same `claim_requests` queue
- * so admin review is one flow.
+ * Submit a claim. Three sources share the same `claim_requests` queue:
+ *   - 'all'          → resolves a player_name against the local `players` table
+ *   - 'aredl'        → resolves an Aredl UUID against `aredl_players`
+ *   - 'pointercrate' → resolves a Pointercrate player id against `pointercrate_players`
  *
  * Discord-pairing auto-accept is intentionally not wired up yet — the discord
  * link on accounts isn't available at the time this lands.
@@ -42,6 +42,30 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO claim_requests (account_id, player_name, source, aredl_player_uuid)
        VALUES (?, ?, 'aredl', ?)`,
     ).run(me.id, player.global_name, uuid)
+    return { ok: true }
+  }
+
+  if (source === 'pointercrate') {
+    if ((me as any).claimed_pointercrate_id) {
+      throw createError({ statusCode: 400, statusMessage: 'You already have a claimed Pointercrate player.' })
+    }
+    const pcId = Number(body?.pointercrate_player_id)
+    if (!Number.isFinite(pcId) || pcId <= 0) {
+      throw createError({ statusCode: 400, statusMessage: 'pointercrate_player_id is required.' })
+    }
+
+    const player = db.prepare(
+      `SELECT name, claimed_account_id FROM pointercrate_players WHERE pc_id = ?`,
+    ).get(pcId) as { name: string; claimed_account_id: number | null } | undefined
+    if (!player) throw createError({ statusCode: 404, statusMessage: 'No such Pointercrate player.' })
+    if (player.claimed_account_id) {
+      throw createError({ statusCode: 409, statusMessage: 'That Pointercrate player has already been claimed.' })
+    }
+
+    db.prepare(
+      `INSERT INTO claim_requests (account_id, player_name, source, pointercrate_player_id)
+       VALUES (?, ?, 'pointercrate', ?)`,
+    ).run(me.id, player.name, pcId)
     return { ok: true }
   }
 

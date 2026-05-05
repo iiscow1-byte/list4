@@ -6,8 +6,10 @@ type Record = {
   percent: number
   hz: number | null
   video: string | null
-  source?: 'all' | 'aredl'
+  source?: 'all' | 'aredl' | 'pointercrate'
   is_verification?: number | null
+  is_legacy?: number | null
+  demon_position?: number | null
 }
 
 const props = defineProps<{ records: Record[] }>()
@@ -19,16 +21,27 @@ const isAdmin = computed(() => {
   return role === 'admin' || role === 'owner' || role === 'developer'
 })
 
-type Filter = 'all' | 'site' | 'aredl'
+type Filter = 'all' | 'site' | 'aredl' | 'pointercrate'
 const filter = ref<Filter>('all')
 
 const hasSite = computed(() => props.records.some((r) => !r.source || r.source === 'all'))
 const hasAredl = computed(() => props.records.some((r) => r.source === 'aredl'))
-const showFilter = computed(() => hasSite.value && hasAredl.value)
+const hasPc = computed(() => props.records.some((r) => r.source === 'pointercrate'))
+// Filter chip row only renders when at least two sources are present.
+const showFilter = computed(() => [hasSite.value, hasAredl.value, hasPc.value].filter(Boolean).length >= 2)
+
+const visibleChips = computed<[Filter, string][]>(() => {
+  const out: [Filter, string][] = [['all', 'All']]
+  if (hasSite.value) out.push(['site', 'ALL'])
+  if (hasAredl.value) out.push(['aredl', 'AREDL'])
+  if (hasPc.value) out.push(['pointercrate', 'PC'])
+  return out
+})
 
 const filtered = computed(() => {
   if (filter.value === 'site') return props.records.filter((r) => !r.source || r.source === 'all')
   if (filter.value === 'aredl') return props.records.filter((r) => r.source === 'aredl')
+  if (filter.value === 'pointercrate') return props.records.filter((r) => r.source === 'pointercrate')
   return props.records
 })
 
@@ -51,7 +64,7 @@ async function deleteRecord(id: number) {
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">Records</h2>
       <div v-if="showFilter" class="inline-flex rounded border border-zinc-800 overflow-hidden">
         <button
-          v-for="[val, label] in [['all','All'],['site','ALL'],['aredl','AREDL']] as [Filter, string][]"
+          v-for="[val, label] in visibleChips"
           :key="val"
           type="button"
           class="px-2.5 py-1 text-[10px] font-medium transition-colors"
@@ -75,7 +88,7 @@ async function deleteRecord(id: number) {
             <div class="flex items-center gap-1.5 shrink-0">
               <span class="tabular-nums text-xs text-amber-300">{{ r.percent }}%</span>
               <button
-                v-if="isAdmin && r.id && r.source !== 'aredl'"
+                v-if="isAdmin && r.id && (!r.source || r.source === 'all')"
                 type="button"
                 :disabled="deletingId != null"
                 class="opacity-0 group-hover:opacity-100 text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all leading-none"
@@ -92,6 +105,11 @@ async function deleteRecord(id: number) {
               class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
               :title="r.is_verification ? 'Verified on AREDL' : 'Imported from AREDL'"
             >AREDL</span>
+            <span
+              v-if="r.source === 'pointercrate'"
+              class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
+              :title="r.is_legacy ? 'From Pointercrate Legacy' : (r.is_verification ? 'Verifier on Pointercrate' : 'Imported from Pointercrate')"
+            >PC{{ r.is_legacy ? ' Legacy' : '' }}</span>
             <a v-if="r.video" :href="r.video" target="_blank" rel="noopener" class="hover:text-accent ml-auto">video ↗</a>
           </div>
         </li>

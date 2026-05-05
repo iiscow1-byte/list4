@@ -11,6 +11,7 @@
     "postinstall": "nuxt prepare",
     "import": "node --experimental-strip-types --no-warnings server/db/import.ts",
     "import:aredl": "node --experimental-strip-types --no-warnings server/db/import-aredl.ts",
+    "import:pointercrate": "node --experimental-strip-types --no-warnings server/db/import-pointercrate.ts",
     "diff-sheet": "node --experimental-strip-types --no-warnings server/db/diff-sheet.ts",
     "clear-temporary-levels": "node --experimental-strip-types --no-warnings server/db/clear-temporary-levels.ts"
   },

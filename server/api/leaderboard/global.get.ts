@@ -5,9 +5,26 @@ import { countryNumericToAlpha2 } from '~/utils/country-codes'
  * Global leaderboard — players from every external list we mirror, with the
  * existing /leaderboard reserved for the canonical ALL-list players.
  *
- * Currently surfaces only Aredl. As more list integrations land they can be
- * UNION'd in here with a `source` discriminator on each row.
+ * Aredl + Pointercrate currently. Each source has its own row shape (Aredl
+ * uses int total_points, Pointercrate uses float score) so they're unioned
+ * on a normalized `points` field for sorting + display.
+ *
+ * `source` query param: 'all' (default), 'aredl', or 'pointercrate'.
  */
+
+type Row = {
+  rank: number
+  source: 'aredl' | 'pointercrate'
+  /** uuid for aredl, numeric pc_id for pointercrate */
+  id: string | number
+  player: string
+  country: string | null
+  points: number
+  extras: { extremes?: number; pack_points?: number }
+  hardest: string | null
+  claimed_account: { username: string } | null
+}
+
 export default defineEventHandler((event) => {
   const q = getQuery(event)
   const limit = Math.max(1, Math.min(500, Number(q.limit) || 200))
@@ -15,7 +32,7 @@ export default defineEventHandler((event) => {
   const source = String(q.source ?? 'all').toLowerCase()
 
   const db = getDb()
-  const rows: any[] = []
+  const rows: Row[] = []
 
   if (source === 'all' || source === 'aredl') {
     const params: any[] = []
@@ -26,11 +43,10 @@ export default defineEventHandler((event) => {
       params.push(like, like)
     }
     const sql = `
-      SELECT ap.uuid, ap.global_name AS player, ap.username, ap.country,
+      SELECT ap.uuid, ap.global_name AS player, ap.country,
              ap.total_points, ap.pack_points, ap.extremes, ap.rank,
-             ap.hardest_name, ap.claimed_account_id,
-             a.username AS claimed_username, a.role AS role,
-             'aredl' AS source
+             ap.hardest_name,
+             a.username AS claimed_username
         FROM aredl_players ap
         LEFT JOIN accounts a ON a.id = ap.claimed_account_id
        ${where}
@@ -43,22 +59,57 @@ export default defineEventHandler((event) => {
       rows.push({
         rank: r.rank,
         source: 'aredl',
-        uuid: r.uuid,
+        id: r.uuid,
         player: r.player,
         country: countryNumericToAlpha2(r.country),
         points: r.total_points,
-        pack_points: r.pack_points,
-        extremes: r.extremes,
+        extras: { extremes: r.extremes, pack_points: r.pack_points },
         hardest: r.hardest_name,
-        // Role badge intentionally omitted — AREDL leaderboard rows are list
-        // mirrors, not site identities, so the site-role chip would be
-        // misleading here. The "Claimed" pill in the UI is enough.
-        claimed_account: r.claimed_username
-          ? { username: r.claimed_username }
-          : null,
+        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
       })
     }
   }
 
-  return { total: rows.length, items: rows }
+  if (source === 'all' || source === 'pointercrate') {
+    const params: any[] = []
+    let where = `WHERE pp.banned = 0`
+    if (search) {
+      where += ` AND pp.name LIKE ? COLLATE NOCASE`
+      params.push(`%${search}%`)
+    }
+    const sql = `
+      SELECT pp.pc_id, pp.name AS player, pp.nationality, pp.score, pp.rank,
+             pp.hardest_name,
+             a.username AS claimed_username
+        FROM pointercrate_players pp
+        LEFT JOIN accounts a ON a.id = pp.claimed_account_id
+       ${where}
+       ORDER BY pp.score DESC, pp.name COLLATE NOCASE ASC
+       LIMIT ?
+    `
+    params.push(limit)
+    const pcRows = db.prepare(sql).all(...params) as any[]
+    for (const r of pcRows) {
+      rows.push({
+        rank: r.rank,
+        source: 'pointercrate',
+        id: r.pc_id,
+        player: r.player,
+        country: r.nationality,
+        points: r.score,
+        extras: {},
+        hardest: r.hardest_name,
+        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+      })
+    }
+  }
+
+  // When `source=all`, the two source lists are concatenated. Re-rank them
+  // globally by the `points` field so the merged list is sensible. (Within a
+  // single source, the rank field is already its source-native rank.)
+  if (source === 'all') {
+    rows.sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+  }
+
+  return { total: rows.length, items: rows.slice(0, limit) }
 })
