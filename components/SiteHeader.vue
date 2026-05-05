@@ -56,7 +56,7 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
 <template>
   <header class="border-b border-zinc-800 bg-zinc-950/80 backdrop-blur sticky top-0 z-30">
     <div class="container-tight flex h-14 items-center justify-between gap-4">
-      <NuxtLink to="/" class="flex items-center gap-2 group">
+      <NuxtLink to="/" class="flex items-center gap-2 group shrink-0">
         <span class="text-accent text-lg font-bold tracking-tight">ALL</span>
         <span class="text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
       </NuxtLink>
