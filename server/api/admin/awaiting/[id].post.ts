@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'place' | 'remove' | 'return' | 'save_placement'
+    action: 'place' | 'remove' | 'return' | 'save_placement' | 'update_video'
     placement?: number
     reason?: string
     gddl_tier?: string
@@ -25,8 +25,10 @@ export default defineEventHandler(async (event) => {
     duplicate_of_id?: number | null
     is_alternate?: boolean
     alternate_of_id?: number | null
+    verification_url?: string | null
   }>(event)
-  if (body.action !== 'place' && body.action !== 'remove' && body.action !== 'return' && body.action !== 'save_placement') {
+  const VALID_ACTIONS = new Set(['place', 'remove', 'return', 'save_placement', 'update_video'])
+  if (!VALID_ACTIONS.has(body.action)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
   const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
@@ -43,6 +45,12 @@ export default defineEventHandler(async (event) => {
   if (body.action === 'save_placement') {
     const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null
     db.prepare(`UPDATE awaiting_levels SET placement_suggestion = ? WHERE id = ?`).run(n, id)
+    return { ok: true }
+  }
+
+  if (body.action === 'update_video') {
+    const url = typeof body.verification_url === 'string' ? body.verification_url.trim() || null : null
+    db.prepare(`UPDATE awaiting_levels SET verification_url = ? WHERE id = ?`).run(url, id)
     return { ok: true }
   }
 

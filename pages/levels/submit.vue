@@ -29,8 +29,6 @@ const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed', 'unnerfed', 'easy', 'shitty
 
 const gdId = ref('')
 const name = ref('')
-const fps = ref('any')
-const gameVersion = ref('any')
 const verification = ref('')
 const verificationUrl = ref('')
 const verifier = ref('')
@@ -305,8 +303,6 @@ async function submit() {
       body: {
         gd_id: gdId.value.trim(),
         name: name.value.trim() || null,
-        fps: fps.value.trim() || 'any',
-        game_version: gameVersion.value.trim() || 'any',
         verification: verification.value.trim() || null,
         verification_url: verificationUrl.value.trim() || null,
         verifier: verifier.value.trim() || null,
@@ -328,7 +324,6 @@ async function submit() {
       },
     })
     success.value = true
-    // Reset form (but keep fps/version defaults)
     gdId.value = ''; name.value = ''; verification.value = ''; verificationUrl.value = ''
     verifier.value = ''; verifyDate.value = ''; placementSource.value = ''
     gddlTier.value = ''; difficulty.value = ''
@@ -373,41 +368,6 @@ async function submit() {
           <input
             v-model="name"
             placeholder="Level name"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-      </div>
-
-      <!-- Source -->
-      <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-          Source
-          <span class="text-zinc-600 normal-case">— where you found this level. Leave on "None" if it's first-party to the All Levels List.</span>
-        </span>
-        <SearchableSelect
-          v-model="placementSource"
-          :options="sourceOptions"
-          empty-label="None"
-          placeholder="None"
-          class="mt-1"
-        />
-      </label>
-
-      <!-- FPS + Version -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
-          <input
-            v-model="fps"
-            placeholder="any"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-          />
-        </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
-          <input
-            v-model="gameVersion"
-            placeholder="any"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
@@ -587,6 +547,19 @@ async function submit() {
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+              Source
+              <span class="text-zinc-600 normal-case">— where you found this level. Leave on "None" if it's first-party to the All Levels List.</span>
+            </span>
+            <SearchableSelect
+              v-model="placementSource"
+              :options="sourceOptions"
+              empty-label="None"
+              placeholder="None"
+              class="mt-1"
+            />
+          </label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>

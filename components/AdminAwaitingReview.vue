@@ -76,6 +76,8 @@ watch(selectedId, async (id) => {
   isAlternate.value = false
   alternateOfId.value = null
   draftAlternateOf.value = null
+  editingVideo.value = false
+  editVideoUrl.value = ''
   if (id == null) { selected.value = null; return }
   try {
     selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
@@ -219,6 +221,28 @@ function onFlagsAlternatePick(lvl: { id?: number; position: number; name: string
 
 const tierOverride = ref('')
 const difficultyOverride = ref('')
+
+const editingVideo = ref(false)
+const editVideoUrl = ref('')
+function startEditVideo() {
+  editVideoUrl.value = selected.value?.verification_url ?? ''
+  editingVideo.value = true
+}
+async function saveVideoUrl() {
+  if (!selected.value) return
+  try {
+    await $fetch(`/api/admin/awaiting/${selected.value.id}`, {
+      method: 'POST',
+      body: { action: 'update_video', verification_url: editVideoUrl.value.trim() || null },
+    })
+    selected.value = { ...selected.value, verification_url: editVideoUrl.value.trim() || null }
+    editingVideo.value = false
+    flash('ok', 'Video link updated.')
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? 'Failed to update video link.')
+  }
+}
+
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
@@ -290,19 +314,11 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
         </header>
 
         <!-- Stats grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
             <a v-if="gdBrowserLink(selected.gd_id)" :href="gdBrowserLink(selected.gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.gd_id }}</a>
             <div v-else class="text-zinc-600">—</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">FPS</div>
-            <div class="text-sm text-zinc-100">{{ selected.fps ?? 'any' }}</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Version</div>
-            <div class="text-sm text-zinc-100">{{ selected.game_version ?? 'any' }}</div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
@@ -343,10 +359,27 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
           <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ selected.verifier ?? '—' }}</dd>
             <dt class="text-zinc-500">Title</dt><dd class="text-zinc-200">{{ selected.verification ?? '—' }}</dd>
-            <dt class="text-zinc-500">Link</dt>
-            <dd class="text-zinc-200 truncate">
-              <a v-if="selected.verification_url" :href="selected.verification_url" target="_blank" rel="noopener" class="text-accent hover:underline break-all">{{ selected.verification_url }}</a>
-              <span v-else class="text-zinc-600">—</span>
+            <dt class="text-zinc-500 self-center">Link</dt>
+            <dd class="text-zinc-200 min-w-0">
+              <template v-if="editingVideo">
+                <div class="flex items-center gap-2">
+                  <input
+                    v-model="editVideoUrl"
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=…"
+                    class="flex-1 min-w-0 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                  <button type="button" class="shrink-0 rounded bg-accent text-zinc-950 font-medium text-xs px-2.5 py-1 hover:bg-accent/90 transition-colors" @click="saveVideoUrl">Save</button>
+                  <button type="button" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 px-1" @click="editingVideo = false">Cancel</button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex items-center gap-2 min-w-0">
+                  <a v-if="selected.verification_url" :href="selected.verification_url" target="_blank" rel="noopener" class="text-accent hover:underline break-all truncate flex-1">{{ selected.verification_url }}</a>
+                  <span v-else class="text-zinc-600 flex-1">—</span>
+                  <button type="button" class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-accent border border-zinc-800 hover:border-accent/60 rounded px-1.5 py-0.5 transition-colors" @click="startEditVideo">Edit</button>
+                </div>
+              </template>
             </dd>
           </dl>
         </section>

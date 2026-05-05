@@ -526,19 +526,11 @@ watch(preview, (p) => {
         </div>
 
         <!-- Stats grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
             <a v-if="gdBrowserLink(selected.gd_id)" :href="gdBrowserLink(selected.gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.gd_id }}</a>
             <div v-else class="text-zinc-600">—</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">FPS</div>
-            <div class="text-sm text-zinc-100">{{ selected.fps ?? 'any' }}</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Version</div>
-            <div class="text-sm text-zinc-100">{{ selected.game_version ?? 'any' }}</div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>

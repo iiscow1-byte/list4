@@ -112,7 +112,7 @@ const tagList = computed(() => {
     </div>
 
     <!-- Stats grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
         <a
@@ -123,14 +123,6 @@ const tagList = computed(() => {
           class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
         >{{ level.gd_id }}</a>
         <div v-else class="tabular-nums text-base text-zinc-600">—</div>
-      </div>
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">FPS</div>
-        <div class="text-base text-zinc-100">{{ level.fps ?? 'any' }}</div>
-      </div>
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Version</div>
-        <div class="text-base text-zinc-100">{{ level.game_version ?? 'any' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>

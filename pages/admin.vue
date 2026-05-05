@@ -184,7 +184,39 @@ watch(tab, (t) => {
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
   if (t === 'discord')  loadWebhooks()
+  // Mark tab as seen so its badge clears
+  if (liveCounts.value) seenCounts[t] = liveCounts.value[t as keyof typeof liveCounts.value] ?? 0
 }, { immediate: true })
+
+// --- Notification counts ---
+type Counts = Record<string, number>
+const liveCounts = ref<Counts | null>(null)
+const seenCounts = reactive<Counts>({})
+
+async function fetchCounts() {
+  try {
+    const res = await $fetch<Counts>('/api/admin/counts')
+    liveCounts.value = res
+    // On first load, initialise seenCounts so only future increases show badges.
+    for (const [k, v] of Object.entries(res)) {
+      if (!(k in seenCounts)) seenCounts[k] = v
+    }
+  } catch { /* non-fatal */ }
+}
+
+function tabBadge(id: string): number {
+  if (!liveCounts.value) return 0
+  const live = liveCounts.value[id] ?? 0
+  const seen = seenCounts[id] ?? live
+  return Math.max(0, live - seen)
+}
+
+let countTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  fetchCounts()
+  countTimer = setInterval(fetchCounts, 30_000)
+})
+onBeforeUnmount(() => { if (countTimer) clearInterval(countTimer) })
 
 // Role hierarchy — owner and developer outrank admin
 const ROLE_RANK: Record<string, number> = {
@@ -277,12 +309,18 @@ async function setClaim(u: AdminUser) {
           v-for="t in tabs"
           :key="t.id"
           type="button"
-          class="px-3 py-1.5 rounded text-sm font-medium transition-colors"
+          class="relative px-3 py-1.5 rounded text-sm font-medium transition-colors"
           :class="tab === t.id
             ? 'bg-zinc-900 text-zinc-100'
             : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
           @click="tab = t.id"
-        >{{ t.label }}</button>
+        >
+          {{ t.label }}
+          <span
+            v-if="tabBadge(t.id) > 0"
+            class="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
+          >{{ tabBadge(t.id) }}</span>
+        </button>
       </div>
     </nav>
 
