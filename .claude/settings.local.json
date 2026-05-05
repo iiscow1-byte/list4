@@ -65,7 +65,8 @@
       "Bash(curl -sS \"http://localhost:3000/api/levels/5982\")",
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);const r=j.aredl_records?.[0];console.log\\({first_aredl_record:{player:r?.player,country:r?.country,country_numeric:r?.country_numeric}}\\)}\\)\")",
       "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code}\\\\n\" \"http://localhost:3000/global\")",
-      "Bash(curl -sS \"http://localhost:3000/leaderboard\")"
+      "Bash(curl -sS \"http://localhost:3000/leaderboard\")",
+      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\({player:j.player,description:j.description?.slice\\(0,80\\),completedLevels_n:j.completedLevels?.length,first_completed:j.completedLevels?.[0],aredlOnlyCompleted_n:j.aredlOnlyCompleted?.length,createdLevels_n:j.createdLevels?.length,aredlOnlyCreated_n:j.aredlOnlyCreated?.length}\\)}\\)\")"
     ]
   }
 }

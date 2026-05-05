@@ -1,6 +1,0 @@
-make the credits box show up on non permanent levels too
-add full advanced search to the pending list
-if a new level is submited with only a tier it should autofill the midpoint of that tier as the position on the admin panel. 
-make a command to pull from the sheet and check for any changes to a levels information on the sheet, not just new levels. 
-the sort by rating should use the information from the api, it doesn't need to try to fetch, just use the stored data no matter how old it is. 
-add a toggle for show rank by absolute position in advanced filter which makes the numbers only show for how high each level is on the filtered list (not by the search) 
