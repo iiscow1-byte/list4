@@ -9,6 +9,8 @@ type LevelRow = {
   points: number | null
   gddl_tier: string | null
   displayRank?: number
+  aredl_position?: number | null
+  pointercrate_position?: number | null
 }
 
 const props = defineProps<{
@@ -88,11 +90,16 @@ const enjoyMax = ref(10)
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 
-type ListVariant = 'Classic' | 'Rated' | 'Challenge'
+type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'Pointercrate'
 const listVariant = ref<ListVariant>('Classic')
+const externalList = ref('')
+
 function applyVariant(v: ListVariant) {
   listVariant.value = v
   for (const r of RATINGS) ratingSet[r] = false
+  externalList.value = ''
+  sort.value = 'position'
+  rankByFilter.value = false
   if (v === 'Rated') {
     ratingSet['Rated'] = true
     ratingSet['Featured'] = true
@@ -103,7 +110,19 @@ function applyVariant(v: ListVariant) {
   } else if (v === 'Challenge') {
     ratingSet['Challenge'] = true
     rankByFilter.value = true
+  } else if (v === 'AREDL') {
+    externalList.value = 'aredl'
+    sort.value = 'aredl_asc'
+  } else if (v === 'Pointercrate') {
+    externalList.value = 'pointercrate'
+    sort.value = 'pointercrate_asc'
   }
+}
+
+function displayNum(lvl: LevelRow): number {
+  if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return lvl.aredl_position
+  if (listVariant.value === 'Pointercrate' && lvl.pointercrate_position != null) return lvl.pointercrate_position
+  return lvl.displayRank ?? lvl.position
 }
 
 const activeFilterCount = computed(() => {
@@ -160,6 +179,7 @@ function buildQuery() {
     enjoyMax: enjoyMax.value < 10 ? enjoyMax.value : undefined,
     sort: sort.value !== 'position' ? sort.value : undefined,
     rankByFilter: rankByFilter.value ? 1 : undefined,
+    externalList: externalList.value || undefined,
   }
 }
 
@@ -205,6 +225,7 @@ function resetFilters() {
   sort.value = 'position'
   rankByFilter.value = false
   listVariant.value = 'Classic'
+  externalList.value = ''
 }
 
 // Initial load
@@ -469,6 +490,25 @@ watch(
                 </div>
               </div>
 
+              <!-- External list rankings -->
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Ranked by external list</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="v in (['AREDL', 'Pointercrate'] as const)"
+                    :key="v"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="listVariant === v
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                    :title="v === 'AREDL' ? 'Levels ranked on AREDL, sorted by their AREDL position' : 'Levels ranked on Pointercrate, sorted by their Pointercrate position'"
+                  >
+                    <input type="radio" :value="v" :checked="listVariant === v" class="sr-only" @change="applyVariant(v)" />
+                    {{ v === 'Pointercrate' ? 'PC' : v }}
+                  </label>
+                </div>
+              </div>
+
               <!-- Tier range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
@@ -688,7 +728,7 @@ watch(
             <span
               class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >#{{ lvl.displayRank ?? lvl.position }}</span>
+            >#{{ displayNum(lvl) }}</span>
             <span class="truncate">{{ lvl.name }}</span>
           </button>
           <!-- Normal mode: NuxtLink navigation -->
@@ -705,7 +745,7 @@ watch(
               class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >
-              #{{ lvl.displayRank ?? lvl.position }}
+              #{{ displayNum(lvl) }}
             </span>
             <span class="truncate">{{ lvl.name }}</span>
           </NuxtLink>

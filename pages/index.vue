@@ -56,6 +56,12 @@ const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
   query: { days: 14, limit: 300 },
 })
 
+const changelogOrder = ref<'placement' | 'recent'>('placement')
+function sortedChanges(changes: Change[]) {
+  if (changelogOrder.value === 'recent') return changes
+  return [...changes].sort((a, b) => a.to_position - b.to_position)
+}
+
 const listsSearch = ref('')
 const filteredLists = computed(() => {
   const q = listsSearch.value.trim().toLowerCase()
@@ -126,10 +132,28 @@ function paraParts(p: string): { text: string; href: string | null } {
           Recent Changes
           <span class="text-zinc-500 text-[10px] normal-case tracking-normal group-open:hidden">click to expand</span>
         </h2>
-        <span class="text-zinc-500 text-xs">
-          <span class="hidden group-open:inline">▾</span>
-          <span class="group-open:hidden">▸</span>
-        </span>
+        <div class="flex items-center gap-2 ml-auto">
+          <div class="inline-flex rounded border border-zinc-800 overflow-hidden" @click.stop>
+            <button
+              type="button"
+              class="px-2 py-0.5 text-[10px] font-medium transition-colors"
+              :class="changelogOrder === 'placement' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+              title="Sort by highest placing level first"
+              @click="changelogOrder = 'placement'"
+            >Placement</button>
+            <button
+              type="button"
+              class="px-2 py-0.5 text-[10px] font-medium transition-colors border-l border-zinc-800"
+              :class="changelogOrder === 'recent' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+              title="Sort by most recently changed"
+              @click="changelogOrder = 'recent'"
+            >Recent</button>
+          </div>
+          <span class="text-zinc-500 text-xs">
+            <span class="hidden group-open:inline">▾</span>
+            <span class="group-open:hidden">▸</span>
+          </span>
+        </div>
       </summary>
       <div class="space-y-4 pt-3">
         <div v-for="day in changes.days" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
@@ -140,7 +164,7 @@ function paraParts(p: string): { text: string; href: string | null } {
             </span>
           </div>
           <ul class="divide-y divide-zinc-900/60">
-            <li v-for="(c, i) in day.changes" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2">
+            <li v-for="(c, i) in sortedChanges(day.changes)" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2">
               <span
                 v-if="c.kind === 'add'"
                 class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"

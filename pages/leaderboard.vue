@@ -14,7 +14,7 @@ type AllRow = {
 }
 type GlobalRow = {
   rank: number
-  source: 'aredl' | 'pointercrate'
+  source: 'aredl' | 'pointercrate' | 'alllist'
   id: string | number
   player: string
   country: string | null
@@ -40,8 +40,8 @@ type FeedItem = {
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
-type Tab = 'all' | 'global' | 'followed'
-const tab = ref<Tab>('all')
+type Tab = 'members' | 'global' | 'followed'
+const tab = ref<Tab>('global')
 const search = ref('')
 const debounced = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -50,12 +50,11 @@ watch(search, (v) => {
   debounceTimer = setTimeout(() => { debounced.value = v.trim() }, 200)
 })
 
-// The "All" and "Followed" tabs share /api/leaderboard; "Global" hits the
-// separate /api/leaderboard/global so AREDL rows can be rendered with their
-// own row shape (claimed-pill + UUID-keyed link).
+// "Members" and "Followed" tabs use /api/leaderboard (ALL list players);
+// "Global" hits /api/leaderboard/global which merges AREDL, PC, and ALL.
 const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
-// Sub-filter on the global tab: 'all' merges Aredl + Pointercrate, or pick one.
-const globalSource = ref<'all' | 'aredl' | 'pointercrate'>('all')
+// Sub-filter on the global tab: 'all' merges all sources, or pick one.
+const globalSource = ref<'all' | 'aredl' | 'pointercrate' | 'alllist'>('all')
 const query = computed(() => {
   if (tab.value === 'global') {
     return { limit: 200, q: debounced.value || undefined, source: globalSource.value }
@@ -73,6 +72,7 @@ const { data, pending, refresh } = await useFetch<{ total: number; items: Row[] 
 )
 
 watch(me, () => { if (tab.value === 'followed') refresh() })
+watch(tab, () => { if (tab.value !== 'global') globalSource.value = 'all' })
 
 const feed = ref<FeedItem[]>([])
 const feedLoading = ref(false)
@@ -127,6 +127,7 @@ function rowKey(p: Row, i: number): string {
 function sourceLabel(p: Row): string | null {
   if (p.source === 'aredl') return 'AREDL'
   if (p.source === 'pointercrate') return 'PC'
+  if (p.source === 'alllist') return 'ALL'
   return null
 }
 </script>
@@ -137,7 +138,10 @@ function sourceLabel(p: Row): string | null {
       <h1 class="text-3xl font-semibold tracking-tight">Leaderboard</h1>
       <p class="text-zinc-400 mt-1 text-sm">
         <template v-if="tab === 'global'">
-          Players from external lists. AREDL for now — more list integrations coming.
+          Combined rankings from all tracked lists — AREDL, Pointercrate, and ALL members.
+        </template>
+        <template v-else-if="tab === 'members'">
+          ALL list members ranked by total points.
         </template>
         <template v-else>
           Players ranked by total points across the All Levels List.
@@ -150,15 +154,15 @@ function sourceLabel(p: Row): string | null {
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="tab === 'all' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
-          @click="tab = 'all'"
-        >All</button>
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800"
           :class="tab === 'global' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
           @click="tab = 'global'"
         >Global</button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800"
+          :class="tab === 'members' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
+          @click="tab = 'members'"
+        >Members</button>
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800"
@@ -171,13 +175,13 @@ function sourceLabel(p: Row): string | null {
         class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
       >
         <button
-          v-for="opt in (['all','aredl','pointercrate'] as const)"
+          v-for="opt in (['all','aredl','pointercrate','alllist'] as const)"
           :key="opt"
           type="button"
           class="px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors border-l first:border-l-0 border-zinc-800"
           :class="globalSource === opt ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           @click="globalSource = opt"
-        >{{ opt === 'all' ? 'Both' : opt === 'aredl' ? 'AREDL' : 'PC' }}</button>
+        >{{ opt === 'all' ? 'All' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : 'ALL' }}</button>
       </div>
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input

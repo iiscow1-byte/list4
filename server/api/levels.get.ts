@@ -64,16 +64,18 @@ const RATING_ORD_SQL = `
 `
 
 const SORT_SQL: Record<string, string> = {
-  position:        'position ASC',
-  name_asc:        'name COLLATE NOCASE ASC',
-  verify_desc:     "COALESCE(verify_date,'') DESC, position ASC",
-  verify_asc:      "COALESCE(verify_date,'9999') ASC, position ASC",
-  enjoyment_desc:  'enjoyment DESC NULLS LAST, position ASC',
-  enjoyment_asc:   'enjoyment ASC NULLS LAST, position ASC',
-  added_desc:      'id DESC',
-  added_asc:       'id ASC',
-  rating_desc:     `(${RATING_ORD_SQL}) DESC, position ASC`,
-  rating_asc:      `(${RATING_ORD_SQL}) ASC, position ASC`,
+  position:           'position ASC',
+  name_asc:           'name COLLATE NOCASE ASC',
+  verify_desc:        "COALESCE(verify_date,'') DESC, position ASC",
+  verify_asc:         "COALESCE(verify_date,'9999') ASC, position ASC",
+  enjoyment_desc:     'enjoyment DESC NULLS LAST, position ASC',
+  enjoyment_asc:      'enjoyment ASC NULLS LAST, position ASC',
+  added_desc:         'id DESC',
+  added_asc:          'id ASC',
+  rating_desc:        `(${RATING_ORD_SQL}) DESC, position ASC`,
+  rating_asc:         `(${RATING_ORD_SQL}) ASC, position ASC`,
+  aredl_asc:          'aredl_position ASC NULLS LAST, position ASC',
+  pointercrate_asc:   'pointercrate_position ASC NULLS LAST, position ASC',
 }
 
 const KNOWN_TAG_SUFFIXES = new Set(['old', 'uldm', 'buffed', 'nerfed'])
@@ -114,6 +116,7 @@ export default defineEventHandler((event) => {
   const enjoyMax = q.enjoyMax != null && q.enjoyMax !== '' ? Number(q.enjoyMax) : null
   const sort = typeof q.sort === 'string' && SORT_SQL[q.sort] ? q.sort : 'position'
   const rankByFilter = q.rankByFilter === '1' || q.rankByFilter === 'true' || q.rankByFilter === true
+  const externalList = typeof q.externalList === 'string' ? q.externalList.trim().toLowerCase() : ''
 
   // Filter conditions are split in two so the optional rank-by-filter mode can
   // compute rank from the filter-only set and apply the text search separately
@@ -191,6 +194,9 @@ export default defineEventHandler((event) => {
   if (Number.isFinite(enjoyMin)) { filterConds.push(`enjoyment >= ?`); filterParams.push(enjoyMin) }
   if (Number.isFinite(enjoyMax)) { filterConds.push(`enjoyment <= ?`); filterParams.push(enjoyMax) }
 
+  if (externalList === 'aredl') filterConds.push('aredl_position IS NOT NULL')
+  else if (externalList === 'pointercrate') filterConds.push('pointercrate_position IS NOT NULL')
+
   const challengeOnly = ratings.length === 1 && ratings[0] === 'Challenge'
   // Challenge-only mode has always ranked by filter ordering — keep that
   // implicit so the existing "challenge ranks" UX still works without the
@@ -226,6 +232,7 @@ export default defineEventHandler((event) => {
     const sql = `
       WITH ranked AS (
         SELECT id, position, name, difficulty, points, gddl_tier,
+               aredl_position, pointercrate_position,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
         ${filterWhere}
@@ -240,7 +247,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT id, position, name, difficulty, points, gddl_tier
+      `SELECT id, position, name, difficulty, points, gddl_tier, aredl_position, pointercrate_position
        FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,

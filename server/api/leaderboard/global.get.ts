@@ -14,8 +14,8 @@ import { countryNumericToAlpha2 } from '~/utils/country-codes'
 
 type Row = {
   rank: number
-  source: 'aredl' | 'pointercrate'
-  /** uuid for aredl, numeric pc_id for pointercrate */
+  source: 'aredl' | 'pointercrate' | 'alllist'
+  /** uuid for aredl, pc_id for pointercrate, player name for alllist */
   id: string | number
   player: string
   country: string | null
@@ -30,6 +30,8 @@ export default defineEventHandler((event) => {
   const limit = Math.max(1, Math.min(500, Number(q.limit) || 200))
   const search = String(q.q ?? '').trim()
   const source = String(q.source ?? 'all').toLowerCase()
+  // 'all' merges every source including the ALL list; individual sources can
+  // be requested by their name; 'alllist' targets the ALL list specifically.
 
   const db = getDb()
   const rows: Row[] = []
@@ -104,9 +106,41 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // When `source=all`, the two source lists are concatenated. Re-rank them
-  // globally by the `points` field so the merged list is sensible. (Within a
-  // single source, the rank field is already its source-native rank.)
+  if (source === 'all' || source === 'alllist') {
+    const params: any[] = []
+    let where = ''
+    if (search) {
+      where = `WHERE p.name LIKE ? COLLATE NOCASE`
+      params.push(`%${search}%`)
+    }
+    const sql = `
+      SELECT p.name AS player, p.country, p.total_points AS points, p.hardest,
+             a.username AS claimed_username
+        FROM players p
+        LEFT JOIN accounts a ON LOWER(a.claimed_player) = LOWER(p.name)
+       ${where}
+       ORDER BY p.total_points DESC, p.name COLLATE NOCASE ASC
+       LIMIT ?
+    `
+    params.push(limit)
+    const allRows = db.prepare(sql).all(...params) as any[]
+    let allRank = 1
+    for (const r of allRows) {
+      rows.push({
+        rank: allRank++,
+        source: 'alllist',
+        id: r.player,
+        player: r.player,
+        country: r.country,
+        points: r.points ?? 0,
+        extras: {},
+        hardest: r.hardest,
+        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+      })
+    }
+  }
+
+  // Re-rank merged results by points.
   if (source === 'all') {
     rows.sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
   }
