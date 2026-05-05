@@ -52,8 +52,17 @@ type PositionHistoryEntry = {
   changed_by: string | null
 }
 
-const props = defineProps<{ level: Level; readonly?: boolean }>()
-const emit = defineEmits<{ (e: 'refresh'): void }>()
+type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+const props = defineProps<{
+  level: Level
+  readonly?: boolean
+  moveBelowPick?: NavLevel | null
+}>()
+const emit = defineEmits<{
+  (e: 'refresh'): void
+  (e: 'start-move-below'): void
+  (e: 'end-move-below'): void
+}>()
 
 const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
@@ -244,6 +253,7 @@ function cancelEdit() {
   editing.value = false
   saveError.value = null
   deleteError.value = null
+  stopMoveBelow()
 }
 
 // Switching to a different level should drop any unsaved edit state — the
@@ -481,6 +491,7 @@ async function saveEdit() {
     }
     emit('refresh')
     editing.value = false
+    stopMoveBelow()
   } catch (e: any) {
     saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
   } finally {
@@ -488,23 +499,30 @@ async function saveEdit() {
   }
 }
 
-// Move-below quick action: open the comparison drawer; clicking a level there
-// fills draftPosition with the position that places this level immediately
-// below it once Save is clicked.
-type ListLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
-const moveBelowOpen = ref(false)
-function onMoveBelowPick(picked: ListLevel) {
-  // Direction-aware: when the picked level is above the current one, the
-  // picked level keeps its position and we land at picked+1. When the picked
-  // level is below the current one, the move shifts it up by one and we land
-  // at picked.position itself (which is right below the now-shifted picked).
+// Move-below: clicking a level in the left nav (via parent mediation) sets the
+// draft position to place this level immediately below the clicked one.
+const moveBelowActive = ref(false)
+
+function startMoveBelow() {
+  moveBelowActive.value = true
+  emit('start-move-below')
+}
+function stopMoveBelow() {
+  moveBelowActive.value = false
+  emit('end-move-below')
+}
+
+watch(() => props.moveBelowPick, (picked) => {
+  if (!picked) return
   const cur = props.level.position
   if (picked.position === cur) return
+  // Direction-aware: place this level right below the picked one.
   const target = picked.position < cur ? picked.position + 1 : picked.position
   draftPosition.value = target
   if (picked.gddl_tier) draft.gddl_tier = picked.gddl_tier
   if (picked.difficulty) draft.difficulty = picked.difficulty
-}
+  stopMoveBelow()
+})
 
 async function deleteLevel() {
   if (deleting.value) return
@@ -628,11 +646,18 @@ const historyByDay = computed(() => {
           <div class="mt-1 flex items-center gap-2">
             <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             <button
+              v-if="!moveBelowActive"
               type="button"
               class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
-              @click="moveBelowOpen = true"
-              title="Pick a level to place this one immediately below"
+              title="Click a level in the left panel to place this one immediately below it"
+              @click="startMoveBelow"
             >Move below…</button>
+            <button
+              v-else
+              type="button"
+              class="shrink-0 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-2.5 py-1.5 transition-colors"
+              @click="stopMoveBelow"
+            >Cancel pick</button>
           </div>
         </label>
         <label class="block">
@@ -1203,13 +1228,6 @@ const historyByDay = computed(() => {
       </ul>
     </section>
 
-    <LevelComparisonDrawer
-      v-model:open="moveBelowOpen"
-      :confirm-on-pick="true"
-      title="Move below"
-      hint="Click a level to move this one right below it. Save to commit."
-      @confirm="onMoveBelowPick"
-    />
     <LevelComparisonDrawer
       v-model:open="editDuplicatePickerOpen"
       :confirm-on-pick="true"

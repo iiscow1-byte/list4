@@ -32,6 +32,8 @@ export type Account = {
   pronouns: string | null
   discord_handle: string | null
   youtube_url: string | null
+  favorite_level_id: number | null
+  favorite_level_note: string | null
 }
 
 export function hashPassword(password: string): { hash: string; salt: string } {
@@ -82,7 +84,8 @@ export function getCurrentAccount(event: H3Event): Account | null {
     `SELECT a.id, a.username, a.role, a.bio, a.country, a.subdivision, a.claimed_player,
             a.claimed_aredl_uuid,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
-            a.pronouns, a.discord_handle, a.youtube_url
+            a.pronouns, a.discord_handle, a.youtube_url,
+            a.favorite_level_id, a.favorite_level_note
        FROM sessions s
        JOIN accounts a ON a.id = s.account_id
       WHERE s.token = ?`,
@@ -111,6 +114,8 @@ export function getCurrentAccount(event: H3Event): Account | null {
     pronouns: row.pronouns,
     discord_handle: row.discord_handle,
     youtube_url: row.youtube_url,
+    favorite_level_id: row.favorite_level_id ?? null,
+    favorite_level_note: row.favorite_level_note ?? null,
   }
 }
 

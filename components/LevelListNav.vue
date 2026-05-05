@@ -11,7 +11,12 @@ type LevelRow = {
   displayRank?: number
 }
 
-const props = defineProps<{ activePosition?: number | null }>()
+const props = defineProps<{
+  activePosition?: number | null
+  pickMode?: boolean
+  pickedPosition?: number | null
+}>()
+const emit = defineEmits<{ (e: 'pick', level: LevelRow): void }>()
 
 const route = useRoute()
 const router = useRouter()
@@ -328,10 +333,31 @@ watch(
   },
   { immediate: true },
 )
+
+// Scroll to picked position when in pick mode
+watch(
+  () => props.pickedPosition,
+  async (pos) => {
+    if (pos == null) return
+    await nextTick()
+    const el = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    if (el) { el.scrollIntoView({ block: 'center' }); return }
+    // Item not yet loaded — load forward until it appears
+    while (!done.value) {
+      await loadMore()
+      await nextTick()
+      const found = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+      if (found) { found.scrollIntoView({ block: 'center' }); return }
+    }
+  },
+)
 </script>
 
 <template>
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+    <div v-if="pickMode" class="px-3 py-2 bg-accent/10 border-b border-accent/30 shrink-0 flex items-center gap-2">
+      <span class="text-[11px] text-accent leading-snug flex-1">← Click a level to place current level below it</span>
+    </div>
     <div class="p-3 border-b border-zinc-800 shrink-0">
       <div class="flex items-center gap-2 mb-3 px-1">
         <span class="text-xs uppercase tracking-widest text-accent font-semibold">{{ listVariant }}</span>
@@ -630,7 +656,28 @@ watch(
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
       <ul class="divide-y divide-zinc-900/60">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
+          <!-- Pick mode: clickable button, no navigation -->
+          <button
+            v-if="pickMode"
+            type="button"
+            class="w-full flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors"
+            :style="lvl.position === pickedPosition
+              ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
+              : undefined"
+            :class="lvl.position === pickedPosition
+              ? 'ring-1 ring-inset ring-accent/80'
+              : 'text-zinc-300 hover:bg-zinc-900/70'"
+            @click="emit('pick', lvl)"
+          >
+            <span
+              class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
+              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
+            >#{{ lvl.displayRank ?? lvl.position }}</span>
+            <span class="truncate">{{ lvl.name }}</span>
+          </button>
+          <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
+            v-else
             :to="{ path: `/levels/${lvl.position}`, query: search ? { q: search } : {} }"
             class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
             :style="lvl.position === activePosition

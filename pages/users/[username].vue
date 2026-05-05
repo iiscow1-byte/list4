@@ -17,6 +17,8 @@ const { data, error, refresh } = await useFetch<{
   verifiedLevels: any[]
   progressPosts: any[]
   follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
+  favorite_level: { id: number; position: number; name: string; gddl_tier: string | null } | null
+  favorite_level_note: string | null
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
 
 const { data: meRes } = useCurrentUser()
@@ -104,6 +106,19 @@ function fmt(n: number | null | undefined) {
       <section v-if="data.account.bio" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Bio</h2>
         <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ data.account.bio }}</p>
+      </section>
+
+      <section v-if="data.favorite_level" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Favorite Level</h2>
+        <NuxtLink
+          :to="`/levels/${data.favorite_level.position}`"
+          class="inline-flex items-baseline gap-2 group"
+        >
+          <span class="tabular-nums text-xs text-zinc-500">#{{ data.favorite_level.position }}</span>
+          <span class="text-sm font-medium text-zinc-100 group-hover:text-accent transition-colors">{{ data.favorite_level.name }}</span>
+          <span v-if="data.favorite_level.gddl_tier" class="text-xs text-zinc-500">{{ data.favorite_level.gddl_tier }}</span>
+        </NuxtLink>
+        <p v-if="data.favorite_level_note" class="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">{{ data.favorite_level_note }}</p>
       </section>
 
       <section v-if="data.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">

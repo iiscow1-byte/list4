@@ -164,6 +164,12 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'youtube_url')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN youtube_url TEXT`)
   }
+  if (!accCols.some((c) => c.name === 'favorite_level_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN favorite_level_id INTEGER REFERENCES levels(id) ON DELETE SET NULL`)
+  }
+  if (!accCols.some((c) => c.name === 'favorite_level_note')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN favorite_level_note TEXT`)
+  }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)

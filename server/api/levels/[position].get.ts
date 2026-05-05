@@ -20,7 +20,7 @@ export default defineEventHandler((event) => {
 
   const records = db
     .prepare(
-      `SELECT r.percent, r.hz, r.video, r.player_name AS player, p.country, 'all' AS source
+      `SELECT r.id, r.percent, r.hz, r.video, r.player_name AS player, p.country, 'all' AS source
        FROM records r
        LEFT JOIN players p ON p.id = r.player_id
        WHERE r.level_id = ? AND r.permanent = 1

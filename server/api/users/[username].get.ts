@@ -12,11 +12,16 @@ export default defineEventHandler((event) => {
   const acc = db.prepare(
     `SELECT id, username, role, bio, country, subdivision, claimed_player,
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
-            pronouns, discord_handle, youtube_url
+            pronouns, discord_handle, youtube_url,
+            favorite_level_id, favorite_level_note
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })
   acc.has_avatar = !!acc.has_avatar
+
+  const favorite_level = acc.favorite_level_id
+    ? (db.prepare(`SELECT id, position, name, gddl_tier FROM levels WHERE id = ?`).get(acc.favorite_level_id) as { id: number; position: number; name: string; gddl_tier: string | null } | null)
+    : null
 
   // Use the claimed leaderboard name when available, else the username — for
   // both records lookup and derived stats.
@@ -59,5 +64,7 @@ export default defineEventHandler((event) => {
     verifiedLevels,
     progressPosts,
     follow: { target: followTarget, followed, followerCount, isSelf, canFollow: !!me && !isSelf },
+    favorite_level,
+    favorite_level_note: acc.favorite_level_note ?? null,
   }
 })

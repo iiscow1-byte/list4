@@ -11,6 +11,8 @@ export type CurrentUser = {
   pronouns: string | null
   discord_handle: string | null
   youtube_url: string | null
+  favorite_level_id: number | null
+  favorite_level_note: string | null
 }
 
 /**

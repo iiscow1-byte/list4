@@ -42,6 +42,9 @@ function startEdit() {
   profile.pronouns = me.value.pronouns ?? ''
   profile.discord_handle = me.value.discord_handle ?? ''
   profile.youtube_url = me.value.youtube_url ?? ''
+  favoriteLevelId.value = me.value.favorite_level_id
+  favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
+  favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
   profileError.value = null
   profileSaved.value = false
   editing.value = true
@@ -54,6 +57,9 @@ function cancelEdit() {
     profile.pronouns = me.value.pronouns ?? ''
     profile.discord_handle = me.value.discord_handle ?? ''
     profile.youtube_url = me.value.youtube_url ?? ''
+    favoriteLevelId.value = me.value.favorite_level_id
+    favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
+    favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
   }
   profileError.value = null
   editing.value = false
@@ -64,7 +70,11 @@ async function saveProfile() {
   profileSaved.value = false
   profileSaving.value = true
   try {
-    await $fetch('/api/account', { method: 'PATCH', body: { ...profile } })
+    await $fetch('/api/account', { method: 'PATCH', body: {
+      ...profile,
+      favorite_level_id: favoriteLevelId.value ?? null,
+      favorite_level_note: favoriteLevelNote.value.trim() || null,
+    } })
     await refreshMe()
     profileSaved.value = true
     editing.value = false
@@ -304,6 +314,13 @@ async function submitOpenVerification() {
   }
 }
 
+// --- Favorite level ---
+type FavLevel = { id: number; position: number; name: string; gddl_tier: string | null }
+const favoriteLevelId = ref<number | null>(null)
+const favoriteLevelDisplay = ref<FavLevel | null>(null)
+const favoriteLevelNote = ref('')
+const favoriteLevelPickerOpen = ref(false)
+
 // --- Profile data (stats, completed, created, progress) ---
 type ProfileData = {
   account: {
@@ -318,6 +335,8 @@ type ProfileData = {
   verifiedLevels: any[]
   progressPosts: any[]
   follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
+  favorite_level: FavLevel | null
+  favorite_level_note: string | null
 }
 const profileData = ref<ProfileData | null>(null)
 
@@ -401,6 +420,13 @@ function fmt(n: number | null | undefined) {
                 <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
               </div>
             </dl>
+            <div v-if="profileData?.favorite_level" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+              <p class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Favorite Level</p>
+              <NuxtLink :to="`/levels/${profileData.favorite_level.position}`" class="text-sm text-accent hover:underline font-medium">
+                #{{ profileData.favorite_level.position }} {{ profileData.favorite_level.name }}
+              </NuxtLink>
+              <p v-if="profileData.favorite_level_note" class="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">{{ profileData.favorite_level_note }}</p>
+            </div>
             <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
           </div>
 
@@ -469,6 +495,33 @@ function fmt(n: number | null | undefined) {
                     type="url"
                     maxlength="500"
                     placeholder="https://www.youtube.com/@yourhandle"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <div class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <div class="mt-1 flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                      @click="favoriteLevelPickerOpen = true"
+                    >{{ favoriteLevelDisplay ? 'Change…' : 'Pick a level…' }}</button>
+                    <span v-if="favoriteLevelDisplay" class="text-xs text-zinc-200 truncate">#{{ favoriteLevelDisplay.position }} {{ favoriteLevelDisplay.name }}</span>
+                    <button
+                      v-if="favoriteLevelDisplay"
+                      type="button"
+                      class="text-[11px] text-zinc-500 hover:text-red-400"
+                      @click="favoriteLevelId = null; favoriteLevelDisplay = null; favoriteLevelNote = ''"
+                    >clear</button>
+                  </div>
+                </div>
+                <label v-if="favoriteLevelId" class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note about your favorite level <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <textarea
+                    v-model="favoriteLevelNote"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="Why do you love it?"
                     class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </label>
@@ -872,4 +925,12 @@ function fmt(n: number | null | undefined) {
       </aside>
     </div>
   </div>
+
+  <LevelComparisonDrawer
+    v-model:open="favoriteLevelPickerOpen"
+    :confirm-on-pick="true"
+    title="Pick favorite level"
+    hint="Click a level to set it as your favorite."
+    @confirm="(lvl) => { favoriteLevelId = lvl.id ?? null; favoriteLevelDisplay = lvl.id ? { id: lvl.id, position: lvl.position, name: lvl.name, gddl_tier: lvl.gddl_tier } : null }"
+  />
 </template>
