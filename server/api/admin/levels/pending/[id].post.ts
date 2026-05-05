@@ -80,6 +80,7 @@ export default defineEventHandler(async (event) => {
     const submitter = sub.submitted_by
       ? (db.prepare(`SELECT username FROM accounts WHERE id = ?`).get(sub.submitted_by) as { username: string } | undefined)?.username ?? null
       : null
+    let awaitingId: number | null = null
     db.exec('BEGIN')
     try {
       const placementSuggestion = (typeof body.placement_suggestion === 'number' && Number.isInteger(body.placement_suggestion) && body.placement_suggestion > 0)
@@ -116,7 +117,7 @@ export default defineEventHandler(async (event) => {
         sub.alternate_of_id ?? null,
         placementSuggestion,
       )
-      const awaitingId = Number(awaitingResult.lastInsertRowid)
+      awaitingId = Number(awaitingResult.lastInsertRowid)
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
       ).run(account.id, id)

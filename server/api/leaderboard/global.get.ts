@@ -183,14 +183,14 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // For combined view: sort by source order (AREDL→PC→ALL), then by rank within
-  // each source. This keeps source-native rankings intact and ensures ALL list
-  // players always appear rather than being crowded out by incompatible point scales.
+  // For combined view: sort by rank across all sources so a rank-#1 ALL list
+  // player appears near the top alongside rank-#1 AREDL and PC players, rather
+  // than always being pushed to the bottom of the list.
   if (source === 'all') {
     const order: Record<string, number> = { aredl: 0, pointercrate: 1, alllist: 2 }
     rows.sort((a, b) => {
-      const d = (order[a.source] ?? 3) - (order[b.source] ?? 3)
-      return d !== 0 ? d : (a.rank ?? 0) - (b.rank ?? 0)
+      const d = (a.rank ?? 0) - (b.rank ?? 0)
+      return d !== 0 ? d : (order[a.source] ?? 3) - (order[b.source] ?? 3)
     })
   }
 

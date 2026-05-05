@@ -174,6 +174,31 @@ async function testWebhook(w: DiscordWebhook) {
   }
 }
 
+async function postYesterday() {
+  try {
+    const res = await $fetch<{ posted: { webhookId: number; date: string; status: string }[] }>(
+      '/api/admin/discord-webhooks/post-yesterday',
+      { method: 'POST' },
+    )
+    if (res.posted.length === 0) {
+      flash('err', 'No changes webhooks found.')
+    } else {
+      const ok = res.posted.filter((p) => p.status === 'ok')
+      const errors = res.posted.filter((p) => p.status !== 'ok' && p.status !== 'no changes')
+      if (errors.length) {
+        flash('err', `Webhook error: ${errors[0]!.status}`)
+      } else if (ok.length) {
+        flash('ok', `Posted last changes to Discord. (${ok.length} webhook${ok.length === 1 ? '' : 's'})`)
+      } else {
+        flash('ok', 'No new changes to post.')
+      }
+    }
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
 async function postNow() {
   try {
     const res = await $fetch<{ posted: { webhookId: number; date: string; status: string }[] }>(
@@ -481,14 +506,22 @@ async function setClaim(u: AdminUser) {
     <div v-else-if="tab === 'discord'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-3xl space-y-6">
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
-          <div class="px-4 pt-3 pb-2 flex items-baseline justify-between">
+          <div class="px-4 pt-3 pb-2 flex items-baseline justify-between gap-3">
             <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Discord webhooks</h2>
-            <button
-              type="button"
-              class="text-[11px] text-accent hover:underline"
-              @click="postNow"
-              title="Run the daily-summary post job now"
-            >Post pending changes now</button>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="text-[11px] text-accent hover:underline"
+                @click="postYesterday"
+                title="Post yesterday's completed changes (same as the auto-scheduler)"
+              >Post last changes</button>
+              <button
+                type="button"
+                class="text-[11px] text-zinc-400 hover:underline"
+                @click="postNow"
+                title="Post today's changes so far (partial day)"
+              >Post today's changes</button>
+            </div>
           </div>
           <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
             Webhooks are grouped by type: <strong class="text-zinc-400">Daily changes</strong> receives a nightly summary of level moves,
