@@ -61,12 +61,18 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
     while (cursor <= upToDate) {
       const status = await postOneDay(wh, cursor)
       posted.push({ webhookId: wh.id, date: cursor, status })
-      // Always advance last_posted_date so the auto-scheduler never re-posts a
-      // day that was already manually posted. forceCurrent re-enables re-posting
-      // today by resetting the cursor back to upToDate each manual run.
-      db.prepare(
-        `UPDATE discord_webhooks SET last_posted_date = ?, last_post_status = ? WHERE id = ?`,
-      ).run(cursor, status, wh.id)
+      // Only advance last_posted_date for completed (past) days, not today.
+      // Storing today as last_posted_date would cause the next scheduled run
+      // to start from tomorrow, skipping yesterday entirely.
+      if (cursor < today) {
+        db.prepare(
+          `UPDATE discord_webhooks SET last_posted_date = ?, last_post_status = ? WHERE id = ?`,
+        ).run(cursor, status, wh.id)
+      } else {
+        db.prepare(
+          `UPDATE discord_webhooks SET last_post_status = ? WHERE id = ?`,
+        ).run(status, wh.id)
+      }
       cursor = incrementDate(cursor)
     }
   }

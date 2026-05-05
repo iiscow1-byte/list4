@@ -35,15 +35,17 @@ watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null 
 <template>
   <div
     class="grid grid-rows-[minmax(0,1fr)] h-full transition-[grid-template-columns] duration-200"
-    :class="sidebarOpen ? 'grid-cols-[20%_60%_20%]' : 'grid-cols-[80%_20%]'"
+    :class="sidebarOpen ? 'grid-cols-[20%_60%_20%]' : 'grid-cols-[0px_80%_20%]'"
   >
-    <LevelListNav
-      v-if="sidebarOpen"
-      :active-position="position"
-      :pick-mode="moveBelowMode"
-      :picked-position="moveBelowPick?.position ?? null"
-      @pick="onNavPick"
-    />
+    <div class="overflow-hidden min-w-0">
+      <LevelListNav
+        v-show="sidebarOpen"
+        :active-position="position"
+        :pick-mode="moveBelowMode"
+        :picked-position="moveBelowPick?.position ?? null"
+        @pick="onNavPick"
+      />
+    </div>
     <div class="overflow-y-auto min-h-0 relative">
       <button
         type="button"

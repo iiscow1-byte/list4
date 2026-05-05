@@ -183,15 +183,14 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // For combined view: sort by rank across all sources so a rank-#1 ALL list
-  // player appears near the top alongside rank-#1 AREDL and PC players, rather
-  // than always being pushed to the bottom of the list.
+  // For combined view: sort by points descending across all sources and
+  // re-assign unified ranks so the display reflects true cross-list standing.
   if (source === 'all') {
-    const order: Record<string, number> = { aredl: 0, pointercrate: 1, alllist: 2 }
     rows.sort((a, b) => {
-      const d = (a.rank ?? 0) - (b.rank ?? 0)
-      return d !== 0 ? d : (order[a.source] ?? 3) - (order[b.source] ?? 3)
+      const dp = (b.points ?? 0) - (a.points ?? 0)
+      return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
+    rows.forEach((r, i) => { r.rank = i + 1 })
   }
 
   return { total: rows.length, items: rows.slice(0, limit) }
