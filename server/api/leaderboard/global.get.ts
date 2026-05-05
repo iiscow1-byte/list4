@@ -5,9 +5,13 @@ import { listDerivedPlayers } from '~/server/utils/leaderboard'
 /**
  * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
  *
- * When source='all' (All Lists), each source gets an equal slice of the limit
- * so ALL list players always appear alongside AREDL and Pointercrate players.
- * Each player's rank reflects their standing within their own source list.
+ * For source='all' (All Lists): ALL rows from every source are fetched (no SQL
+ * search filter, no per-source limit), merged, sorted by points, and given
+ * unified ranks 1,2,3… THEN the search filter is applied in code so a player's
+ * displayed rank always reflects their true global cross-list standing regardless
+ * of what was searched.
+ *
+ * For single-source views: search and limit are pushed into SQL as before.
  */
 
 type Row = {
@@ -28,18 +32,17 @@ export default defineEventHandler((event) => {
   const search = String(q.q ?? '').trim()
   const source = String(q.source ?? 'all').toLowerCase()
 
-  // For the combined 'all' view, divide the limit equally across sources so
-  // every list is represented. For single-source views, use the full limit.
-  const sourcesInView = (source === 'all' ? 3 : 1)
-  const subLimit = Math.ceil(limit / sourcesInView)
-
   const db = getDb()
   const rows: Row[] = []
+
+  // For the combined 'all' view, skip per-source search/limit so we can build
+  // a complete globally-ranked set and apply search after unified ranking.
+  const isCombined = source === 'all'
 
   if (source === 'all' || source === 'aredl') {
     const params: any[] = []
     let where = ''
-    if (search) {
+    if (search && !isCombined) {
       where = `WHERE ap.global_name LIKE ? COLLATE NOCASE OR ap.username LIKE ? COLLATE NOCASE`
       params.push(`%${search}%`, `%${search}%`)
     }
@@ -52,9 +55,9 @@ export default defineEventHandler((event) => {
         LEFT JOIN accounts a ON a.id = ap.claimed_account_id
        ${where}
        ORDER BY ap.rank ASC, ap.global_name COLLATE NOCASE ASC
-       LIMIT ?
+       ${isCombined ? '' : 'LIMIT ?'}
     `
-    params.push(subLimit)
+    if (!isCombined) params.push(limit)
     const aredlRows = db.prepare(sql).all(...params) as any[]
     for (const r of aredlRows) {
       rows.push({
@@ -74,7 +77,7 @@ export default defineEventHandler((event) => {
   if (source === 'all' || source === 'pointercrate') {
     const params: any[] = []
     let where = `WHERE pp.banned = 0`
-    if (search) {
+    if (search && !isCombined) {
       where += ` AND pp.name LIKE ? COLLATE NOCASE`
       params.push(`%${search}%`)
     }
@@ -86,9 +89,9 @@ export default defineEventHandler((event) => {
         LEFT JOIN accounts a ON a.id = pp.claimed_account_id
        ${where}
        ORDER BY pp.rank ASC, pp.name COLLATE NOCASE ASC
-       LIMIT ?
+       ${isCombined ? '' : 'LIMIT ?'}
     `
-    params.push(subLimit)
+    if (!isCombined) params.push(limit)
     const pcRows = db.prepare(sql).all(...params) as any[]
     for (const r of pcRows) {
       rows.push({
@@ -106,8 +109,6 @@ export default defineEventHandler((event) => {
   }
 
   if (source === 'all' || source === 'alllist') {
-    // Same three-category logic as leaderboard.get.ts so all accounts appear:
-    // 1. sheet players, 2. derived (records-only), 3. zero-point registered accounts
     type AllEntry = {
       player: string
       country: string | null
@@ -117,7 +118,6 @@ export default defineEventHandler((event) => {
       extremes: number
     }
 
-    // Count accepted records per ALL list player (every ALL list level is an extreme).
     const extremesMap = new Map<string, number>()
     ;(db.prepare(
       `SELECT LOWER(player_name) AS k, COUNT(*) AS n FROM records WHERE permanent = 1 GROUP BY LOWER(player_name)`,
@@ -172,12 +172,14 @@ export default defineEventHandler((event) => {
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
 
-    // Assign true ranks before filtering so search shows the real global rank.
+    // For single-source view: assign per-source ranks, then filter by search.
+    // For combined view: push all entries unfiltered — unified ranking happens below.
     const ranked = allEntries.map((e, i) => ({ ...e, rank: i + 1 }))
-    const needle = search.toLowerCase()
-    const filtered = search ? ranked.filter((e) => e.player.toLowerCase().includes(needle)) : ranked
+    const sourceEntries = (!isCombined && search)
+      ? ranked.filter((e) => e.player.toLowerCase().includes(search.toLowerCase()))
+      : ranked
 
-    for (const r of filtered.slice(0, subLimit)) {
+    for (const r of (isCombined ? sourceEntries : sourceEntries.slice(0, limit))) {
       rows.push({
         rank: r.rank,
         source: 'alllist',
@@ -192,15 +194,20 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // For combined view: sort by points descending so the highest-scoring player
-  // appears first. Source-specific ranks (AREDL rank, PC rank, ALL list rank)
-  // are preserved so a player's displayed rank always reflects their real
-  // standing in their own list, unaffected by search filtering.
-  if (source === 'all') {
+  if (isCombined) {
+    // Sort all sources by points and assign unified ranks 1,2,3… across all lists.
     rows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
+    rows.forEach((r, i) => { r.rank = i + 1 })
+
+    // Apply search AFTER ranking so the displayed rank always reflects true
+    // global standing, not position within the filtered result set.
+    const visible = search
+      ? rows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
+      : rows
+    return { total: visible.length, items: visible.slice(0, limit) }
   }
 
   return { total: rows.length, items: rows.slice(0, limit) }
