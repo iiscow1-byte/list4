@@ -35,7 +35,7 @@ async function submit() {
 
     <form class="space-y-4" @submit.prevent="submit">
       <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Username</span>
+        <span class="text-xs uppercase tracking-widest text-zinc-500">Username <span class="text-red-400">*</span></span>
         <input
           v-model="username"
           autocomplete="username"
@@ -45,7 +45,7 @@ async function submit() {
         <span class="text-[11px] text-zinc-500 mt-1 block">3–32 chars: letters, numbers, underscore, hyphen.</span>
       </label>
       <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Password</span>
+        <span class="text-xs uppercase tracking-widest text-zinc-500">Password <span class="text-red-400">*</span></span>
         <input
           v-model="password"
           type="password"

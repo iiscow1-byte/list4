@@ -471,7 +471,7 @@ function fmt(n: number | null | undefined) {
                   />
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
                   <input
                     v-model="profile.pronouns"
                     maxlength="64"
@@ -480,7 +480,7 @@ function fmt(n: number | null | undefined) {
                   />
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord</span>
                   <input
                     v-model="profile.discord_handle"
                     maxlength="64"
@@ -489,7 +489,7 @@ function fmt(n: number | null | undefined) {
                   />
                 </label>
                 <label class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">— optional, full URL</span></span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">full URL</span></span>
                   <input
                     v-model="profile.youtube_url"
                     type="url"
@@ -499,7 +499,7 @@ function fmt(n: number | null | undefined) {
                   />
                 </label>
                 <div class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level</span>
                   <div class="mt-1 flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
@@ -516,7 +516,7 @@ function fmt(n: number | null | undefined) {
                   </div>
                 </div>
                 <label v-if="favoriteLevelId" class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note about your favorite level <span class="text-zinc-600 normal-case">— optional</span></span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note about your favorite level</span>
                   <textarea
                     v-model="favoriteLevelNote"
                     rows="2"
@@ -635,11 +635,11 @@ function fmt(n: number | null | undefined) {
 
             <!-- Showcase (replaces verification) -->
             <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase <span class="text-zinc-600 normal-case">— optional</span></legend>
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
 
               <label class="block">
                 <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-                  Showcase link <span class="text-zinc-600 normal-case">— a layout / preview clip, embedded in place of verification</span>
+                  Showcase link <span class="text-zinc-600 normal-case">a layout / preview clip, embedded in place of verification</span>
                 </span>
                 <input
                   v-model="ovShowcaseUrl"
@@ -662,7 +662,7 @@ function fmt(n: number | null | undefined) {
               </div>
 
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Intended verifier <span class="text-zinc-600 normal-case">— optional</span></span>
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Intended verifier</span>
                 <input
                   v-model="ovVerifier"
                   placeholder="Player name"
@@ -673,7 +673,7 @@ function fmt(n: number | null | undefined) {
 
             <!-- Difficulty opinion -->
             <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion <span class="text-zinc-600 normal-case">— optional</span></legend>
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
@@ -698,7 +698,7 @@ function fmt(n: number | null | undefined) {
 
             <!-- Optional metadata -->
             <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info <span class="text-zinc-600 normal-case">— optional</span></legend>
+              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
@@ -736,7 +736,7 @@ function fmt(n: number | null | undefined) {
             </fieldset>
 
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods</span>
               <textarea
                 v-model="ovNotes"
                 rows="3"

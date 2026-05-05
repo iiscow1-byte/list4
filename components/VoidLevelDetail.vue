@@ -425,7 +425,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier <span class="text-zinc-600 normal-case">— optional</span></span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
               <input
                 v-model="pendingVerifier"
                 placeholder="Player name"
@@ -433,7 +433,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date <span class="text-zinc-600 normal-case">— optional</span></span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
               <input
                 v-model="pendingVerifyDate"
                 type="date"
@@ -443,7 +443,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
           </div>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification video <span class="text-zinc-600 normal-case">— optional</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification video</span>
             <input
               v-model="pendingVideoUrl"
               type="url"
@@ -453,7 +453,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— optional, 0–10</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
             <input
               v-model="pendingEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -462,7 +462,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for mods <span class="text-zinc-600 normal-case">— optional</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for mods</span>
             <textarea
               v-model="pendingNote"
               rows="2"

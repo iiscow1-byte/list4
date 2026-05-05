@@ -191,7 +191,7 @@ function ytEmbed(raw: string | null): string | null {
 
       <div class="grid grid-cols-2 gap-2">
         <div>
-          <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Start %</label>
+          <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Start % <span class="text-red-400">*</span></label>
           <input
             v-model="form.start_percent"
             type="number" min="0" max="100" required
@@ -199,7 +199,7 @@ function ytEmbed(raw: string | null): string | null {
           />
         </div>
         <div>
-          <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">End %</label>
+          <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">End % <span class="text-red-400">*</span></label>
           <input
             v-model="form.end_percent"
             type="number" min="0" max="100" required
@@ -209,7 +209,7 @@ function ytEmbed(raw: string | null): string | null {
       </div>
 
       <div>
-        <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Video URL (optional)</label>
+        <label class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Video URL</label>
         <input
           v-model="form.video_url"
           type="url"

@@ -222,7 +222,7 @@ async function submit() {
       </fieldset>
 
       <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
         <textarea
           v-model="notes"
           rows="3"

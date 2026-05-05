@@ -213,7 +213,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification title <span class="text-zinc-600 normal-case">— optional</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification title</span>
             <input
               v-model="verificationTitle"
               placeholder="Video title"
@@ -222,7 +222,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date <span class="text-zinc-600 normal-case">— optional</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
             <input
               v-model="verifyDate"
               type="date"
@@ -231,7 +231,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement estimate <span class="text-zinc-600 normal-case">— optional</span></span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement estimate</span>
             <input
               v-model="placementEstimate"
               type="number"
@@ -330,7 +330,7 @@ async function submit() {
         </div>
 
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
           <textarea
             v-model="note"
             rows="3"

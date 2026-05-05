@@ -774,7 +774,7 @@ const historyByDay = computed(() => {
               </span>
             </label>
             <div v-if="draft.same_as_above" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Duplicate tag link</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -800,7 +800,7 @@ const historyByDay = computed(() => {
               </span>
             </label>
             <div v-if="draft.is_alternate" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Alternate tag link</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"

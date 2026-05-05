@@ -302,7 +302,7 @@ async function submit() {
 
       <div v-else class="relative">
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level</span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
           <input
             v-model="levelSearch"
             placeholder="Search by name or position…"
@@ -365,7 +365,7 @@ async function submit() {
       </div>
 
       <label v-if="!multi" class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL</span>
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
         <input
           v-model="video"
           type="url"
@@ -392,7 +392,7 @@ async function submit() {
       <fieldset v-if="!multi" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
           <button type="button" class="hover:text-zinc-300" @click="ratingOpen = !ratingOpen">
-            Rate this level <span class="text-zinc-600 normal-case">— optional, applied if the record is approved</span>
+            Rate this level <span class="text-zinc-600 normal-case">applied if the record is approved</span>
             <span class="ml-1 text-[11px]">{{ ratingOpen ? '▾' : '▸' }}</span>
           </button>
         </legend>
@@ -429,7 +429,7 @@ async function submit() {
       </fieldset>
 
       <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
         <textarea
           v-model="note"
           rows="3"

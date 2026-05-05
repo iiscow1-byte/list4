@@ -463,7 +463,7 @@ async function submit() {
       <!-- Difficulty opinion -->
       <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion <span class="font-normal normal-case tracking-normal text-zinc-600">— optional</span></span>
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
@@ -568,7 +568,7 @@ async function submit() {
       <!-- Extra info -->
       <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info <span class="font-normal normal-case tracking-normal text-zinc-600">— optional</span></span>
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
@@ -612,7 +612,7 @@ async function submit() {
 
       <!-- Notes -->
       <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods <span class="text-zinc-600 normal-case">— optional</span></span>
+        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods</span>
         <textarea
           v-model="notes"
           rows="4"

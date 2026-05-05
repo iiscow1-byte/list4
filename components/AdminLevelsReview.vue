@@ -686,7 +686,7 @@ watch(preview, (p) => {
               </span>
             </label>
             <div v-if="isDuplicate" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Duplicate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Duplicate tag link</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -712,7 +712,7 @@ watch(preview, (p) => {
               </span>
             </label>
             <div v-if="isAlternate" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">— optional, makes the Alternate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Alternate tag link</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -772,7 +772,7 @@ watch(preview, (p) => {
 
         <div class="mt-auto flex flex-col gap-2 pt-2">
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">— optional, sent to submitter</span></span>
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
             <textarea
               v-model="rejectReason"
               rows="2"
@@ -788,7 +788,7 @@ watch(preview, (p) => {
             @click="decide('approve')"
           >Approve at #{{ placement || '—' }}</button>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">— optional, pre-fills awaiting tab</span></span>
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
             <input
               v-model="awaitPlacementSuggestion"
               type="number" inputmode="numeric" min="1"

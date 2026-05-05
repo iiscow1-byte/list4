@@ -142,7 +142,7 @@ async function decide(action: 'approve' | 'reject') {
 
         <div class="mt-auto flex flex-col gap-2 pt-2">
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">— optional, sent to submitter</span></span>
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
             <textarea
               v-model="rejectReason"
               rows="2"
