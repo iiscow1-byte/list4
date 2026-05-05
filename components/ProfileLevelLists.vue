@@ -38,7 +38,7 @@ function fmt(n: number | null) {
 </script>
 
 <template>
-  <section v-if="completed" class="rounded-md border border-zinc-800 bg-zinc-950/60">
+  <section v-if="completed?.length" class="rounded-md border border-zinc-800 bg-zinc-950/60">
     <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2 flex items-baseline gap-2">
       Levels Completed
       <span class="text-[11px] text-zinc-600 normal-case tracking-normal">{{ completed.length }} record{{ completed.length === 1 ? '' : 's' }}</span>
@@ -71,7 +71,7 @@ function fmt(n: number | null) {
     </ul>
   </section>
 
-  <section v-if="verified" class="rounded-md border border-zinc-800 bg-zinc-950/60 mt-4">
+  <section v-if="verified?.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mt-4">
     <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2 flex items-baseline gap-2">
       Levels Verified
       <span class="text-[11px] text-zinc-600 normal-case tracking-normal">{{ verified.length }} level{{ verified.length === 1 ? '' : 's' }}</span>
@@ -91,7 +91,7 @@ function fmt(n: number | null) {
     </ul>
   </section>
 
-  <section v-if="created" class="rounded-md border border-zinc-800 bg-zinc-950/60 mt-4">
+  <section v-if="created?.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mt-4">
     <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2 flex items-baseline gap-2">
       Levels Created
       <span class="text-[11px] text-zinc-600 normal-case tracking-normal">{{ created.length }} level{{ created.length === 1 ? '' : 's' }}</span>

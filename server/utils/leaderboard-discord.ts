@@ -69,7 +69,8 @@ export async function postLevelStatusUpdate(
     difficulty: string | null
     submitter: string | null
     verificationUrl: string | null
-    levelPosition?: number | null
+    awaitingId?: number | null
+    voidPosition?: number | null
   },
 ): Promise<void> {
   const webhooks = webhooksOfKind(db, 'level_status')

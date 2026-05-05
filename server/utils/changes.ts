@@ -21,6 +21,7 @@ export function recordPlacement(
 export type ChangeKind = 'add' | 'move'
 export type Change = {
   kind: ChangeKind
+  level_id: number           // levels.id — used for admin changelog deletion
   level_position: number     // current position on the main list (for linking)
   level_name: string
   level_gddl_tier: string | null
@@ -112,6 +113,7 @@ export function loadChanges(
   // Drop net-zero moves: level moved but ended up back at its original position.
   return condensed.filter((r) => r.from_position === null || r.from_position !== r.to_position).map((r) => ({
     kind: r.from_position == null ? 'add' : 'move',
+    level_id: r.level_id,
     level_position: r.level_position,
     level_name: r.level_name,
     level_gddl_tier: r.level_gddl_tier,

@@ -85,7 +85,7 @@ export default defineEventHandler(async (event) => {
       const placementSuggestion = (typeof body.placement_suggestion === 'number' && Number.isInteger(body.placement_suggestion) && body.placement_suggestion > 0)
         ? body.placement_suggestion
         : (sub.placement_estimate != null ? sub.placement_estimate : null)
-      db.prepare(
+      const awaitingResult = db.prepare(
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
@@ -116,6 +116,7 @@ export default defineEventHandler(async (event) => {
         sub.alternate_of_id ?? null,
         placementSuggestion,
       )
+      const awaitingId = Number(awaitingResult.lastInsertRowid)
       db.prepare(
         `UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now') WHERE id = ?`,
       ).run(account.id, id)
@@ -138,6 +139,7 @@ export default defineEventHandler(async (event) => {
       difficulty: sub.difficulty ?? null,
       submitter: submitter ?? null,
       verificationUrl: sub.verification_url ?? null,
+      awaitingId,
     }).catch(() => {})
 
     return { ok: true, awaiting: true }
@@ -152,6 +154,7 @@ export default defineEventHandler(async (event) => {
   // Decide which list to insert into: void list (no difficulty opinion) vs main.
   const goesToVoid = !sub.gddl_tier && !sub.difficulty
   const isPermanent = !goesToVoid // void rows live in their own table; the permanent flag is for the main list
+  let voidInsertPos: number | null = null
 
   db.exec('BEGIN')
   try {
@@ -161,6 +164,7 @@ export default defineEventHandler(async (event) => {
       // would otherwise hit while the UPDATE walks the rows.
       const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM void_levels`).get() as { m: number | null }).m ?? 0
       const insertPos = Math.min(placement, maxPos + 1)
+      voidInsertPos = insertPos
       db.prepare(`UPDATE void_levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
       db.prepare(`UPDATE void_levels SET position = -position WHERE position < 0`).run()
       db.prepare(
@@ -250,6 +254,7 @@ export default defineEventHandler(async (event) => {
       difficulty: sub.difficulty ?? null,
       submitter: submitterName,
       verificationUrl: sub.verification_url ?? null,
+      voidPosition: voidInsertPos,
     }).catch(() => {})
   }
 

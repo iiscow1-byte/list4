@@ -39,6 +39,7 @@ function mutedOn(bg: string) {
 
 type Change = {
   kind: 'add' | 'move'
+  level_id: number
   level_position: number
   level_name: string
   level_gddl_tier: string | null
@@ -50,11 +51,28 @@ type Change = {
 type ChangesDay = { date: string; changes: Change[] }
 type Changes = { days: ChangesDay[] }
 
+const { data: meRes } = useCurrentUser()
+const isMod = computed(() => {
+  const r = meRes.value?.account?.role
+  return r === 'moderator' || r === 'admin' || r === 'owner' || r === 'developer'
+})
+
 const { data: landing } = await useFetch<Landing>('/api/landing')
 const { data: stats } = await useFetch<Stats>('/api/stats')
-const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
+const { data: changes, refresh: refreshChanges } = await useFetch<Changes>('/api/changes/recent', {
   query: { days: 14, limit: 300 },
 })
+
+async function deleteChange(c: Change) {
+  const date = c.changed_at.slice(0, 10)
+  if (!confirm(`Remove changelog entry for "${c.level_name}" on ${date}?`)) return
+  try {
+    await $fetch(`/api/admin/changes/${c.level_id}`, { method: 'DELETE', query: { date } })
+    await refreshChanges()
+  } catch (e: any) {
+    alert(e?.data?.statusMessage ?? 'Failed to delete.')
+  }
+}
 
 const changelogOrder = ref<'placement' | 'recent'>('placement')
 function sortedChanges(changes: Change[]) {
@@ -164,7 +182,7 @@ function paraParts(p: string): { text: string; href: string | null } {
             </span>
           </div>
           <ul class="divide-y divide-zinc-900/60">
-            <li v-for="(c, i) in sortedChanges(day.changes)" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2">
+            <li v-for="(c, i) in sortedChanges(day.changes)" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2 group/row">
               <span
                 v-if="c.kind === 'add'"
                 class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
@@ -201,6 +219,13 @@ function paraParts(p: string): { text: string; href: string | null } {
                   <span class="text-accent">#{{ c.to_position }}</span>
                 </template>
               </span>
+              <button
+                v-if="isMod"
+                type="button"
+                class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 leading-none"
+                title="Remove changelog entry"
+                @click="deleteChange(c)"
+              >✕</button>
             </li>
           </ul>
         </div>

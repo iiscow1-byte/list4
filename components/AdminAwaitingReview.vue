@@ -201,6 +201,17 @@ async function returnToLevels() {
   }
 }
 
+async function quickRemove(id: number) {
+  if (!confirm('Remove this level from awaiting placement?')) return
+  try {
+    await $fetch(`/api/admin/awaiting/${id}`, { method: 'POST', body: { action: 'remove' } })
+    if (selectedId.value === id) selectedId.value = null
+    await load()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
 function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
 const placementHelperOpen = ref(false)
@@ -277,10 +288,10 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
         <ul v-if="items.length" class="divide-y divide-zinc-900/60">
-          <li v-for="r in items" :key="r.id">
+          <li v-for="r in items" :key="r.id" class="relative group/li">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 text-sm transition-colors"
+              class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors"
               :class="selectedId === r.id ? 'bg-sky-900/30 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
@@ -290,6 +301,12 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               </div>
               <div class="text-[10px] text-zinc-600 truncate">{{ r.approved_at }}</div>
             </button>
+            <button
+              type="button"
+              class="absolute top-2 right-2 p-0.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover/li:opacity-100"
+              title="Remove from awaiting"
+              @click.stop="quickRemove(r.id)"
+            >✕</button>
           </li>
         </ul>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">Nothing awaiting placement.</div>

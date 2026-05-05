@@ -107,6 +107,9 @@ export function buildDailyEmbed(
 /**
  * Build a Discord embed for a single record approval (leaderboard update).
  * Posts to webhooks with kind='leaderboard'.
+ *
+ * Discord embed titles are plain text only — [markdown](links) render as
+ * literal brackets. Clickable names go in `description` or `author`.
  */
 export function buildLeaderboardEmbed(opts: {
   playerName: string
@@ -117,22 +120,25 @@ export function buildLeaderboardEmbed(opts: {
   videoUrl: string | null
 }): { embeds: unknown[] } {
   const { playerName, levelName, levelPosition, levelPoints, playerTotal, videoUrl } = opts
-  const levelRef = (levelPosition && SITE_URL_VALID)
-    ? `[${levelName}](${SITE_URL_VALID}/levels/${levelPosition})`
-    : levelName
-  const playerRef = SITE_URL_VALID
-    ? `[${playerName}](${SITE_URL_VALID}/users/by-player/${encodeURIComponent(playerName)})`
-    : playerName
 
-  const lines: string[] = []
+  const levelUrl = (levelPosition && SITE_URL_VALID) ? `${SITE_URL_VALID}/levels/${levelPosition}` : null
+  const playerUrl = SITE_URL_VALID ? `${SITE_URL_VALID}/users/by-player/${encodeURIComponent(playerName)}` : null
+
+  // Description uses markdown — both names become clickable links here.
+  const levelRef = levelUrl ? `[${levelName}](${levelUrl})` : `**${levelName}**`
+  const playerRef = playerUrl ? `[${playerName}](${playerUrl})` : `**${playerName}**`
+
+  const lines: string[] = [`${playerRef} completed ${levelRef}`]
   if (levelPoints != null) lines.push(`**+${levelPoints.toLocaleString()} pts** from this level`)
   if (playerTotal != null) lines.push(`**${playerTotal.toLocaleString()} pts** total`)
   if (videoUrl) lines.push(`[Watch verification](${videoUrl})`)
 
   return {
     embeds: [{
-      title: `${playerRef} completed ${levelRef}`,
-      description: lines.join('\n') || null,
+      // Title is plain text; url makes the whole title link to the level page.
+      title: `${playerName} completed ${levelName}`,
+      url: levelUrl ?? undefined,
+      description: lines.join('\n'),
       color: 0x22c55e,
       timestamp: new Date().toISOString(),
       footer: { text: 'ALL Members Leaderboard' },
@@ -143,6 +149,10 @@ export function buildLeaderboardEmbed(opts: {
 /**
  * Build a Discord embed for a level status change (sent to awaiting or voided).
  * Posts to webhooks with kind='level_status'.
+ *
+ * Discord embed titles are plain text only — [markdown](links) render as
+ * literal brackets. Use `url` to make the title clickable, and description
+ * for the submitter's clickable name.
  */
 export function buildLevelStatusEmbed(opts: {
   destination: 'awaiting' | 'void'
@@ -151,26 +161,38 @@ export function buildLevelStatusEmbed(opts: {
   difficulty: string | null
   submitter: string | null
   verificationUrl: string | null
-  levelPosition?: number | null
+  awaitingId?: number | null
+  voidPosition?: number | null
 }): { embeds: unknown[] } {
-  const { destination, levelName, gddlTier, difficulty, submitter, verificationUrl, levelPosition } = opts
+  const { destination, levelName, gddlTier, difficulty, submitter, verificationUrl, awaitingId, voidPosition } = opts
+  const isAwaiting = destination === 'awaiting'
+
+  // Title URL: link to the specific awaiting or void list item.
+  let titleUrl: string | undefined
+  if (SITE_URL_VALID) {
+    if (isAwaiting && awaitingId) titleUrl = `${SITE_URL_VALID}/awaiting/${awaitingId}`
+    else if (isAwaiting) titleUrl = `${SITE_URL_VALID}/awaiting`
+    else if (voidPosition) titleUrl = `${SITE_URL_VALID}/void/${voidPosition}`
+  }
 
   const lines: string[] = []
-  if (submitter) lines.push(`**Submitted by:** ${submitter}`)
+  if (submitter) {
+    const submitterRef = SITE_URL_VALID
+      ? `[${submitter}](${SITE_URL_VALID}/users/${encodeURIComponent(submitter)})`
+      : `**${submitter}**`
+    lines.push(`Submitted by ${submitterRef}`)
+  }
   const meta: string[] = []
   if (gddlTier) meta.push(gddlTier)
   if (difficulty) meta.push(difficulty)
   if (meta.length) lines.push(`**Tier/Difficulty:** ${meta.join(' · ')}`)
   if (verificationUrl) lines.push(`[Verification video](${verificationUrl})`)
 
-  const levelRef = (levelPosition && SITE_URL_VALID)
-    ? `[${levelName}](${SITE_URL_VALID}/levels/${levelPosition})`
-    : levelName
-
-  const isAwaiting = destination === 'awaiting'
   return {
     embeds: [{
-      title: `${levelRef} → ${isAwaiting ? 'Awaiting Placement' : 'Void List'}`,
+      // Title is plain text; url makes it clickable to the awaiting/void item.
+      title: `${levelName} → ${isAwaiting ? 'Awaiting Placement' : 'Void List'}`,
+      url: titleUrl,
       description: lines.join('\n') || null,
       color: isAwaiting ? 0x38bdf8 : 0xa855f7,
       timestamp: new Date().toISOString(),
