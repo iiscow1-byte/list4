@@ -92,9 +92,7 @@ export default defineEventHandler((event) => {
     return a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
   })
 
-  // Rank is assigned BEFORE filtering so a searched/followed view still shows
-  // each player's true global rank, not their position within the filtered list.
-  let ranked = all.map((p, i) => ({ rank: i + 1, ...p }))
+  let filtered = [...all]
 
   if (followedOnly) {
     const me = getCurrentAccount(event)
@@ -103,14 +101,17 @@ export default defineEventHandler((event) => {
       `SELECT target_name FROM follows WHERE follower_account_id = ?`,
     ).all(me.id) as { target_name: string }[]
     const followSet = new Set(follows.map((f) => f.target_name.toLowerCase()))
-    ranked = ranked.filter((r) => followSet.has(r.player.toLowerCase()))
+    filtered = filtered.filter((r) => followSet.has(r.player.toLowerCase()))
   }
 
   if (search) {
     const needle = search.toLowerCase()
-    ranked = ranked.filter((r) => r.player.toLowerCase().includes(needle))
+    filtered = filtered.filter((r) => r.player.toLowerCase().includes(needle))
   }
 
+  // Ranks reflect position within the filtered/searched results, ordered by
+  // points, so the top result in a search is always shown as #1.
+  const ranked = filtered.map((p, i) => ({ rank: i + 1, ...p }))
   const total = ranked.length
   const items = ranked.slice(0, limit)
   return { total, items }
