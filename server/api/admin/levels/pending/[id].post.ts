@@ -3,6 +3,7 @@ import { requireMod } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { recomputePoints } from '~/server/utils/points'
 import { recordPlacement } from '~/server/utils/changes'
+import { postLevelStatusUpdate } from '~/server/utils/leaderboard-discord'
 
 /**
  * Approve or reject a pending level submission.
@@ -129,6 +130,16 @@ export default defineEventHandler(async (event) => {
       db.exec('ROLLBACK')
       throw e
     }
+    // Fire-and-forget level-status Discord notification.
+    postLevelStatusUpdate(db, {
+      destination: 'awaiting',
+      levelName: sub.name ?? `Level ${sub.gd_id}`,
+      gddlTier: sub.gddl_tier ?? null,
+      difficulty: sub.difficulty ?? null,
+      submitter: submitter ?? null,
+      verificationUrl: sub.verification_url ?? null,
+    }).catch(() => {})
+
     return { ok: true, awaiting: true }
   }
 
@@ -226,6 +237,21 @@ export default defineEventHandler(async (event) => {
   // Inserting at `insertPos` shifts every level below it; tier midpoints
   // change too, so refresh the auto-computed points for the whole list.
   if (!goesToVoid) recomputePoints(db)
+
+  // Fire-and-forget level-status Discord notification for void approvals.
+  if (goesToVoid) {
+    const submitterName = sub.submitted_by
+      ? (db.prepare(`SELECT username FROM accounts WHERE id = ?`).get(sub.submitted_by) as { username: string } | undefined)?.username ?? null
+      : null
+    postLevelStatusUpdate(db, {
+      destination: 'void',
+      levelName: sub.name ?? `Level ${sub.gd_id}`,
+      gddlTier: sub.gddl_tier ?? null,
+      difficulty: sub.difficulty ?? null,
+      submitter: submitterName,
+      verificationUrl: sub.verification_url ?? null,
+    }).catch(() => {})
+  }
 
   return { ok: true, voided: goesToVoid, permanent: isPermanent }
 })

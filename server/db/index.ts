@@ -443,6 +443,9 @@ function initSchema(db: DatabaseSync) {
   if (!dwCols.some((c) => c.name === 'tier_emoji')) {
     db.exec(`ALTER TABLE discord_webhooks ADD COLUMN tier_emoji INTEGER NOT NULL DEFAULT 0`)
   }
+  if (!dwCols.some((c) => c.name === 'kind')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN kind TEXT NOT NULL DEFAULT 'changes'`)
+  }
 
   // Opinions: per-user difficulty / enjoyment ratings on a level. Approved
   // opinions feed the "community tier" tile + bar chart on the level page.

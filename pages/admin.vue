@@ -70,20 +70,28 @@ watch(userSearch, () => {
 })
 
 // --- Discord tab state ---
+type WebhookKind = 'changes' | 'leaderboard' | 'level_status'
 type DiscordWebhook = {
   id: number
   url: string
   label: string | null
   active: 0 | 1
   tier_emoji: 0 | 1
+  kind: WebhookKind
   created_at: string
   created_by: string | null
   last_posted_date: string | null
   last_post_status: string | null
 }
+const WEBHOOK_KIND_LABELS: Record<WebhookKind, string> = {
+  changes: 'Daily changes',
+  leaderboard: 'Leaderboard updates',
+  level_status: 'Level status',
+}
 const webhooks = ref<DiscordWebhook[]>([])
 const newWebhookUrl = ref('')
 const newWebhookLabel = ref('')
+const newWebhookKind = ref<WebhookKind>('changes')
 const webhookBusy = ref(false)
 
 async function loadWebhooks() {
@@ -98,11 +106,12 @@ async function addWebhook() {
   try {
     await $fetch('/api/admin/discord-webhooks', {
       method: 'POST',
-      body: { url: newWebhookUrl.value.trim(), label: newWebhookLabel.value.trim() || null },
+      body: { url: newWebhookUrl.value.trim(), label: newWebhookLabel.value.trim() || null, kind: newWebhookKind.value },
     })
     flash('ok', 'Webhook added.')
     newWebhookUrl.value = ''
     newWebhookLabel.value = ''
+    newWebhookKind.value = 'changes'
     await loadWebhooks()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
@@ -126,6 +135,17 @@ async function toggleTierEmoji(w: DiscordWebhook) {
   try {
     await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
       method: 'PATCH', body: { tier_emoji: !w.tier_emoji },
+    })
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function changeWebhookKind(w: DiscordWebhook, kind: WebhookKind) {
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
+      method: 'PATCH', body: { kind },
     })
     await loadWebhooks()
   } catch (e: any) {
@@ -471,11 +491,13 @@ async function setClaim(u: AdminUser) {
             >Post pending changes now</button>
           </div>
           <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
-            Each active webhook receives a summary of the previous day's level additions and movements, posted shortly after midnight UTC.
+            Webhooks are grouped by type: <strong class="text-zinc-400">Daily changes</strong> receives a nightly summary of level moves,
+            <strong class="text-zinc-400">Leaderboard updates</strong> fires when a record is approved,
+            and <strong class="text-zinc-400">Level status</strong> fires when a level reaches Awaiting Placement or the Void list.
             Set the <code class="text-zinc-300">SITE_URL</code> env var to enable level links inside the embeds.
           </p>
 
-          <div class="px-4 pb-4 border-t border-zinc-900 pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+          <div class="px-4 pb-4 border-t border-zinc-900 pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2">
             <input
               v-model="newWebhookUrl"
               placeholder="https://discord.com/api/webhooks/…/…"
@@ -486,6 +508,14 @@ async function setClaim(u: AdminUser) {
               placeholder="Label"
               class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
+            <select
+              v-model="newWebhookKind"
+              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="changes">Daily changes</option>
+              <option value="leaderboard">Leaderboard updates</option>
+              <option value="level_status">Level status</option>
+            </select>
             <button
               type="button"
               :disabled="webhookBusy || !newWebhookUrl.trim()"
@@ -505,16 +535,36 @@ async function setClaim(u: AdminUser) {
                       ? 'border-emerald-900/60 bg-emerald-950/40 text-emerald-300'
                       : 'border-zinc-800 bg-zinc-900 text-zinc-500'"
                   >{{ w.active ? 'Active' : 'Paused' }}</span>
+                  <span
+                    class="text-[10px] px-1.5 py-0.5 rounded border"
+                    :class="{
+                      'border-blue-900/60 bg-blue-950/40 text-blue-300': w.kind === 'changes',
+                      'border-emerald-900/60 bg-emerald-950/30 text-emerald-400': w.kind === 'leaderboard',
+                      'border-purple-900/60 bg-purple-950/30 text-purple-300': w.kind === 'level_status',
+                    }"
+                  >{{ WEBHOOK_KIND_LABELS[w.kind] ?? w.kind }}</span>
                 </div>
                 <div class="text-[11px] text-zinc-500 truncate font-mono" :title="w.url">{{ w.url }}</div>
                 <div class="text-[10px] text-zinc-600 mt-0.5">
                   Added {{ w.created_at }}<span v-if="w.created_by"> by {{ w.created_by }}</span>
-                  · Last posted: <span class="text-zinc-400">{{ w.last_posted_date ?? '—' }}</span>
-                  <span v-if="w.last_post_status" class="text-zinc-500"> ({{ w.last_post_status }})</span>
+                  <template v-if="w.kind === 'changes'">
+                    · Last posted: <span class="text-zinc-400">{{ w.last_posted_date ?? '—' }}</span>
+                    <span v-if="w.last_post_status" class="text-zinc-500"> ({{ w.last_post_status }})</span>
+                  </template>
                 </div>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
+                <select
+                  :value="w.kind"
+                  class="rounded border border-zinc-700 bg-zinc-900 text-xs px-2 py-1 text-zinc-300 focus:border-accent focus:outline-none"
+                  @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
+                >
+                  <option value="changes">Daily changes</option>
+                  <option value="leaderboard">Leaderboard updates</option>
+                  <option value="level_status">Level status</option>
+                </select>
                 <label
+                  v-if="w.kind === 'changes'"
                   class="flex items-center gap-1.5 cursor-pointer select-none text-xs transition-colors"
                   :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
                   :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in embeds'"

@@ -2,11 +2,14 @@ import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { isValidDiscordWebhook } from '~/server/utils/discord'
 
+const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status'])
+
 export default defineEventHandler(async (event) => {
   const account = requireAdmin(event)
-  const body = await readBody<{ url?: string; label?: string }>(event)
+  const body = await readBody<{ url?: string; label?: string; kind?: string }>(event)
   const url = String(body.url ?? '').trim()
   const label = body.label != null ? String(body.label).trim().slice(0, 100) || null : null
+  const kind = (typeof body.kind === 'string' && VALID_KINDS.has(body.kind)) ? body.kind : 'changes'
 
   if (!url) {
     throw createError({ statusCode: 400, statusMessage: 'A webhook URL is required.' })
@@ -26,9 +29,9 @@ export default defineEventHandler(async (event) => {
 
   const result = db
     .prepare(
-      `INSERT INTO discord_webhooks (url, label, created_by) VALUES (?, ?, ?)`,
+      `INSERT INTO discord_webhooks (url, label, kind, created_by) VALUES (?, ?, ?, ?)`,
     )
-    .run(url, label, account.id)
+    .run(url, label, kind, account.id)
 
   return { ok: true, id: Number(result.lastInsertRowid) }
 })

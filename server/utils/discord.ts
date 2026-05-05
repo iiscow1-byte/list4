@@ -105,6 +105,81 @@ export function buildDailyEmbed(
 }
 
 /**
+ * Build a Discord embed for a single record approval (leaderboard update).
+ * Posts to webhooks with kind='leaderboard'.
+ */
+export function buildLeaderboardEmbed(opts: {
+  playerName: string
+  levelName: string
+  levelPosition: number | null
+  levelPoints: number | null
+  playerTotal: number | null
+  videoUrl: string | null
+}): { embeds: unknown[] } {
+  const { playerName, levelName, levelPosition, levelPoints, playerTotal, videoUrl } = opts
+  const levelRef = (levelPosition && SITE_URL_VALID)
+    ? `[${levelName}](${SITE_URL_VALID}/levels/${levelPosition})`
+    : levelName
+  const playerRef = SITE_URL_VALID
+    ? `[${playerName}](${SITE_URL_VALID}/users/by-player/${encodeURIComponent(playerName)})`
+    : playerName
+
+  const lines: string[] = []
+  if (levelPoints != null) lines.push(`**+${levelPoints.toLocaleString()} pts** from this level`)
+  if (playerTotal != null) lines.push(`**${playerTotal.toLocaleString()} pts** total`)
+  if (videoUrl) lines.push(`[Watch verification](${videoUrl})`)
+
+  return {
+    embeds: [{
+      title: `${playerRef} completed ${levelRef}`,
+      description: lines.join('\n') || null,
+      color: 0x22c55e,
+      timestamp: new Date().toISOString(),
+      footer: { text: 'ALL Members Leaderboard' },
+    }],
+  }
+}
+
+/**
+ * Build a Discord embed for a level status change (sent to awaiting or voided).
+ * Posts to webhooks with kind='level_status'.
+ */
+export function buildLevelStatusEmbed(opts: {
+  destination: 'awaiting' | 'void'
+  levelName: string
+  gddlTier: string | null
+  difficulty: string | null
+  submitter: string | null
+  verificationUrl: string | null
+  levelPosition?: number | null
+}): { embeds: unknown[] } {
+  const { destination, levelName, gddlTier, difficulty, submitter, verificationUrl, levelPosition } = opts
+
+  const lines: string[] = []
+  if (submitter) lines.push(`**Submitted by:** ${submitter}`)
+  const meta: string[] = []
+  if (gddlTier) meta.push(gddlTier)
+  if (difficulty) meta.push(difficulty)
+  if (meta.length) lines.push(`**Tier/Difficulty:** ${meta.join(' · ')}`)
+  if (verificationUrl) lines.push(`[Verification video](${verificationUrl})`)
+
+  const levelRef = (levelPosition && SITE_URL_VALID)
+    ? `[${levelName}](${SITE_URL_VALID}/levels/${levelPosition})`
+    : levelName
+
+  const isAwaiting = destination === 'awaiting'
+  return {
+    embeds: [{
+      title: `${levelRef} → ${isAwaiting ? 'Awaiting Placement' : 'Void List'}`,
+      description: lines.join('\n') || null,
+      color: isAwaiting ? 0x38bdf8 : 0xa855f7,
+      timestamp: new Date().toISOString(),
+      footer: { text: isAwaiting ? 'Awaiting Placement' : 'Void List' },
+    }],
+  }
+}
+
+/**
  * POST a payload to a Discord webhook. Returns a status string ("ok" or
  * "HTTP <code>" or an error message). Discord webhooks return 204 on success.
  */

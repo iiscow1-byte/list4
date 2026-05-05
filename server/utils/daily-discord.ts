@@ -37,8 +37,8 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
   // `active` flag gates the automated scheduler only.
   const webhooks = db
     .prepare(opts.allWebhooks
-      ? `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks`
-      : `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE active = 1`)
+      ? `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE kind = 'changes'`
+      : `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE active = 1 AND kind = 'changes'`)
     .all() as WebhookRow[]
   if (!webhooks.length) return { posted: [] }
 
