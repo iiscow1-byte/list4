@@ -1266,8 +1266,16 @@ const historyByDay = computed(() => {
         <div v-if="!level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading AREDL estimate…</div>
           <template v-else-if="estimatedData">
-            <!-- Has an estimated position → list-worthy, show estimate -->
-            <template v-if="estimatedData.estimated_aredl">
+            <!-- NLW: no AREDL-ranked ALL list level is easier than this one,
+                 meaning this level sits below the entire AREDL extended list. -->
+            <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-200">AREDL</span>
+                <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
+              </div>
+            </template>
+            <!-- Otherwise: level falls within or above the AREDL range → show estimate -->
+            <template v-else-if="estimatedData.estimated_aredl">
               <div class="flex items-center justify-between">
                 <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
                 <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
@@ -1286,11 +1294,6 @@ const historyByDay = computed(() => {
               </p>
               <p v-else class="text-[11px] text-zinc-600">No nearby AREDL-ranked levels found for estimation.</p>
             </template>
-            <!-- No estimated position → confirmed Not List Worthy -->
-            <div v-else class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-200">AREDL</span>
-              <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-            </div>
           </template>
         </div>
       </details>
