@@ -91,7 +91,7 @@ async function deleteRecord(id: number) {
                 v-if="isAdmin && r.id && (!r.source || r.source === 'all')"
                 type="button"
                 :disabled="deletingId != null"
-                class="opacity-0 group-hover:opacity-100 text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all leading-none"
+                class="text-[10px] text-zinc-500 hover:text-red-400 disabled:opacity-30 transition-colors leading-none"
                 title="Remove record"
                 @click="deleteRecord(r.id!)"
               >✕</button>

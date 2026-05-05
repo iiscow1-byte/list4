@@ -17,6 +17,7 @@ const items = ref<PendingRec[]>([])
 const selectedId = ref<number | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
+const bulkLoading = ref(false)
 const rejectReason = ref<string>('')
 
 async function load() {
@@ -50,6 +51,24 @@ const reviewLevel = computed(() => {
 function flash(kind: 'ok' | 'err', msg: string) {
   banner.value = { kind, msg }
   setTimeout(() => (banner.value = null), 3000)
+}
+
+async function bulkApprove() {
+  if (!selected.value?.submitter || bulkLoading.value) return
+  bulkLoading.value = true
+  try {
+    const res = await $fetch<{ approved: number }>('/api/admin/records/bulk-approve', {
+      method: 'POST',
+      body: { submitter: selected.value.submitter },
+    })
+    flash('ok', `Approved ${res.approved} record(s) from ${selected.value.submitter}.`)
+    selectedId.value = null
+    await load()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  } finally {
+    bulkLoading.value = false
+  }
 }
 
 async function decide(action: 'approve' | 'reject') {
@@ -153,13 +172,20 @@ async function decide(action: 'approve' | 'reject') {
           </label>
           <button
             type="button"
-            :disabled="decideLoading"
+            :disabled="decideLoading || bulkLoading"
             class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
             @click="decide('approve')"
           >Approve</button>
           <button
+            v-if="selected?.submitter"
             type="button"
-            :disabled="decideLoading"
+            :disabled="decideLoading || bulkLoading"
+            class="w-full rounded border border-sky-800 text-sky-300 hover:bg-sky-900/30 text-sm py-2 transition-colors disabled:opacity-60"
+            @click="bulkApprove"
+          >{{ bulkLoading ? 'Approving…' : `Approve all from ${selected.submitter}` }}</button>
+          <button
+            type="button"
+            :disabled="decideLoading || bulkLoading"
             class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
             @click="decide('reject')"
           >Reject</button>

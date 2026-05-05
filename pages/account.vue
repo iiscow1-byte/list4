@@ -382,6 +382,12 @@ watch(() => me.value?.bio, loadProfileData)
 // --- Progress post composer (inline) ---
 const showProgress = ref(false)
 
+const youtubeUrlValid = computed(() => {
+  const url = profile.youtube_url.trim()
+  if (!url) return true
+  return /^https?:\/\/(www\.)?youtube\.com\/((@|channel\/|c\/|user\/)[^/?&#\s]+)/i.test(url)
+})
+
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
   await refreshNuxtData('auth-me')
@@ -527,7 +533,11 @@ function fmt(n: number | null | undefined) {
                     maxlength="500"
                     placeholder="https://www.youtube.com/@yourhandle"
                     class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    :class="{ 'border-red-800': profile.youtube_url.trim() && !youtubeUrlValid }"
                   />
+                  <span v-if="profile.youtube_url.trim() && !youtubeUrlValid" class="text-[11px] text-red-400 mt-1 block">
+                    Must be a YouTube channel URL, e.g. https://www.youtube.com/@handle
+                  </span>
                 </label>
                 <div class="block sm:col-span-2">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level</span>

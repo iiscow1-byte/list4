@@ -21,6 +21,13 @@ export default defineEventHandler(async (event) => {
     favorite_level_note: 'favorite_level_note' in body ? clamp(body.favorite_level_note, 500) : me.favorite_level_note,
   }
 
+  if (next.youtube_url) {
+    const ytPattern = /^https?:\/\/(www\.)?youtube\.com\/((@|channel\/|c\/|user\/)[^/?&#\s]+)/i
+    if (!ytPattern.test(next.youtube_url)) {
+      throw createError({ statusCode: 400, statusMessage: 'YouTube URL must be a valid channel link (e.g. https://www.youtube.com/@handle)' })
+    }
+  }
+
   let favorite_level_id: number | null = me.favorite_level_id ?? null
   if ('favorite_level_id' in body) {
     const raw = body.favorite_level_id
