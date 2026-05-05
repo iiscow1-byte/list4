@@ -1088,26 +1088,32 @@ const historyByDay = computed(() => {
       </div>
 
       <!-- Credits -->
-      <section v-if="creditRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
-        <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Credits</h2>
-        <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+      <details v-if="creditRows.length" open class="group rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Credits</h2>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+        <dl class="px-4 pb-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <template v-for="row in creditRows" :key="row.label">
             <dt class="text-zinc-500">{{ row.label }}</dt>
             <dd class="text-zinc-200">{{ row.value }}</dd>
           </template>
         </dl>
-      </section>
+      </details>
 
       <!-- Metadata block -->
-      <section v-if="infoRows.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
-        <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
-        <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+      <details v-if="infoRows.length" open class="group rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Information</h2>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+        <dl class="px-4 pb-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
           <template v-for="row in infoRows" :key="row.label">
             <dt class="text-zinc-500">{{ row.label }}</dt>
             <dd class="text-zinc-200 truncate" :title="row.value">{{ row.value }}</dd>
           </template>
         </dl>
-      </section>
+      </details>
 
       <!-- Position history: most recent first. Recorded on admin moves. -->
       <section class="space-y-3">
@@ -1141,8 +1147,6 @@ const historyByDay = computed(() => {
                   class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
                   title="Moved down"
                 >▼ Moved</span>
-
-                <span v-if="entry.changed_by" class="text-zinc-500 text-xs truncate">{{ entry.changed_by }}</span>
 
                 <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
                   <template v-if="entry.from_position == null">#{{ entry.to_position }}</template>
