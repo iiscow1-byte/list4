@@ -2,7 +2,7 @@
 import { useLevelPicker } from '~/composables/useLevelPicker'
 
 type LevelMatch = { position: number; name: string }
-type RowValue = { search: string; video: string; selected: LevelMatch | null }
+type RowValue = { search: string; video: string; selected: LevelMatch | null; isVerificationClaim: boolean }
 
 const props = defineProps<{ modelValue: RowValue }>()
 const emit = defineEmits<{ 'update:modelValue': [value: RowValue] }>()
@@ -15,12 +15,33 @@ const video = computed({
   get: () => props.modelValue.video,
   set: (v: string) => emit('update:modelValue', { ...props.modelValue, video: v }),
 })
+const isVerificationClaim = computed({
+  get: () => props.modelValue.isVerificationClaim,
+  set: (v: boolean) => emit('update:modelValue', { ...props.modelValue, isVerificationClaim: v }),
+})
 const selected = computed(() => props.modelValue.selected)
 function setSelected(s: LevelMatch | null) {
-  emit('update:modelValue', { ...props.modelValue, selected: s })
+  emit('update:modelValue', { ...props.modelValue, selected: s, isVerificationClaim: false })
 }
 
 const picker = useLevelPicker(search, selected, setSelected)
+
+// Fetch verifier for the selected level so we know whether to show the claim checkbox.
+const levelVerifier = ref<string | null | undefined>(undefined)
+watch(selected, async (l) => {
+  levelVerifier.value = undefined
+  if (!l) return
+  try {
+    const data = await $fetch<{ verifier: string | null }>(`/api/levels/${l.position}`)
+    levelVerifier.value = data.verifier ?? null
+  } catch {
+    levelVerifier.value = null
+  }
+})
+
+const canClaimVerification = computed(
+  () => selected.value != null && levelVerifier.value === null,
+)
 </script>
 
 <template>
@@ -54,10 +75,26 @@ const picker = useLevelPicker(search, selected, setSelected)
       <li v-if="picker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
     </ul>
   </div>
-  <input
-    v-model="video"
-    type="url"
-    placeholder="https://www.youtube.com/watch?v=…"
-    class="w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-  />
+
+  <!-- Video URL + inline verifier claim checkbox -->
+  <div class="flex items-center gap-2">
+    <input
+      v-model="video"
+      type="url"
+      placeholder="https://www.youtube.com/watch?v=…"
+      class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+    />
+    <label
+      v-if="canClaimVerification"
+      class="flex items-center gap-1.5 shrink-0 cursor-pointer select-none"
+      title="Check if this video is the level's first clear (verification)"
+    >
+      <input
+        v-model="isVerificationClaim"
+        type="checkbox"
+        class="accent-accent w-3.5 h-3.5"
+      />
+      <span class="text-[10px] text-zinc-400 whitespace-nowrap">I'm the verifier</span>
+    </label>
+  </div>
 </template>

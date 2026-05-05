@@ -539,6 +539,40 @@ async function deleteLevel() {
   }
 }
 
+// Estimated placement for levels not on any external list
+type EstimatedPlacement = {
+  estimated_aredl: number | null
+  bracket: {
+    above: { position: number; name: string; aredl_position: number } | null
+    below: { position: number; name: string; aredl_position: number } | null
+  }
+}
+const estimatedData = ref<EstimatedPlacement | null>(null)
+const estimatedLoading = ref(false)
+const estimatedFetched = ref(false)
+
+async function onOtherListsToggle(e: Event) {
+  const open = (e.target as HTMLDetailsElement).open
+  if (!open) return
+  if ((props.level.other_lists?.length ?? 0) > 0) return
+  if (estimatedFetched.value) return
+  estimatedLoading.value = true
+  try {
+    estimatedData.value = await $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
+    estimatedFetched.value = true
+  } catch {
+    estimatedData.value = null
+  } finally {
+    estimatedLoading.value = false
+  }
+}
+
+// Reset when navigating to a different level
+watch(() => props.level.position, () => {
+  estimatedData.value = null
+  estimatedFetched.value = false
+})
+
 const deletingHistoryId = ref<number | null>(null)
 async function deleteHistoryEntry(entryId: number) {
   if (deletingHistoryId.value != null) return
@@ -1200,32 +1234,59 @@ const historyByDay = computed(() => {
       </section>
     </template>
 
-    <!-- Rankings on other lists. Currently only Aredl; future list integrations
-         render the same way once backend `other_lists` includes them. -->
-    <section
-      v-if="(level.other_lists?.length ?? 0) > 0"
-      class="mt-6 rounded-md border border-zinc-900 bg-zinc-950"
-    >
-      <h3 class="px-4 py-3 text-xs uppercase tracking-widest text-zinc-500 border-b border-zinc-900">
-        Rankings on other lists
-      </h3>
-      <ul class="divide-y divide-zinc-900">
-        <li
-          v-for="entry in level.other_lists"
-          :key="entry.list"
-          class="flex items-center gap-3 px-4 py-3"
-        >
-          <span class="text-sm font-medium text-zinc-200">{{ entry.list }}</span>
-          <a
-            v-if="entry.url"
-            :href="entry.url"
-            target="_blank"
-            rel="noopener"
-            class="ml-auto tabular-nums text-base text-amber-300 hover:underline"
-          >#{{ entry.position }}</a>
-          <span v-else class="ml-auto tabular-nums text-base text-amber-300">#{{ entry.position }}</span>
-        </li>
-      </ul>
+    <!-- Rankings on other lists — always shown as a collapsible. When the level
+         has no real rankings, an estimated AREDL position is fetched on open. -->
+    <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
+      <details :open="(level.other_lists?.length ?? 0) > 0" class="group" @toggle="onOtherListsToggle">
+        <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
+          <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
+          <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
+        </summary>
+
+        <!-- Real rankings -->
+        <ul v-if="(level.other_lists?.length ?? 0) > 0" class="divide-y divide-zinc-900 border-t border-zinc-900">
+          <li
+            v-for="entry in level.other_lists"
+            :key="entry.list"
+            class="flex items-center gap-3 px-4 py-3"
+          >
+            <span class="text-sm font-medium text-zinc-200">{{ entry.list }}</span>
+            <a
+              v-if="entry.url"
+              :href="entry.url"
+              target="_blank"
+              rel="noopener"
+              class="ml-auto tabular-nums text-base text-amber-300 hover:underline"
+            >#{{ entry.position }}</a>
+            <span v-else class="ml-auto tabular-nums text-base text-amber-300">#{{ entry.position }}</span>
+          </li>
+        </ul>
+
+        <!-- Estimated placement when not on any external list -->
+        <div v-else class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <p class="text-xs text-zinc-500">This level is not currently ranked on any major external list.</p>
+          <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading estimate…</div>
+          <template v-else-if="estimatedData">
+            <div v-if="estimatedData.estimated_aredl" class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
+              <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
+            </div>
+            <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
+              Based on nearby ranked levels:
+              <template v-if="estimatedData.bracket.above">
+                <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
+                (AREDL #{{ estimatedData.bracket.above.aredl_position }})
+              </template>
+              <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
+              <template v-if="estimatedData.bracket.below">
+                <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.below.name }}</NuxtLink>
+                (AREDL #{{ estimatedData.bracket.below.aredl_position }})
+              </template>
+            </p>
+            <p v-else class="text-[11px] text-zinc-600">No nearby AREDL-ranked levels found for estimation.</p>
+          </template>
+        </div>
+      </details>
     </section>
 
     <LevelComparisonDrawer

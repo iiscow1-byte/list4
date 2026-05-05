@@ -2,13 +2,33 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 
 type LevelRow = { position: number; name: string; points: number | null; gddl_tier: string | null }
-type CompletedLevel = LevelRow & { percent: number }
+type CompletedLevel = LevelRow & { percent: number; record_id?: number }
 
-defineProps<{
+const props = defineProps<{
   completed?: CompletedLevel[]
   created?: LevelRow[]
   verified?: LevelRow[]
 }>()
+
+const emit = defineEmits<{ (e: 'refresh'): void }>()
+
+const { data: meRes } = useCurrentUser()
+const isAdmin = computed(() => {
+  const role = meRes.value?.account?.role
+  return role === 'admin' || role === 'owner' || role === 'developer'
+})
+
+const deletingId = ref<number | null>(null)
+async function deleteRecord(id: number) {
+  if (deletingId.value != null) return
+  deletingId.value = id
+  try {
+    await $fetch(`/api/admin/records/${id}`, { method: 'DELETE' })
+    emit('refresh')
+  } finally {
+    deletingId.value = null
+  }
+}
 
 function fmt(n: number | null) {
   if (n == null) return '—'
@@ -25,18 +45,28 @@ function fmt(n: number | null) {
     </h2>
     <div v-if="completed.length === 0" class="px-4 pb-4 text-xs text-zinc-600">No verified records.</div>
     <ul v-else class="divide-y divide-zinc-900">
-      <li v-for="l in completed" :key="`c-${l.position}`" class="px-4 py-2 hover:bg-zinc-900/40 transition-colors">
-        <NuxtLink :to="`/levels/${l.position}`" class="flex items-center gap-3 group">
-          <span
-            class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded"
-            :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
-          >#{{ l.position }}</span>
-          <span class="truncate flex-1 text-sm text-zinc-200 group-hover:text-accent transition-colors">{{ l.name }}</span>
-          <span class="ml-auto flex items-center gap-2 shrink-0">
-            <span v-if="l.percent < 100" class="tabular-nums text-[11px] text-zinc-500">{{ l.percent }}%</span>
-            <span class="tabular-nums text-xs text-amber-300">{{ fmt(l.points) }}</span>
-          </span>
-        </NuxtLink>
+      <li v-for="l in completed" :key="`c-${l.position}`" class="px-4 py-2 hover:bg-zinc-900/40 transition-colors group">
+        <div class="flex items-center gap-3">
+          <NuxtLink :to="`/levels/${l.position}`" class="flex items-center gap-3 flex-1 min-w-0">
+            <span
+              class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded"
+              :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
+            >#{{ l.position }}</span>
+            <span class="truncate flex-1 text-sm text-zinc-200 group-hover:text-accent transition-colors">{{ l.name }}</span>
+            <span class="ml-auto flex items-center gap-2 shrink-0">
+              <span v-if="l.percent < 100" class="tabular-nums text-[11px] text-zinc-500">{{ l.percent }}%</span>
+              <span class="tabular-nums text-xs text-amber-300">{{ fmt(l.points) }}</span>
+            </span>
+          </NuxtLink>
+          <button
+            v-if="isAdmin && l.record_id"
+            type="button"
+            :disabled="deletingId != null"
+            class="text-[10px] text-zinc-500 hover:text-red-400 disabled:opacity-30 transition-colors leading-none shrink-0"
+            title="Remove record"
+            @click="deleteRecord(l.record_id!)"
+          >✕</button>
+        </div>
       </li>
     </ul>
   </section>

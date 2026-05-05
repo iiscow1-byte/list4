@@ -16,7 +16,7 @@ export type LevelRow = {
   gddl_tier: string | null
 }
 
-export type CompletedLevel = LevelRow & { percent: number; main_skillset: string | null }
+export type CompletedLevel = LevelRow & { percent: number; main_skillset: string | null; record_id: number }
 
 export function getPlayerStats(db: DatabaseSync, name: string): PlayerStats | null {
   return db.prepare(
@@ -30,7 +30,7 @@ export function getCompletedLevels(db: DatabaseSync, playerName: string): Comple
   // user submissions are also permanent = 1, so a single filter covers both.
   // Pending user submissions (permanent = 0) stay hidden.
   return db.prepare(
-    `SELECT l.position, l.name, l.points, l.gddl_tier, l.main_skillset, r.percent
+    `SELECT l.position, l.name, l.points, l.gddl_tier, l.main_skillset, r.percent, r.id AS record_id
        FROM records r
        JOIN levels l ON l.id = r.level_id
       WHERE r.player_name = ? COLLATE NOCASE AND r.permanent = 1

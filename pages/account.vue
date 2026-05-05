@@ -93,15 +93,111 @@ const avatarUrl = computed(() =>
 )
 const avatarError = ref<string | null>(null)
 const avatarUploading = ref(false)
+const avatarHoverFileInput = ref<HTMLInputElement | null>(null)
 
-async function onAvatarChange(e: Event) {
+// Crop modal state
+const cropOpen = ref(false)
+const cropSrc = ref<string | null>(null)
+const cropImgEl = ref<HTMLImageElement | null>(null)
+const cropNaturalW = ref(0)
+const cropNaturalH = ref(0)
+const cropScale = ref(1)
+const cropOffsetX = ref(0)
+const cropOffsetY = ref(0)
+const cropIsDragging = ref(false)
+const cropDragStart = ref({ x: 0, y: 0, ox: 0, oy: 0 })
+const CROP_SIZE = 192 // px — displayed circle diameter
+
+function initCropPositions() {
+  const scale = cropScale.value
+  const w = cropNaturalW.value * scale
+  const h = cropNaturalH.value * scale
+  cropOffsetX.value = (CROP_SIZE - w) / 2
+  cropOffsetY.value = (CROP_SIZE - h) / 2
+}
+
+function onCropImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  cropNaturalW.value = img.naturalWidth
+  cropNaturalH.value = img.naturalHeight
+  // Fit the image so its shortest side covers the crop circle.
+  const minDim = Math.min(img.naturalWidth, img.naturalHeight)
+  cropScale.value = CROP_SIZE / minDim
+  initCropPositions()
+}
+
+function onCropWheel(e: WheelEvent) {
+  e.preventDefault()
+  const delta = e.deltaY < 0 ? 0.05 : -0.05
+  const minScale = CROP_SIZE / Math.min(cropNaturalW.value, cropNaturalH.value)
+  cropScale.value = Math.max(minScale, Math.min(4, cropScale.value + delta))
+  clampCropOffset()
+}
+
+function clampCropOffset() {
+  const w = cropNaturalW.value * cropScale.value
+  const h = cropNaturalH.value * cropScale.value
+  cropOffsetX.value = Math.min(0, Math.max(CROP_SIZE - w, cropOffsetX.value))
+  cropOffsetY.value = Math.min(0, Math.max(CROP_SIZE - h, cropOffsetY.value))
+}
+
+function onCropMouseDown(e: MouseEvent) {
+  cropIsDragging.value = true
+  cropDragStart.value = { x: e.clientX, y: e.clientY, ox: cropOffsetX.value, oy: cropOffsetY.value }
+}
+function onCropMouseMove(e: MouseEvent) {
+  if (!cropIsDragging.value) return
+  cropOffsetX.value = cropDragStart.value.ox + (e.clientX - cropDragStart.value.x)
+  cropOffsetY.value = cropDragStart.value.oy + (e.clientY - cropDragStart.value.y)
+  clampCropOffset()
+}
+function onCropMouseUp() { cropIsDragging.value = false }
+
+function openCropForFile(file: File) {
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    cropSrc.value = ev.target?.result as string
+    cropScale.value = 1
+    cropOffsetX.value = 0
+    cropOffsetY.value = 0
+    cropOpen.value = true
+  }
+  reader.readAsDataURL(file)
+}
+
+function onHoverAvatarChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+  ;(e.target as HTMLInputElement).value = ''
+  openCropForFile(file)
+}
+
+async function confirmCrop() {
+  if (!cropImgEl.value) return
   avatarError.value = null
   avatarUploading.value = true
+  cropOpen.value = false
   try {
+    const OUT = 256
+    const ratio = OUT / CROP_SIZE
+    const canvas = document.createElement('canvas')
+    canvas.width = OUT
+    canvas.height = OUT
+    const ctx = canvas.getContext('2d')!
+    ctx.beginPath()
+    ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2)
+    ctx.clip()
+    ctx.drawImage(
+      cropImgEl.value,
+      cropOffsetX.value * ratio,
+      cropOffsetY.value * ratio,
+      cropNaturalW.value * cropScale.value * ratio,
+      cropNaturalH.value * cropScale.value * ratio,
+    )
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+    if (!blob) throw new Error('Crop failed.')
     const fd = new FormData()
-    fd.append('avatar', file)
+    fd.append('avatar', blob, 'avatar.jpg')
     await $fetch('/api/account/avatar', { method: 'POST', body: fd })
     await refreshMe()
     avatarVersion.value++
@@ -109,8 +205,15 @@ async function onAvatarChange(e: Event) {
     avatarError.value = err?.data?.statusMessage ?? err?.statusMessage ?? 'Upload failed.'
   } finally {
     avatarUploading.value = false
-    ;(e.target as HTMLInputElement).value = ''
+    cropSrc.value = null
   }
+}
+
+async function onAvatarChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  ;(e.target as HTMLInputElement).value = ''
+  openCropForFile(file)
 }
 
 async function removeAvatar() {
@@ -406,12 +509,19 @@ function fmt(n: number | null | undefined) {
       <!-- Main column: same shape as the public profile -->
       <main class="space-y-6 min-w-0">
         <header class="flex items-start gap-4 flex-wrap">
-          <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
+          <label class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 relative cursor-pointer group" title="Change profile picture">
             <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full flex items-center justify-center text-2xl text-zinc-600 font-bold">
               {{ me.username.charAt(0).toUpperCase() }}
             </div>
-          </div>
+            <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-white">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </div>
+            <input ref="avatarHoverFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onHoverAvatarChange" />
+          </label>
           <div class="flex-1 min-w-0">
             <div class="flex items-baseline gap-2 flex-wrap">
               <h1 class="text-3xl font-semibold tracking-tight">{{ me.username }}</h1>
@@ -804,6 +914,7 @@ function fmt(n: number | null | undefined) {
           :completed="profileData.completedLevels"
           :created="profileData.createdLevels"
           :verified="profileData.verifiedLevels"
+          @refresh="loadProfileData()"
         />
 
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
@@ -1000,4 +1111,72 @@ function fmt(n: number | null | undefined) {
     hint="Click a level to set it as your favorite."
     @confirm="(lvl) => { favoriteLevelId = lvl.id ?? null; favoriteLevelDisplay = lvl.id ? { id: lvl.id, position: lvl.position, name: lvl.name, gddl_tier: lvl.gddl_tier } : null }"
   />
+
+  <!-- Avatar crop modal -->
+  <Teleport to="body">
+    <div
+      v-if="cropOpen"
+      class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      @mousemove="onCropMouseMove"
+      @mouseup="onCropMouseUp"
+      @mouseleave="onCropMouseUp"
+    >
+      <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-5 w-full max-w-sm space-y-4 shadow-2xl" @click.stop>
+        <h2 class="text-sm font-semibold text-zinc-100">Crop profile picture</h2>
+        <p class="text-[11px] text-zinc-500">Drag to reposition · Scroll to zoom</p>
+
+        <div
+          class="relative mx-auto bg-black overflow-hidden cursor-move select-none"
+          :style="{ width: CROP_SIZE + 'px', height: CROP_SIZE + 'px', borderRadius: '50%', border: '2px solid rgb(var(--color-accent) / 0.6)' }"
+          @mousedown="onCropMouseDown"
+          @wheel.prevent="onCropWheel"
+        >
+          <img
+            v-if="cropSrc"
+            ref="cropImgEl"
+            :src="cropSrc"
+            alt=""
+            draggable="false"
+            :style="{
+              position: 'absolute',
+              left: cropOffsetX + 'px',
+              top: cropOffsetY + 'px',
+              width: cropNaturalW * cropScale + 'px',
+              height: cropNaturalH * cropScale + 'px',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }"
+            @load="onCropImgLoad"
+          />
+        </div>
+
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Zoom</span>
+          <input
+            type="range"
+            :min="CROP_SIZE / Math.max(1, Math.min(cropNaturalW, cropNaturalH))"
+            max="4"
+            step="0.01"
+            :value="cropScale"
+            class="w-full mt-1 accent-accent"
+            @input="(e) => { cropScale = Number((e.target as HTMLInputElement).value); clampCropOffset() }"
+          />
+        </label>
+
+        <div class="flex gap-2 pt-1">
+          <button
+            type="button"
+            :disabled="avatarUploading"
+            class="flex-1 rounded bg-accent text-zinc-950 font-medium text-sm py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+            @click="confirmCrop"
+          >{{ avatarUploading ? 'Saving…' : 'Save' }}</button>
+          <button
+            type="button"
+            class="px-4 rounded border border-zinc-700 text-sm py-1.5 hover:bg-zinc-800 transition-colors"
+            @click="cropOpen = false; cropSrc = null"
+          >Cancel</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

@@ -9,7 +9,7 @@ const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
 type LevelMatch = { position: number; name: string }
-type Row = { uid: number; search: string; video: string; selected: LevelMatch | null }
+type Row = { uid: number; search: string; video: string; selected: LevelMatch | null; isVerificationClaim: boolean }
 
 const levelSearch = ref('')
 const selectedLevel = ref<LevelMatch | null>(null)
@@ -70,7 +70,7 @@ const opinionEnjoyment = ref('')
 
 const multi = ref(false)
 let nextUid = 1
-const makeEmptyRow = (): Row => ({ uid: nextUid++, search: '', video: '', selected: null })
+const makeEmptyRow = (): Row => ({ uid: nextUid++, search: '', video: '', selected: null, isVerificationClaim: false })
 const rows = ref<Row[]>([makeEmptyRow()])
 
 // Auto-grow / auto-shrink the row list based on content. The last row gets a
@@ -96,6 +96,7 @@ function toggleMulti() {
       search: levelSearch.value,
       video: video.value,
       selected: selectedLevel.value,
+      isVerificationClaim: false,
     }, makeEmptyRow()]
     multi.value = true
   } else {
@@ -191,6 +192,7 @@ async function submit() {
               player_name: holderName.value.trim(),
               video: r.video.trim(),
               note: note.value.trim() || null,
+              is_verification_claim: r.isVerificationClaim || false,
             },
           })
           submitted++
@@ -289,7 +291,7 @@ async function submit() {
           <span>Level</span>
           <span>Video URL</span>
         </div>
-        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2">
+        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-1.5">
           <RecordSubmitRow
             v-for="row in rows"
             :key="row.uid"

@@ -160,6 +160,7 @@ const youtubeHandle = computed(() => {
         :completed="data.completedLevels"
         :created="data.createdLevels"
         :verified="data.verifiedLevels"
+        @refresh="refresh()"
       />
 
       <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
