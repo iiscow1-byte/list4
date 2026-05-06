@@ -144,6 +144,13 @@ export default defineEventHandler((event) => {
   // mirror. Pointercrate Main + Extended share a single chip (legacy demons
   // are not ranked by position, so they don't get one).
   const other_lists: Array<{ list: string; position: number; url?: string | null }> = []
+  if (level.gdl_position != null) {
+    other_lists.push({
+      list: 'GDL',
+      position: level.gdl_position,
+      url: null,
+    })
+  }
   if (level.aredl_position != null) {
     other_lists.push({
       list: 'AREDL',
