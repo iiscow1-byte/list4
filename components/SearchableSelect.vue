@@ -1,7 +1,8 @@
 <script setup lang="ts">
 const props = defineProps<{
   modelValue: string
-  options: string[]
+  options?: string[]
+  optionObjects?: { label: string; value: string }[]
   placeholder?: string
   emptyLabel?: string
   inputClass?: string
@@ -12,10 +13,21 @@ const open = ref(false)
 const query = ref('')
 const inputEl = ref<HTMLInputElement | null>(null)
 
+const allOptions = computed<{ label: string; value: string }[]>(() => {
+  if (props.optionObjects) return props.optionObjects
+  return (props.options ?? []).map((o) => ({ label: o, value: o }))
+})
+
+const selectedLabel = computed(() => {
+  if (!props.modelValue) return ''
+  const found = allOptions.value.find((o) => o.value === props.modelValue)
+  return found ? found.label : props.modelValue
+})
+
 const filtered = computed(() => {
   const q = query.value.toLowerCase()
-  if (!q) return props.options
-  return props.options.filter((o) => o.toLowerCase().includes(q))
+  if (!q) return allOptions.value
+  return allOptions.value.filter((o) => o.label.toLowerCase().includes(q))
 })
 
 function onFocus() {
@@ -43,7 +55,7 @@ function pick(val: string) {
     <div class="relative">
       <input
         ref="inputEl"
-        :value="open ? query : modelValue"
+        :value="open ? query : selectedLabel"
         :placeholder="!open && !modelValue ? (placeholder ?? emptyLabel ?? '') : (open ? 'Type to search…' : '')"
         :class="inputClass ?? 'w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 pr-7 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'"
         autocomplete="off"
@@ -65,13 +77,13 @@ function pick(val: string) {
           @mousedown.prevent="pick('')"
         >{{ emptyLabel }}</button>
       </li>
-      <li v-for="opt in filtered" :key="opt">
+      <li v-for="opt in filtered" :key="opt.value">
         <button
           type="button"
           class="w-full px-3 py-2 text-left text-sm transition-colors"
-          :class="opt === modelValue ? 'text-accent bg-accent/10' : 'text-zinc-200 hover:bg-zinc-900'"
-          @mousedown.prevent="pick(opt)"
-        >{{ opt }}</button>
+          :class="opt.value === modelValue ? 'text-accent bg-accent/10' : 'text-zinc-200 hover:bg-zinc-900'"
+          @mousedown.prevent="pick(opt.value)"
+        >{{ opt.label }}</button>
       </li>
       <li v-if="filtered.length === 0" class="px-3 py-2 text-sm text-zinc-500 italic">
         No matches

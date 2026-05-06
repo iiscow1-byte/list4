@@ -593,18 +593,16 @@ watch(
               </label>
 
               <!-- Source -->
-              <label class="block">
+              <div class="block">
                 <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Source</span>
-                <select
+                <SearchableSelect
                   v-model="sourceFilter"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">All sources</option>
-                  <option v-for="s in sources" :key="s.source" :value="s.source">
-                    {{ s.source }} ({{ s.count.toLocaleString() }})
-                  </option>
-                </select>
-              </label>
+                  :option-objects="sources.map(s => ({ label: `${s.source} (${s.count.toLocaleString()})`, value: s.source }))"
+                  empty-label="All sources"
+                  class="mt-1"
+                  input-class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
 
               <!-- Verify date range -->
               <div>
@@ -651,15 +649,15 @@ watch(
               </div>
 
               <!-- Sort -->
-              <label class="block">
+              <div class="block">
                 <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
-                <select
+                <SearchableSelect
                   v-model="sort"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
-                </select>
-              </label>
+                  :option-objects="[...SORTS]"
+                  class="mt-1"
+                  input-class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+              </div>
 
             </div>
 

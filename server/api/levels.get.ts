@@ -195,7 +195,7 @@ export default defineEventHandler((event) => {
   if (Number.isFinite(enjoyMin)) { filterConds.push(`enjoyment >= ?`); filterParams.push(enjoyMin) }
   if (Number.isFinite(enjoyMax)) { filterConds.push(`enjoyment <= ?`); filterParams.push(enjoyMax) }
 
-  if (externalList === 'aredl') filterConds.push('aredl_position IS NOT NULL')
+  if (externalList === 'aredl') filterConds.push("aredl_position IS NOT NULL AND difficulty = 'Extreme Demon'")
   else if (externalList === 'pointercrate') filterConds.push('pointercrate_position IS NOT NULL')
   else if (externalList === 'gdl') filterConds.push('gdl_position IS NOT NULL')
 
