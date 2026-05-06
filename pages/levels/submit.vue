@@ -62,7 +62,7 @@ const sameAsAbove = ref(false)
 const isAlternate = ref(false)
 const isChallenge = ref(false)
 
-const ABOVE_EASY_DEMON = new Set(['Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
+const ABOVE_EASY_DEMON = new Set(['Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
 const showChallenge = computed(() => ABOVE_EASY_DEMON.has(difficulty.value))
 watch(difficulty, (d) => { if (!ABOVE_EASY_DEMON.has(d)) isChallenge.value = false })
 // Optional original-level pointers for the Duplicate / Alternate tags. Stored

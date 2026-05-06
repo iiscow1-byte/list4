@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Unknown difficulty.' })
   }
 
-  const ABOVE_EASY_DEMON = new Set(['Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
+  const ABOVE_EASY_DEMON = new Set(['Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
   const ALLOWED_RATINGS = new Set(['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'])
   const isChallenge = body.is_challenge === true || body.is_challenge === 1 || body.is_challenge === '1'
   const ratingRaw = strOrNull(body.rating, 32)

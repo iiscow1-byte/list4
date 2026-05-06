@@ -208,8 +208,8 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
             Void
           </span>
         </div>
-        <p class="text-xs text-zinc-500 mt-1.5">
-          Levels in the void list have no difficulty opinion.
+        <p class="text-sm text-zinc-400 mt-2 leading-relaxed">
+          Levels submitted without a difficulty opinion are added to the voided list where levels go without a concrete difficulty opinion, or are here for other reasons. Complete a level to bring it to pending!
         </p>
       </div>
       <button
@@ -324,55 +324,6 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
       </div>
     </a>
 
-    <!-- Tags -->
-    <div v-if="tags.length" class="flex flex-wrap items-center gap-2 mb-6">
-      <span
-        v-for="t in tags"
-        :key="t"
-        class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300"
-      >
-        {{ t }}
-      </span>
-    </div>
-
-    <!-- Stats grid -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
-        <a
-          v-if="gdLevelUrl"
-          :href="gdLevelUrl"
-          target="_blank"
-          rel="noopener"
-          class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
-        >{{ level.gd_id }}</a>
-        <div v-else class="tabular-nums text-base text-zinc-600">—</div>
-      </div>
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Days</div>
-        <div class="tabular-nums text-base text-zinc-100">{{ level.days != null ? level.days.toLocaleString() : '—' }}</div>
-      </div>
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
-        <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
-      </div>
-      <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Added to pending</div>
-        <div class="tabular-nums text-sm text-zinc-100">{{ level.added_on ?? '—' }}</div>
-      </div>
-    </div>
-
-    <!-- Source / verification metadata -->
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
-      <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
-        <dt class="text-zinc-500">Source</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
-        <dt class="text-zinc-500">Demon ranking</dt><dd class="text-zinc-200">{{ level.demon_ranking ?? '—' }}</dd>
-        <dt class="text-zinc-500">Verification</dt>
-        <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
-      </dl>
-    </section>
-
     <!-- Send to pending -->
     <section v-if="isLoggedIn" class="rounded-md border border-fuchsia-800/40 bg-fuchsia-950/20 mt-6">
       <button
@@ -484,5 +435,55 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
         </template>
       </div>
     </section>
+
+    <!-- Tags -->
+    <div v-if="tags.length" class="flex flex-wrap items-center gap-2 mb-6">
+      <span
+        v-for="t in tags"
+        :key="t"
+        class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300"
+      >
+        {{ t }}
+      </span>
+    </div>
+
+    <!-- Stats grid -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
+      <div class="bg-zinc-950 p-4">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
+        <a
+          v-if="gdLevelUrl"
+          :href="gdLevelUrl"
+          target="_blank"
+          rel="noopener"
+          class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
+        >{{ level.gd_id }}</a>
+        <div v-else class="tabular-nums text-base text-zinc-600">—</div>
+      </div>
+      <div class="bg-zinc-950 p-4">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Days</div>
+        <div class="tabular-nums text-base text-zinc-100">{{ level.days != null ? level.days.toLocaleString() : '—' }}</div>
+      </div>
+      <div class="bg-zinc-950 p-4">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
+        <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
+      </div>
+      <div class="bg-zinc-950 p-4">
+        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Added to pending</div>
+        <div class="tabular-nums text-sm text-zinc-100">{{ level.added_on ?? '—' }}</div>
+      </div>
+    </div>
+
+    <!-- Source / verification metadata -->
+    <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
+      <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
+        <dt class="text-zinc-500">Source</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
+        <dt class="text-zinc-500">Demon ranking</dt><dd class="text-zinc-200">{{ level.demon_ranking ?? '—' }}</dd>
+        <dt class="text-zinc-500">Verification</dt>
+        <dd class="text-zinc-200 truncate" :title="level.verification ?? ''">{{ level.verification ?? '—' }}</dd>
+      </dl>
+    </section>
+
   </div>
 </template>
