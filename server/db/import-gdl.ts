@@ -112,7 +112,10 @@ type GdlRecord = {
   user: { id: number; username: string; country: string }
 }
 
-const PAGE = 200
+// GDL caps `limit` at 50 on /leaderboard/user/list and /level/classic/record/list.
+// /level/classic/list has no documented cap but 50 works fine. Keeping a single
+// page size for all endpoints avoids accidental 400s.
+const PAGE = 50
 
 async function fetchAllLevels(listType: 'main' | 'extended' | 'advanced' | 'unbounded'): Promise<GdlListItem[]> {
   const out: GdlListItem[] = []

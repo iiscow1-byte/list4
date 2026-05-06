@@ -125,7 +125,10 @@
       "Bash(curl -sS \"https://api.demonlist.org/country/list\")",
       "Bash(node --experimental-strip-types --no-warnings -e \"import\\('./server/db/import-gdl.ts'\\).then\\(\\(\\)=>console.log\\('OK'\\)\\)\")",
       "Bash(node --experimental-strip-types --no-warnings -e \"import\\('./server/db/index.ts'\\).then\\(m=>{m.getDb\\(\\);console.log\\('schema OK'\\)}\\)\")",
-      "Bash(node --experimental-strip-types --no-warnings -e ' *)"
+      "Bash(node --experimental-strip-types --no-warnings -e ' *)",
+      "Bash(curl -sS -i \"https://api.demonlist.org/leaderboard/user/list?limit=200&offset=0\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/list?limit=200&offset=0\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/record/list?level_id=3226&limit=200\")"
     ],
     "additionalDirectories": [
       "\\tmp"
