@@ -159,11 +159,11 @@ function backToSearch() {
 function close() { emit('update:open', false) }
 
 async function maybeJumpToTierInDrawer(): Promise<boolean> {
-  const tier = parseTierShortcut(compareSearch.value)
-  if (!tier) return false
+  const result = parseTierShortcut(compareSearch.value)
+  if (!result) return false
   try {
     const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
-      '/api/levels/tier-midpoint', { query: { tier } },
+      '/api/levels/tier-midpoint', { query: { tier: result.tier, frac: result.frac } },
     )
     if (!res?.midpoint) return false
     const midpoint = res.midpoint
@@ -183,11 +183,31 @@ async function maybeJumpToTierInDrawer(): Promise<boolean> {
   }
 }
 
+async function maybeJumpToPositionInDrawer(): Promise<boolean> {
+  const q = compareSearch.value.trim()
+  const m = q.match(/^#(\d+)$/)
+  if (!m) return false
+  const pos = Number(m[1])
+  if (!Number.isInteger(pos) || pos <= 0) return false
+  compareMode.value = 'browse'
+  if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
+  suppressSearchReload = true
+  compareSearch.value = ''
+  resetCompareList()
+  const targetPage = Math.max(1, Math.ceil(pos / COMPARE_PAGE_SIZE))
+  await loadComparePage(targetPage, 'append')
+  await nextTick()
+  compareScrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    ?.scrollIntoView({ block: 'center' })
+  return true
+}
+
 watch(compareSearch, () => {
   if (compareDebounce) clearTimeout(compareDebounce)
   if (suppressSearchReload) { suppressSearchReload = false; return }
   compareDebounce = setTimeout(async () => {
     if (await maybeJumpToTierInDrawer()) return
+    if (await maybeJumpToPositionInDrawer()) return
     compareMode.value = 'search'
     resetCompareList()
     await loadComparePage(1, 'append')
@@ -267,7 +287,7 @@ function confirm() {
           <input
             v-model="compareSearch"
             type="search"
-            placeholder="Search… or [25] / [S5] for tier"
+            placeholder="Search… [25] / [25.75] for tier, #N for position"
             class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <button

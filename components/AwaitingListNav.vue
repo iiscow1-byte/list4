@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { parseTierShortcut } from '~/utils/tier-shortcut'
 
 type AwaitingRow = {
   id: number
@@ -32,6 +33,14 @@ const SORTS = [
 ] as const
 
 const TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
+
+function tierNameToOrd(name: string): number | null {
+  const sub = name.match(/^Subtier (\d{1,2})$/)
+  if (sub) return Number(sub[1])
+  const t = name.match(/^Tier (\d{1,2})$/)
+  if (t) return 5 + Number(t[1])
+  return null
+}
 
 function ordToTier(ord: number): string {
   if (ord <= 5) return `Subtier ${ord}`
@@ -132,6 +141,24 @@ let debounce: ReturnType<typeof setTimeout> | null = null
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
   const run = async () => {
+    const tierResult = parseTierShortcut(search.value)
+    if (tierResult) {
+      const ord = tierNameToOrd(tierResult.tier)
+      if (ord !== null) {
+        search.value = ''
+        tierMin.value = ord
+        tierMax.value = ord
+        reset()
+        await loadMore()
+        await nextTick()
+        const els = scrollEl.value?.querySelectorAll<HTMLElement>('[data-id]')
+        if (els && els.length > 0) {
+          const idx = Math.min(els.length - 1, Math.floor(tierResult.frac * els.length))
+          els[idx]?.scrollIntoView({ block: 'center' })
+        }
+        return
+      }
+    }
     router.replace({ query: { ...route.query, q: search.value || undefined } })
     reset()
     await loadMore()
@@ -190,7 +217,7 @@ watch(
         <input
           v-model="search"
           type="search"
-          placeholder="Search…"
+          placeholder="Search… or [25] / [25.75] for tier"
           class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <button

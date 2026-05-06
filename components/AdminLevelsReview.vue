@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { parseTierShortcut } from '~/utils/tier-shortcut'
+
 type PendingLevel = {
   id: number
   gd_id: number | null
@@ -127,6 +129,24 @@ function resetFilters() {
 // Tier range guards
 watch(tierMin, () => { if (tierMin.value > tierMax.value) tierMin.value = tierMax.value })
 watch(tierMax, () => { if (tierMax.value < tierMin.value) tierMax.value = tierMin.value })
+
+// Tier shortcut: [20] or [20.75] in the search box sets the tier filter and
+// selects the item at that fraction through the matching submissions.
+watch(search, () => {
+  const result = parseTierShortcut(search.value)
+  if (!result) return
+  const ord = tierOrd(result.tier)
+  if (ord == null) return
+  search.value = ''
+  tierMin.value = ord
+  tierMax.value = ord
+  nextTick(() => {
+    const list = filteredItems.value
+    if (list.length === 0) return
+    const idx = Math.min(list.length - 1, Math.floor(result.frac * list.length))
+    selectedId.value = list[idx]!.id
+  })
+})
 
 // If the currently-selected submission is filtered out, fall back to the first
 // surviving row so the detail panel doesn't show a stale entry.
@@ -347,7 +367,7 @@ watch(preview, (p) => {
           <input
             v-model="search"
             type="search"
-            placeholder="Search…"
+            placeholder="Search… or [25] / [25.75] for tier"
             class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <button

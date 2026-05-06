@@ -235,27 +235,24 @@ await loadMore()
 let debounce: ReturnType<typeof setTimeout> | null = null
 let lastGdIdLookup = ''
 let lastTierLookup = ''
+let lastPositionLookup = 0
 let suppressNextRefilter = false
 
 async function maybeJumpToTier(): Promise<boolean> {
-  const tier = parseTierShortcut(search.value)
-  if (!tier) return false
-  if (tier === lastTierLookup) return false
-  lastTierLookup = tier
+  const result = parseTierShortcut(search.value)
+  if (!result) return false
+  const lookupKey = `${result.tier}|${result.frac}`
+  if (lookupKey === lastTierLookup) return false
+  lastTierLookup = lookupKey
   try {
     const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
-      '/api/levels/tier-midpoint', { query: { tier } },
+      '/api/levels/tier-midpoint', { query: { tier: result.tier, frac: result.frac } },
     )
     if (res?.midpoint) {
       lastTierLookup = ''
-      // Clear the search without triggering a list reset — the watcher fires
-      // immediately, but the flag makes refilter() return early.
       suppressNextRefilter = true
       search.value = ''
-      // Navigate to the level at the tier midpoint (same as clicking it).
       await navigateTo(`/levels/${res.midpoint}`)
-      // Load the sidebar page that contains the midpoint so the auto-scroll
-      // watcher can find [data-pos] and bring it into view.
       reset()
       nextPage.value = Math.max(1, Math.ceil(res.midpoint / PAGE_SIZE))
       await loadMore()
@@ -267,6 +264,27 @@ async function maybeJumpToTier(): Promise<boolean> {
   } catch { /* non-fatal */ }
   lastTierLookup = ''
   return false
+}
+
+async function maybeJumpToPosition(): Promise<boolean> {
+  const q = search.value.trim()
+  const m = q.match(/^#(\d+)$/)
+  if (!m) return false
+  const pos = Number(m[1])
+  if (!Number.isInteger(pos) || pos <= 0) return false
+  if (pos === lastPositionLookup) return false
+  lastPositionLookup = pos
+  suppressNextRefilter = true
+  search.value = ''
+  await navigateTo(`/levels/${pos}`)
+  reset()
+  nextPage.value = Math.max(1, Math.ceil(pos / PAGE_SIZE))
+  await loadMore()
+  await nextTick()
+  scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    ?.scrollIntoView({ block: 'nearest' })
+  lastPositionLookup = 0
+  return true
 }
 
 async function maybeJumpToGdId(): Promise<boolean> {
@@ -298,6 +316,7 @@ function refilter(immediate = false) {
   if (suppressNextRefilter) { suppressNextRefilter = false; return }
   const run = async () => {
     if (await maybeJumpToTier()) return
+    if (await maybeJumpToPosition()) return
     if (await maybeJumpToGdId()) return
     router.replace({ query: { ...route.query, q: search.value || undefined } })
     reset()
@@ -405,7 +424,7 @@ watch(
         <input
           v-model="search"
           type="search"
-          placeholder="Search… or [25] / [S5] for tier"
+          placeholder="Search… [25] / [25.75] for tier, #N for position"
           class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <button
