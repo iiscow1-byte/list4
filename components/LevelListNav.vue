@@ -11,6 +11,7 @@ type LevelRow = {
   displayRank?: number
   aredl_position?: number | null
   pointercrate_position?: number | null
+  gdl_position?: number | null
 }
 
 const props = defineProps<{
@@ -90,7 +91,7 @@ const enjoyMax = ref(10)
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 
-type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL'
+type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'GDL'
 const listVariant = ref<ListVariant>('Classic')
 const externalList = ref('')
 
@@ -113,11 +114,15 @@ function applyVariant(v: ListVariant) {
   } else if (v === 'AREDL') {
     externalList.value = 'aredl'
     sort.value = 'aredl_asc'
+  } else if (v === 'GDL') {
+    externalList.value = 'gdl'
+    sort.value = 'gdl_asc'
   }
 }
 
 function displayNum(lvl: LevelRow): number {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return lvl.aredl_position
+  if (listVariant.value === 'GDL' && lvl.gdl_position != null) return lvl.gdl_position
   return lvl.displayRank ?? lvl.position
 }
 
@@ -499,6 +504,16 @@ watch(
                   >
                     <input type="radio" value="AREDL" :checked="listVariant === 'AREDL'" class="sr-only" @change="applyVariant('AREDL')" />
                     AREDL
+                  </label>
+                  <label
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="listVariant === 'GDL'
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                    title="Levels ranked on the Global Demon List, sorted by their GDL position"
+                  >
+                    <input type="radio" value="GDL" :checked="listVariant === 'GDL'" class="sr-only" @change="applyVariant('GDL')" />
+                    GDL
                   </label>
                 </div>
               </div>

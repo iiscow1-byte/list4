@@ -544,6 +544,13 @@ const isExtremeLevel = computed(() =>
   !!props.level.difficulty?.toLowerCase().includes('extreme')
 )
 
+// GDL/AREDL placements are suppressed (replaced by NLW) for non-extreme levels.
+const visibleOtherLists = computed(() => {
+  const lists = props.level.other_lists ?? []
+  if (isExtremeLevel.value) return lists
+  return lists.filter((e) => e.list !== 'GDL' && e.list !== 'AREDL')
+})
+
 type EstimatedPlacement = {
   estimated_aredl: number | null
   bracket: {
@@ -1270,9 +1277,9 @@ const historyByDay = computed(() => {
         </summary>
 
         <!-- Real rankings -->
-        <ul v-if="(level.other_lists?.length ?? 0) > 0" class="divide-y divide-zinc-900 border-t border-zinc-900">
+        <ul v-if="visibleOtherLists.length > 0" class="divide-y divide-zinc-900 border-t border-zinc-900">
           <li
-            v-for="entry in level.other_lists"
+            v-for="entry in visibleOtherLists"
             :key="entry.list"
             class="flex items-center gap-3 px-4 py-3"
           >
@@ -1289,7 +1296,7 @@ const historyByDay = computed(() => {
         </ul>
 
         <!-- GDL estimation or Not List Worthy (shown above AREDL) -->
-        <div v-if="!level.other_lists?.some(e => e.list === 'GDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+        <div v-if="!isExtremeLevel || !level.other_lists?.some(e => e.list === 'GDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <template v-if="!isExtremeLevel">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-200">GDL</span>
@@ -1329,7 +1336,7 @@ const historyByDay = computed(() => {
         </div>
 
         <!-- AREDL estimation or Not List Worthy (loaded on open, only when not explicitly ranked) -->
-        <div v-if="!level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+        <div v-if="!isExtremeLevel || !level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <template v-if="!isExtremeLevel">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-200">AREDL</span>

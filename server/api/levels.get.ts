@@ -76,6 +76,7 @@ const SORT_SQL: Record<string, string> = {
   rating_asc:         `(${RATING_ORD_SQL}) ASC, position ASC`,
   aredl_asc:          'aredl_position ASC NULLS LAST, position ASC',
   pointercrate_asc:   'pointercrate_position ASC NULLS LAST, position ASC',
+  gdl_asc:            'gdl_position ASC NULLS LAST, position ASC',
 }
 
 const KNOWN_TAG_SUFFIXES = new Set(['old', 'uldm', 'buffed', 'nerfed'])
@@ -196,6 +197,7 @@ export default defineEventHandler((event) => {
 
   if (externalList === 'aredl') filterConds.push('aredl_position IS NOT NULL')
   else if (externalList === 'pointercrate') filterConds.push('pointercrate_position IS NOT NULL')
+  else if (externalList === 'gdl') filterConds.push('gdl_position IS NOT NULL')
 
   const challengeOnly = ratings.length === 1 && ratings[0] === 'Challenge'
   // Challenge-only mode has always ranked by filter ordering — keep that
@@ -232,7 +234,7 @@ export default defineEventHandler((event) => {
     const sql = `
       WITH ranked AS (
         SELECT id, position, name, difficulty, points, gddl_tier,
-               aredl_position, pointercrate_position,
+               aredl_position, pointercrate_position, gdl_position,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
         ${filterWhere}
@@ -247,7 +249,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT id, position, name, difficulty, points, gddl_tier, aredl_position, pointercrate_position
+      `SELECT id, position, name, difficulty, points, gddl_tier, aredl_position, pointercrate_position, gdl_position
        FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
