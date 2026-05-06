@@ -141,14 +141,21 @@ export default defineEventHandler((event) => {
   }
 
   // "Other lists" rankings — the level's position on every external list we
-  // mirror. Pointercrate Main + Extended are merged into a single chip per
-  // the design call (legacy demons don't get a position chip).
+  // mirror. Pointercrate Main + Extended share a single chip (legacy demons
+  // are not ranked by position, so they don't get one).
   const other_lists: Array<{ list: string; position: number; url?: string | null }> = []
   if (level.aredl_position != null) {
     other_lists.push({
       list: 'AREDL',
       position: level.aredl_position,
       url: level.gd_id ? `https://aredl.net/level/${level.gd_id}` : null,
+    })
+  }
+  if (level.pointercrate_position != null) {
+    other_lists.push({
+      list: 'Pointercrate',
+      position: level.pointercrate_position,
+      url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
     })
   }
 
