@@ -83,11 +83,8 @@ const COMPARE_PAGE_SIZE = 500
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
-const compareExternalList = ref('')   // '' | 'aredl' | 'gdl'
-const compareSort = ref('position')   // 'position' | 'rating_desc'
-// Browse mode requires position-ordered pages; disable it when a filter or
-// non-default sort breaks that assumption.
-const compareBrowseDisabled = computed(() => compareExternalList.value !== '' || compareSort.value !== 'position')
+const compareExternalList = ref('')      // '' | 'aredl' | 'gdl'
+const compareRatingFilter = ref('')     // '' | 'Unrated' | 'Rated' | 'Challenge'
 const compareItems = ref<ListLevel[]>([])
 const compareLoading = ref(false)
 const comparePicked = ref<ListLevel | null>(null)
@@ -107,6 +104,7 @@ const compareBottomSentinel = ref<HTMLElement | null>(null)
 let compareDebounce: ReturnType<typeof setTimeout> | null = null
 let compareObserver: IntersectionObserver | null = null
 let suppressSearchReload = false
+let suppressFilterReload = false
 
 function resetCompareList() {
   compareItems.value = []
@@ -121,8 +119,9 @@ async function loadComparePage(page: number, where: 'append' | 'prepend') {
   if (page < 1) return
   compareLoading.value = true
   try {
-    const query: Record<string, any> = { page, pageSize: COMPARE_PAGE_SIZE, sort: compareSort.value }
+    const query: Record<string, any> = { page, pageSize: COMPARE_PAGE_SIZE }
     if (compareExternalList.value) query.externalList = compareExternalList.value
+    if (compareRatingFilter.value) query.ratings = compareRatingFilter.value
     if (compareMode.value === 'search' && compareSearch.value) {
       query.search = compareSearch.value
     }
@@ -171,16 +170,22 @@ function scrollToPickedInList() {
 
 async function pickCompareItem(lvl: ListLevel) {
   comparePicked.value = lvl
-  if (compareMode.value === 'browse' || compareBrowseDisabled.value) {
-    return
-  }
-  // From search mode: switch to browse view of the full list, centered on this level.
+  if (compareMode.value === 'browse') return
+
+  // Clicking a level always opens the full unfiltered list in browse mode
+  // centered on that level, so the user can see it in context.
   compareMode.value = 'browse'
   if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
+
+  // Clear all filters without triggering the filter watcher's reload
+  suppressFilterReload = true
+  compareExternalList.value = ''
+  compareRatingFilter.value = ''
   if (compareSearch.value !== '') {
     suppressSearchReload = true
     compareSearch.value = ''
   }
+
   resetCompareList()
   const targetPage = Math.max(1, Math.ceil(lvl.position / COMPARE_PAGE_SIZE))
   await loadComparePage(targetPage, 'append')
@@ -212,8 +217,8 @@ watch(compareSearch, () => {
     await loadComparePage(1, 'append')
   }, 200)
 })
-watch([compareExternalList, compareSort], () => {
-  if (!compareOpen.value) return
+watch([compareExternalList, compareRatingFilter], () => {
+  if (!compareOpen.value || suppressFilterReload) { suppressFilterReload = false; return }
   compareMode.value = 'search'
   resetCompareList()
   loadComparePage(1, 'append')
@@ -274,7 +279,7 @@ const verificationWarning = computed(() =>
     ? 'Extreme Demons / Tier 20+ levels usually need a verification video.'
     : null,
 )
-const noOpinion = computed(() => !gddlTier.value && !difficulty.value)
+const noOpinion = computed(() => !gddlTier.value)
 
 function youtubeId(url: string | null): string | null {
   if (!url) return null
@@ -519,12 +524,10 @@ async function submit() {
               >
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
               </select>
-              <label v-if="showChallenge" class="mt-2 flex items-start gap-2 cursor-pointer select-none">
-                <input v-model="isChallenge" type="checkbox" class="mt-0.5 accent-accent" />
-                <span>
-                  <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Challenge</span>
-                  <span class="block text-[11px] text-zinc-500 mt-0.5">Under 30 seconds</span>
-                </span>
+              <label v-if="showChallenge" class="mt-2 flex items-center gap-2 cursor-pointer select-none">
+                <input v-model="isChallenge" type="checkbox" class="accent-accent" />
+                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Challenge</span>
+                <span class="text-[11px] text-zinc-600">Under 30 seconds</span>
               </label>
             </div>
           </div>
@@ -538,44 +541,6 @@ async function submit() {
               class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
-
-          <label class="flex items-start gap-2 cursor-pointer select-none">
-            <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
-            <span>
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate</span>
-              <span class="block text-[11px] text-zinc-500 mt-0.5">Same difficulty as the level above it. Gets tagged as "Duplicate" on the public list. Example: Red Slaughterhouse, Trans Acu</span>
-            </span>
-          </label>
-          <div v-if="sameAsAbove" class="pl-6 -mt-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-                @click="duplicateOfPickerOpen = true"
-              >{{ duplicateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
-              <span v-if="duplicateOfLevel" class="text-xs text-zinc-200 truncate">#{{ duplicateOfLevel.position }} {{ duplicateOfLevel.name }}</span>
-              <button v-if="duplicateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="duplicateOfLevel = null">clear</button>
-            </div>
-          </div>
-
-          <label class="flex items-start gap-2 cursor-pointer select-none">
-            <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
-            <span>
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
-              <span class="block text-[11px] text-zinc-500 mt-0.5">A variation of an existing entry. Tagged as "Alternate" on the public list. Example: Tidal Wave (Buffed), Acheron (Zoink)</span>
-            </span>
-          </label>
-          <div v-if="isAlternate" class="pl-6 -mt-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
-                @click="alternateOfPickerOpen = true"
-              >{{ alternateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
-              <span v-if="alternateOfLevel" class="text-xs text-zinc-200 truncate">#{{ alternateOfLevel.position }} {{ alternateOfLevel.name }}</span>
-              <button v-if="alternateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="alternateOfLevel = null">clear</button>
-            </div>
-          </div>
 
           <p
             v-if="noOpinion"
@@ -648,6 +613,44 @@ async function submit() {
                 <input v-model="tagSet[t]" type="checkbox" class="sr-only" />
                 {{ t === 'uldm' ? 'ULDM' : t }}
               </label>
+            </div>
+          </div>
+
+          <label class="flex items-start gap-2 cursor-pointer select-none">
+            <input v-model="sameAsAbove" type="checkbox" class="mt-0.5 accent-accent" />
+            <span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Duplicate</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">Same difficulty as the level above it. Gets tagged as "Duplicate" on the public list. Example: Red Slaughterhouse, Trans Acu</span>
+            </span>
+          </label>
+          <div v-if="sameAsAbove" class="pl-6 -mt-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                @click="duplicateOfPickerOpen = true"
+              >{{ duplicateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
+              <span v-if="duplicateOfLevel" class="text-xs text-zinc-200 truncate">#{{ duplicateOfLevel.position }} {{ duplicateOfLevel.name }}</span>
+              <button v-if="duplicateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="duplicateOfLevel = null">clear</button>
+            </div>
+          </div>
+
+          <label class="flex items-start gap-2 cursor-pointer select-none">
+            <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+            <span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Alternate</span>
+              <span class="block text-[11px] text-zinc-500 mt-0.5">A variation of an existing entry. Tagged as "Alternate" on the public list. Example: Tidal Wave (Buffed), Acheron (Zoink)</span>
+            </span>
+          </label>
+          <div v-if="isAlternate" class="pl-6 -mt-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                @click="alternateOfPickerOpen = true"
+              >{{ alternateOfLevel ? 'Change…' : 'Pick original level…' }}</button>
+              <span v-if="alternateOfLevel" class="text-xs text-zinc-200 truncate">#{{ alternateOfLevel.position }} {{ alternateOfLevel.name }}</span>
+              <button v-if="alternateOfLevel" type="button" class="text-[11px] text-zinc-500 hover:text-red-400" @click="alternateOfLevel = null">clear</button>
             </div>
           </div>
         </div>
@@ -728,7 +731,7 @@ async function submit() {
                 @click="backToSearch"
               >Back to search</button>
             </div>
-            <!-- List filter + sort -->
+            <!-- List filter + rating filter -->
             <div class="px-3 pb-2.5 flex items-center gap-3 flex-wrap">
               <div class="flex items-center gap-1">
                 <span class="text-[10px] uppercase tracking-widest text-zinc-600 mr-1">List</span>
@@ -743,18 +746,18 @@ async function submit() {
                   @click="compareExternalList = val"
                 >{{ label }}</button>
               </div>
-              <div class="flex items-center gap-1">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-600 mr-1">Sort</span>
-                <button
-                  v-for="[val, label] in [['position', 'Default'], ['rating_desc', 'Rating']]"
-                  :key="val"
-                  type="button"
-                  class="px-2 py-0.5 rounded border text-[11px] transition-colors"
-                  :class="compareSort === val
-                    ? 'border-accent/60 text-accent bg-accent/10'
-                    : 'border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-700'"
-                  @click="compareSort = val"
-                >{{ label }}</button>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-600">Rating</span>
+                <select
+                  v-model="compareRatingFilter"
+                  class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] text-zinc-300 focus:border-accent focus:outline-none"
+                  :class="compareRatingFilter ? 'border-accent/60 text-accent bg-accent/10' : ''"
+                >
+                  <option value="">All</option>
+                  <option value="Unrated">Unrated</option>
+                  <option value="Rated">Rated</option>
+                  <option value="Challenge">Challenge</option>
+                </select>
               </div>
             </div>
           </div>
