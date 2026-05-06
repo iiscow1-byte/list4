@@ -27,6 +27,8 @@ const SKILLSET_OPTIONS = [
 ]
 const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed', 'unnerfed', 'easy', 'shitty'] as const
 
+const RATING_OPTIONS = ['', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+
 const gdId = ref('')
 const name = ref('')
 const verification = ref('')
@@ -34,6 +36,7 @@ const verificationUrl = ref('')
 const verifier = ref('')
 const verifyDate = ref('')
 const placementSource = ref<string>('')
+const ratingOpinion = ref('')
 
 // Existing curated source list (Demon List, Pemonlist, GDDP, …) so submitters
 // can pick where they originally found the level. "" = the default "None"
@@ -57,6 +60,11 @@ const placementEstimate = ref<string>('')
 const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
 const sameAsAbove = ref(false)
 const isAlternate = ref(false)
+const isChallenge = ref(false)
+
+const ABOVE_EASY_DEMON = new Set(['Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
+const showChallenge = computed(() => ABOVE_EASY_DEMON.has(difficulty.value))
+watch(difficulty, (d) => { if (!ABOVE_EASY_DEMON.has(d)) isChallenge.value = false })
 // Optional original-level pointers for the Duplicate / Alternate tags. Stored
 // as the levels.id on the server so the link survives reorders.
 type OriginalLevel = { id?: number; position: number; name: string }
@@ -75,6 +83,11 @@ const COMPARE_PAGE_SIZE = 500
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
+const compareExternalList = ref('')   // '' | 'aredl' | 'gdl'
+const compareSort = ref('position')   // 'position' | 'rating_desc'
+// Browse mode requires position-ordered pages; disable it when a filter or
+// non-default sort breaks that assumption.
+const compareBrowseDisabled = computed(() => compareExternalList.value !== '' || compareSort.value !== 'position')
 const compareItems = ref<ListLevel[]>([])
 const compareLoading = ref(false)
 const comparePicked = ref<ListLevel | null>(null)
@@ -108,7 +121,8 @@ async function loadComparePage(page: number, where: 'append' | 'prepend') {
   if (page < 1) return
   compareLoading.value = true
   try {
-    const query: Record<string, any> = { page, pageSize: COMPARE_PAGE_SIZE }
+    const query: Record<string, any> = { page, pageSize: COMPARE_PAGE_SIZE, sort: compareSort.value }
+    if (compareExternalList.value) query.externalList = compareExternalList.value
     if (compareMode.value === 'search' && compareSearch.value) {
       query.search = compareSearch.value
     }
@@ -156,12 +170,11 @@ function scrollToPickedInList() {
 }
 
 async function pickCompareItem(lvl: ListLevel) {
-  if (compareMode.value === 'browse') {
-    comparePicked.value = lvl
+  comparePicked.value = lvl
+  if (compareMode.value === 'browse' || compareBrowseDisabled.value) {
     return
   }
   // From search mode: switch to browse view of the full list, centered on this level.
-  comparePicked.value = lvl
   compareMode.value = 'browse'
   if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
   if (compareSearch.value !== '') {
@@ -198,6 +211,12 @@ watch(compareSearch, () => {
     resetCompareList()
     await loadComparePage(1, 'append')
   }, 200)
+})
+watch([compareExternalList, compareSort], () => {
+  if (!compareOpen.value) return
+  compareMode.value = 'search'
+  resetCompareList()
+  loadComparePage(1, 'append')
 })
 watch(compareOpen, async (open) => {
   await nextTick()
@@ -333,16 +352,19 @@ async function submit() {
         duplicate_of_id: sameAsAbove.value ? duplicateOfLevel.value?.id ?? null : null,
         is_alternate: isAlternate.value,
         alternate_of_id: isAlternate.value ? alternateOfLevel.value?.id ?? null : null,
+        is_challenge: isChallenge.value,
+        rating: ratingOpinion.value || null,
       },
     })
     success.value = true
     gdId.value = ''; name.value = ''; verification.value = ''; verificationUrl.value = ''
     verifier.value = ''; verifyDate.value = ''; placementSource.value = ''
     gddlTier.value = ''; difficulty.value = ''
-    enjoyment.value = ''; skillset.value = ''; notes.value = ''
+    enjoyment.value = ''; ratingOpinion.value = ''; skillset.value = ''; notes.value = ''
     placementEstimate.value = ''; comparisonLevel.value = null
     sameAsAbove.value = false
     isAlternate.value = false
+    isChallenge.value = false
     duplicateOfLevel.value = null
     alternateOfLevel.value = null
     for (const t of ALL_TAGS) tagSet[t] = false
@@ -450,10 +472,10 @@ async function submit() {
         </div>
       </details>
 
-      <!-- Difficulty opinion -->
+      <!-- Difficulty -->
       <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</span>
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
@@ -489,7 +511,7 @@ async function submit() {
                 <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
               </select>
             </label>
-            <label class="block">
+            <div class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
               <select
                 v-model="difficulty"
@@ -497,7 +519,14 @@ async function submit() {
               >
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
               </select>
-            </label>
+              <label v-if="showChallenge" class="mt-2 flex items-start gap-2 cursor-pointer select-none">
+                <input v-model="isChallenge" type="checkbox" class="mt-0.5 accent-accent" />
+                <span>
+                  <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Challenge</span>
+                  <span class="block text-[11px] text-zinc-500 mt-0.5">Under 30 seconds</span>
+                </span>
+              </label>
+            </div>
           </div>
 
           <label class="block">
@@ -577,24 +606,34 @@ async function submit() {
           </label>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10, optional</span></span>
               <input
                 v-model="enjoyment"
                 type="number" min="0" max="10" step="0.1" inputmode="decimal"
+                placeholder="e.g. 7.5"
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-              <SearchableSelect
-                v-model="skillset"
-                :options="SKILLSET_OPTIONS.filter(Boolean)"
-                empty-label="— none —"
-                placeholder="— none —"
-                class="mt-1"
-              />
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rating <span class="text-zinc-600 normal-case">optional</span></span>
+              <select
+                v-model="ratingOpinion"
+                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="r in RATING_OPTIONS" :key="r" :value="r">{{ r || '— none —' }}</option>
+              </select>
             </label>
           </div>
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+            <SearchableSelect
+              v-model="skillset"
+              :options="SKILLSET_OPTIONS.filter(Boolean)"
+              empty-label="— none —"
+              placeholder="— none —"
+              class="mt-1"
+            />
+          </label>
           <div>
             <div class="flex items-center gap-2 flex-wrap">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Suffix</span>
@@ -674,19 +713,50 @@ async function submit() {
             >✕</button>
           </header>
 
-          <div class="p-3 border-b border-zinc-800 shrink-0 flex items-center gap-2">
-            <input
-              v-model="compareSearch"
-              type="search"
-              placeholder="Search the main list…"
-              class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <button
-              v-if="compareMode === 'browse'"
-              type="button"
-              class="shrink-0 text-[11px] text-zinc-400 hover:text-zinc-100 px-2 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
-              @click="backToSearch"
-            >Back to search</button>
+          <div class="border-b border-zinc-800 shrink-0">
+            <div class="p-3 flex items-center gap-2">
+              <input
+                v-model="compareSearch"
+                type="search"
+                placeholder="Search… [Tier], #placement, name"
+                class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+              <button
+                v-if="compareMode === 'browse'"
+                type="button"
+                class="shrink-0 text-[11px] text-zinc-400 hover:text-zinc-100 px-2 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
+                @click="backToSearch"
+              >Back to search</button>
+            </div>
+            <!-- List filter + sort -->
+            <div class="px-3 pb-2.5 flex items-center gap-3 flex-wrap">
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-600 mr-1">List</span>
+                <button
+                  v-for="[val, label] in [['', 'All'], ['aredl', 'AREDL'], ['gdl', 'Global']]"
+                  :key="val"
+                  type="button"
+                  class="px-2 py-0.5 rounded border text-[11px] transition-colors"
+                  :class="compareExternalList === val
+                    ? 'border-accent/60 text-accent bg-accent/10'
+                    : 'border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-700'"
+                  @click="compareExternalList = val"
+                >{{ label }}</button>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-600 mr-1">Sort</span>
+                <button
+                  v-for="[val, label] in [['position', 'Default'], ['rating_desc', 'Rating']]"
+                  :key="val"
+                  type="button"
+                  class="px-2 py-0.5 rounded border text-[11px] transition-colors"
+                  :class="compareSort === val
+                    ? 'border-accent/60 text-accent bg-accent/10'
+                    : 'border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-700'"
+                  @click="compareSort = val"
+                >{{ label }}</button>
+              </div>
+            </div>
           </div>
 
           <div ref="compareScrollEl" class="flex-1 min-h-0 overflow-y-auto">

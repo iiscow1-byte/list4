@@ -28,6 +28,7 @@ type PendingLevel = {
   duplicate_of_id: number | null
   is_alternate: number
   alternate_of_id: number | null
+  rated: string | null
 }
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
@@ -63,9 +64,11 @@ let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 const TIER_MAX_ORD = 44
 const PENDING_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 type DifficultyFilter = 'all' | 'extreme' | 'non-extreme'
+type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc'
 const filtersOpen = ref(false)
 const search = ref('')
 const difficultyFilter = ref<DifficultyFilter>('all')
+const pendingSort = ref<PendingSort>('submitted')
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
@@ -87,7 +90,7 @@ const filteredItems = computed<PendingLevel[]>(() => {
   const q = search.value.trim().toLowerCase()
   const activeTags = PENDING_TAGS.filter((t) => pendingTagSet[t])
   const tierBounded = tierMin.value > 0 || tierMax.value < TIER_MAX_ORD
-  return items.value.filter((r) => {
+  const filtered = items.value.filter((r) => {
     if (q) {
       const hay = `${r.name ?? ''} ${r.gd_id ?? ''} ${r.submitter ?? ''}`.toLowerCase()
       if (!hay.includes(q)) return false
@@ -107,12 +110,25 @@ const filteredItems = computed<PendingLevel[]>(() => {
     }
     return true
   })
+  const sort = pendingSort.value
+  if (sort === 'submitted') return filtered
+  return [...filtered].sort((a, b) => {
+    if (sort === 'challenge_first') {
+      const ac = a.rated === 'Challenge' ? 0 : 1
+      const bc = b.rated === 'Challenge' ? 0 : 1
+      return ac - bc
+    }
+    const ao = tierOrd(a.gddl_tier) ?? (sort === 'tier_asc' ? Infinity : -Infinity)
+    const bo = tierOrd(b.gddl_tier) ?? (sort === 'tier_asc' ? Infinity : -Infinity)
+    return sort === 'tier_asc' ? ao - bo : bo - ao
+  })
 })
 
 const activeFilterCount = computed(() => {
   let n = 0
   if (search.value.trim()) n++
   if (difficultyFilter.value !== 'all') n++
+  if (pendingSort.value !== 'submitted') n++
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
   return n
@@ -121,6 +137,7 @@ const activeFilterCount = computed(() => {
 function resetFilters() {
   search.value = ''
   difficultyFilter.value = 'all'
+  pendingSort.value = 'submitted'
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false
@@ -143,7 +160,7 @@ watch(search, () => {
   nextTick(() => {
     const list = filteredItems.value
     if (list.length === 0) return
-    const idx = Math.min(list.length - 1, Math.floor(result.frac * list.length))
+    const idx = Math.min(list.length - 1, Math.floor((1 - result.frac) * list.length))
     selectedId.value = list[idx]!.id
   })
 })
@@ -367,7 +384,7 @@ watch(preview, (p) => {
           <input
             v-model="search"
             type="search"
-            placeholder="Search… or [25] / [25.75] for tier"
+            placeholder="Search… [Tier], #placement, ID"
             class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <button
@@ -389,6 +406,24 @@ watch(preview, (p) => {
         </div>
 
         <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
+          <!-- Sort -->
+          <div>
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Sort</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="[val, label] in ([['submitted','Submission order'],['challenge_first','Challenge first'],['tier_asc','Easiest first'],['tier_desc','Hardest first']] as const)"
+                :key="val"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="pendingSort === val
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="pendingSort" type="radio" :value="val" class="sr-only" />
+                {{ label }}
+              </label>
+            </div>
+          </div>
+
           <!-- Difficulty: All / Extreme / Non-extreme -->
           <div>
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Difficulty</div>
@@ -497,6 +532,11 @@ watch(preview, (p) => {
                   class="shrink-0 px-1.5 py-px rounded border border-red-900/60 bg-red-950/30 text-red-300"
                   title="Extreme Demon"
                 >Extreme</span>
+                <span
+                  v-if="r.rated === 'Challenge'"
+                  class="shrink-0 px-1.5 py-px rounded border border-yellow-800/60 bg-yellow-950/30 text-yellow-300"
+                  title="Challenge"
+                >Challenge</span>
                 <span class="truncate">{{ r.submitted_at }}</span>
               </div>
             </button>

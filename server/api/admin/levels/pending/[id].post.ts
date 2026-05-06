@@ -90,8 +90,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
-           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, placement_suggestion)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, placement_suggestion, rated)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -116,6 +116,7 @@ export default defineEventHandler(async (event) => {
         sub.is_alternate ? 1 : 0,
         sub.alternate_of_id ?? null,
         placementSuggestion,
+        sub.rated ?? null,
       )
       awaitingId = Number(awaitingResult.lastInsertRowid)
       db.prepare(
@@ -196,8 +197,8 @@ export default defineEventHandler(async (event) => {
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
            creator, permanent, enjoyment, pov_placement, placement_source, submitted_by,
-           same_as_above, duplicate_of_id, is_alternate, alternate_of_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -217,6 +218,7 @@ export default defineEventHandler(async (event) => {
         sub.duplicate_of_id ?? null,
         sub.is_alternate ? 1 : 0,
         sub.alternate_of_id ?? null,
+        sub.rated ?? null,
       )
       // Record the addition so it shows up on the recent-changes feed.
       recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)

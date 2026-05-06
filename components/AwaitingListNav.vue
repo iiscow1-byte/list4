@@ -153,7 +153,7 @@ function refilter(immediate = false) {
         await nextTick()
         const els = scrollEl.value?.querySelectorAll<HTMLElement>('[data-id]')
         if (els && els.length > 0) {
-          const idx = Math.min(els.length - 1, Math.floor(tierResult.frac * els.length))
+          const idx = Math.min(els.length - 1, Math.floor((1 - tierResult.frac) * els.length))
           els[idx]?.scrollIntoView({ block: 'center' })
         }
         return
@@ -217,7 +217,7 @@ watch(
         <input
           v-model="search"
           type="search"
-          placeholder="Search… or [25] / [25.75] for tier"
+          placeholder="Search… [Tier], #placement, ID"
           class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <button

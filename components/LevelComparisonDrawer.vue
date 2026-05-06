@@ -163,7 +163,7 @@ async function maybeJumpToTierInDrawer(): Promise<boolean> {
   if (!result) return false
   try {
     const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
-      '/api/levels/tier-midpoint', { query: { tier: result.tier, frac: result.frac } },
+      '/api/levels/tier-midpoint', { query: { tier: result.tier, frac: 1 - result.frac } },
     )
     if (!res?.midpoint) return false
     const midpoint = res.midpoint
@@ -287,7 +287,7 @@ function confirm() {
           <input
             v-model="compareSearch"
             type="search"
-            placeholder="Search… [25] / [25.75] for tier, #N for position"
+            placeholder="Search… [Tier], #placement, ID"
             class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
           <button

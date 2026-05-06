@@ -247,6 +247,9 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'from_void_level_id')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN from_void_level_id INTEGER`)
   }
+  if (!pcols.some((c) => c.name === 'rated')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN rated TEXT`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
@@ -312,6 +315,9 @@ function initSchema(db: DatabaseSync) {
   }
   if (!acols.some((c) => c.name === 'placement_suggestion')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN placement_suggestion INTEGER`)
+  }
+  if (!acols.some((c) => c.name === 'rated')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN rated TEXT`)
   }
 
   db.exec(`

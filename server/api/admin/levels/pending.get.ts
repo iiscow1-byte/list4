@@ -11,7 +11,7 @@ export default defineEventHandler((event) => {
               p.tags, p.notes, p.submitted_at,
               p.placement_estimate, p.comparison_level_id, p.comparison_level_name, p.pov_placement,
               p.from_open_verification_id, p.from_void_level_id, p.same_as_above,
-              p.duplicate_of_id, p.is_alternate, p.alternate_of_id,
+              p.duplicate_of_id, p.is_alternate, p.alternate_of_id, p.rated,
               a.username AS submitter
        FROM pending_levels p
        LEFT JOIN accounts a ON a.id = p.submitted_by

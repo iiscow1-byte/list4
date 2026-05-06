@@ -50,6 +50,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Unknown difficulty.' })
   }
 
+  const ABOVE_EASY_DEMON = new Set(['Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'])
+  const ALLOWED_RATINGS = new Set(['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'])
+  const isChallenge = body.is_challenge === true || body.is_challenge === 1 || body.is_challenge === '1'
+  const ratingRaw = strOrNull(body.rating, 32)
+  const ratingOpinion = ratingRaw && ALLOWED_RATINGS.has(ratingRaw) ? ratingRaw : null
+  const rated = isChallenge && difficulty && ABOVE_EASY_DEMON.has(difficulty) ? 'Challenge' : ratingOpinion
+
   let enjoyment: number | null = null
   if (body.enjoyment != null && body.enjoyment !== '') {
     const n = Number(body.enjoyment)
@@ -122,14 +129,14 @@ export default defineEventHandler(async (event) => {
         (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
          gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitted_by,
          placement_estimate, comparison_level_id, comparison_level_name,
-         placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       gdId, name, fps, gameVersion, verification, verificationUrl, verifier, verifyDate,
       gddlTier, difficulty, enjoyment, skillset, tags, notes, account.id,
       placementEstimate, comparisonLevelId, comparisonLevelName,
-      placementSource, sameAsAbove, duplicateOfId, isAlternate, alternateOfId,
+      placementSource, sameAsAbove, duplicateOfId, isAlternate, alternateOfId, rated,
     )
 
   return { ok: true, id: Number(result.lastInsertRowid) }
