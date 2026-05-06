@@ -292,6 +292,18 @@ async function submit() {
     error.value = 'A numeric level ID is required.'
     return
   }
+  if (!name.value.trim()) {
+    error.value = 'Level name is required.'
+    return
+  }
+  if (!verifier.value.trim()) {
+    error.value = 'Verifier is required.'
+    return
+  }
+  if (!verifyDate.value) {
+    error.value = 'Verification date is required.'
+    return
+  }
   if (!isAdmin.value && !verificationUrl.value.trim()) {
     error.value = 'A verification video link is required.'
     return
@@ -364,10 +376,11 @@ async function submit() {
           />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level Name</span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level Name <span class="text-red-400">*</span></span>
           <input
             v-model="name"
             placeholder="Level name"
+            required
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
@@ -408,21 +421,23 @@ async function submit() {
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier <span class="text-red-400">*</span></span>
               <input
                 v-model="verifier"
                 placeholder="Player name"
+                required
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-                Verification date
+                Verification date <span class="text-red-400">*</span>
                 <span v-if="dateLoading" class="normal-case tracking-normal text-zinc-600 ml-1">fetching…</span>
               </span>
               <input
                 v-model="verifyDate"
                 type="date"
+                required
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>

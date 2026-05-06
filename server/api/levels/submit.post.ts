@@ -31,8 +31,14 @@ export default defineEventHandler(async (event) => {
   if (!verificationUrl && !accountIsAdmin) {
     throw createError({ statusCode: 400, statusMessage: 'A verification video link is required.' })
   }
+  const name = strOrNull(body.name, 200)
+  if (!name) throw createError({ statusCode: 400, statusMessage: 'Level name is required.' })
+
   const verifier = strOrNull(body.verifier, 100)
+  if (!verifier) throw createError({ statusCode: 400, statusMessage: 'Verifier is required.' })
+
   const verifyDate = strOrNull(body.verify_date, 32)
+  if (!verifyDate) throw createError({ statusCode: 400, statusMessage: 'Verification date is required.' })
 
   let gddlTier = strOrNull(body.gddl_tier, 32)
   if (gddlTier && !/^(Tier|Subtier) (\d{1,2})$/.test(gddlTier)) {
@@ -64,7 +70,6 @@ export default defineEventHandler(async (event) => {
   }
 
   const notes = strOrNull(body.notes, 4000)
-  const name = strOrNull(body.name, 200)
   // "None" / unset → site-default placement source. Anything else is whatever
   // the submitter said in the dropdown ("Demon List", "Pemonlist", etc.).
   const placementSource = strOrNull(body.placement_source, 100) ?? 'All Levels List'

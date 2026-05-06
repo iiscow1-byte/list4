@@ -82,6 +82,7 @@ async function submitToPending() {
     pendingVerifyDate.value = ''
     pendingEnjoyment.value = ''
     pendingNote.value = ''
+    setTimeout(() => navigateTo('/void/1'), 1500)
   } catch (e: any) {
     pendingError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Submission failed.'
   } finally {

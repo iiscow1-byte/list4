@@ -118,6 +118,7 @@ export default defineEventHandler((event) => {
   const sort = typeof q.sort === 'string' && SORT_SQL[q.sort] ? q.sort : 'position'
   const rankByFilter = q.rankByFilter === '1' || q.rankByFilter === 'true' || q.rankByFilter === true
   const externalList = typeof q.externalList === 'string' ? q.externalList.trim().toLowerCase() : ''
+  const tierFrac = q.tierFrac === '1' || q.tierFrac === 'true'
 
   // Filter conditions are split in two so the optional rank-by-filter mode can
   // compute rank from the filter-only set and apply the text search separately
@@ -254,6 +255,24 @@ export default defineEventHandler((event) => {
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     ).all(...allParams, ...orderParams, pageSize, offset) as any[]
+  }
+
+  if (tierFrac) {
+    const uniqueTiers = [...new Set(
+      (items as any[]).filter((i) => i.gddl_tier).map((i) => i.gddl_tier as string),
+    )]
+    const tierPositions = new Map<string, number[]>()
+    for (const tier of uniqueTiers) {
+      const rows = db.prepare(`SELECT position FROM levels WHERE gddl_tier = ? ORDER BY position ASC`).all(tier) as { position: number }[]
+      tierPositions.set(tier, rows.map((r) => r.position))
+    }
+    for (const item of items as any[]) {
+      if (!item.gddl_tier) { item.gddl_tier_frac = null; continue }
+      const positions = tierPositions.get(item.gddl_tier)
+      if (!positions || positions.length === 0) { item.gddl_tier_frac = null; continue }
+      const easier = positions.filter((p) => p > item.position).length
+      item.gddl_tier_frac = easier / positions.length
+    }
   }
 
   return { total, page, pageSize, items, challengeMode: challengeOnly, rankByFilter: useFilterRank }
