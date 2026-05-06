@@ -91,7 +91,8 @@ const enjoyMin = ref(0)
 const enjoyMax = ref(10)
 const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
-const showTierDecimal = ref(false)
+const showTierDecimal = useTierDecimal()
+const showTierInList = ref(false)
 
 function tierToOrd(tier: string | null): number | null {
   if (!tier) return null
@@ -102,18 +103,23 @@ function tierToOrd(tier: string | null): number | null {
   return null
 }
 
-function tierDecimalLabel(lvl: LevelRow): string | null {
-  if (!showTierDecimal.value) return null
+function tierTextLabel(lvl: LevelRow): string | null {
+  if (!showTierInList.value) return null
   const tier = lvl.gddl_tier
-  const frac = lvl.gddl_tier_frac
-  if (!tier || frac == null) return null
-  const ord = tierToOrd(tier)
-  if (ord === null || ord >= TIER_MAX_ORD) return null
-  const sm = tier.match(/^Subtier (\d+)$/)
-  const tm = tier.match(/^Tier (\d+)$/)
-  const num = sm ? Number(sm[1]) : tm ? Number(tm[1]) : null
-  if (num === null) return null
-  return `${sm ? 'S' : ''}${(num + frac).toFixed(2)}`
+  if (!tier) return null
+  if (showTierDecimal.value) {
+    const frac = lvl.gddl_tier_frac
+    if (frac != null) {
+      const ord = tierToOrd(tier)
+      if (ord !== null && ord < TIER_MAX_ORD) {
+        const sm = tier.match(/^Subtier (\d+)$/)
+        const tm = tier.match(/^Tier (\d+)$/)
+        const num = sm ? Number(sm[1]) : tm ? Number(tm[1]) : null
+        if (num !== null) return `${sm ? 'Subtier ' : 'Tier '}${(num + frac).toFixed(2)}`
+      }
+    }
+  }
+  return tier
 }
 
 type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'GDL'
@@ -206,7 +212,7 @@ function buildQuery() {
     sort: sort.value !== 'position' ? sort.value : undefined,
     rankByFilter: rankByFilter.value ? 1 : undefined,
     externalList: externalList.value || undefined,
-    tierFrac: showTierDecimal.value ? 1 : undefined,
+    tierFrac: showTierInList.value ? 1 : undefined,
   }
 }
 
@@ -251,7 +257,7 @@ function resetFilters() {
   enjoyMax.value = 10
   sort.value = 'position'
   rankByFilter.value = false
-  showTierDecimal.value = false
+  showTierInList.value = false
   listVariant.value = 'Classic'
   externalList.value = ''
 }
@@ -369,7 +375,7 @@ watch(altVersions, () => refilter(true))
 watch(alternates, () => refilter(true))
 watch(ratingSet, () => refilter(true), { deep: true })
 watch(rankByFilter, () => refilter(true))
-watch(showTierDecimal, () => refilter(true))
+watch(showTierInList, () => refilter(true))
 
 // Infinite scroll
 const sentinel = ref<HTMLElement | null>(null)
@@ -760,12 +766,20 @@ watch(
 
               <div>
                 <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Display</div>
-                <label class="flex items-start gap-2 cursor-pointer select-none">
-                  <input v-model="showTierDecimal" type="checkbox" class="mt-0.5 accent-accent" />
-                  <span class="text-[10px] text-zinc-500">
-                    Show tier decimal — shows each level's position within its tier (e.g. 20.75).
-                  </span>
-                </label>
+                <div class="space-y-1.5">
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input v-model="showTierDecimal" type="checkbox" class="mt-0.5 accent-accent" />
+                    <span class="text-[10px] text-zinc-500">
+                      Show tier decimal — shows "Tier 20.75" instead of "Tier 20" in the level panel.
+                    </span>
+                  </label>
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input v-model="showTierInList" type="checkbox" class="mt-0.5 accent-accent" />
+                    <span class="text-[10px] text-zinc-500">
+                      Show tier in list — adds a tier label to each level row.
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -794,7 +808,7 @@ watch(
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >#{{ displayNum(lvl) }}</span>
             <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="tierDecimalLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierDecimalLabel(lvl) }}</span>
+            <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
           <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
@@ -813,7 +827,7 @@ watch(
               #{{ displayNum(lvl) }}
             </span>
             <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="tierDecimalLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierDecimalLabel(lvl) }}</span>
+            <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">

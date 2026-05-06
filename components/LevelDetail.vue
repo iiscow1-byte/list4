@@ -74,19 +74,20 @@ const canEdit = computed(() => (isAdminLevel.value || role.value === 'moderator'
 const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
+const showTierDecimal = useTierDecimal()
 const TIER_MAX_ORD = 44 // Subtier 0-5 → 0-5; Tier 1-39 → 6-44
 const gddlTierLabel = computed((): string | null => {
   const tier = props.level.gddl_tier
   if (!tier) return null
+  if (!showTierDecimal.value) return tier
   const frac = props.level.gddl_tier_frac
   const subtierM = tier.match(/^Subtier (\d+)$/)
   const tierM = tier.match(/^Tier (\d+)$/)
   const num = subtierM ? Number(subtierM[1]) : tierM ? Number(tierM[1]) : null
   if (num === null) return tier
   const ord = subtierM ? num : (5 + num)
-  const prefix = subtierM ? 'S' : ''
-  if (frac == null || ord >= TIER_MAX_ORD) return `${prefix}${num}`
-  return `${prefix}${(num + frac).toFixed(2)}`
+  if (frac == null || ord >= TIER_MAX_ORD) return tier
+  return `${subtierM ? 'Subtier ' : 'Tier '}${(num + frac).toFixed(2)}`
 })
 
 type Tag = { label: string; to?: string; title?: string }
