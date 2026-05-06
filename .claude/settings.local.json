@@ -100,7 +100,35 @@
       "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('other_lists:',j.other_lists\\);console.log\\('records:',j.records?.length,'aredl:',j.aredl_records?.length,'pc:',j.pointercrate_records?.length\\);console.log\\('first PC record:',j.pointercrate_records?.[0]\\)}\\)\")",
       "Bash(curl -sS \"http://localhost:3000/pointercrate-players/53408\")",
       "Bash(dir /s /b \"C:\\\\Users\\\\gerg1\\\\Documents\\\\code\\\\Geometry dash\\\\ALL\\\\list4\")",
-      "Bash(npx --no-install nuxi typecheck)"
+      "Bash(npx --no-install nuxi typecheck)",
+      "WebFetch(domain:demonlist.org)",
+      "WebFetch(domain:api.demonlist.org)",
+      "WebSearch",
+      "Bash(curl -sS -A \"Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/130.0.0.0 Safari/537.36\" -H \"Accept: application/json\" \"https://demonlist.org/api/v1/list_information/\")",
+      "Bash(curl -sS -H \"Accept: application/json\" \"https://api.demonlist.org/api-docs\")",
+      "Bash(curl -sS -H \"Accept: application/json\" \"https://api.demonlist.org/\")",
+      "Bash(curl -sS \"https://api.demonlist.org/swagger.json\")",
+      "Bash(curl -sS \"https://api.demonlist.org/docs\")",
+      "Bash(curl -sS \"https://api.demonlist.org/schema/openapi.json\" -o /tmp/gdl-openapi.json)",
+      "Bash(curl -sS \"https://api.demonlist.org/schema\" -o /tmp/gdl-schema.txt)",
+      "Bash(curl -sS \"https://api.demonlist.org/docs\" 2>&1 > /tmp/gdl-docs.html && wc -c /tmp/gdl-docs.html)",
+      "Bash(grep -oP 'spec:\\\\s*\\\\{.{1,1000}' /tmp/gdl-docs.html)",
+      "Bash(awk '/spec: \\\\{/,/SwaggerUIStandalonePreset/' /tmp/gdl-docs.html)",
+      "Bash(node -e \"const fs=require\\('fs'\\);let s=fs.readFileSync\\('/tmp/gdl-spec-block.txt','utf8'\\);s=s.replace\\(/^.*?spec: /s,''\\);const i=s.lastIndexOf\\('}'\\);const j=s.indexOf\\('\\\\\\\\n,'\\);s=s.slice\\(0,Math.min\\(i+1,j>0?j:i+1\\)\\);try{const o=JSON.parse\\(s\\);console.log\\('PATHS:',Object.keys\\(o.paths||{}\\).length\\);console.log\\(Object.keys\\(o.paths||{}\\).join\\('\\\\\\\\n'\\)\\);fs.writeFileSync\\('/tmp/gdl-openapi.json',JSON.stringify\\(o,null,2\\)\\);}catch\\(e\\){console.error\\('parse failed:',e.message\\);console.log\\(s.slice\\(0,500\\)\\);}\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/list?limit=2\")",
+      "Bash(curl -sS \"https://api.demonlist.org/leaderboard/user/list?limit=2\")",
+      "Bash(curl -sS \"https://api.demonlist.org/user/get?id=1\")",
+      "Bash(curl -sS \"https://api.demonlist.org/leaderboard/user/list?limit=1&offset=0\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/list?limit=1&offset=300\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/get?placement=1\")",
+      "Bash(curl -sS \"https://api.demonlist.org/level/classic/record/list?level_id=3226&limit=2\")",
+      "Bash(curl -sS \"https://api.demonlist.org/country/list\")",
+      "Bash(node --experimental-strip-types --no-warnings -e \"import\\('./server/db/import-gdl.ts'\\).then\\(\\(\\)=>console.log\\('OK'\\)\\)\")",
+      "Bash(node --experimental-strip-types --no-warnings -e \"import\\('./server/db/index.ts'\\).then\\(m=>{m.getDb\\(\\);console.log\\('schema OK'\\)}\\)\")",
+      "Bash(node --experimental-strip-types --no-warnings -e ' *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

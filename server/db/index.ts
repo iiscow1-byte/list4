@@ -831,4 +831,128 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE accounts ADD COLUMN claimed_pointercrate_id INTEGER`)
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_pc_claim ON accounts(claimed_pointercrate_id) WHERE claimed_pointercrate_id IS NOT NULL`)
   }
+
+  // --- GDL (Global Demonlist, https://demonlist.org / api.demonlist.org) ---
+  // Same shape as the AREDL/PC mirrors. GDL has its own player IDs and level
+  // IDs (distinct from gd_id). Levels overlapping the ALL list are merged via
+  // `levels.gdl_position`; non-overlapping ones live in `gdl_levels`. Records
+  // come per-level via /level/classic/record/list and are stored alongside
+  // aredl/pc records — query-time dedup, never import-time.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gdl_players (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      gdl_id             INTEGER NOT NULL UNIQUE,
+      username           TEXT    NOT NULL COLLATE NOCASE,
+      country            TEXT,
+      badge              TEXT,
+      is_banned          INTEGER NOT NULL DEFAULT 0,
+      placement          INTEGER,
+      points             REAL    NOT NULL DEFAULT 0,
+      hardest_gdl_id     INTEGER,
+      hardest_name       TEXT,
+      claimed_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      fetched_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdl_players_name   ON gdl_players(username COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_gdl_players_points ON gdl_players(points DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_gdl_players_claim ON gdl_players(claimed_account_id) WHERE claimed_account_id IS NOT NULL;
+
+    CREATE TABLE IF NOT EXISTS gdl_levels (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      gdl_id          INTEGER NOT NULL UNIQUE,
+      gd_id           INTEGER NOT NULL UNIQUE,
+      placement       INTEGER NOT NULL,
+      name            TEXT    NOT NULL,
+      points          REAL,
+      list_percent    INTEGER,
+      length          INTEGER,
+      list_type       TEXT,
+      holder_name     TEXT,
+      verifier_gdl_id INTEGER,
+      verifier_name   TEXT,
+      verification_url TEXT,
+      creator         TEXT,
+      date_created    TEXT,
+      promoted_to_position INTEGER,
+      fetched_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdl_levels_gd_id     ON gdl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_gdl_levels_placement ON gdl_levels(placement);
+    CREATE INDEX IF NOT EXISTS idx_gdl_levels_promoted  ON gdl_levels(promoted_to_position);
+
+    CREATE TABLE IF NOT EXISTS gdl_records (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      gdl_id          INTEGER NOT NULL UNIQUE,
+      level_gdl_id    INTEGER NOT NULL,
+      level_gd_id     INTEGER,
+      player_gdl_id   INTEGER NOT NULL,
+      player_name     TEXT    NOT NULL COLLATE NOCASE,
+      percent         INTEGER NOT NULL DEFAULT 100,
+      video_url       TEXT,
+      is_verification INTEGER NOT NULL DEFAULT 0,
+      fetched_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdl_records_level_gd ON gdl_records(level_gd_id);
+    CREATE INDEX IF NOT EXISTS idx_gdl_records_level    ON gdl_records(level_gdl_id);
+    CREATE INDEX IF NOT EXISTS idx_gdl_records_player   ON gdl_records(player_gdl_id);
+    CREATE INDEX IF NOT EXISTS idx_gdl_records_name     ON gdl_records(player_name COLLATE NOCASE);
+  `)
+
+  if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gdl_position ON levels(gdl_position)`)
+
+  const accCols4 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
+  if (!accCols4.some((c) => c.name === 'claimed_gdl_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN claimed_gdl_id INTEGER`)
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_gdl_claim ON accounts(claimed_gdl_id) WHERE claimed_gdl_id IS NOT NULL`)
+  }
+
+  // Widen claim_requests.source CHECK to include 'gdl'. Same rebuild dance as
+  // when 'pointercrate' was added — SQLite can't ALTER a CHECK in place.
+  const claimSql2 = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='claim_requests'`,
+  ).get() as { sql: string } | undefined)?.sql ?? ''
+  if (!claimSql2.includes("'gdl'")) {
+    db.exec('PRAGMA foreign_keys = OFF')
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+        CREATE TABLE claim_requests__new (
+          id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id               INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          player_name              TEXT    NOT NULL,
+          status                   TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+          created_at               TEXT    NOT NULL DEFAULT (datetime('now')),
+          decided_at               TEXT,
+          decided_by               INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+          source                   TEXT    NOT NULL DEFAULT 'all' CHECK(source IN ('all','aredl','pointercrate','gdl')),
+          aredl_player_uuid        TEXT,
+          pointercrate_player_id   INTEGER,
+          gdl_player_id            INTEGER
+        );
+        INSERT INTO claim_requests__new
+          (id, account_id, player_name, status, created_at, decided_at, decided_by,
+           source, aredl_player_uuid, pointercrate_player_id)
+        SELECT
+           id, account_id, player_name, status, created_at, decided_at, decided_by,
+           source, aredl_player_uuid, pointercrate_player_id
+          FROM claim_requests;
+        DROP TABLE claim_requests;
+        ALTER TABLE claim_requests__new RENAME TO claim_requests;
+        CREATE INDEX IF NOT EXISTS idx_claims_account ON claim_requests(account_id);
+        CREATE INDEX IF NOT EXISTS idx_claims_status  ON claim_requests(status);
+      `)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      db.exec('PRAGMA foreign_keys = ON')
+      throw e
+    }
+    db.exec('PRAGMA foreign_keys = ON')
+  } else {
+    const cr = db.prepare(`PRAGMA table_info(claim_requests)`).all() as { name: string }[]
+    if (!cr.some((c) => c.name === 'gdl_player_id')) {
+      db.exec(`ALTER TABLE claim_requests ADD COLUMN gdl_player_id INTEGER`)
+    }
+  }
 }

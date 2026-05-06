@@ -13,7 +13,7 @@ type AllRow = {
   tier: string | null
   badge: string | null
 }
-type GlobalSource = 'aredl' | 'pointercrate' | 'alllist'
+type GlobalSource = 'aredl' | 'pointercrate' | 'gdl' | 'alllist'
 type GlobalRow = {
   rank: number
   source: GlobalSource
@@ -57,7 +57,7 @@ watch(search, (v) => {
 // "Global" hits /api/leaderboard/global which merges AREDL, PC, and ALL.
 const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
 // Sub-filter on the global tab: 'all' merges all sources, or pick one.
-const globalSource = ref<'all' | 'aredl' | 'pointercrate' | 'alllist'>('all')
+const globalSource = ref<'all' | 'aredl' | 'pointercrate' | 'gdl' | 'alllist'>('all')
 const query = computed(() => {
   if (tab.value === 'global') {
     return { limit: 200, q: debounced.value || undefined, source: globalSource.value }
@@ -121,17 +121,18 @@ function relative(at: string): string {
 function rowLink(p: Row): string {
   if (p.source === 'aredl') return `/aredl-players/${p.id}`
   if (p.source === 'pointercrate') return `/pointercrate-players/${p.id}`
+  if (p.source === 'gdl') return `/gdl-players/${p.id}`
   return `/users/by-player/${encodeURIComponent(p.player)}`
 }
 function rowKey(p: Row, i: number): string {
-  if (p.source === 'aredl' || p.source === 'pointercrate') return `${p.source}-${p.id}`
+  if (p.source === 'aredl' || p.source === 'pointercrate' || p.source === 'gdl') return `${p.source}-${p.id}`
   return `all-${p.player}-${i}`
 }
 function sourceLabel(p: Row): string | null {
   if (!p.source) return null
   // For merged rows on the All Lists view, render every source the player
   // appears on, joined with "/" — e.g. "AREDL/PC" when in both lists.
-  const map: Record<GlobalSource, string> = { aredl: 'AREDL', pointercrate: 'PC', alllist: 'ALL' }
+  const map: Record<GlobalSource, string> = { aredl: 'AREDL', pointercrate: 'PC', gdl: 'GDL', alllist: 'ALL' }
   const list = (p as GlobalRow).sources ?? [p.source]
   return list.map((s) => map[s]).join('/')
 }
@@ -143,9 +144,10 @@ function sourceLabel(p: Row): string | null {
       <h1 class="text-3xl font-semibold tracking-tight">Leaderboard</h1>
       <p class="text-zinc-400 mt-1 text-sm">
         <template v-if="tab === 'global'">
-          <template v-if="globalSource === 'all'">Rankings from AREDL, Pointercrate, and the ALL list — each shown with their source-native rank.</template>
+          <template v-if="globalSource === 'all'">Rankings from AREDL, Pointercrate, GDL, and the ALL list — each shown with their source-native rank.</template>
           <template v-else-if="globalSource === 'aredl'">AREDL players ranked by their AREDL standing.</template>
           <template v-else-if="globalSource === 'pointercrate'">Pointercrate players ranked by their Pointercrate standing.</template>
+          <template v-else-if="globalSource === 'gdl'">Global Demonlist players ranked by their GDL standing.</template>
           <template v-else>ALL list members ranked by their ALL list points.</template>
         </template>
         <template v-else-if="tab === 'members'">
@@ -183,13 +185,13 @@ function sourceLabel(p: Row): string | null {
         class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
       >
         <button
-          v-for="opt in (['all','aredl','pointercrate','alllist'] as const)"
+          v-for="opt in (['all','aredl','pointercrate','gdl','alllist'] as const)"
           :key="opt"
           type="button"
           class="px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors border-l first:border-l-0 border-zinc-800"
           :class="globalSource === opt ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           @click="globalSource = opt"
-        >{{ opt === 'all' ? 'All Lists' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : 'ALL' }}</button>
+        >{{ opt === 'all' ? 'All Lists' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : opt === 'gdl' ? 'GDL' : 'ALL' }}</button>
       </div>
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input

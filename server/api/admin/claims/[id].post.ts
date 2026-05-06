@@ -30,6 +30,20 @@ export default defineEventHandler(async (event) => {
       db.prepare(`UPDATE accounts SET claimed_aredl_uuid = ? WHERE id = ?`).run(claim.aredl_player_uuid, claim.account_id)
       db.prepare(`UPDATE aredl_players SET claimed_account_id = ? WHERE uuid = ?`)
         .run(claim.account_id, claim.aredl_player_uuid)
+    } else if (claim.source === 'gdl') {
+      if (!claim.gdl_player_id) {
+        throw createError({ statusCode: 400, statusMessage: 'GDL claim is missing player id.' })
+      }
+      const taken = db.prepare(
+        `SELECT 1 FROM accounts WHERE claimed_gdl_id = ? AND id != ?`,
+      ).get(claim.gdl_player_id, claim.account_id)
+      if (taken) {
+        throw createError({ statusCode: 409, statusMessage: 'That GDL player has already been claimed by someone else.' })
+      }
+      db.prepare(`UPDATE accounts SET claimed_gdl_id = ? WHERE id = ?`)
+        .run(claim.gdl_player_id, claim.account_id)
+      db.prepare(`UPDATE gdl_players SET claimed_account_id = ? WHERE gdl_id = ?`)
+        .run(claim.account_id, claim.gdl_player_id)
     } else if (claim.source === 'pointercrate') {
       if (!claim.pointercrate_player_id) {
         throw createError({ statusCode: 400, statusMessage: 'Pointercrate claim is missing player id.' })

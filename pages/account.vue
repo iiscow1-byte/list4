@@ -226,9 +226,10 @@ async function removeAvatar() {
 type PendingClaim = {
   id: number
   player_name: string
-  source: 'all' | 'aredl' | 'pointercrate' | null
+  source: 'all' | 'aredl' | 'pointercrate' | 'gdl' | null
   aredl_player_uuid: string | null
   pointercrate_player_id: number | null
+  gdl_player_id: number | null
   created_at: string
 }
 const pendingClaim = ref<PendingClaim | null>(null)
@@ -244,26 +245,31 @@ async function loadPendingClaim() {
 onMounted(loadPendingClaim)
 
 const claimOpen = ref(false)
-const claimSource = ref<'all' | 'aredl' | 'pointercrate'>('all')
+const claimSource = ref<'all' | 'aredl' | 'pointercrate' | 'gdl'>('all')
 const claimInput = ref('')
 const claimAredlUuid = ref<string | null>(null)
 const claimPcId = ref<number | null>(null)
+const claimGdlId = ref<number | null>(null)
 const claimError = ref<string | null>(null)
 const claimSubmitting = ref(false)
 
-// External-list autocomplete (Aredl and Pointercrate share the same UI shape).
+// External-list autocomplete (Aredl, Pointercrate, GDL share the same UI shape).
 type AredlSearchHit = { uuid: string; global_name: string; username: string; total_points: number; claimed_account_id: number | null }
 type PcSearchHit = { pc_id: number; name: string; nationality: string | null; score: number; claimed_account_id: number | null }
+type GdlSearchHit = { gdl_id: number; name: string; country: string | null; points: number; claimed_account_id: number | null }
 const aredlSuggestions = ref<AredlSearchHit[]>([])
 const pcSuggestions = ref<PcSearchHit[]>([])
+const gdlSuggestions = ref<GdlSearchHit[]>([])
 let claimDebounce: ReturnType<typeof setTimeout> | null = null
 
 watch([claimInput, claimSource], () => {
   if (claimDebounce) clearTimeout(claimDebounce)
   aredlSuggestions.value = []
   pcSuggestions.value = []
+  gdlSuggestions.value = []
   claimAredlUuid.value = null
   claimPcId.value = null
+  claimGdlId.value = null
   if (claimSource.value === 'all' || !claimInput.value.trim()) return
   const src = claimSource.value
   claimDebounce = setTimeout(async () => {
@@ -278,6 +284,11 @@ watch([claimInput, claimSource], () => {
           query: { q: claimInput.value.trim() },
         })
         pcSuggestions.value = res.items
+      } else if (src === 'gdl') {
+        const res = await $fetch<{ items: GdlSearchHit[] }>('/api/gdl-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        gdlSuggestions.value = res.items
       }
     } catch { /* ignore */ }
   }, 200)
@@ -292,6 +303,11 @@ function pickPcSuggestion(hit: PcSearchHit) {
   claimInput.value = hit.name
   claimPcId.value = hit.pc_id
   pcSuggestions.value = []
+}
+function pickGdlSuggestion(hit: GdlSearchHit) {
+  claimInput.value = hit.name
+  claimGdlId.value = hit.gdl_id
+  gdlSuggestions.value = []
 }
 
 async function submitClaim() {
@@ -314,6 +330,22 @@ async function submitClaim() {
       await $fetch('/api/account/claim', {
         method: 'POST',
         body: { source: 'aredl', aredl_player_uuid: claimAredlUuid.value },
+      })
+    } else if (claimSource.value === 'gdl') {
+      if (!claimGdlId.value) {
+        const res = await $fetch<{ items: GdlSearchHit[] }>('/api/gdl-players/search', {
+          query: { q: claimInput.value.trim() },
+        })
+        const exact = res.items.find((x) => x.name.toLowerCase() === claimInput.value.trim().toLowerCase())
+        if (!exact) {
+          claimError.value = 'Pick a GDL player from the suggestions.'
+          return
+        }
+        claimGdlId.value = exact.gdl_id
+      }
+      await $fetch('/api/account/claim', {
+        method: 'POST',
+        body: { source: 'gdl', gdl_player_id: claimGdlId.value },
       })
     } else if (claimSource.value === 'pointercrate') {
       if (!claimPcId.value) {
@@ -341,6 +373,7 @@ async function submitClaim() {
     claimInput.value = ''
     claimAredlUuid.value = null
     claimPcId.value = null
+    claimGdlId.value = null
     claimOpen.value = false
   } catch (e: any) {
     claimError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Claim failed.'
@@ -951,7 +984,7 @@ function fmt(n: number | null | undefined) {
             >Submit level</NuxtLink>
 
             <button
-              v-if="(!me.claimed_player || !me.claimed_aredl_uuid || !me.claimed_pointercrate_id) && !pendingClaim"
+              v-if="(!me.claimed_player || !me.claimed_aredl_uuid || !me.claimed_pointercrate_id || !me.claimed_gdl_id) && !pendingClaim"
               type="button"
               class="text-left text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
               @click="claimOpen = !claimOpen"
@@ -959,7 +992,7 @@ function fmt(n: number | null | undefined) {
           </div>
 
           <!-- Claim status / inline form -->
-          <div v-if="me.claimed_player || me.claimed_aredl_uuid || me.claimed_pointercrate_id" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
+          <div v-if="me.claimed_player || me.claimed_aredl_uuid || me.claimed_pointercrate_id || me.claimed_gdl_id" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
             <p v-if="me.claimed_player">
               ALL list: <span class="text-accent font-medium">{{ me.claimed_player }}</span>
             </p>
@@ -969,12 +1002,15 @@ function fmt(n: number | null | undefined) {
             <p v-if="me.claimed_pointercrate_id">
               Pointercrate: <span class="text-accent font-medium">claimed</span>
             </p>
+            <p v-if="me.claimed_gdl_id">
+              GDL: <span class="text-accent font-medium">claimed</span>
+            </p>
             <p class="text-zinc-600">Contact an admin to change.</p>
           </div>
           <div v-else-if="pendingClaim" class="mt-3 px-1 text-xs text-zinc-400">
             <p>
               Pending
-              {{ pendingClaim.source === 'aredl' ? 'AREDL' : pendingClaim.source === 'pointercrate' ? 'Pointercrate' : 'ALL' }}
+              {{ pendingClaim.source === 'aredl' ? 'AREDL' : pendingClaim.source === 'pointercrate' ? 'Pointercrate' : pendingClaim.source === 'gdl' ? 'GDL' : 'ALL' }}
               claim for
               <span class="text-zinc-200 font-medium">{{ pendingClaim.player_name }}</span>.
             </p>
@@ -992,14 +1028,15 @@ function fmt(n: number | null | undefined) {
               <option value="all">Claim legacy ALL</option>
               <option value="aredl">Claim AREDL</option>
               <option value="pointercrate">Claim Pointercrate</option>
+              <option value="gdl">Claim GDL</option>
             </select>
             <div class="relative">
               <input
                 v-model="claimInput"
-                :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : claimSource === 'pointercrate' ? 'Search Pointercrate player name…' : 'Exact leaderboard name'"
+                :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : claimSource === 'pointercrate' ? 'Search Pointercrate player name…' : claimSource === 'gdl' ? 'Search GDL player name…' : 'Exact leaderboard name'"
                 class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
                 autocomplete="off"
-                @input="claimAredlUuid = null; claimPcId = null"
+                @input="claimAredlUuid = null; claimPcId = null; claimGdlId = null"
               />
               <ul
                 v-if="claimSource === 'aredl' && aredlSuggestions.length"
@@ -1018,6 +1055,26 @@ function fmt(n: number | null | undefined) {
                   </span>
                   <span class="tabular-nums text-zinc-500 shrink-0">
                     {{ hit.claimed_account_id ? 'claimed' : `${hit.total_points} pts` }}
+                  </span>
+                </li>
+              </ul>
+              <ul
+                v-if="claimSource === 'gdl' && gdlSuggestions.length"
+                class="absolute z-10 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded border border-zinc-800 bg-zinc-900 text-xs shadow-lg"
+              >
+                <li
+                  v-for="hit in gdlSuggestions"
+                  :key="hit.gdl_id"
+                  class="px-2 py-1.5 cursor-pointer hover:bg-zinc-800 flex justify-between gap-2"
+                  :class="hit.claimed_account_id ? 'opacity-60 cursor-not-allowed' : ''"
+                  @click="hit.claimed_account_id ? null : pickGdlSuggestion(hit)"
+                >
+                  <span class="truncate">
+                    {{ hit.name }}
+                    <span v-if="hit.country" class="text-zinc-500">{{ hit.country }}</span>
+                  </span>
+                  <span class="tabular-nums text-zinc-500 shrink-0">
+                    {{ hit.claimed_account_id ? 'claimed' : `${Math.round(hit.points)} pts` }}
                   </span>
                 </li>
               </ul>

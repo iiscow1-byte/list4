@@ -2,10 +2,11 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 
 /**
- * Submit a claim. Three sources share the same `claim_requests` queue:
+ * Submit a claim. Four sources share the same `claim_requests` queue:
  *   - 'all'          → resolves a player_name against the local `players` table
  *   - 'aredl'        → resolves an Aredl UUID against `aredl_players`
  *   - 'pointercrate' → resolves a Pointercrate player id against `pointercrate_players`
+ *   - 'gdl'          → resolves a GDL player id against `gdl_players`
  *
  * Discord-pairing auto-accept is intentionally not wired up yet — the discord
  * link on accounts isn't available at the time this lands.
@@ -42,6 +43,30 @@ export default defineEventHandler(async (event) => {
       `INSERT INTO claim_requests (account_id, player_name, source, aredl_player_uuid)
        VALUES (?, ?, 'aredl', ?)`,
     ).run(me.id, player.global_name, uuid)
+    return { ok: true }
+  }
+
+  if (source === 'gdl') {
+    if ((me as any).claimed_gdl_id) {
+      throw createError({ statusCode: 400, statusMessage: 'You already have a claimed GDL player.' })
+    }
+    const gdlId = Number(body?.gdl_player_id)
+    if (!Number.isFinite(gdlId) || gdlId <= 0) {
+      throw createError({ statusCode: 400, statusMessage: 'gdl_player_id is required.' })
+    }
+
+    const player = db.prepare(
+      `SELECT username, claimed_account_id FROM gdl_players WHERE gdl_id = ?`,
+    ).get(gdlId) as { username: string; claimed_account_id: number | null } | undefined
+    if (!player) throw createError({ statusCode: 404, statusMessage: 'No such GDL player.' })
+    if (player.claimed_account_id) {
+      throw createError({ statusCode: 409, statusMessage: 'That GDL player has already been claimed.' })
+    }
+
+    db.prepare(
+      `INSERT INTO claim_requests (account_id, player_name, source, gdl_player_id)
+       VALUES (?, ?, 'gdl', ?)`,
+    ).run(me.id, player.username, gdlId)
     return { ok: true }
   }
 

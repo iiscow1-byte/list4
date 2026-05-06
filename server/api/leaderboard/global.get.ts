@@ -14,7 +14,7 @@ import { listDerivedPlayers } from '~/server/utils/leaderboard'
  * For single-source views: search and limit are pushed into SQL as before.
  */
 
-type Source = 'aredl' | 'pointercrate' | 'alllist'
+type Source = 'aredl' | 'pointercrate' | 'gdl' | 'alllist'
 type Row = {
   rank: number
   // Primary source (used for routing — AREDL UUID > PC ID > player name).
@@ -109,6 +109,41 @@ export default defineEventHandler((event) => {
         player: r.player,
         country: r.nationality,
         points: r.score,
+        extras: {},
+        hardest: r.hardest_name,
+        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+      })
+    }
+  }
+
+  if (source === 'all' || source === 'gdl') {
+    const params: any[] = []
+    let where = `WHERE gp.is_banned = 0`
+    if (search && !isCombined) {
+      where += ` AND gp.username LIKE ? COLLATE NOCASE`
+      params.push(`%${search}%`)
+    }
+    const sql = `
+      SELECT gp.gdl_id, gp.username AS player, gp.country, gp.points, gp.placement,
+             gp.hardest_name,
+             a.username AS claimed_username
+        FROM gdl_players gp
+        LEFT JOIN accounts a ON a.id = gp.claimed_account_id
+       ${where}
+       ORDER BY gp.placement ASC, gp.username COLLATE NOCASE ASC
+       ${isCombined ? '' : 'LIMIT ?'}
+    `
+    if (!isCombined) params.push(limit)
+    const gdlRows = db.prepare(sql).all(...params) as any[]
+    for (const r of gdlRows) {
+      rows.push({
+        rank: r.placement,
+        source: 'gdl',
+        sources: ['gdl'],
+        id: r.gdl_id,
+        player: r.player,
+        country: r.country,
+        points: r.points,
         extras: {},
         hardest: r.hardest_name,
         claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
@@ -214,7 +249,7 @@ export default defineEventHandler((event) => {
     // > alllist. Points use the maximum across sources (the player's best
     // standing). Extras (extremes, pack_points) merge field-by-field,
     // preferring whichever source has a value.
-    const SOURCE_RANK: Record<Source, number> = { aredl: 0, pointercrate: 1, alllist: 2 }
+    const SOURCE_RANK: Record<Source, number> = { aredl: 0, pointercrate: 1, gdl: 2, alllist: 3 }
     const merged = new Map<string, Row>()
     for (const r of rows) {
       const key = r.player.toLowerCase()
