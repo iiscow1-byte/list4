@@ -39,7 +39,18 @@ export default defineNitroPlugin(() => {
         // pointercrate_legacy_imported), so re-runs cheaply pick up new
         // ranked records without re-fetching legacy demons.
         console.log('[db-init] running Pointercrate import in background (refresh on restart)')
-        await importPointercrate().catch((err) => console.error('[db-init] pointercrate import failed:', err))
+        await importPointercrate().catch((err) => {
+          // Cloudflare 403s every datacenter-IP request to pointercrate.com
+          // (Railway, Fly, Render, etc.). Log it as a one-line warning rather
+          // than a stack trace — the import simply won't run on those hosts
+          // until a proxy is set up, but the rest of the app keeps working.
+          const msg = (err as Error)?.message ?? String(err)
+          if (msg.includes('HTTP 403')) {
+            console.warn('[db-init] pointercrate import skipped: Cloudflare 403 (datacenter IP block). Set LIST_SKIP_POINTERCRATE_IMPORT=1 to silence, or run via a proxy.')
+          } else {
+            console.error('[db-init] pointercrate import failed:', err)
+          }
+        })
       }
     })
 })

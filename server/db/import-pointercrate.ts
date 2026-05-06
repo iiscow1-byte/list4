@@ -83,14 +83,21 @@ async function fetchJson<T>(path: string, retries = 6): Promise<T> {
       if (status >= 200 && status < 300) {
         return JSON.parse(body) as T
       }
-      if ((status >= 500 || status === 429 || status === 403) && attempt < retries - 1) {
-        // Exponential backoff: 2s, 4s, 8s, 16s, 32s.
+      // 403 from Cloudflare on datacenter IPs (Railway, Fly, etc.) is a
+      // permanent block, not a transient error — retrying just burns 60+
+      // seconds before failing identically. Throw immediately so the caller
+      // can log a single friendly warning. 5xx and 429 keep the exponential
+      // backoff (2s, 4s, 8s, 16s, 32s) since those are real transients.
+      if (status === 403) throw new Error(`HTTP 403 ${url}`)
+      if ((status >= 500 || status === 429) && attempt < retries - 1) {
         await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt))
         continue
       }
       throw new Error(`HTTP ${status} ${url}`)
     } catch (err) {
       if (attempt === retries - 1) throw err
+      // Don't retry 403s on the catch path either.
+      if ((err as Error).message?.includes('HTTP 403 ')) throw err
       await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt))
     }
   }
