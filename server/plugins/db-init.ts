@@ -34,11 +34,12 @@ export default defineNitroPlugin(() => {
         }
       }
       if (process.env.LIST_SKIP_POINTERCRATE_IMPORT !== '1') {
-        const { n: pp } = db.prepare('SELECT COUNT(*) AS n FROM pointercrate_players').get() as { n: number }
-        if (pp === 0) {
-          console.log('[db-init] pointercrate_players empty — running Pointercrate import in background')
-          await importPointercrate().catch((err) => console.error('[db-init] pointercrate import failed:', err))
-        }
+        // Always re-run Pointercrate on boot — the importer is idempotent
+        // (UPSERT on records/players, legacy demons skipped via
+        // pointercrate_legacy_imported), so re-runs cheaply pick up new
+        // ranked records without re-fetching legacy demons.
+        console.log('[db-init] running Pointercrate import in background (refresh on restart)')
+        await importPointercrate().catch((err) => console.error('[db-init] pointercrate import failed:', err))
       }
     })
 })

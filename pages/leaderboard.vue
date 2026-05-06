@@ -13,9 +13,11 @@ type AllRow = {
   tier: string | null
   badge: string | null
 }
+type GlobalSource = 'aredl' | 'pointercrate' | 'alllist'
 type GlobalRow = {
   rank: number
-  source: 'aredl' | 'pointercrate' | 'alllist'
+  source: GlobalSource
+  sources: GlobalSource[]
   id: string | number
   player: string
   country: string | null
@@ -126,10 +128,12 @@ function rowKey(p: Row, i: number): string {
   return `all-${p.player}-${i}`
 }
 function sourceLabel(p: Row): string | null {
-  if (p.source === 'aredl') return 'AREDL'
-  if (p.source === 'pointercrate') return 'PC'
-  if (p.source === 'alllist') return 'ALL'
-  return null
+  if (!p.source) return null
+  // For merged rows on the All Lists view, render every source the player
+  // appears on, joined with "/" — e.g. "AREDL/PC" when in both lists.
+  const map: Record<GlobalSource, string> = { aredl: 'AREDL', pointercrate: 'PC', alllist: 'ALL' }
+  const list = (p as GlobalRow).sources ?? [p.source]
+  return list.map((s) => map[s]).join('/')
 }
 </script>
 

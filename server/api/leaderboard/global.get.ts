@@ -14,9 +14,15 @@ import { listDerivedPlayers } from '~/server/utils/leaderboard'
  * For single-source views: search and limit are pushed into SQL as before.
  */
 
+type Source = 'aredl' | 'pointercrate' | 'alllist'
 type Row = {
   rank: number
-  source: 'aredl' | 'pointercrate' | 'alllist'
+  // Primary source (used for routing — AREDL UUID > PC ID > player name).
+  source: Source
+  // Sources this row appears on. Single-source views always have one entry.
+  // The All Lists view merges duplicate players across sources into one row,
+  // and `sources` carries the full list so the chip can show "AREDL/PC" etc.
+  sources: Source[]
   id: string | number
   player: string
   country: string | null
@@ -63,6 +69,7 @@ export default defineEventHandler((event) => {
       rows.push({
         rank: r.rank,
         source: 'aredl',
+        sources: ['aredl'],
         id: r.uuid,
         player: r.player,
         country: countryNumericToAlpha2(r.country),
@@ -97,6 +104,7 @@ export default defineEventHandler((event) => {
       rows.push({
         rank: r.rank,
         source: 'pointercrate',
+        sources: ['pointercrate'],
         id: r.pc_id,
         player: r.player,
         country: r.nationality,
@@ -183,6 +191,7 @@ export default defineEventHandler((event) => {
       rows.push({
         rank: r.rank,
         source: 'alllist',
+        sources: ['alllist'],
         id: r.player,
         player: r.player,
         country: r.country,
@@ -195,18 +204,60 @@ export default defineEventHandler((event) => {
   }
 
   if (isCombined) {
-    // Sort all sources by points and assign unified ranks 1,2,3… across all lists.
-    rows.sort((a, b) => {
+    // Merge duplicates across sources: a player who shows up in AREDL + PC
+    // (or any combination) collapses into ONE row with `sources` listing
+    // every list they appear on. The chip in the UI then renders as
+    // "AREDL/PC" instead of two separate rows. Match by case-insensitive
+    // player name — there's no canonical cross-source ID.
+    //
+    // Routing priority (which `source` + `id` we keep): aredl > pointercrate
+    // > alllist. Points use the maximum across sources (the player's best
+    // standing). Extras (extremes, pack_points) merge field-by-field,
+    // preferring whichever source has a value.
+    const SOURCE_RANK: Record<Source, number> = { aredl: 0, pointercrate: 1, alllist: 2 }
+    const merged = new Map<string, Row>()
+    for (const r of rows) {
+      const key = r.player.toLowerCase()
+      const existing = merged.get(key)
+      if (!existing) {
+        merged.set(key, { ...r, sources: [...r.sources] })
+        continue
+      }
+      // Pick the source with higher routing priority as the primary.
+      if (SOURCE_RANK[r.source] < SOURCE_RANK[existing.source]) {
+        existing.source = r.source
+        existing.id = r.id
+      }
+      for (const s of r.sources) {
+        if (!existing.sources.includes(s)) existing.sources.push(s)
+      }
+      if ((r.points ?? 0) > (existing.points ?? 0)) existing.points = r.points
+      existing.country = existing.country ?? r.country
+      existing.hardest = existing.hardest ?? r.hardest
+      existing.claimed_account = existing.claimed_account ?? r.claimed_account
+      existing.extras = {
+        extremes: existing.extras.extremes ?? r.extras.extremes,
+        pack_points: existing.extras.pack_points ?? r.extras.pack_points,
+      }
+    }
+    // Order sources for stable display: aredl first, pc, then alllist.
+    for (const row of merged.values()) {
+      row.sources.sort((a, b) => SOURCE_RANK[a] - SOURCE_RANK[b])
+    }
+    const mergedRows = Array.from(merged.values())
+
+    // Sort merged set by points and assign unified ranks across all lists.
+    mergedRows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
     })
-    rows.forEach((r, i) => { r.rank = i + 1 })
+    mergedRows.forEach((r, i) => { r.rank = i + 1 })
 
     // Apply search AFTER ranking so the displayed rank always reflects true
     // global standing, not position within the filtered result set.
     const visible = search
-      ? rows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
-      : rows
+      ? mergedRows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
+      : mergedRows
     return { total: visible.length, items: visible.slice(0, limit) }
   }
 

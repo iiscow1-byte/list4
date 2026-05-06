@@ -28,9 +28,11 @@ export default defineEventHandler((event) => {
     )
     .all(level.id)
 
-  // External-list records for this level (matched by gd_id). Importers
-  // already deduped against ALL records (and Pointercrate also deduped
-  // against Aredl), so concatenating is safe.
+  // External-list records for this level (matched by gd_id). The Pointercrate
+  // importer no longer dedups at insert time, so the same player's completion
+  // can appear across `records` / `aredl_records` / `pointercrate_records` —
+  // most often when one site account has claimed both an AREDL and a
+  // Pointercrate profile. We dedup below before returning.
   const aredl_records = level.gd_id
     ? (db
         .prepare(
@@ -75,6 +77,26 @@ export default defineEventHandler((event) => {
         )
         .all(level.gd_id)
     : []
+
+  // Cross-source record dedup: keep one entry per (player, percent) with
+  // priority ALL > AREDL > Pointercrate. The ALL list row carries the most
+  // editorial metadata (hz, video chosen by submitter), so it wins; AREDL
+  // beats PC for the same reason. Records arrays already came back sorted,
+  // and we filter in-place to preserve that order.
+  const seenPlayer = new Set<string>()
+  for (const r of records as any[]) seenPlayer.add(`${(r.player as string).toLowerCase()}|${r.percent}`)
+  const dedupedAredl = (aredl_records as any[]).filter((r) => {
+    const k = `${(r.player as string).toLowerCase()}|${r.percent}`
+    if (seenPlayer.has(k)) return false
+    seenPlayer.add(k)
+    return true
+  })
+  const dedupedPc = (pointercrate_records as any[]).filter((r) => {
+    const k = `${(r.player as string).toLowerCase()}|${r.percent}`
+    if (seenPlayer.has(k)) return false
+    seenPlayer.add(k)
+    return true
+  })
 
   const community = communityStats(db, 'main', level.id)
   // If the community has settled on an enjoyment, prefer it over the imported
@@ -134,8 +156,8 @@ export default defineEventHandler((event) => {
     ...level,
     enjoyment,
     records,
-    aredl_records,
-    pointercrate_records,
+    aredl_records: dedupedAredl,
+    pointercrate_records: dedupedPc,
     aredl_tags,
     other_lists,
     community,

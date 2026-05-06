@@ -272,22 +272,10 @@ export async function importPointercrate() {
   const isLegacyDone = db.prepare(`SELECT 1 FROM pointercrate_legacy_imported WHERE pc_demon_id = ?`)
   const markLegacyDone = db.prepare(`INSERT OR REPLACE INTO pointercrate_legacy_imported (pc_demon_id) VALUES (?)`)
 
-  // Dedup probes: an exact (player_name, gd_id, percent=100) match in either
-  // local records or aredl_records means we skip — the design call.
-  const dupInAll = db.prepare(`
-    SELECT 1 FROM records r
-      JOIN levels l ON l.id = r.level_id
-     WHERE l.gd_id = ?
-       AND r.player_name = ? COLLATE NOCASE
-       AND r.percent = 100
-     LIMIT 1
-  `)
-  const dupInAredl = db.prepare(`
-    SELECT 1 FROM aredl_records
-     WHERE level_gd_id = ?
-       AND player_name = ? COLLATE NOCASE
-     LIMIT 1
-  `)
+  // Pull every approved record into pointercrate_records — dedup against
+  // ALL/AREDL is no longer done at import time. Cross-source dedup happens
+  // at query time on the All Lists leaderboard and the level records list,
+  // which lets each source keep its full record history.
   const insRec = db.prepare(`
     INSERT INTO pointercrate_records
       (pc_id, demon_pc_id, demon_position, demon_name, level_gd_id,
@@ -316,7 +304,7 @@ export async function importPointercrate() {
   }
   console.log(`[pc] Processing ${toProcess.length} demons (${legacySkipped} legacy already imported, skipping)…`)
 
-  let recImported = 0, recDeduped = 0, recSkipped = 0, processed = 0
+  let recImported = 0, recSkipped = 0, processed = 0
   const PERSIST_BATCH = 25
   for (let off = 0; off < toProcess.length; off += PERSIST_BATCH) {
     const slice = toProcess.slice(off, off + PERSIST_BATCH)
@@ -338,8 +326,6 @@ export async function importPointercrate() {
         const gdId = detail.level_id
         for (const r of detail.records) {
           if (r.status !== 'approved') { recSkipped++; continue }
-          if (gdId != null && dupInAll.get(gdId, r.player.name)) { recDeduped++; continue }
-          if (gdId != null && dupInAredl.get(gdId, r.player.name)) { recDeduped++; continue }
           insRec.run(
             r.id,
             detail.id,
@@ -366,11 +352,11 @@ export async function importPointercrate() {
 
     processed += slice.length
     if (processed % 100 < PERSIST_BATCH) {
-      console.log(`[pc]   ${processed}/${toProcess.length} demons processed (recs=${recImported}, deduped=${recDeduped})`)
+      console.log(`[pc]   ${processed}/${toProcess.length} demons processed (recs=${recImported})`)
     }
   }
 
-  console.log(`[pc] Records: ${recImported} imported, ${recDeduped} deduped, ${recSkipped} skipped (non-approved)`)
+  console.log(`[pc] Records: ${recImported} imported, ${recSkipped} skipped (non-approved)`)
   console.log(`[pc] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }
 
