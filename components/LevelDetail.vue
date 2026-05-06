@@ -12,6 +12,7 @@ type Level = {
   name: string
   gd_id: number | null
   gddl_tier: string | null
+  gddl_tier_frac?: number | null
   rated: string | null
   difficulty: string | null
   placement_source: string | null
@@ -73,10 +74,21 @@ const canEdit = computed(() => (isAdminLevel.value || role.value === 'moderator'
 const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
+const gddlTierLabel = computed((): string | null => {
+  const tier = props.level.gddl_tier
+  if (!tier) return null
+  const frac = props.level.gddl_tier_frac
+  const subtierM = tier.match(/^Subtier (\d+)$/)
+  const tierM = tier.match(/^Tier (\d+)$/)
+  const num = subtierM ? Number(subtierM[1]) : tierM ? Number(tierM[1]) : null
+  if (num === null || frac == null) return tier
+  return `${subtierM ? 'S' : ''}${(num + frac).toFixed(2)}`
+})
+
 type Tag = { label: string; to?: string; title?: string }
 const tags = computed<Tag[]>(() => {
   const list: Tag[] = []
-  if (props.level.gddl_tier) list.push({ label: props.level.gddl_tier })
+  if (gddlTierLabel.value) list.push({ label: gddlTierLabel.value })
   if (props.level.difficulty) list.push({ label: props.level.difficulty })
   if (props.level.main_skillset) list.push({ label: props.level.main_skillset })
   // Use the source-overridden label so the chip stays consistent with the
@@ -662,7 +674,7 @@ const historyByDay = computed(() => {
           />
           <div>
             <p class="text-sm font-medium text-zinc-200 capitalize">{{ level.difficulty }}</p>
-            <p v-if="level.gddl_tier" class="text-xs text-zinc-400 mt-0.5">{{ level.gddl_tier }}</p>
+            <p v-if="gddlTierLabel" class="text-xs text-zinc-400 mt-0.5">{{ gddlTierLabel }}</p>
           </div>
         </div>
       </div>
@@ -1108,7 +1120,7 @@ const historyByDay = computed(() => {
         </div>
         <div v-if="visibleTiles1.includes('gddl_tier')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-          <div class="tabular-nums text-base text-zinc-100">{{ level.gddl_tier }}</div>
+          <div class="tabular-nums text-base text-zinc-100">{{ gddlTierLabel }}</div>
         </div>
         <div v-if="visibleTiles1.includes('verify_date')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify Date</div>

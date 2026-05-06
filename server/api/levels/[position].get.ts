@@ -140,6 +140,17 @@ export default defineEventHandler((event) => {
     } catch { /* ignore malformed JSON */ }
   }
 
+  // Fractional position within the level's GDDL tier (0 = hardest in tier,
+  // approaching 1 = easiest). Used to render a decimal like "20.75".
+  let gddl_tier_frac: number | null = null
+  if (level.gddl_tier) {
+    const total = (db.prepare(`SELECT COUNT(*) AS n FROM levels WHERE gddl_tier = ?`).get(level.gddl_tier) as { n: number }).n
+    if (total > 0) {
+      const harder = (db.prepare(`SELECT COUNT(*) AS n FROM levels WHERE gddl_tier = ? AND position < ?`).get(level.gddl_tier, level.position) as { n: number }).n
+      gddl_tier_frac = harder / total
+    }
+  }
+
   // "Other lists" rankings — the level's position on every external list we
   // mirror. Pointercrate Main + Extended share a single chip (legacy demons
   // are not ranked by position, so they don't get one).
@@ -179,5 +190,6 @@ export default defineEventHandler((event) => {
     submitter,
     duplicate_of,
     alternate_of,
+    gddl_tier_frac,
   }
 })

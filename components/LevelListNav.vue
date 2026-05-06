@@ -258,7 +258,7 @@ async function maybeJumpToTier(): Promise<boolean> {
       await loadMore()
       await nextTick()
       scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${res.midpoint}"]`)
-        ?.scrollIntoView({ block: 'nearest' })
+        ?.scrollIntoView({ block: 'center' })
       return true
     }
   } catch { /* non-fatal */ }
@@ -282,7 +282,7 @@ async function maybeJumpToPosition(): Promise<boolean> {
   await loadMore()
   await nextTick()
   scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    ?.scrollIntoView({ block: 'nearest' })
+    ?.scrollIntoView({ block: 'center' })
   lastPositionLookup = 0
   return true
 }
