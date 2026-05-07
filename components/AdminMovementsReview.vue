@@ -16,14 +16,20 @@ const selected = computed(() => items.value.find((m) => m.id === selectedId.valu
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
 const rejectReason = ref('')
+const loadError = ref<string | null>(null)
 
 async function load() {
-  const res = await $fetch<{ items: Movement[] }>('/api/admin/movements')
-  items.value = res.items
-  if (selectedId.value && !items.value.some((m) => m.id === selectedId.value)) {
-    selectedId.value = items.value[0]?.id ?? null
-  } else if (!selectedId.value && items.value[0]) {
-    selectedId.value = items.value[0].id
+  try {
+    const res = await $fetch<{ items: Movement[] }>('/api/admin/movements')
+    items.value = res.items
+    loadError.value = null
+    if (selectedId.value && !items.value.some((m) => m.id === selectedId.value)) {
+      selectedId.value = items.value[0]?.id ?? null
+    } else if (!selectedId.value && items.value[0]) {
+      selectedId.value = items.value[0].id
+    }
+  } catch (e: any) {
+    loadError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to load movements.'
   }
 }
 onMounted(load)
@@ -97,6 +103,7 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
             >✕</button>
           </li>
         </ul>
+        <div v-else-if="loadError" class="px-3 py-6 text-xs text-red-400 text-center">{{ loadError }}</div>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No pending movements.</div>
       </div>
     </aside>
