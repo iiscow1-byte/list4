@@ -38,6 +38,7 @@ type Level = {
   duplicate_of_id?: number | null
   is_alternate?: number | null
   alternate_of_id?: number | null
+  tentative_placement?: number | null
   duplicate_of?: { position: number; name: string } | null
   alternate_of?: { position: number; name: string } | null
   submitter?: string | null
@@ -205,6 +206,7 @@ type EditableFields = Pick<Level,
   duplicate_of_id: number | null
   is_alternate: boolean
   alternate_of_id: number | null
+  tentative_placement: boolean
 }
 const editing = ref(false)
 const apiOverridesOpen = ref(false)
@@ -232,6 +234,7 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   duplicate_of_id: null,
   is_alternate: false,
   alternate_of_id: null,
+  tentative_placement: false,
 })
 // Display-side cache of the picked originals, so the edit panel can show
 // "#42 Foo" without an extra fetch. Pre-populated from props on edit start.
@@ -265,6 +268,7 @@ function startEdit() {
   draft.duplicate_of_id = props.level.duplicate_of_id ?? null
   draft.is_alternate = !!props.level.is_alternate
   draft.alternate_of_id = props.level.alternate_of_id ?? null
+  draft.tentative_placement = !!props.level.tentative_placement
   draftDuplicateOf.value = props.level.duplicate_of ?? null
   draftAlternateOf.value = props.level.alternate_of ?? null
   draftPosition.value = props.level.position
@@ -1088,6 +1092,13 @@ const historyByDay = computed(() => {
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2 pt-1">
+              <input v-model="draft.tentative_placement" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
+                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
+              </span>
+            </label>
           </div>
         </div>
       </div>
@@ -1152,7 +1163,12 @@ const historyByDay = computed(() => {
       </a>
 
       <!-- Tags -->
-      <div v-if="tags.length || level.gd_id" class="flex flex-wrap items-center gap-2 mb-6">
+      <div v-if="level.tentative_placement || tags.length || level.gd_id" class="flex flex-wrap items-center gap-2 mb-6">
+        <span
+          v-if="level.tentative_placement"
+          title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
+          class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-yellow-500/60 text-yellow-400 cursor-default"
+        >Tentative</span>
         <template v-for="(t, i) in tags" :key="`${i}-${t.label}`">
           <NuxtLink
             v-if="t.to"

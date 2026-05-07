@@ -48,8 +48,9 @@ export default defineEventHandler(async (event) => {
     }
     db.prepare(`UPDATE levels SET position = -position WHERE position < 0 AND position != ?`).run(STASH)
 
-    // 3. Place the moved row at its new position.
-    db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(target, STASH)
+    // 3. Place the moved row at its new position and clear the tentative flag —
+    //    a deliberate position change means placement is no longer uncertain.
+    db.prepare(`UPDATE levels SET position = ?, tentative_placement = 0 WHERE position = ?`).run(target, STASH)
 
     // If this level was already moved today (UTC), update the original entry's
     // to_position so the changelog shows one condensed #X → #Y, not N hops.

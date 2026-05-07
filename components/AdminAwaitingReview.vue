@@ -22,6 +22,7 @@ type AwaitingLevel = {
   duplicate_of_id: number | null
   is_alternate: number
   alternate_of_id: number | null
+  tentative_placement: number | null
 }
 
 type AwaitingRow = Pick<AwaitingLevel, 'id' | 'name' | 'gd_id' | 'gddl_tier' | 'difficulty' | 'main_skillset' | 'approved_at'>
@@ -53,6 +54,7 @@ const isAlternate = ref(false)
 const alternateOfId = ref<number | null>(null)
 const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
 const flagsAlternatePickerOpen = ref(false)
+const isTentative = ref(false)
 const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
@@ -76,6 +78,7 @@ watch(selectedId, async (id) => {
   isAlternate.value = false
   alternateOfId.value = null
   draftAlternateOf.value = null
+  isTentative.value = false
   editingVideo.value = false
   editVideoUrl.value = ''
   if (id == null) { selected.value = null; return }
@@ -88,6 +91,7 @@ watch(selectedId, async (id) => {
     duplicateOfId.value = selected.value?.duplicate_of_id ?? null
     isAlternate.value = !!selected.value?.is_alternate
     alternateOfId.value = selected.value?.alternate_of_id ?? null
+    isTentative.value = !!selected.value?.tentative_placement
   } catch {
     selected.value = null
   }
@@ -151,6 +155,7 @@ async function decide(action: 'place' | 'remove') {
       body.duplicate_of_id = isDuplicate.value ? (duplicateOfId.value ?? null) : null
       body.is_alternate = isAlternate.value
       body.alternate_of_id = isAlternate.value ? (alternateOfId.value ?? null) : null
+      body.tentative_placement = isTentative.value
     }
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
     await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
@@ -165,6 +170,7 @@ async function decide(action: 'place' | 'remove') {
     isAlternate.value = false
     alternateOfId.value = null
     draftAlternateOf.value = null
+    isTentative.value = false
     removeReason.value = ''
     preview.value = null
     await load()
@@ -191,6 +197,7 @@ async function returnToLevels() {
     isAlternate.value = false
     alternateOfId.value = null
     draftAlternateOf.value = null
+    isTentative.value = false
     removeReason.value = ''
     preview.value = null
     await load()
@@ -501,8 +508,8 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             @click="flagsOpen = !flagsOpen"
           >
             <span>Flags
-              <span v-if="isDuplicate || isAlternate" class="normal-case tracking-normal text-accent ml-1">
-                {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate'].filter(Boolean).join(', ') }}
+              <span v-if="isDuplicate || isAlternate || isTentative" class="normal-case tracking-normal text-accent ml-1">
+                {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate', isTentative && 'Tentative'].filter(Boolean).join(', ') }}
               </span>
             </span>
             <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -562,6 +569,13 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
                 >clear</button>
               </div>
             </div>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
+                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
+              </span>
+            </label>
           </div>
         </div>
 

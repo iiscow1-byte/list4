@@ -140,6 +140,9 @@ function initSchema(db: DatabaseSync) {
   if (!has('submitted_by')) {
     db.exec(`ALTER TABLE levels ADD COLUMN submitted_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL`)
   }
+  if (!has('tentative_placement')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
+  }
 
   // One-time rename: legacy "hand placed" source (case-insensitive) → the
   // new canonical "All Levels List" tag used for site-originated submissions.
@@ -318,6 +321,9 @@ function initSchema(db: DatabaseSync) {
   }
   if (!acols.some((c) => c.name === 'rated')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN rated TEXT`)
+  }
+  if (!acols.some((c) => c.name === 'tentative_placement')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
   }
 
   db.exec(`

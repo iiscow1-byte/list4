@@ -108,6 +108,8 @@ export default defineEventHandler((event) => {
   const altVersions = q.altVersions === 'hide' || q.altVersions === 'only' ? q.altVersions : 'show'
   // Same tri-state for the new `is_alternate` flag ("Alternate" tag).
   const alternates = q.alternates === 'hide' || q.alternates === 'only' ? q.alternates : 'show'
+  // Tri-state filter for levels flagged as tentative placements.
+  const tentativePlacements = q.tentativePlacements === 'hide' || q.tentativePlacements === 'only' ? q.tentativePlacements : 'show'
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
   const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''
@@ -169,6 +171,9 @@ export default defineEventHandler((event) => {
 
   if (alternates === 'hide') filterConds.push(`COALESCE(is_alternate, 0) = 0`)
   else if (alternates === 'only') filterConds.push(`COALESCE(is_alternate, 0) = 1`)
+
+  if (tentativePlacements === 'hide') filterConds.push(`COALESCE(tentative_placement, 0) = 0`)
+  else if (tentativePlacements === 'only') filterConds.push(`COALESCE(tentative_placement, 0) = 1`)
 
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }

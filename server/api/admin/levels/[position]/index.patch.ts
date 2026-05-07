@@ -24,6 +24,7 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   duplicate_of_id: 'int',
   is_alternate: 'bool',
   alternate_of_id: 'int',
+  tentative_placement: 'bool',
 }
 
 function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string | number | null {

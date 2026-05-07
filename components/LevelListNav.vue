@@ -77,8 +77,10 @@ const skillsetSet = reactive<Record<string, boolean>>(
 type AltVersionMode = 'show' | 'hide' | 'only'
 // `altVersions` filters on `same_as_above` (UI label: Duplicates).
 // `alternates` filters on the new `is_alternate` flag.
+// `tentativePlacements` filters on the `tentative_placement` flag.
 const altVersions = ref<AltVersionMode>('show')
 const alternates = ref<AltVersionMode>('show')
+const tentativePlacements = ref<AltVersionMode>('show')
 const creator = ref('')
 const sourceFilter = ref('')
 const sources = ref<{ source: string; count: number }[]>([])
@@ -160,7 +162,7 @@ function displayNum(lvl: LevelRow): number {
 const activeFilterCount = computed(() => {
   let n = 0
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
-  if (TAGS.some((t) => tagSet[t]) || SKILLSETS.some((s) => skillsetSet[s]) || altVersions.value !== 'show' || alternates.value !== 'show') n++
+  if (TAGS.some((t) => tagSet[t]) || SKILLSETS.some((s) => skillsetSet[s]) || altVersions.value !== 'show' || alternates.value !== 'show' || tentativePlacements.value !== 'show') n++
   if (creator.value.trim()) n++
   if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
@@ -177,6 +179,7 @@ const tagsDropdownActiveCount = computed(() => {
   for (const s of SKILLSETS) if (skillsetSet[s]) n++
   if (altVersions.value !== 'show') n++
   if (alternates.value !== 'show') n++
+  if (tentativePlacements.value !== 'show') n++
   return n
 })
 
@@ -202,6 +205,7 @@ function buildQuery() {
     skillsets: skillsets.length ? skillsets.join(',') : undefined,
     altVersions: altVersions.value !== 'show' ? altVersions.value : undefined,
     alternates: alternates.value !== 'show' ? alternates.value : undefined,
+    tentativePlacements: tentativePlacements.value !== 'show' ? tentativePlacements.value : undefined,
     creator: creator.value.trim() || undefined,
     source: sourceFilter.value || undefined,
     verifyFrom: verifyFrom.value || undefined,
@@ -248,6 +252,7 @@ function resetFilters() {
   for (const s of SKILLSETS) skillsetSet[s] = false
   altVersions.value = 'show'
   alternates.value = 'show'
+  tentativePlacements.value = 'show'
   creator.value = ''
   sourceFilter.value = ''
   verifyFrom.value = ''
@@ -369,6 +374,7 @@ watch(tagSet,    () => refilter(true), { deep: true })
 watch(skillsetSet, () => refilter(true), { deep: true })
 watch(altVersions, () => refilter(true))
 watch(alternates, () => refilter(true))
+watch(tentativePlacements, () => refilter(true))
 watch(ratingSet, () => refilter(true), { deep: true })
 watch(rankByFilter, () => refilter(true))
 watch(showTierInList, () => refilter(true))
@@ -712,6 +718,24 @@ watch(
                     {{ s }}
                   </label>
                 </div>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tentative placements</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="opt in (['show', 'hide', 'only'] as const)"
+                    :key="`tent-${opt}`"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    :class="tentativePlacements === opt
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="tentativePlacements" type="radio" :value="opt" class="sr-only" />
+                    {{ opt }}
+                  </label>
+                </div>
+                <p class="text-[10px] text-zinc-600 mt-1">Levels with uncertain placements on the list.</p>
               </div>
 
               <div>

@@ -54,6 +54,7 @@ const duplicateOfId = ref<number | null>(null)
 const draftDuplicateOf = ref<{ position: number; name: string } | null>(null)
 const flagsDuplicatePickerOpen = ref(false)
 const isAlternate = ref(false)
+const isTentative = ref(false)
 const alternateOfId = ref<number | null>(null)
 const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
 const flagsAlternatePickerOpen = ref(false)
@@ -199,6 +200,7 @@ watch(selected, async (s) => {
   isAlternate.value = !!s?.is_alternate
   alternateOfId.value = s?.alternate_of_id ?? null
   draftAlternateOf.value = null
+  isTentative.value = false
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
@@ -276,6 +278,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
       duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
       is_alternate: isAlternate.value,
       alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+      tentative_placement: isTentative.value,
     }
     if (action === 'approve') {
       body.placement = Number(placement.value)
@@ -309,6 +312,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     isAlternate.value = false
     alternateOfId.value = null
     draftAlternateOf.value = null
+    isTentative.value = false
     placementSaved.value = false
     preview.value = null
     await load()
@@ -720,8 +724,8 @@ watch(preview, (p) => {
             @click="flagsOpen = !flagsOpen"
           >
             <span>Flags
-              <span v-if="isDuplicate || isAlternate" class="normal-case tracking-normal text-accent ml-1">
-                {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate'].filter(Boolean).join(', ') }}
+              <span v-if="isDuplicate || isAlternate || isTentative" class="normal-case tracking-normal text-accent ml-1">
+                {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate', isTentative && 'Tentative'].filter(Boolean).join(', ') }}
               </span>
             </span>
             <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -781,6 +785,13 @@ watch(preview, (p) => {
                 >clear</button>
               </div>
             </div>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
+                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
+              </span>
+            </label>
           </div>
         </div>
 

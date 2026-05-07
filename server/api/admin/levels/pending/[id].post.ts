@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     duplicate_of_id?: number | null
     is_alternate?: boolean
     alternate_of_id?: number | null
+    tentative_placement?: boolean
     gddl_tier?: string
     difficulty?: string
     placement_suggestion?: number
@@ -197,8 +198,8 @@ export default defineEventHandler(async (event) => {
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
            creator, permanent, enjoyment, pov_placement, placement_source, submitted_by,
-           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated, tentative_placement)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         insertPos,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -219,6 +220,7 @@ export default defineEventHandler(async (event) => {
         sub.is_alternate ? 1 : 0,
         sub.alternate_of_id ?? null,
         sub.rated ?? null,
+        typeof body.tentative_placement === 'boolean' ? (body.tentative_placement ? 1 : 0) : 0,
       )
       // Record the addition so it shows up on the recent-changes feed.
       recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
