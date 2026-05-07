@@ -45,6 +45,7 @@ type Change = {
   level_gddl_tier: string | null
   level_rated: string | null
   challenge_rank: number | null
+  from_challenge_rank: number | null
   from_position: number | null
   to_position: number
   changed_at: string
@@ -84,6 +85,10 @@ function filteredChanges(changes: Change[]) {
     ? changes.filter((c) => c.level_rated === 'Challenge')
     : changes
   if (changelogOrder.value === 'recent') return list
+  if (changelogView.value === 'challenge') {
+    // Sort hardest-first (lowest challenge rank = hardest)
+    return [...list].sort((a, b) => (a.challenge_rank ?? 9999) - (b.challenge_rank ?? 9999))
+  }
   return [...list].sort((a, b) => a.to_position - b.to_position)
 }
 
@@ -236,13 +241,6 @@ function paraParts(p: string): { text: string; href: string | null } {
                   title="Moved down"
                 >▼ Moved</span>
 
-                <!-- Challenge badge (challenge view) -->
-                <span
-                  v-if="changelogView === 'challenge' && c.challenge_rank != null"
-                  class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-medium leading-none bg-amber-900/50 text-amber-200 border border-amber-700/40"
-                  title="Challenge rank"
-                >Ch. #{{ c.challenge_rank }}</span>
-
                 <NuxtLink
                   :to="`/levels/${c.level_position}`"
                   class="truncate text-zinc-200 hover:text-accent transition-colors"
@@ -255,12 +253,25 @@ function paraParts(p: string): { text: string; href: string | null } {
                   :title="c.level_gddl_tier"
                 >{{ shortTier(c.level_gddl_tier) }}</span>
 
+                <!-- Right-side: challenge rank in challenge view, ALL position otherwise -->
                 <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
-                  <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
+                  <template v-if="changelogView === 'challenge'">
+                    <template v-if="c.kind === 'add'">
+                      <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-zinc-500">Ch. #{{ c.from_challenge_rank }}</span>
+                      <span class="text-zinc-600 mx-1">→</span>
+                      <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
+                    </template>
+                  </template>
                   <template v-else>
-                    <span class="text-zinc-500">#{{ c.from_position }}</span>
-                    <span class="text-zinc-600 mx-1">→</span>
-                    <span class="text-accent">#{{ c.to_position }}</span>
+                    <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
+                    <template v-else>
+                      <span class="text-zinc-500">#{{ c.from_position }}</span>
+                      <span class="text-zinc-600 mx-1">→</span>
+                      <span class="text-accent">#{{ c.to_position }}</span>
+                    </template>
                   </template>
                 </span>
                 <button

@@ -26,7 +26,8 @@ export type Change = {
   level_name: string
   level_gddl_tier: string | null
   level_rated: string | null // e.g. 'Challenge', 'Featured', etc.
-  challenge_rank: number | null // rank among challenge-rated levels (1=hardest), null if not a challenge
+  challenge_rank: number | null      // rank at to_position (1=hardest), null if not a challenge
+  from_challenge_rank: number | null // rank at from_position for moves, null for adds / non-challenge
   from_position: number | null
   to_position: number
   changed_at: string         // raw datetime('now') from SQLite, UTC
@@ -60,9 +61,13 @@ export function loadChanges(
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             l.rated AS level_rated,
             CASE WHEN l.rated = 'Challenge'
-              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= l.position)
+              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= h.to_position)
               ELSE NULL
             END AS challenge_rank,
+            CASE WHEN l.rated = 'Challenge' AND h.from_position IS NOT NULL
+              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= h.from_position)
+              ELSE NULL
+            END AS from_challenge_rank,
             a.username AS changed_by
        FROM position_history h
        JOIN levels   l ON l.id = h.level_id
@@ -80,6 +85,7 @@ export function loadChanges(
     level_gddl_tier: string | null
     level_rated: string | null
     challenge_rank: number | null
+    from_challenge_rank: number | null
     changed_by: string | null
   }>
 
@@ -108,11 +114,13 @@ export function loadChanges(
     const first = bucket[0]!
     const last = bucket[bucket.length - 1]!
     if (first.from_position === null) {
-      // Level added and moved same day — show the add with the final position.
-      condensed.push({ ...first, to_position: last.to_position, changed_at: last.changed_at })
+      // Level added and moved same day — show the add with the final position and
+      // the challenge rank at that final destination (from `last`, not `first`).
+      condensed.push({ ...first, to_position: last.to_position, challenge_rank: last.challenge_rank, changed_at: last.changed_at })
     } else {
       // Multiple moves — earliest from → latest to, use latest metadata.
-      condensed.push({ ...last, from_position: first.from_position })
+      // from_challenge_rank must come from `first` (the original source rank).
+      condensed.push({ ...last, from_position: first.from_position, from_challenge_rank: first.from_challenge_rank })
     }
   }
 
@@ -128,6 +136,7 @@ export function loadChanges(
     level_gddl_tier: r.level_gddl_tier,
     level_rated: r.level_rated,
     challenge_rank: r.challenge_rank,
+    from_challenge_rank: r.from_challenge_rank,
     from_position: r.from_position,
     to_position: r.to_position,
     changed_at: r.changed_at,

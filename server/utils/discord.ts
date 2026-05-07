@@ -221,29 +221,29 @@ export function buildChallengeEmbed(
   const movesUp = challengeChanges.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position < c.from_position!)
   const movesDown = challengeChanges.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position > c.from_position!)
 
-  function chRank(c: Change): string {
-    return c.challenge_rank != null ? `Ch. #${c.challenge_rank}` : `#${c.level_position}`
+  function chRank(rank: number | null, fallback: number): string {
+    return rank != null ? `Ch. #${rank}` : `#${fallback}`
   }
 
   const lines: string[] = []
   if (adds.length) {
     lines.push(`**Added (${adds.length})**`)
     for (const c of adds) {
-      lines.push(`+ ${chRank(c)} · ${levelLink(c.level_name, c.level_position)}`)
+      lines.push(`+ ${chRank(c.challenge_rank, c.level_position)} · ${levelLink(c.level_name, c.level_position)}`)
     }
     lines.push('')
   }
   if (movesUp.length) {
     lines.push(`**Moved up (${movesUp.length})**`)
     for (const c of movesUp) {
-      lines.push(`▲ ${levelLink(c.level_name, c.level_position)} ${chRank(c)}`)
+      lines.push(`▲ ${levelLink(c.level_name, c.level_position)} ${chRank(c.from_challenge_rank, c.from_position ?? c.level_position)} → ${chRank(c.challenge_rank, c.level_position)}`)
     }
     lines.push('')
   }
   if (movesDown.length) {
     lines.push(`**Moved down (${movesDown.length})**`)
     for (const c of movesDown) {
-      lines.push(`▼ ${levelLink(c.level_name, c.level_position)} ${chRank(c)}`)
+      lines.push(`▼ ${levelLink(c.level_name, c.level_position)} ${chRank(c.from_challenge_rank, c.from_position ?? c.level_position)} → ${chRank(c.challenge_rank, c.level_position)}`)
     }
   }
 
