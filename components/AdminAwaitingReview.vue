@@ -56,6 +56,8 @@ const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
 const flagsAlternatePickerOpen = ref(false)
 const isTentative = ref(false)
 const placementSaved = ref(false)
+const flagsSaved = ref(false)
+let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 async function load() {
@@ -228,13 +230,49 @@ function onPlacementHelperPick(picked: { position: number; name: string; gddl_ti
   if (picked.difficulty) difficultyOverride.value = picked.difficulty
 }
 
+function autoSaveFlags() {
+  if (!selected.value) return
+  if (flagsSaveDebounce) clearTimeout(flagsSaveDebounce)
+  const id = selected.value.id
+  flagsSaveDebounce = setTimeout(async () => {
+    try {
+      await $fetch(`/api/admin/awaiting/${id}`, {
+        method: 'POST',
+        body: {
+          action: 'save_flags',
+          same_as_above: isDuplicate.value,
+          duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
+          is_alternate: isAlternate.value,
+          alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+          tentative_placement: isTentative.value,
+        },
+      })
+      // Keep selected in sync so re-selecting this level doesn't reset the flags.
+      if (selected.value?.id === id) {
+        selected.value = {
+          ...selected.value,
+          same_as_above: isDuplicate.value ? 1 : 0,
+          duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
+          is_alternate: isAlternate.value ? 1 : 0,
+          alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+          tentative_placement: isTentative.value ? 1 : 0,
+        }
+      }
+      flagsSaved.value = true
+      setTimeout(() => (flagsSaved.value = false), 1500)
+    } catch { /* non-fatal */ }
+  }, 400)
+}
+
 function onFlagsDuplicatePick(lvl: { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
   duplicateOfId.value = lvl.id ?? null
   draftDuplicateOf.value = { position: lvl.position, name: lvl.name }
+  autoSaveFlags()
 }
 function onFlagsAlternatePick(lvl: { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
   alternateOfId.value = lvl.id ?? null
   draftAlternateOf.value = { position: lvl.position, name: lvl.name }
+  autoSaveFlags()
 }
 
 const tierOverride = ref('')
@@ -511,6 +549,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               <span v-if="isDuplicate || isAlternate || isTentative" class="normal-case tracking-normal text-accent ml-1">
                 {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate', isTentative && 'Tentative'].filter(Boolean).join(', ') }}
               </span>
+              <span v-if="flagsSaved" class="normal-case tracking-normal text-emerald-400 ml-1">Saved</span>
             </span>
             <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -518,7 +557,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
           </button>
           <div v-if="flagsOpen" class="px-3 pb-3 space-y-3">
             <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none pt-1">
-              <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" />
+              <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
                 <span class="text-zinc-500 normal-case">— inherits the previous level's points.</span>
@@ -539,12 +578,12 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
                   v-if="draftDuplicateOf || duplicateOfId"
                   type="button"
                   class="text-[11px] text-zinc-500 hover:text-red-400"
-                  @click="draftDuplicateOf = null; duplicateOfId = null"
+                  @click="draftDuplicateOf = null; duplicateOfId = null; autoSaveFlags()"
                 >clear</button>
               </div>
             </div>
             <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
-              <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+              <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
                 <span class="text-zinc-500 normal-case">— related variation; doesn't affect points.</span>
@@ -565,7 +604,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
                   v-if="draftAlternateOf || alternateOfId"
                   type="button"
                   class="text-[11px] text-zinc-500 hover:text-red-400"
-                  @click="draftAlternateOf = null; alternateOfId = null"
+                  @click="draftAlternateOf = null; alternateOfId = null; autoSaveFlags()"
                 >clear</button>
               </div>
             </div>
@@ -573,7 +612,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
               class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
               title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
             >
-              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
                 <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>

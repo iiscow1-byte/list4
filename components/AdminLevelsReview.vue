@@ -196,6 +196,10 @@ async function load() {
 onMounted(load)
 
 watch(selected, async (s) => {
+  // Skip full reset when the same level's in-memory record was updated (e.g.
+  // after autoSaveFlags syncs items.value) — only reset on actual level switch.
+  if (s?.id === lastLoadedId) return
+  lastLoadedId = s?.id ?? null
   preview.value = null
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
@@ -259,8 +263,10 @@ watch(placement, (v) => {
   }
 })
 
+let lastLoadedId: number | null = null
+
 function autoSaveFlags() {
-  if (suppressFlagSave || !selected.value) return
+  if (!selected.value) return
   if (flagsSaveDebounce) clearTimeout(flagsSaveDebounce)
   const id = selected.value.id
   flagsSaveDebounce = setTimeout(async () => {
@@ -276,6 +282,18 @@ function autoSaveFlags() {
           tentative_placement: isTentative.value,
         },
       })
+      // Sync the in-memory item so re-selecting this level doesn't reset the flags.
+      const idx = items.value.findIndex(r => r.id === id)
+      if (idx >= 0) {
+        items.value[idx] = {
+          ...items.value[idx]!,
+          same_as_above: isDuplicate.value ? 1 : 0,
+          duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
+          is_alternate: isAlternate.value ? 1 : 0,
+          alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+          tentative_placement: isTentative.value ? 1 : 0,
+        }
+      }
       flagsSaved.value = true
       setTimeout(() => (flagsSaved.value = false), 1500)
     } catch { /* non-fatal */ }

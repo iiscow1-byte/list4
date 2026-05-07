@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'place' | 'remove' | 'return' | 'save_placement' | 'update_video'
+    action: 'place' | 'remove' | 'return' | 'save_placement' | 'update_video' | 'save_flags'
     placement?: number
     reason?: string
     gddl_tier?: string
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     tentative_placement?: boolean
     verification_url?: string | null
   }>(event)
-  const VALID_ACTIONS = new Set(['place', 'remove', 'return', 'save_placement', 'update_video'])
+  const VALID_ACTIONS = new Set(['place', 'remove', 'return', 'save_placement', 'update_video', 'save_flags'])
   if (!VALID_ACTIONS.has(body.action)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
@@ -46,6 +46,20 @@ export default defineEventHandler(async (event) => {
   if (body.action === 'save_placement') {
     const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null
     db.prepare(`UPDATE awaiting_levels SET placement_suggestion = ? WHERE id = ?`).run(n, id)
+    return { ok: true }
+  }
+
+  if (body.action === 'save_flags') {
+    db.prepare(
+      `UPDATE awaiting_levels SET same_as_above=?, duplicate_of_id=?, is_alternate=?, alternate_of_id=?, tentative_placement=? WHERE id=?`,
+    ).run(
+      body.same_as_above ? 1 : 0,
+      body.duplicate_of_id ?? null,
+      body.is_alternate ? 1 : 0,
+      body.alternate_of_id ?? null,
+      body.tentative_placement ? 1 : 0,
+      id,
+    )
     return { ok: true }
   }
 
