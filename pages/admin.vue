@@ -374,6 +374,7 @@ async function setClaim(u: AdminUser) {
             :class="isPendingTab && !pendingDropdownOpen
               ? 'bg-zinc-900 text-zinc-100'
               : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
+            @click="pendingDropdownOpen = !pendingDropdownOpen"
           >
             {{ isPendingTab ? allTabs.find(t => t.id === tab)?.label : 'Pending' }}
             <!-- Badge sum for all pending tabs -->

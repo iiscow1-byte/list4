@@ -22,6 +22,23 @@ async function loadInboxUnread() {
 watch(me, loadInboxUnread, { immediate: true })
 watch(() => route.fullPath, loadInboxUnread)
 
+// Admin/mod pending count badge — shown on the Admin/Mod nav link.
+const adminPendingCount = ref(0)
+async function loadAdminCounts() {
+  const role = me.value?.role
+  if (!role || role === 'user') { adminPendingCount.value = 0; return }
+  try {
+    const res = await $fetch<Record<string, number>>('/api/admin/counts')
+    adminPendingCount.value = Object.values(res).reduce((s, n) => s + n, 0)
+  } catch {
+    adminPendingCount.value = 0
+  }
+}
+watch(me, loadAdminCounts, { immediate: true })
+let adminCountTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => { adminCountTimer = setInterval(loadAdminCounts, 30_000) })
+onBeforeUnmount(() => { if (adminCountTimer) clearInterval(adminCountTimer) })
+
 const listMenuOpen = ref(false)
 const listMenuRef = ref<HTMLElement | null>(null)
 
@@ -133,9 +150,15 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
         <NuxtLink
           v-if="me?.role && me.role !== 'user'"
           to="/admin"
-          class="px-3 py-1.5 rounded text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
+          class="relative px-3 py-1.5 rounded text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
           active-class="text-accent bg-zinc-900"
-        >{{ me.role === 'moderator' ? 'Mod' : 'Admin' }}</NuxtLink>
+        >
+          {{ me.role === 'moderator' ? 'Mod' : 'Admin' }}
+          <span
+            v-if="adminPendingCount > 0"
+            class="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-500 text-[10px] tabular-nums font-semibold text-white"
+          >{{ adminPendingCount > 99 ? '99+' : adminPendingCount }}</span>
+        </NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1" />
 

@@ -437,7 +437,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
     </section>
 
     <!-- Tags -->
-    <div v-if="tags.length" class="flex flex-wrap items-center gap-2 mb-6">
+    <div v-if="tags.length" class="flex flex-wrap items-center gap-2 mt-6 mb-6">
       <span
         v-for="t in tags"
         :key="t"

@@ -2,7 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { isValidDiscordWebhook } from '~/server/utils/discord'
 
-const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status'])
+const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status', 'challenge_changes'])
 
 export default defineEventHandler(async (event) => {
   const account = requireAdmin(event)

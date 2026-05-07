@@ -1,7 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 
-const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status'])
+const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status', 'challenge_changes'])
 
 /** Toggle a webhook's `active` flag, rename its label, or change its kind. */
 export default defineEventHandler(async (event) => {
