@@ -85,7 +85,7 @@ watch(userSearch, () => {
 })
 
 // --- Discord tab state ---
-type WebhookKind = 'changes' | 'leaderboard' | 'level_status'
+type WebhookKind = 'changes' | 'leaderboard' | 'level_status' | 'challenge_changes'
 type DiscordWebhook = {
   id: number
   url: string
@@ -102,6 +102,7 @@ const WEBHOOK_KIND_LABELS: Record<WebhookKind, string> = {
   changes: 'Daily changes',
   leaderboard: 'Leaderboard updates',
   level_status: 'Level status',
+  challenge_changes: 'Challenge changes',
 }
 const webhooks = ref<DiscordWebhook[]>([])
 const newWebhookUrl = ref('')
@@ -600,6 +601,7 @@ async function setClaim(u: AdminUser) {
           </div>
           <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
             Webhooks are grouped by type: <strong class="text-zinc-400">Daily changes</strong> receives a nightly summary of level moves,
+            <strong class="text-zinc-400">Challenge changes</strong> is the same but filtered to challenge-rated levels only (with challenge ranks),
             <strong class="text-zinc-400">Leaderboard updates</strong> fires when a record is approved,
             and <strong class="text-zinc-400">Level status</strong> fires when a level reaches Awaiting Placement or the Void list.
             Set the <code class="text-zinc-300">SITE_URL</code> env var to enable level links inside the embeds.
@@ -621,6 +623,7 @@ async function setClaim(u: AdminUser) {
               class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="changes">Daily changes</option>
+              <option value="challenge_changes">Challenge changes</option>
               <option value="leaderboard">Leaderboard updates</option>
               <option value="level_status">Level status</option>
             </select>
@@ -647,6 +650,7 @@ async function setClaim(u: AdminUser) {
                     class="text-[10px] px-1.5 py-0.5 rounded border"
                     :class="{
                       'border-blue-900/60 bg-blue-950/40 text-blue-300': w.kind === 'changes',
+                      'border-amber-900/60 bg-amber-950/40 text-amber-300': w.kind === 'challenge_changes',
                       'border-emerald-900/60 bg-emerald-950/30 text-emerald-400': w.kind === 'leaderboard',
                       'border-purple-900/60 bg-purple-950/30 text-purple-300': w.kind === 'level_status',
                     }"
@@ -668,11 +672,12 @@ async function setClaim(u: AdminUser) {
                   @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
                 >
                   <option value="changes">Daily changes</option>
+                  <option value="challenge_changes">Challenge changes</option>
                   <option value="leaderboard">Leaderboard updates</option>
                   <option value="level_status">Level status</option>
                 </select>
                 <label
-                  v-if="w.kind === 'changes'"
+                  v-if="w.kind === 'changes' || w.kind === 'challenge_changes'"
                   class="flex items-center gap-1.5 cursor-pointer select-none text-xs transition-colors"
                   :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
                   :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in embeds'"

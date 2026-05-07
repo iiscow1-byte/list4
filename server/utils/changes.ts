@@ -25,6 +25,8 @@ export type Change = {
   level_position: number     // current position on the main list (for linking)
   level_name: string
   level_gddl_tier: string | null
+  level_rated: string | null // e.g. 'Challenge', 'Featured', etc.
+  challenge_rank: number | null // rank among challenge-rated levels (1=hardest), null if not a challenge
   from_position: number | null
   to_position: number
   changed_at: string         // raw datetime('now') from SQLite, UTC
@@ -56,6 +58,11 @@ export function loadChanges(
   const rows = db.prepare(
     `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
+            l.rated AS level_rated,
+            CASE WHEN l.rated = 'Challenge'
+              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= l.position)
+              ELSE NULL
+            END AS challenge_rank,
             a.username AS changed_by
        FROM position_history h
        JOIN levels   l ON l.id = h.level_id
@@ -71,6 +78,8 @@ export function loadChanges(
     level_position: number
     level_name: string
     level_gddl_tier: string | null
+    level_rated: string | null
+    challenge_rank: number | null
     changed_by: string | null
   }>
 
@@ -117,6 +126,8 @@ export function loadChanges(
     level_position: r.level_position,
     level_name: r.level_name,
     level_gddl_tier: r.level_gddl_tier,
+    level_rated: r.level_rated,
+    challenge_rank: r.challenge_rank,
     from_position: r.from_position,
     to_position: r.to_position,
     changed_at: r.changed_at,

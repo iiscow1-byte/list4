@@ -1,6 +1,6 @@
 import { getDb } from '~/server/db'
 import { groupByDay, loadChanges } from '~/server/utils/changes'
-import { buildDailyEmbed, postToDiscordWebhook } from '~/server/utils/discord'
+import { buildDailyEmbed, buildChallengeEmbed, postToDiscordWebhook } from '~/server/utils/discord'
 
 /** YYYY-MM-DD for `date` in UTC. */
 export function ymdUtc(date: Date): string {
@@ -37,9 +37,9 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
   // `active` flag gates the automated scheduler only.
   const webhooks = db
     .prepare(opts.allWebhooks
-      ? `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE kind = 'changes'`
-      : `SELECT id, url, active, last_posted_date, tier_emoji FROM discord_webhooks WHERE active = 1 AND kind = 'changes'`)
-    .all() as WebhookRow[]
+      ? `SELECT id, url, active, last_posted_date, tier_emoji, kind FROM discord_webhooks WHERE kind IN ('changes','challenge_changes')`
+      : `SELECT id, url, active, last_posted_date, tier_emoji, kind FROM discord_webhooks WHERE active = 1 AND kind IN ('changes','challenge_changes')`)
+    .all() as (WebhookRow & { kind: string })[]
   if (!webhooks.length) return { posted: [] }
 
   const posted: { webhookId: number; date: string; status: string }[] = []
@@ -81,12 +81,19 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
 }
 
 /** Post a specific UTC day's changes to a single webhook. Returns status. */
-export async function postOneDay(wh: WebhookRow, date: string): Promise<string> {
+export async function postOneDay(wh: WebhookRow & { kind?: string }, date: string): Promise<string> {
   const db = getDb()
   const since = `${date} 00:00:00`
   const until = `${date} 23:59:59`
   // Pull oldest-first so the embed reads chronologically.
   const changes = loadChanges(db, { since, until, limit: 1000 }).reverse()
+
+  if (wh.kind === 'challenge_changes') {
+    const payload = buildChallengeEmbed(date, changes)
+    if (!payload) return 'no changes'
+    return postToDiscordWebhook(wh.url, payload)
+  }
+
   const payload = buildDailyEmbed(date, changes, { tierEmoji: !!wh.tier_emoji })
   if (!payload) return 'no changes'
   return postToDiscordWebhook(wh.url, payload)

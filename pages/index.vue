@@ -43,6 +43,8 @@ type Change = {
   level_position: number
   level_name: string
   level_gddl_tier: string | null
+  level_rated: string | null
+  challenge_rank: number | null
   from_position: number | null
   to_position: number
   changed_at: string
@@ -74,11 +76,21 @@ async function deleteChange(c: Change) {
   }
 }
 
+const changelogView = ref<'all' | 'challenge'>('all')
 const changelogOrder = ref<'placement' | 'recent'>('placement')
-function sortedChanges(changes: Change[]) {
-  if (changelogOrder.value === 'recent') return changes
-  return [...changes].sort((a, b) => a.to_position - b.to_position)
+
+function filteredChanges(changes: Change[]) {
+  const list = changelogView.value === 'challenge'
+    ? changes.filter((c) => c.level_rated === 'Challenge')
+    : changes
+  if (changelogOrder.value === 'recent') return list
+  return [...list].sort((a, b) => a.to_position - b.to_position)
 }
+
+// Total challenge changes across all days (for badge)
+const totalChallengeChanges = computed(() =>
+  changes.value?.days.reduce((n, d) => n + d.changes.filter((c) => c.level_rated === 'Challenge').length, 0) ?? 0,
+)
 
 const listsSearch = ref('')
 const filteredLists = computed(() => {
@@ -150,8 +162,29 @@ function paraParts(p: string): { text: string; href: string | null } {
           Recent Changes
           <span class="text-zinc-500 text-[10px] normal-case tracking-normal group-open:hidden">click to expand</span>
         </h2>
-        <div class="flex items-center gap-2 ml-auto">
-          <div class="inline-flex rounded border border-zinc-800 overflow-hidden" @click.stop>
+        <div class="flex items-center gap-2 ml-auto" @click.stop>
+          <!-- View: All / Challenges -->
+          <div class="inline-flex rounded border border-zinc-800 overflow-hidden">
+            <button
+              type="button"
+              class="px-2 py-0.5 text-[10px] font-medium transition-colors"
+              :class="changelogView === 'all' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+              title="Show all changes"
+              @click="changelogView = 'all'"
+            >All</button>
+            <button
+              type="button"
+              class="px-2 py-0.5 text-[10px] font-medium transition-colors border-l border-zinc-800 flex items-center gap-1"
+              :class="changelogView === 'challenge' ? 'bg-amber-900/60 text-amber-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+              title="Show challenge-rated levels only"
+              @click="changelogView = 'challenge'"
+            >
+              Challenges
+              <span v-if="totalChallengeChanges > 0" class="tabular-nums text-[9px]">({{ totalChallengeChanges }})</span>
+            </button>
+          </div>
+          <!-- Sort: Placement / Recent -->
+          <div class="inline-flex rounded border border-zinc-800 overflow-hidden">
             <button
               type="button"
               class="px-2 py-0.5 text-[10px] font-medium transition-colors"
@@ -174,61 +207,76 @@ function paraParts(p: string): { text: string; href: string | null } {
         </div>
       </summary>
       <div class="space-y-4 pt-3">
-        <div v-for="day in changes.days" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
-          <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
-            <h3 class="text-sm font-medium text-zinc-100">{{ formatDay(day.date) }}</h3>
-            <span class="text-[11px] text-zinc-500 tabular-nums">
-              {{ day.changes.length }} change{{ day.changes.length === 1 ? '' : 's' }}
-            </span>
-          </div>
-          <ul class="divide-y divide-zinc-900/60">
-            <li v-for="(c, i) in sortedChanges(day.changes)" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2 group/row">
-              <span
-                v-if="c.kind === 'add'"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
-                title="Added to the main list"
-              >Added</span>
-              <span
-                v-else-if="c.from_position != null && c.to_position < c.from_position"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
-                title="Moved up"
-              >▲ Moved</span>
-              <span
-                v-else
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
-                title="Moved down"
-              >▼ Moved</span>
-
-              <NuxtLink
-                :to="`/levels/${c.level_position}`"
-                class="truncate text-zinc-200 hover:text-accent transition-colors"
-              >{{ c.level_name }}</NuxtLink>
-
-              <span
-                v-if="c.level_gddl_tier"
-                class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-medium leading-none"
-                :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
-                :title="c.level_gddl_tier"
-              >{{ shortTier(c.level_gddl_tier) }}</span>
-
-              <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
-                <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
-                <template v-else>
-                  <span class="text-zinc-500">#{{ c.from_position }}</span>
-                  <span class="text-zinc-600 mx-1">→</span>
-                  <span class="text-accent">#{{ c.to_position }}</span>
-                </template>
+        <template v-for="day in changes.days" :key="day.date">
+          <div
+            v-if="filteredChanges(day.changes).length"
+            class="rounded-md border border-zinc-800 bg-zinc-950/60"
+          >
+            <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
+              <h3 class="text-sm font-medium text-zinc-100">{{ formatDay(day.date) }}</h3>
+              <span class="text-[11px] text-zinc-500 tabular-nums">
+                {{ filteredChanges(day.changes).length }} change{{ filteredChanges(day.changes).length === 1 ? '' : 's' }}
               </span>
-              <button
-                v-if="isMod"
-                type="button"
-                class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 leading-none"
-                title="Remove changelog entry"
-                @click="deleteChange(c)"
-              >✕</button>
-            </li>
-          </ul>
-        </div>
+            </div>
+            <ul class="divide-y divide-zinc-900/60">
+              <li v-for="(c, i) in filteredChanges(day.changes)" :key="`${day.date}-${i}`" class="px-4 py-2 text-sm flex items-center gap-2 group/row">
+                <span
+                  v-if="c.kind === 'add'"
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/60"
+                  title="Added to the main list"
+                >Added</span>
+                <span
+                  v-else-if="c.from_position != null && c.to_position < c.from_position"
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
+                  title="Moved up"
+                >▲ Moved</span>
+                <span
+                  v-else
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  title="Moved down"
+                >▼ Moved</span>
+
+                <!-- Challenge badge (challenge view) -->
+                <span
+                  v-if="changelogView === 'challenge' && c.challenge_rank != null"
+                  class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-medium leading-none bg-amber-900/50 text-amber-200 border border-amber-700/40"
+                  title="Challenge rank"
+                >Ch. #{{ c.challenge_rank }}</span>
+
+                <NuxtLink
+                  :to="`/levels/${c.level_position}`"
+                  class="truncate text-zinc-200 hover:text-accent transition-colors"
+                >{{ c.level_name }}</NuxtLink>
+
+                <span
+                  v-if="c.level_gddl_tier && changelogView !== 'challenge'"
+                  class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-medium leading-none"
+                  :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
+                  :title="c.level_gddl_tier"
+                >{{ shortTier(c.level_gddl_tier) }}</span>
+
+                <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
+                  <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
+                  <template v-else>
+                    <span class="text-zinc-500">#{{ c.from_position }}</span>
+                    <span class="text-zinc-600 mx-1">→</span>
+                    <span class="text-accent">#{{ c.to_position }}</span>
+                  </template>
+                </span>
+                <button
+                  v-if="isMod"
+                  type="button"
+                  class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 leading-none"
+                  title="Remove changelog entry"
+                  @click="deleteChange(c)"
+                >✕</button>
+              </li>
+            </ul>
+          </div>
+        </template>
+        <p v-if="changelogView === 'challenge' && totalChallengeChanges === 0" class="text-sm text-zinc-500">
+          No challenge-rated level changes in the last 14 days.
+        </p>
       </div>
     </details>
 

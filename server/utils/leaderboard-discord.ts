@@ -26,6 +26,7 @@ export async function postLeaderboardUpdate(
     playerName: string
     levelId: number
     videoUrl: string | null
+    isVerification?: boolean
   },
 ): Promise<void> {
   const webhooks = webhooksOfKind(db, 'leaderboard')
@@ -51,6 +52,7 @@ export async function postLeaderboardUpdate(
     levelPoints: level?.points ?? null,
     playerTotal,
     videoUrl: opts.videoUrl,
+    isVerification: opts.isVerification,
   })
 
   await broadcast(webhooks, payload)

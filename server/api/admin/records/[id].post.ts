@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
 
     // Fire-and-forget leaderboard Discord notification.
     const videoUrl = (db.prepare(`SELECT video FROM records WHERE id = ?`).get(id) as { video: string | null } | undefined)?.video ?? null
-    postLeaderboardUpdate(db, { playerName: rec.player_name, levelId: rec.level_id, videoUrl }).catch(() => {})
+    postLeaderboardUpdate(db, { playerName: rec.player_name, levelId: rec.level_id, videoUrl, isVerification: !!rec.is_verification_claim }).catch(() => {})
   } else {
     // Reject the linked opinion alongside the record so it doesn't outlive the
     // proof video. ON DELETE SET NULL would leave it dangling without proof.
