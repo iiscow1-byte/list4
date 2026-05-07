@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { runImport } from '~/server/db/import'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
+import { importGsv } from '~/server/db/import-gsv'
 
 /**
  * On boot, if the levels table is empty, kick off a background import of the
@@ -35,9 +36,8 @@ export default defineNitroPlugin(() => {
       }
       if (process.env.LIST_SKIP_POINTERCRATE_IMPORT !== '1') {
         // Always re-run Pointercrate on boot — the importer is idempotent
-        // (UPSERT on records/players, legacy demons skipped via
-        // pointercrate_legacy_imported), so re-runs cheaply pick up new
-        // ranked records without re-fetching legacy demons.
+        // (UPSERT on players + level metadata), cheap to re-run, and now no
+        // longer fetches per-demon records.
         console.log('[db-init] running Pointercrate import in background (refresh on restart)')
         await importPointercrate().catch((err) => {
           // Cloudflare 403s every datacenter-IP request to pointercrate.com
@@ -51,6 +51,13 @@ export default defineNitroPlugin(() => {
             console.error('[db-init] pointercrate import failed:', err)
           }
         })
+      }
+      if (process.env.LIST_SKIP_GSV_IMPORT !== '1') {
+        // GSV is now the canonical source for `aredl_records`. Run it after
+        // the AREDL/PC importers so level metadata (used for cross-list
+        // dedup at query time) is populated before records land.
+        console.log('[db-init] running Global Stats Viewer import in background (refresh on restart)')
+        await importGsv().catch((err) => console.error('[db-init] gsv import failed:', err))
       }
     })
 })

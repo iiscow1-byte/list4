@@ -1,0 +1,141 @@
+<!doctype html>
+    <html lang="en">
+        <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Global Stats Viewer API Docs</title>
+            <link rel="icon" href="/docs-assets/Logo-gsv.webp" />
+
+            <!-- Swagger UI base styles -->
+            <link
+                rel="stylesheet"
+                href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+            />
+
+            <!-- GSV theme overrides -->
+            <link rel="stylesheet" href="/docs-assets/gsv-docs.css" />
+        </head>
+        <body>
+            <header class="gsv-docs-header">
+                <div class="left">
+                    <img src="/docs-assets/Logo-gsv.webp" alt="GSV" />
+                    <div class="gsv-docs-title">Global Stats Viewer • API Docs</div>
+                </div>
+                <nav class="gsv-docs-links" aria-label="Docs links">
+                    <a href="/openapi.json" target="_blank" rel="noopener">OpenAPI JSON</a>
+                    <a href="/api/">API Root</a>
+                </nav>
+            </header>
+
+            <div id="swagger-ui"></div>
+
+            <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+            <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+            <script>
+                window.onload = function () {
+                    if ("scrollRestoration" in history) {
+                        history.scrollRestoration = "manual";
+                    }
+                    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+
+                    SwaggerUIBundle({
+                        url: "/openapi.json",
+                        dom_id: "#swagger-ui",
+                        deepLinking: false,
+                        displayRequestDuration: true,
+                        filter: false,
+                        persistAuthorization: true,
+                        docExpansion: "list",
+                        defaultModelsExpandDepth: 1,
+                        defaultModelExpandDepth: 2,
+                        presets: [
+                            SwaggerUIBundle.presets.apis,
+                            SwaggerUIStandalonePreset
+                        ],
+                        layout: "BaseLayout"
+                    });
+
+                    // disclaimer below the OpenAPI header section.
+                    const insertDisclaimer = () => {
+                        if (document.getElementById("gsv-docs-disclaimer")) return true;
+
+                        const infoContainer = document.querySelector(
+                            ".swagger-ui .information-container"
+                        );
+                        if (!infoContainer) return false;
+
+                        const disclaimer = document.createElement("div");
+                        disclaimer.id = "gsv-docs-disclaimer";
+                        disclaimer.className = "gsv-docs-disclaimer";
+
+                        const strong = document.createElement("strong");
+                        strong.textContent = "Note:";
+
+                        const text = document.createElement("span");
+                        text.textContent = " API Routes are subject to change as updates get pushed. Make sure to read this documentation to see the latest available routes.";
+
+                        disclaimer.appendChild(strong);
+                        disclaimer.appendChild(text);
+
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "wrapper";
+                        wrapper.appendChild(disclaimer);
+
+                        infoContainer.insertAdjacentElement("afterend", wrapper);
+                        return true;
+                    };  
+                    
+                    const insertDisclaimerDev = () => {
+                        return true;
+
+                        if (document.getElementById("gsv-docs-dev-disclaimer")) return true;
+
+                        const infoContainer = document.querySelector(
+                            ".swagger-ui .information-container"
+                        );
+                        if (!infoContainer) return false;
+
+                        const disclaimer = document.createElement("div");
+                        disclaimer.id = "gsv-docs-dev-disclaimer";
+                        disclaimer.className = "gsv-docs-dev-disclaimer";
+
+                        const strong = document.createElement("strong");
+
+                        const text = document.createElement("span");
+                        text.textContent = "⚠️ Server TEST API DOCS • Routes available here do not always match production routes";
+
+                        disclaimer.appendChild(strong);
+                        disclaimer.appendChild(text);
+
+                        const wrapper = document.createElement("div");
+                        wrapper.className = "wrapper";
+                        wrapper.appendChild(disclaimer);
+
+                        infoContainer.insertAdjacentElement("afterend", wrapper);
+                        return true;
+                ;
+
+                    }
+
+                    const mount = document.getElementById("swagger-ui");
+                    if (mount) {
+                        insertDisclaimer();
+                        insertDisclaimerDev();
+                        const observer = new MutationObserver(() => {
+                            insertDisclaimer();
+                            insertDisclaimerDev();
+                        });
+                        observer.observe(mount, { childList: true, subtree: true });
+                        setTimeout(() => observer.disconnect(), 10000);
+                    } else {
+                        insertDisclaimer();
+                        insertDisclaimerDev();
+                    }
+
+                    // Swagger can cause minor layout shifts while it finishes rendering.
+                    setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }), 0);
+                    setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }), 250);
+                };
+            </script>
+        </body>
+    </html>

@@ -3,17 +3,15 @@
  *
  * Pulls into the same global mirror tables as the Aredl importer:
  *   - pointercrate_players  (separate from aredl_players; same human can have rows in both)
- *   - pointercrate_records  (deduped against records + aredl_records by player_name + gd_id at percent=100)
  *   - levels.pointercrate_position (only set for ranked demons, i.e. position ≤ extended_list_size)
  *
  * Pointercrate adds no new levels — every demon there is already on Aredl/ALL,
- * so we never insert level rows. We only enrich existing levels and store
- * records.
+ * so we never insert level rows. We only enrich existing levels and capture
+ * the ranked-player leaderboard.
  *
- * Legacy records (demon position > extended_list_size) are pulled exactly
- * once per demon: pointercrate_legacy_imported tracks completion and re-runs
- * skip already-imported legacy demons. Ranked demons (Main + Extended) are
- * always re-fetched so new ranked records show up.
+ * Records are no longer fetched here — `pointercrate_records` is left untouched
+ * (its previously-imported rows still drive the level page / PC profile views)
+ * and new-record ingestion happens via the Global Stats Viewer importer.
  *
  * Cloudflare blocks no-UA / datacenter requests; the importer sends a
  * browser User-Agent which is enough to pass through the standard challenge.
@@ -22,11 +20,8 @@ import { getDb } from './index.ts'
 import { spawn } from 'node:child_process'
 
 const API_BASE = process.env.POINTERCRATE_API_BASE || 'https://pointercrate.com/api'
-// Pointercrate's rate limit is tight — even 2 parallel + 200ms delay hits
-// 429s frequently. Serialize entirely with a 600ms gap (~1.5 req/sec) which
-// stays under the limit reliably. Re-runs are idempotent so missed demons
-// retry on the next invocation.
-const PAR = Number(process.env.POINTERCRATE_PARALLELISM || 1)
+// Pointercrate's rate limit is tight — pace requests via a fixed delay
+// (~1.5 req/sec) which stays under the limit reliably.
 const REQ_DELAY_MS = Number(process.env.POINTERCRATE_REQ_DELAY_MS || 600)
 const UA = process.env.POINTERCRATE_USER_AGENT
   || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
@@ -135,20 +130,6 @@ async function fetchAllPages<T>(startPath: string): Promise<T[]> {
   return out
 }
 
-async function pmap<T, R>(items: T[], parallel: number, fn: (t: T, i: number) => Promise<R>): Promise<R[]> {
-  const out: R[] = new Array(items.length)
-  let next = 0
-  const workers = Array.from({ length: Math.min(parallel, items.length) }, async () => {
-    while (true) {
-      const i = next++
-      if (i >= items.length) return
-      out[i] = await fn(items[i]!, i)
-    }
-  })
-  await Promise.all(workers)
-  return out
-}
-
 type PcDemon = {
   id: number
   position: number
@@ -156,24 +137,6 @@ type PcDemon = {
   level_id: number | null
   publisher: { id: number; name: string; banned: boolean }
   verifier: { id: number; name: string; banned: boolean }
-}
-type PcCreator = { id: number; name: string; banned: boolean }
-type PcRecord = {
-  id: number
-  progress: number
-  video: string | null
-  status: string
-  player: { id: number; name: string; banned: boolean }
-}
-type PcDemonDetail = {
-  id: number
-  position: number
-  name: string
-  level_id: number | null
-  publisher: { id: number; name: string; banned: boolean }
-  verifier: { id: number; name: string; banned: boolean }
-  creators: PcCreator[]
-  records: PcRecord[]
 }
 type PcRankedPlayer = {
   id: number
@@ -271,99 +234,6 @@ export async function importPointercrate() {
     throw err
   }
 
-  // ---- Records ----
-  // Strategy: per-demon detail fetch (returns records inline, fewer requests
-  // than paginating /v1/records/ for ~127k records). For ranked demons fetch
-  // every run; for legacy demons fetch only if not already in
-  // pointercrate_legacy_imported.
-  const isLegacyDone = db.prepare(`SELECT 1 FROM pointercrate_legacy_imported WHERE pc_demon_id = ?`)
-  const markLegacyDone = db.prepare(`INSERT OR REPLACE INTO pointercrate_legacy_imported (pc_demon_id) VALUES (?)`)
-
-  // Pull every approved record into pointercrate_records — dedup against
-  // ALL/AREDL is no longer done at import time. Cross-source dedup happens
-  // at query time on the All Lists leaderboard and the level records list,
-  // which lets each source keep its full record history.
-  const insRec = db.prepare(`
-    INSERT INTO pointercrate_records
-      (pc_id, demon_pc_id, demon_position, demon_name, level_gd_id,
-       player_pc_id, player_name, progress, video, is_legacy, is_verification, fetched_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(pc_id) DO UPDATE SET
-      demon_pc_id = excluded.demon_pc_id, demon_position = excluded.demon_position,
-      demon_name = excluded.demon_name, level_gd_id = excluded.level_gd_id,
-      player_pc_id = excluded.player_pc_id, player_name = excluded.player_name,
-      progress = excluded.progress, video = excluded.video,
-      is_legacy = excluded.is_legacy, is_verification = excluded.is_verification,
-      fetched_at = excluded.fetched_at
-  `)
-
-  // Build the list of demons to process: every ranked demon + every legacy
-  // demon that hasn't been imported yet.
-  const toProcess: { demon: PcDemon; isLegacy: boolean; skip: boolean }[] = []
-  let legacySkipped = 0
-  for (const d of allDemons) {
-    const isLegacy = d.position > cutoffs.extended_list_size
-    if (isLegacy) {
-      const done = isLegacyDone.get(d.id)
-      if (done) { legacySkipped++; continue }
-    }
-    toProcess.push({ demon: d, isLegacy, skip: false })
-  }
-  console.log(`[pc] Processing ${toProcess.length} demons (${legacySkipped} legacy already imported, skipping)…`)
-
-  let recImported = 0, recSkipped = 0, processed = 0
-  const PERSIST_BATCH = 25
-  for (let off = 0; off < toProcess.length; off += PERSIST_BATCH) {
-    const slice = toProcess.slice(off, off + PERSIST_BATCH)
-    const detailed = await pmap(slice, PAR, async (item) => {
-      try {
-        const detail = await fetchJson<{ data: PcDemonDetail }>(`/v2/demons/${item.demon.id}/`)
-        return { item, detail: detail.data }
-      } catch (err) {
-        console.warn(`[pc]   demon ${item.demon.id} fetch failed:`, (err as Error).message)
-        return { item, detail: null }
-      }
-    })
-
-    db.exec('BEGIN')
-    try {
-      for (const { item, detail } of detailed) {
-        if (!detail) continue
-        const verifierId = detail.verifier?.id ?? null
-        const gdId = detail.level_id
-        for (const r of detail.records) {
-          if (r.status !== 'approved') { recSkipped++; continue }
-          insRec.run(
-            r.id,
-            detail.id,
-            detail.position,
-            detail.name,
-            gdId,
-            r.player.id,
-            r.player.name,
-            r.progress ?? 100,
-            r.video,
-            item.isLegacy ? 1 : 0,
-            verifierId != null && r.player.id === verifierId ? 1 : 0,
-            now,
-          )
-          recImported++
-        }
-        if (item.isLegacy) markLegacyDone.run(detail.id)
-      }
-      db.exec('COMMIT')
-    } catch (err) {
-      db.exec('ROLLBACK')
-      throw err
-    }
-
-    processed += slice.length
-    if (processed % 100 < PERSIST_BATCH) {
-      console.log(`[pc]   ${processed}/${toProcess.length} demons processed (recs=${recImported})`)
-    }
-  }
-
-  console.log(`[pc] Records: ${recImported} imported, ${recSkipped} skipped (non-approved)`)
   console.log(`[pc] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }
 

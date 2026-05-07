@@ -347,5 +347,15 @@ function paraParts(p: string): { text: string; href: string | null } {
         </li>
       </ul>
     </section>
+
+    <p class="text-[11px] text-zinc-500 pt-2">
+      Player completion data powered by
+      <a
+        href="https://globalstatsviewer.com"
+        target="_blank"
+        rel="noopener"
+        class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline"
+      >Global Stats Viewer</a>.
+    </p>
   </div>
 </template>
