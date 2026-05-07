@@ -61,8 +61,9 @@ const PAGE_SIZE = 200
 const items = ref<Row[]>([])
 const total = ref(0)
 const pending = ref(true)
-const loadingMore = ref(false)
-const hasMore = computed(() => items.value.length < total.value)
+const page = ref(1)
+const pageInput = ref('1')
+const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 function buildParams(offset: number) {
   const params: Record<string, string | number> = { limit: PAGE_SIZE, offset }
@@ -75,32 +76,50 @@ function buildParams(offset: number) {
   return params
 }
 
-async function load(reset: boolean) {
-  if (reset) {
-    pending.value = true
+async function load(targetPage: number) {
+  pending.value = true
+  try {
+    const offset = (targetPage - 1) * PAGE_SIZE
+    const res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams(offset) })
+    items.value = res.items
+    total.value = res.total
+    // If the server's total dropped below this page (e.g. a search narrowed
+    // the result set), snap back to the last valid page and refetch.
+    const tp = Math.max(1, Math.ceil(res.total / PAGE_SIZE))
+    if (targetPage > tp) {
+      page.value = tp
+      pageInput.value = String(tp)
+      const fixed = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams((tp - 1) * PAGE_SIZE) })
+      items.value = fixed.items
+      total.value = fixed.total
+    } else {
+      page.value = targetPage
+      pageInput.value = String(targetPage)
+    }
+  } catch {
     items.value = []
     total.value = 0
-  } else {
-    if (!hasMore.value || loadingMore.value) return
-    loadingMore.value = true
-  }
-  try {
-    const offset = reset ? 0 : items.value.length
-    const res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams(offset) })
-    if (reset) items.value = res.items
-    else items.value.push(...res.items)
-    total.value = res.total
-  } catch {
-    if (reset) { items.value = []; total.value = 0 }
   } finally {
     pending.value = false
-    loadingMore.value = false
   }
 }
 
-onMounted(() => { load(true) })
-watch([tab, debounced], () => { load(true) })
-watch(me, () => { if (tab.value === 'followed') load(true) })
+function gotoPage(n: number) {
+  const clamped = Math.min(totalPages.value, Math.max(1, Math.floor(n) || 1))
+  if (clamped === page.value) return
+  load(clamped)
+}
+
+function onPageInputCommit() {
+  const n = Number(pageInput.value)
+  if (!Number.isFinite(n)) { pageInput.value = String(page.value); return }
+  gotoPage(n)
+}
+
+onMounted(() => { load(1) })
+// Filter / tab changes reset to page 1.
+watch([tab, debounced], () => { page.value = 1; pageInput.value = '1'; load(1) })
+watch(me, () => { if (tab.value === 'followed') { page.value = 1; pageInput.value = '1'; load(1) } })
 
 const feed = ref<FeedItem[]>([])
 const feedLoading = ref(false)
@@ -217,8 +236,12 @@ function sourceLabel(p: Row): string | null {
 
     <div v-else class="grid gap-6" :class="tab === 'followed' ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''">
       <div>
-        <div v-if="pending" class="text-sm text-zinc-500">loading…</div>
-        <ol v-else class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden">
+        <div v-if="pending && items.length === 0" class="text-sm text-zinc-500">loading…</div>
+        <ol
+          v-else
+          class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden transition-opacity"
+          :class="{ 'opacity-50': pending }"
+        >
           <li v-for="(p, i) in items" :key="rowKey(p, i)">
             <NuxtLink
               :to="rowLink(p)"
@@ -284,13 +307,48 @@ function sourceLabel(p: Row): string | null {
             </template>
           </li>
         </ol>
-        <div v-if="!pending && hasMore" class="mt-4 flex justify-center">
+        <div v-if="totalPages > 1" class="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
           <button
             type="button"
-            :disabled="loadingMore"
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            @click="load(false)"
-          >{{ loadingMore ? 'loading…' : `Load more (${total - items.length} remaining)` }}</button>
+            :disabled="pending || page <= 1"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="First page"
+            @click="gotoPage(1)"
+          >&laquo;</button>
+          <button
+            type="button"
+            :disabled="pending || page <= 1"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Previous page"
+            @click="gotoPage(page - 1)"
+          >&lsaquo;</button>
+          <div class="flex items-center gap-1 text-zinc-400">
+            <span>Page</span>
+            <input
+              v-model="pageInput"
+              type="number"
+              min="1"
+              :max="totalPages"
+              class="w-14 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-center text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+              @keydown.enter="onPageInputCommit"
+              @blur="onPageInputCommit"
+            />
+            <span class="tabular-nums">/ {{ totalPages }}</span>
+          </div>
+          <button
+            type="button"
+            :disabled="pending || page >= totalPages"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Next page"
+            @click="gotoPage(page + 1)"
+          >&rsaquo;</button>
+          <button
+            type="button"
+            :disabled="pending || page >= totalPages"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Last page"
+            @click="gotoPage(totalPages)"
+          >&raquo;</button>
         </div>
       </div>
 
