@@ -607,6 +607,7 @@ async function submit() {
             <button type="button" class="ml-auto text-zinc-500 hover:text-red-400" @click="clearComparison">clear</button>
           </div>
 
+          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Used for placement</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>

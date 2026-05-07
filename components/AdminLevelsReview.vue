@@ -63,7 +63,6 @@ const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 const flagsSaved = ref(false)
 let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
-let suppressFlagSave = false
 
 // --- Pending-list filters ---
 const TIER_MAX_ORD = 44
@@ -198,7 +197,6 @@ onMounted(load)
 
 watch(selected, async (s) => {
   preview.value = null
-  suppressFlagSave = true
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
@@ -206,7 +204,6 @@ watch(selected, async (s) => {
   alternateOfId.value = s?.alternate_of_id ?? null
   draftAlternateOf.value = null
   isTentative.value = !!s?.tentative_placement
-  suppressFlagSave = false
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
@@ -284,8 +281,6 @@ function autoSaveFlags() {
     } catch { /* non-fatal */ }
   }, 400)
 }
-
-watch([isDuplicate, isAlternate, isTentative, duplicateOfId, alternateOfId], autoSaveFlags, { flush: 'sync' })
 
 function flash(kind: 'ok' | 'err', msg: string) {
   banner.value = { kind, msg }
@@ -386,10 +381,12 @@ function onPlacementHelperPick(picked: ListLevel) {
 function onFlagsDuplicatePick(lvl: ListLevel) {
   duplicateOfId.value = lvl.id ?? null
   draftDuplicateOf.value = { position: lvl.position, name: lvl.name }
+  autoSaveFlags()
 }
 function onFlagsAlternatePick(lvl: ListLevel) {
   alternateOfId.value = lvl.id ?? null
   draftAlternateOf.value = { position: lvl.position, name: lvl.name }
+  autoSaveFlags()
 }
 
 // Tier + difficulty auto-fill: inherit from the level immediately above the placement.
@@ -766,7 +763,7 @@ watch(preview, (p) => {
           </button>
           <div v-if="flagsOpen" class="px-3 pb-3 space-y-3">
             <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none pt-1">
-              <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" />
+              <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
                 <span class="text-zinc-500 normal-case">— inherits the previous level's points.</span>
@@ -787,12 +784,12 @@ watch(preview, (p) => {
                   v-if="draftDuplicateOf || duplicateOfId"
                   type="button"
                   class="text-[11px] text-zinc-500 hover:text-red-400"
-                  @click="draftDuplicateOf = null; duplicateOfId = null"
+                  @click="draftDuplicateOf = null; duplicateOfId = null; autoSaveFlags()"
                 >clear</button>
               </div>
             </div>
             <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
-              <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" />
+              <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
                 <span class="text-zinc-500 normal-case">— related variation; doesn't affect points.</span>
@@ -813,7 +810,7 @@ watch(preview, (p) => {
                   v-if="draftAlternateOf || alternateOfId"
                   type="button"
                   class="text-[11px] text-zinc-500 hover:text-red-400"
-                  @click="draftAlternateOf = null; alternateOfId = null"
+                  @click="draftAlternateOf = null; alternateOfId = null; autoSaveFlags()"
                 >clear</button>
               </div>
             </div>
@@ -821,7 +818,7 @@ watch(preview, (p) => {
               class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
               title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
             >
-              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
                 <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>

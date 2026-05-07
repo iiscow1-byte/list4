@@ -1166,9 +1166,13 @@ const historyByDay = computed(() => {
       <div v-if="level.tentative_placement || tags.length || level.gd_id" class="flex flex-wrap items-center gap-2 mb-6">
         <span
           v-if="level.tentative_placement"
-          title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
-          class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-yellow-500/60 text-yellow-400 cursor-default"
-        >Tentative</span>
+          class="relative group/tent px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-yellow-500/60 text-yellow-400 cursor-default"
+        >
+          Tentative
+          <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-[11px] leading-relaxed text-zinc-200 shadow-xl opacity-0 transition-opacity group-hover/tent:opacity-100 z-20">
+            Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate.
+          </span>
+        </span>
         <template v-for="(t, i) in tags" :key="`${i}-${t.label}`">
           <NuxtLink
             v-if="t.to"
