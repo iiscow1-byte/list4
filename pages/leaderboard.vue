@@ -54,28 +54,53 @@ watch(search, (v) => {
 })
 
 // "Members" and "Followed" tabs use /api/leaderboard (ALL list players);
-// "Global" hits /api/leaderboard/global which merges AREDL, PC, and ALL.
+// "Global" hits /api/leaderboard/global which merges AREDL, PC, GDL, and ALL.
 const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
-// Sub-filter on the global tab: 'all' merges all sources, or pick one.
-const globalSource = ref<'all' | 'aredl' | 'pointercrate' | 'gdl' | 'alllist'>('all')
-const query = computed(() => {
+
+const PAGE_SIZE = 200
+const items = ref<Row[]>([])
+const total = ref(0)
+const pending = ref(true)
+const loadingMore = ref(false)
+const hasMore = computed(() => items.value.length < total.value)
+
+function buildParams(offset: number) {
+  const params: Record<string, string | number> = { limit: PAGE_SIZE, offset }
+  if (debounced.value) params.q = debounced.value
   if (tab.value === 'global') {
-    return { limit: 200, q: debounced.value || undefined, source: globalSource.value }
+    params.source = 'all'
+  } else if (tab.value === 'followed') {
+    params.followed = '1'
   }
-  return {
-    limit: 200,
-    q: debounced.value || undefined,
-    followed: tab.value === 'followed' ? '1' : undefined,
+  return params
+}
+
+async function load(reset: boolean) {
+  if (reset) {
+    pending.value = true
+    items.value = []
+    total.value = 0
+  } else {
+    if (!hasMore.value || loadingMore.value) return
+    loadingMore.value = true
   }
-})
+  try {
+    const offset = reset ? 0 : items.value.length
+    const res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams(offset) })
+    if (reset) items.value = res.items
+    else items.value.push(...res.items)
+    total.value = res.total
+  } catch {
+    if (reset) { items.value = []; total.value = 0 }
+  } finally {
+    pending.value = false
+    loadingMore.value = false
+  }
+}
 
-const { data, pending, refresh } = await useFetch<{ total: number; items: Row[] }>(
-  url,
-  { query, watch: [url, query] },
-)
-
-watch(me, () => { if (tab.value === 'followed') refresh() })
-watch(tab, () => { if (tab.value !== 'global') globalSource.value = 'all' })
+onMounted(() => { load(true) })
+watch([tab, debounced], () => { load(true) })
+watch(me, () => { if (tab.value === 'followed') load(true) })
 
 const feed = ref<FeedItem[]>([])
 const feedLoading = ref(false)
@@ -130,11 +155,11 @@ function rowKey(p: Row, i: number): string {
 }
 function sourceLabel(p: Row): string | null {
   if (!p.source) return null
-  // For merged rows on the All Lists view, render every source the player
-  // appears on, joined with "/" — e.g. "AREDL/PC" when in both lists.
-  const map: Record<GlobalSource, string> = { aredl: 'AREDL', pointercrate: 'PC', gdl: 'GDL', alllist: 'ALL' }
-  const list = (p as GlobalRow).sources ?? [p.source]
-  return list.map((s) => map[s]).join('/')
+  // External sources (AREDL/PC/GDL) all collapse to a single "(External)" tag.
+  // Players whose only source is the ALL list don't get a tag.
+  const sources = (p as GlobalRow).sources ?? [p.source]
+  const onlyAll = sources.length === 1 && sources[0] === 'alllist'
+  return onlyAll ? null : '(External)'
 }
 </script>
 
@@ -144,11 +169,7 @@ function sourceLabel(p: Row): string | null {
       <h1 class="text-3xl font-semibold tracking-tight">Leaderboard</h1>
       <p class="text-zinc-400 mt-1 text-sm">
         <template v-if="tab === 'global'">
-          <template v-if="globalSource === 'all'">Rankings from AREDL, Pointercrate, GDL, and the ALL list — each shown with their source-native rank.</template>
-          <template v-else-if="globalSource === 'aredl'">AREDL players ranked by their AREDL standing.</template>
-          <template v-else-if="globalSource === 'pointercrate'">Pointercrate players ranked by their Pointercrate standing.</template>
-          <template v-else-if="globalSource === 'gdl'">Global Demonlist players ranked by their GDL standing.</template>
-          <template v-else>ALL list members ranked by their ALL list points.</template>
+          Players from AREDL, Pointercrate, GDL, and the ALL list, ranked by their ALL list points.
         </template>
         <template v-else-if="tab === 'members'">
           ALL list members ranked by total points.
@@ -180,19 +201,6 @@ function sourceLabel(p: Row): string | null {
           @click="tab = 'followed'"
         >Followed</button>
       </div>
-      <div
-        v-if="tab === 'global'"
-        class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden"
-      >
-        <button
-          v-for="opt in (['all','aredl','pointercrate','gdl','alllist'] as const)"
-          :key="opt"
-          type="button"
-          class="px-3 py-1.5 text-xs font-medium uppercase tracking-wider transition-colors border-l first:border-l-0 border-zinc-800"
-          :class="globalSource === opt ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="globalSource = opt"
-        >{{ opt === 'all' ? 'All Lists' : opt === 'aredl' ? 'AREDL' : opt === 'pointercrate' ? 'PC' : opt === 'gdl' ? 'GDL' : 'ALL' }}</button>
-      </div>
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input
           v-model="search"
@@ -211,7 +219,7 @@ function sourceLabel(p: Row): string | null {
       <div>
         <div v-if="pending" class="text-sm text-zinc-500">loading…</div>
         <ol v-else class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden">
-          <li v-for="(p, i) in data?.items ?? []" :key="rowKey(p, i)">
+          <li v-for="(p, i) in items" :key="rowKey(p, i)">
             <NuxtLink
               :to="rowLink(p)"
               class="flex items-center gap-4 px-4 py-3 hover:bg-zinc-900/60 transition-colors group"
@@ -258,7 +266,7 @@ function sourceLabel(p: Row): string | null {
               >{{ fmt(p.points) }} pts</span>
             </NuxtLink>
           </li>
-          <li v-if="!pending && (data?.items?.length ?? 0) === 0" class="px-4 py-12 text-center text-sm text-zinc-500">
+          <li v-if="!pending && items.length === 0" class="px-4 py-12 text-center text-sm text-zinc-500">
             <template v-if="tab === 'followed'">
               You're not following anyone yet. Open a profile and click "Follow".
             </template>
@@ -276,6 +284,14 @@ function sourceLabel(p: Row): string | null {
             </template>
           </li>
         </ol>
+        <div v-if="!pending && hasMore" class="mt-4 flex justify-center">
+          <button
+            type="button"
+            :disabled="loadingMore"
+            class="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            @click="load(false)"
+          >{{ loadingMore ? 'loading…' : `Load more (${total - items.length} remaining)` }}</button>
+        </div>
       </div>
 
       <aside v-if="tab === 'followed'" class="space-y-3">
