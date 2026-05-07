@@ -320,6 +320,8 @@ const infoError = ref<string | null>(null)
 const infoBtn = ref<HTMLElement | null>(null)
 const infoPanel = ref<HTMLElement | null>(null)
 const lastFetchedId = ref<number | null>(null)
+const actionsOpen = ref(false)
+const actionsMenuRef = ref<HTMLElement | null>(null)
 
 async function loadInfo() {
   const id = props.level.gd_id
@@ -354,13 +356,12 @@ watch(() => props.level.gd_id, (id) => {
 }, { immediate: true })
 
 function onDocClick(e: MouseEvent) {
-  if (!infoOpen.value) return
   const t = e.target as Node
-  if (infoPanel.value?.contains(t) || infoBtn.value?.contains(t)) return
-  infoOpen.value = false
+  if (infoOpen.value && !infoPanel.value?.contains(t) && !infoBtn.value?.contains(t)) infoOpen.value = false
+  if (actionsOpen.value && !actionsMenuRef.value?.contains(t)) actionsOpen.value = false
 }
 function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape') infoOpen.value = false
+  if (e.key === 'Escape') { infoOpen.value = false; actionsOpen.value = false }
 }
 onMounted(() => {
   document.addEventListener('click', onDocClick)
@@ -722,7 +723,7 @@ const historyByDay = computed(() => {
         </div>
       </div>
 
-      <div v-if="!editing" class="shrink-0 flex flex-col items-end gap-1">
+      <div v-if="!editing" class="shrink-0 flex flex-col items-end gap-1.5">
         <button
           v-if="!isPermanent && canPromote"
           type="button"
@@ -736,32 +737,65 @@ const historyByDay = computed(() => {
           class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
           @click="startEdit"
         >Edit</button>
-        <NuxtLink
-          v-if="canSubmitRecord"
-          :to="`/records/submit?position=${level.position}`"
-          class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
-        >Submit record</NuxtLink>
-        <NuxtLink
-          v-if="canSubmitRecord"
-          :to="`/opinions/submit?position=${level.position}`"
-          class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
-        >Submit opinion</NuxtLink>
-        <template v-if="canEdit && isPermanent">
+
+        <!-- Actions dropdown: submit record / submit opinion / suggest move -->
+        <div
+          v-if="canSubmitRecord || (canEdit && isPermanent)"
+          ref="actionsMenuRef"
+          class="relative"
+        >
           <button
-            v-if="!moveBelowActive && !pendingMoveSuccess"
             type="button"
-            class="rounded border border-zinc-700 text-zinc-300 hover:text-sky-400 hover:border-sky-700/60 text-xs px-3 py-1 transition-colors"
-            title="Pick a level in the left panel — this level will be placed immediately below it"
-            @click="startMoveBelow"
-          >Suggest move…</button>
+            class="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+            :class="{ 'border-zinc-500 text-zinc-100': actionsOpen }"
+            @click="actionsOpen = !actionsOpen"
+          >
+            Actions
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3 transition-transform" :class="{ 'rotate-180': actionsOpen }" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div
+            v-if="actionsOpen"
+            role="menu"
+            class="absolute right-0 top-full mt-1 min-w-[11rem] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-20"
+          >
+            <NuxtLink
+              v-if="canSubmitRecord"
+              :to="`/records/submit?position=${level.position}`"
+              role="menuitem"
+              class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+              @click="actionsOpen = false"
+            >Submit record</NuxtLink>
+            <NuxtLink
+              v-if="canSubmitRecord"
+              :to="`/opinions/submit?position=${level.position}`"
+              role="menuitem"
+              class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+              @click="actionsOpen = false"
+            >Submit opinion</NuxtLink>
+            <template v-if="canEdit && isPermanent && !moveBelowActive && !pendingMoveSuccess">
+              <div v-if="canSubmitRecord" class="my-1 border-t border-zinc-800" />
+              <button
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+                @click="actionsOpen = false; startMoveBelow()"
+              >Suggest move…</button>
+            </template>
+          </div>
+        </div>
+
+        <!-- Pick-mode active state -->
+        <template v-if="canEdit && isPermanent && moveBelowActive">
           <button
-            v-else-if="moveBelowActive"
             type="button"
             class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1 transition-colors"
             @click="stopMoveBelow"
           >Cancel pick</button>
-          <span v-if="moveBelowActive" class="text-[11px] text-sky-400">← pick a level in the list</span>
+          <span class="text-[11px] text-sky-400">← pick a level in the list</span>
         </template>
+
         <span v-if="promoteError" class="text-[11px] text-red-400">{{ promoteError }}</span>
       </div>
     </header>
