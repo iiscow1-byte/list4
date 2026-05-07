@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
 
 /**
  * Record a level being added to the main list at `position`. Stored in
@@ -45,6 +46,15 @@ export type DayGroup = {
  * inclusively in `YYYY-MM-DD HH:MM:SS` UTC form (or YYYY-MM-DD which SQLite
  * compares lexicographically).
  */
+// Full "is a challenge" test matching the list-variant challenge filter:
+//   1. placement_source is a known challenge-list source
+//   2. admin/sheet has pinned rated = 'Challenge'
+//   3. GD API reports unrated (score 0) + Tiny/Short length + Tier 1+ on this list
+// Uses table aliases `l` (levels) and `c` (gd_info_cache).
+const IS_CHALLENGE_L = `(${challengeSourceSqlExpr('l.placement_source')} OR l.rated = 'Challenge' OR ((l.rated IS NULL OR l.rated = '') AND json_extract(c.info_json, '$.score') = 0 AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short') AND l.gddl_tier LIKE 'Tier %'))`
+// Same expression for the correlated rank-counting subquery (aliases l2/c2).
+const IS_CHALLENGE_L2 = `(${challengeSourceSqlExpr('l2.placement_source')} OR l2.rated = 'Challenge' OR ((l2.rated IS NULL OR l2.rated = '') AND json_extract(c2.info_json, '$.score') = 0 AND json_extract(c2.info_json, '$.length') IN ('Tiny', 'Short') AND l2.gddl_tier LIKE 'Tier %'))`
+
 export function loadChanges(
   db: DatabaseSync,
   opts: { since?: string; until?: string; limit?: number } = {},
@@ -59,18 +69,22 @@ export function loadChanges(
   const rows = db.prepare(
     `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
-            l.rated AS level_rated,
-            CASE WHEN l.rated = 'Challenge'
-              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= h.to_position)
+            CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
+                 WHEN l.rated IS NOT NULL AND l.rated <> '' THEN l.rated
+                 ELSE NULL
+            END AS level_rated,
+            CASE WHEN ${IS_CHALLENGE_L}
+              THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= h.to_position)
               ELSE NULL
             END AS challenge_rank,
-            CASE WHEN l.rated = 'Challenge' AND h.from_position IS NOT NULL
-              THEN (SELECT COUNT(*) FROM levels l2 WHERE l2.rated = 'Challenge' AND l2.position <= h.from_position)
+            CASE WHEN ${IS_CHALLENGE_L} AND h.from_position IS NOT NULL
+              THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= h.from_position)
               ELSE NULL
             END AS from_challenge_rank,
             a.username AS changed_by
        FROM position_history h
        JOIN levels   l ON l.id = h.level_id
+       LEFT JOIN gd_info_cache c ON c.gd_id = l.gd_id
        LEFT JOIN accounts a ON a.id = h.changed_by
        ${where}
        ORDER BY h.changed_at DESC, h.id DESC

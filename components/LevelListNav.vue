@@ -272,6 +272,7 @@ let lastPositionLookup = 0
 let suppressNextRefilter = false
 
 async function maybeJumpToTier(): Promise<boolean> {
+  if (props.pickMode) return false
   const result = parseTierShortcut(search.value)
   if (!result) return false
   const lookupKey = `${result.tier}|${result.frac}`
@@ -300,6 +301,7 @@ async function maybeJumpToTier(): Promise<boolean> {
 }
 
 async function maybeJumpToPosition(): Promise<boolean> {
+  if (props.pickMode) return false
   const q = search.value.trim()
   const m = q.match(/^#(\d+)$/)
   if (!m) return false
@@ -321,6 +323,7 @@ async function maybeJumpToPosition(): Promise<boolean> {
 }
 
 async function maybeJumpToGdId(): Promise<boolean> {
+  if (props.pickMode) return false
   // If the user typed/pasted a pure positive integer that matches a level's
   // gd_id, jump straight to that level's page. Don't repeat the lookup for
   // the same input on rapid keystrokes.
