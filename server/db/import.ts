@@ -15,6 +15,13 @@ export const TABS = [
 const LEADERBOARD_GID = '280339977'
 const STATS_VIEWER_GID = '943829784'
 const VOID_LIST_GID = '1630809094'
+const PENDING_LIST_GID = '139895069'
+
+// Sentinel pending_id for awaiting rows that originated from the sheet's
+// Pending List tab. Lets re-imports prune stale sheet entries without
+// touching real user-submitted approvals (which always have a positive
+// pending_levels.id). pending_id has no FK, so -1 is safe.
+const SHEET_PENDING_ID = -1
 
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
@@ -762,12 +769,115 @@ export async function importVoidList() {
   console.log(`${imported} levels`)
 }
 
+export async function importPendingList() {
+  const db = getDb()
+  process.stdout.write(`Fetching pending list (gid=${PENDING_LIST_GID})... `)
+  const { text, html } = await fetchTabRows(PENDING_LIST_GID)
+  const found = findHeaderColumns(text)
+  if (!found) { console.log('no header row, skipping'); return }
+  const c = refineColumns(text, found.cols, found.headerIdx + 1)
+  const verCol = c['verification link']
+
+  // Dedupe across ALL existing awaiting rows so we never duplicate a level a
+  // user already submitted through the form.
+  const existingKeys = new Set<string>(
+    (db.prepare(`SELECT gd_id, name FROM awaiting_levels`).all() as { gd_id: number | null; name: string }[])
+      .map((r) => dupKey(r.gd_id, r.name)),
+  )
+  // Sheet-originated rows from earlier imports — used to prune stale entries
+  // (levels that have since been removed from the sheet's pending tab).
+  const existingSheetRows = db
+    .prepare(`SELECT id, gd_id, name FROM awaiting_levels WHERE pending_id = ?`)
+    .all(SHEET_PENDING_ID) as { id: number; gd_id: number | null; name: string }[]
+  // Skip levels already on the main list — overlapping with awaiting would
+  // create a confusing duplicate where the same gd_id appears in two queues.
+  const mainGdIds = new Set<number>(
+    (db.prepare(`SELECT gd_id FROM levels WHERE gd_id IS NOT NULL`).all() as { gd_id: number }[])
+      .map((r) => r.gd_id),
+  )
+
+  const insert = db.prepare(`
+    INSERT INTO awaiting_levels
+      (gd_id, name, verify_date, gddl_tier, difficulty,
+       verification, verification_url, placement_source,
+       pending_id, placement_suggestion, approved_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+
+  const seenInThisRun = new Set<string>()
+  let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0
+
+  db.exec('BEGIN')
+  try {
+    for (let i = found.headerIdx + 1; i < text.length; i++) {
+      const r = text[i]!
+      const rh = html[i]!
+      const name = txt(r[c['level name']!])
+      const gdId = num(r[c['level id']!])
+      const verifyDate = txt(r[c['verify date']!])
+      const tier = txt(r[c['gddl tier']!])
+      const giRange = txt(r[c['general idea / range']!])
+      // Section headers / decoration: a name with no other identifying data.
+      if (!name) { skippedBlank++; continue }
+      if (!gdId && !verifyDate && !tier && !giRange) { skippedBlank++; continue }
+      if (gdId !== null && mainGdIds.has(gdId)) { skippedMain++; continue }
+
+      const key = dupKey(gdId, name)
+      if (seenInThisRun.has(key)) continue
+      seenInThisRun.add(key)
+      if (existingKeys.has(key)) { skippedExisting++; continue }
+
+      // "General Idea / Range" looks like "~#2400" — extract the integer for
+      // the placement suggestion. Falls through to NULL if there's no number.
+      const placementMatch = giRange?.match(/(\d[\d,]*)/)
+      const placementSuggestion = placementMatch ? num(placementMatch[1]!) : null
+
+      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+      const addedOn = txt(r[c['added to pending on']!]) ?? new Date().toISOString().slice(0, 10)
+
+      insert.run(
+        gdId,
+        name,
+        verifyDate,
+        tier,
+        // Demon Ranking ("Extreme Demon", "Hard Demon", …) is GD's difficulty
+        // category — fits the existing `difficulty` text column.
+        txt(r[c['demon ranking']!]),
+        verCol != null ? txt(r[verCol]) : null,
+        verHref,
+        txt(r[c['source']!]),
+        SHEET_PENDING_ID,
+        placementSuggestion,
+        addedOn,
+      )
+      imported++
+    }
+
+    // Prune sheet rows from prior imports that are no longer on the sheet.
+    const del = db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`)
+    let removed = 0
+    for (const row of existingSheetRows) {
+      if (!seenInThisRun.has(dupKey(row.gd_id, row.name))) { del.run(row.id); removed++ }
+    }
+
+    db.exec('COMMIT')
+    console.log(
+      `${imported} new (${skippedExisting} already in awaiting, ${skippedMain} on main list, ` +
+      `${skippedBlank} blank rows, ${removed} removed)`,
+    )
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+}
+
 export async function runImport() {
   const t0 = Date.now()
   await importLevels()
   await importLeaderboard()
   await importStatsViewer()
   await importVoidList()
+  await importPendingList()
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
 }
 
