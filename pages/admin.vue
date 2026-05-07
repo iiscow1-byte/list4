@@ -245,8 +245,12 @@ watch(tab, (t) => {
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
   if (t === 'discord')  loadWebhooks()
-  // Mark tab as seen so its badge clears
-  if (liveCounts.value) seenCounts[t] = liveCounts.value[t as keyof typeof liveCounts.value] ?? 0
+  // Mark tab as seen so its badge clears, and persist to server
+  if (liveCounts.value) {
+    const n = liveCounts.value[t as keyof typeof liveCounts.value] ?? 0
+    seenCounts[t] = n
+    $fetch('/api/admin/mark-seen', { method: 'POST', body: { counts: { [t]: n } } }).catch(() => {})
+  }
 }, { immediate: true })
 
 // --- Notification counts ---
@@ -258,10 +262,17 @@ async function fetchCounts() {
   try {
     const res = await $fetch<Counts>('/api/admin/counts')
     liveCounts.value = res
-    // On first load, initialise seenCounts so only future increases show badges.
+    // Only seed seenCounts for tabs not yet stored server-side (new tab types).
     for (const [k, v] of Object.entries(res)) {
       if (!(k in seenCounts)) seenCounts[k] = v
     }
+  } catch { /* non-fatal */ }
+}
+
+async function loadSeenCounts() {
+  try {
+    const res = await $fetch<Counts>('/api/admin/seen-counts')
+    for (const [k, v] of Object.entries(res)) seenCounts[k] = v
   } catch { /* non-fatal */ }
 }
 
@@ -273,7 +284,8 @@ function tabBadge(id: string): number {
 }
 
 let countTimer: ReturnType<typeof setInterval> | null = null
-onMounted(() => {
+onMounted(async () => {
+  await loadSeenCounts()  // load before fetchCounts so seenCounts aren't reset to live
   fetchCounts()
   countTimer = setInterval(fetchCounts, 30_000)
 })

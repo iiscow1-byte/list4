@@ -43,6 +43,7 @@ type Level = {
   submitter?: string | null
   community?: Community | null
   position_history?: PositionHistoryEntry[]
+  challenge_rank?: number | null
 }
 type OtherListEntry = { list: string; position: number; url?: string | null }
 type PositionHistoryEntry = {
@@ -404,7 +405,7 @@ const infoRows = computed<CreditRow[]>(() => {
 // original layout — the first is identity/scoring, the second is gameplay
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
-type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
+type Tile1 = 'level_id' | 'list_points' | 'challenge_rank' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
 type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
 
 const community = computed<Community | null>(() => props.level.community ?? null)
@@ -413,12 +414,13 @@ const hasDistribution = computed(() => !!community.value?.distribution)
 
 const visibleTiles1 = computed<Tile1[]>(() => {
   const out: Tile1[] = []
-  if (props.level.gd_id)             out.push('level_id')
-  if (props.level.points != null)    out.push('list_points')
-  if (props.level.enjoyment != null) out.push('enjoyment')
-  if (props.level.edel_enjoyment != null) out.push('edel_enjoyment')
-  if (props.level.gddl_tier)         out.push('gddl_tier')
-  if (props.level.verify_date)       out.push('verify_date')
+  if (props.level.gd_id)                    out.push('level_id')
+  if (props.level.points != null)           out.push('list_points')
+  if (props.level.challenge_rank != null)   out.push('challenge_rank')
+  if (props.level.enjoyment != null)        out.push('enjoyment')
+  if (props.level.edel_enjoyment != null)   out.push('edel_enjoyment')
+  if (props.level.gddl_tier)                out.push('gddl_tier')
+  if (props.level.verify_date)              out.push('verify_date')
   return out
 })
 
@@ -1194,6 +1196,10 @@ const historyByDay = computed(() => {
         <div v-if="visibleTiles1.includes('list_points')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">List Points</div>
           <div class="tabular-nums text-base text-amber-300">{{ formatPoints(level.points) }}</div>
+        </div>
+        <div v-if="visibleTiles1.includes('challenge_rank')" class="bg-zinc-950 p-4">
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Challenge Rank</div>
+          <div class="tabular-nums text-base text-amber-300">Ch. #{{ level.challenge_rank }}</div>
         </div>
         <div v-if="visibleTiles1.includes('enjoyment')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>

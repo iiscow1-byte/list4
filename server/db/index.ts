@@ -402,6 +402,18 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_inbox_created ON inbox_messages(created_at);
   `)
 
+  // Per-admin "seen" baselines for the admin panel badge system. Each row
+  // records the last-acknowledged count for one tab so badges survive reloads
+  // and can be cleared from the inbox "mark all read" button.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_seen_counts (
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      tab_id     TEXT    NOT NULL,
+      seen       INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (account_id, tab_id)
+    );
+  `)
+
   // Cache of GD level info fetched from Boomlings. Refreshed at most once per
   // hour per gd_id to stay well under Boomlings' rate limits.
   db.exec(`

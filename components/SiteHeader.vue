@@ -23,13 +23,20 @@ watch(me, loadInboxUnread, { immediate: true })
 watch(() => route.fullPath, loadInboxUnread)
 
 // Admin/mod pending count badge — shown on the Admin/Mod nav link.
+// Shows the number of pending items that haven't been acknowledged yet
+// (live count minus the last-seen baseline stored per user).
 const adminPendingCount = ref(0)
 async function loadAdminCounts() {
   const role = me.value?.role
   if (!role || role === 'user') { adminPendingCount.value = 0; return }
   try {
-    const res = await $fetch<Record<string, number>>('/api/admin/counts')
-    adminPendingCount.value = Object.values(res).reduce((s, n) => s + n, 0)
+    const [live, seen] = await Promise.all([
+      $fetch<Record<string, number>>('/api/admin/counts'),
+      $fetch<Record<string, number>>('/api/admin/seen-counts'),
+    ])
+    let total = 0
+    for (const [k, n] of Object.entries(live)) total += Math.max(0, n - (seen[k] ?? 0))
+    adminPendingCount.value = total
   } catch {
     adminPendingCount.value = 0
   }

@@ -1,6 +1,10 @@
 import { getDb } from '~/server/db'
 import { communityStats } from '~/server/utils/opinions'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
+import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+
+const IS_CHALLENGE_L = `(${challengeSourceSqlExpr('l.placement_source')} OR l.rated = 'Challenge' OR ((l.rated IS NULL OR l.rated = '') AND json_extract(c.info_json, '$.score') = 0 AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short') AND l.gddl_tier LIKE 'Tier %'))`
+const IS_CHALLENGE_L2 = `(${challengeSourceSqlExpr('l2.placement_source')} OR l2.rated = 'Challenge' OR ((l2.rated IS NULL OR l2.rated = '') AND json_extract(c2.info_json, '$.score') = 0 AND json_extract(c2.info_json, '$.length') IN ('Tiny', 'Short') AND l2.gddl_tier LIKE 'Tier %'))`
 
 export default defineEventHandler((event) => {
   const position = Number(getRouterParam(event, 'position'))
@@ -177,6 +181,16 @@ export default defineEventHandler((event) => {
     })
   }
 
+  const challengeRow = db.prepare(
+    `SELECT CASE WHEN ${IS_CHALLENGE_L}
+       THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= l.position)
+       ELSE NULL
+     END AS challenge_rank
+     FROM levels l LEFT JOIN gd_info_cache c ON c.gd_id = l.gd_id
+     WHERE l.position = ?`,
+  ).get(position) as { challenge_rank: number | null } | undefined
+  const challenge_rank = challengeRow?.challenge_rank ?? null
+
   return {
     ...level,
     enjoyment,
@@ -191,5 +205,6 @@ export default defineEventHandler((event) => {
     duplicate_of,
     alternate_of,
     gddl_tier_frac,
+    challenge_rank,
   }
 })

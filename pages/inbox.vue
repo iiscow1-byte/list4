@@ -2,6 +2,9 @@
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Inbox — All Levels List' })
 
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
+
 type InboxItem = {
   id: number
   kind: string
@@ -47,6 +50,11 @@ async function readAll() {
   await $fetch('/api/account/inbox/read-all', { method: 'POST' })
   for (const m of items.value) if (!m.read_at) m.read_at = new Date().toISOString()
   unread.value = 0
+  // Also reset admin panel badges if the user is a mod/admin
+  const role = me.value?.role
+  if (role && role !== 'user') {
+    $fetch('/api/admin/mark-seen', { method: 'POST', body: { markAll: true } }).catch(() => {})
+  }
 }
 
 function kindLabel(kind: string) {
