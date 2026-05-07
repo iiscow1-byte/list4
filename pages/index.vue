@@ -183,10 +183,7 @@ function paraParts(p: string): { text: string; href: string | null } {
               :class="changelogView === 'challenge' ? 'bg-amber-900/60 text-amber-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
               title="Show challenge-rated levels only"
               @click="changelogView = 'challenge'"
-            >
-              Challenges
-              <span v-if="totalChallengeChanges > 0" class="tabular-nums text-[9px]">({{ totalChallengeChanges }})</span>
-            </button>
+            >Challenges</button>
           </div>
           <!-- Sort: Placement / Recent -->
           <div class="inline-flex rounded border border-zinc-800 overflow-hidden">

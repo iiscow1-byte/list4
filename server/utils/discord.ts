@@ -100,7 +100,6 @@ export function buildDailyEmbed(
         description,
         color: 0xf4c430,
         footer: { text: `${changes.length} change${changes.length === 1 ? '' : 's'}` },
-        timestamp: new Date(`${date}T23:59:59Z`).toISOString(),
       },
     ],
   }
@@ -257,7 +256,6 @@ export function buildChallengeEmbed(
       description,
       color: 0xf59e0b,
       footer: { text: `${challengeChanges.length} challenge change${challengeChanges.length === 1 ? '' : 's'}` },
-      timestamp: new Date(`${date}T23:59:59Z`).toISOString(),
     }],
   }
 }

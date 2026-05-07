@@ -744,7 +744,7 @@ const historyByDay = computed(() => {
           :to="`/opinions/submit?position=${level.position}`"
           class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
         >Submit opinion</NuxtLink>
-        <template v-if="isLoggedIn && isPermanent">
+        <template v-if="canEdit && isPermanent">
           <button
             v-if="!moveBelowActive && !pendingMoveSuccess"
             type="button"
@@ -764,8 +764,8 @@ const historyByDay = computed(() => {
       </div>
     </header>
 
-    <!-- Suggest-move submission: any logged-in user, outside edit mode -->
-    <section v-if="isLoggedIn && isPermanent && !editing && (pendingMoveReady || pendingMoveSuccess)" class="rounded-md border border-sky-900/50 bg-sky-950/20 p-4 mb-6 space-y-3">
+    <!-- Suggest-move submission: admins/mods only, outside edit mode -->
+    <section v-if="canEdit && isPermanent && !editing && (pendingMoveReady || pendingMoveSuccess)" class="rounded-md border border-sky-900/50 bg-sky-950/20 p-4 mb-6 space-y-3">
       <p v-if="pendingMoveSuccess" class="text-xs text-emerald-400">
         Pending move submitted — a moderator will review it.
       </p>
