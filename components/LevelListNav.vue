@@ -271,8 +271,19 @@ let lastTierLookup = ''
 let lastPositionLookup = 0
 let suppressNextRefilter = false
 
+async function jumpToPosition(pos: number) {
+  suppressNextRefilter = true
+  search.value = ''
+  if (!props.pickMode) await navigateTo(`/levels/${pos}`)
+  reset()
+  nextPage.value = Math.max(1, Math.ceil(pos / PAGE_SIZE))
+  await loadMore()
+  await nextTick()
+  scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    ?.scrollIntoView({ block: 'center' })
+}
+
 async function maybeJumpToTier(): Promise<boolean> {
-  if (props.pickMode) return false
   const result = parseTierShortcut(search.value)
   if (!result) return false
   const lookupKey = `${result.tier}|${result.frac}`
@@ -284,15 +295,7 @@ async function maybeJumpToTier(): Promise<boolean> {
     )
     if (res?.midpoint) {
       lastTierLookup = ''
-      suppressNextRefilter = true
-      search.value = ''
-      await navigateTo(`/levels/${res.midpoint}`)
-      reset()
-      nextPage.value = Math.max(1, Math.ceil(res.midpoint / PAGE_SIZE))
-      await loadMore()
-      await nextTick()
-      scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${res.midpoint}"]`)
-        ?.scrollIntoView({ block: 'center' })
+      await jumpToPosition(res.midpoint)
       return true
     }
   } catch { /* non-fatal */ }
@@ -301,7 +304,6 @@ async function maybeJumpToTier(): Promise<boolean> {
 }
 
 async function maybeJumpToPosition(): Promise<boolean> {
-  if (props.pickMode) return false
   const q = search.value.trim()
   const m = q.match(/^#(\d+)$/)
   if (!m) return false
@@ -309,21 +311,12 @@ async function maybeJumpToPosition(): Promise<boolean> {
   if (!Number.isInteger(pos) || pos <= 0) return false
   if (pos === lastPositionLookup) return false
   lastPositionLookup = pos
-  suppressNextRefilter = true
-  search.value = ''
-  await navigateTo(`/levels/${pos}`)
-  reset()
-  nextPage.value = Math.max(1, Math.ceil(pos / PAGE_SIZE))
-  await loadMore()
-  await nextTick()
-  scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    ?.scrollIntoView({ block: 'center' })
+  await jumpToPosition(pos)
   lastPositionLookup = 0
   return true
 }
 
 async function maybeJumpToGdId(): Promise<boolean> {
-  if (props.pickMode) return false
   // If the user typed/pasted a pure positive integer that matches a level's
   // gd_id, jump straight to that level's page. Don't repeat the lookup for
   // the same input on rapid keystrokes.
@@ -338,7 +331,7 @@ async function maybeJumpToGdId(): Promise<boolean> {
       `/api/levels/by-gd-id/${n}`,
     )
     if (res?.position) {
-      await navigateTo(`/levels/${res.position}`)
+      await jumpToPosition(res.position)
       return true
     }
   } catch {
@@ -534,7 +527,7 @@ watch(
                 <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">List variants</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
-                    v-for="v in (['Classic', 'Rated', 'Challenge'] as const)"
+                    v-for="v in (['Classic', 'Challenge', 'Rated'] as const)"
                     :key="v"
                     class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
                     :class="listVariant === v

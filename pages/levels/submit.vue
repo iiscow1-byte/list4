@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { parseTierShortcut } from '~/utils/tier-shortcut'
 
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a level — All Levels List' })
@@ -105,6 +106,74 @@ let compareDebounce: ReturnType<typeof setTimeout> | null = null
 let compareObserver: IntersectionObserver | null = null
 let suppressSearchReload = false
 let suppressFilterReload = false
+let lastCompareTierLookup = ''
+let lastComparePositionLookup = 0
+let lastCompareGdIdLookup = ''
+
+async function jumpCompareToPosition(pos: number) {
+  if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
+  suppressSearchReload = true
+  compareSearch.value = ''
+  compareMode.value = 'browse'
+  resetCompareList()
+  const targetPage = Math.max(1, Math.ceil(pos / COMPARE_PAGE_SIZE))
+  await loadComparePage(targetPage, 'append')
+  await nextTick()
+  compareScrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    ?.scrollIntoView({ block: 'center' })
+}
+
+async function maybeJumpCompareToTier(): Promise<boolean> {
+  const result = parseTierShortcut(compareSearch.value)
+  if (!result) return false
+  const key = `${result.tier}|${result.frac}`
+  if (key === lastCompareTierLookup) return false
+  lastCompareTierLookup = key
+  try {
+    const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
+      '/api/levels/tier-midpoint', { query: { tier: result.tier, frac: 1 - result.frac } },
+    )
+    if (res?.midpoint) {
+      lastCompareTierLookup = ''
+      await jumpCompareToPosition(res.midpoint)
+      return true
+    }
+  } catch { /* non-fatal */ }
+  lastCompareTierLookup = ''
+  return false
+}
+
+async function maybeJumpCompareToPosition(): Promise<boolean> {
+  const q = compareSearch.value.trim()
+  const m = q.match(/^#(\d+)$/)
+  if (!m) return false
+  const pos = Number(m[1])
+  if (!Number.isInteger(pos) || pos <= 0) return false
+  if (pos === lastComparePositionLookup) return false
+  lastComparePositionLookup = pos
+  await jumpCompareToPosition(pos)
+  lastComparePositionLookup = 0
+  return true
+}
+
+async function maybeJumpCompareToGdId(): Promise<boolean> {
+  const q = compareSearch.value.trim()
+  if (!/^\d+$/.test(q)) return false
+  const n = Number(q)
+  if (!Number.isInteger(n) || n <= 0) return false
+  if (q === lastCompareGdIdLookup) return false
+  lastCompareGdIdLookup = q
+  try {
+    const res = await $fetch<{ position: number; name: string }>(`/api/levels/by-gd-id/${n}`)
+    if (res?.position) {
+      lastCompareGdIdLookup = ''
+      await jumpCompareToPosition(res.position)
+      return true
+    }
+  } catch { /* non-fatal */ }
+  lastCompareGdIdLookup = ''
+  return false
+}
 
 function resetCompareList() {
   compareItems.value = []
@@ -212,6 +281,9 @@ watch(compareSearch, () => {
   if (compareDebounce) clearTimeout(compareDebounce)
   if (suppressSearchReload) { suppressSearchReload = false; return }
   compareDebounce = setTimeout(async () => {
+    if (await maybeJumpCompareToTier()) return
+    if (await maybeJumpCompareToPosition()) return
+    if (await maybeJumpCompareToGdId()) return
     compareMode.value = 'search'
     resetCompareList()
     await loadComparePage(1, 'append')
