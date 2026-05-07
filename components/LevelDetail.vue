@@ -159,6 +159,17 @@ const gdLevelUrl = computed(() => {
   return `https://gdbrowser.com/${props.level.gd_id}`
 })
 
+const gdIdCopied = ref(false)
+let gdIdCopyTimer: ReturnType<typeof setTimeout> | null = null
+function copyGdId() {
+  if (!props.level.gd_id) return
+  navigator.clipboard.writeText(String(props.level.gd_id)).then(() => {
+    gdIdCopied.value = true
+    if (gdIdCopyTimer) clearTimeout(gdIdCopyTimer)
+    gdIdCopyTimer = setTimeout(() => { gdIdCopied.value = false }, 1500)
+  }).catch(() => {})
+}
+
 function formatPoints(n: number | null | undefined) {
   if (n == null) return '—'
   if (n >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -1229,12 +1240,28 @@ const historyByDay = computed(() => {
       >
         <div v-if="visibleTiles1.includes('level_id')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
-          <a
-            :href="gdLevelUrl!"
-            target="_blank"
-            rel="noopener"
-            class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
-          >{{ level.gd_id }}</a>
+          <div class="flex items-center gap-2">
+            <a
+              :href="gdLevelUrl!"
+              target="_blank"
+              rel="noopener"
+              class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"
+            >{{ level.gd_id }}</a>
+            <button
+              type="button"
+              :title="gdIdCopied ? 'Copied!' : 'Copy ID'"
+              class="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+              @click="copyGdId"
+            >
+              <svg v-if="!gdIdCopied" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-green-400" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div v-if="visibleTiles1.includes('list_points')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">List Points</div>

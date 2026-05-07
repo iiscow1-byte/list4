@@ -5,19 +5,46 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid video ID.' })
   }
 
-  // Strategy 1: fetch the watch page and extract ytInitialPlayerResponse,
-  // following the approach used by https://github.com/iErcann/yt-get-info.
-  // No cookies — expired SOCS/CONSENT cookies can cause YouTube to serve a
-  // consent page that has no metadata at all.
+  // Strategy 1: Piped API — a public open-source YouTube proxy whose endpoints
+  // are designed to be called programmatically. Not subject to YouTube's
+  // datacenter-IP blocking. Try multiple public instances in order.
+  const pipedBases = [
+    'https://pipedapi.kavin.rocks',
+    'https://piped-api.garudalinux.org',
+    'https://api.piped.projectsegfau.lt',
+  ]
+  for (const base of pipedBases) {
+    try {
+      const res = await fetchTimeout(`${base}/streams/${id}`, {
+        headers: { 'User-Agent': 'AllLevelsList/1.0' },
+      }, 5000)
+      if (res.ok) {
+        const data = await res.json() as any
+        const raw = data?.uploadDate
+        if (raw && /^\d{4}-\d{2}-\d{2}/.test(String(raw))) {
+          return { date: String(raw).slice(0, 10) }
+        }
+        // Got a valid response but no date — video might be private/deleted.
+        // No point trying other Piped instances; fall through to scraping.
+        console.error(`[upload-date] piped ${base}: no uploadDate (error="${data?.error ?? ''}")`)
+        break
+      }
+      console.error(`[upload-date] piped ${base}: HTTP ${res.status}`)
+    } catch (e) {
+      console.error(`[upload-date] piped ${base}:`, (e as Error).message)
+    }
+  }
+
+  // Strategy 2: scrape the YouTube watch page directly. May fail on server IPs
+  // that YouTube blocks, but worth trying as a fast fallback.
   try {
-    const res = await fetch(`https://www.youtube.com/watch?v=${id}`, {
-      signal: AbortSignal.timeout(7000),
+    const res = await fetchTimeout(`https://www.youtube.com/watch?v=${id}`, {
       headers: {
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       },
-    })
+    }, 5000)
     if (res.ok) {
       const html = await res.text()
       const date = extractPublishDate(html)
@@ -30,50 +57,6 @@ export default defineEventHandler(async (event) => {
     console.error(`[upload-date] watch page:`, (e as Error).message)
   }
 
-  // Strategy 2: YouTube's internal player API (IOS client context).
-  // Kept as a fallback but given a hard 5 s timeout so it never hangs.
-  try {
-    const res = await fetch(
-      'https://www.youtube.com/youtubei/v1/player?prettyPrint=false',
-      {
-        method: 'POST',
-        signal: AbortSignal.timeout(5000),
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'com.google.ios.youtube/19.09.3 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X;)',
-          'X-YouTube-Client-Name': '5',
-          'X-YouTube-Client-Version': '19.09.3',
-        },
-        body: JSON.stringify({
-          videoId: id,
-          context: {
-            client: {
-              hl: 'en',
-              gl: 'US',
-              clientName: 'IOS',
-              clientVersion: '19.09.3',
-              deviceModel: 'iPhone16,2',
-              osName: 'iPhone',
-              osVersion: '17.5.1.21F90',
-            },
-          },
-        }),
-      },
-    )
-    if (res.ok) {
-      const data = await res.json() as any
-      const date: string | undefined =
-        data?.microformat?.playerMicroformatRenderer?.publishDate
-        ?? data?.microformat?.playerMicroformatRenderer?.uploadDate
-      if (date && /^\d{4}-\d{2}-\d{2}/.test(date)) return { date: date.slice(0, 10) }
-      console.error(`[upload-date] ios api: no date, playability=${data?.playabilityStatus?.status}`)
-    } else {
-      console.error(`[upload-date] ios api: HTTP ${res.status}`)
-    }
-  } catch (e) {
-    console.error(`[upload-date] ios api:`, (e as Error).message)
-  }
-
   return { date: null }
 })
 
@@ -81,9 +64,16 @@ export default defineEventHandler(async (event) => {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// AbortController-based timeout that works across all Node/Nitro runtimes.
+// AbortSignal.timeout() is not reliably available in all deployment targets.
+function fetchTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ac = new AbortController()
+  const timer = setTimeout(() => ac.abort(new Error(`Timeout after ${ms}ms`)), ms)
+  return fetch(url, { ...init, signal: ac.signal }).finally(() => clearTimeout(timer))
+}
+
 function extractPublishDate(html: string): string | null {
-  // Primary: parse ytInitialPlayerResponse from an inline <script> tag
-  // (same data source that yt-get-info uses).
+  // Primary: parse ytInitialPlayerResponse from an inline <script> tag.
   const scriptTagRe = /<script[^>]*>([\s\S]*?)<\/script>/g
   let m: RegExpExecArray | null
   while ((m = scriptTagRe.exec(html)) !== null) {
@@ -119,8 +109,8 @@ function extractPublishDate(html: string): string | null {
   return null
 }
 
-// Walk the string character-by-character to find the matching closing brace,
-// correctly handling nested objects, arrays, strings, and escape sequences.
+// Walk character-by-character to find the matching closing brace, correctly
+// handling nested objects, arrays, strings, and escape sequences.
 function extractJsonObject(str: string, start: number): string | null {
   let depth = 0
   let inString = false

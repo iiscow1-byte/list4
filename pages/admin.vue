@@ -247,6 +247,13 @@ async function postNow() {
   }
 }
 
+// --- Notification counts ---
+// Declared before the watch(tab) below so the immediate callback doesn't hit
+// a temporal dead zone when it references liveCounts / seenCounts.
+type Counts = Record<string, number>
+const liveCounts = ref<Counts | null>(null)
+const seenCounts = reactive<Counts>({})
+
 watch(tab, (t) => {
   if (!import.meta.client) return
   if (t === 'claims')   loadClaims()
@@ -259,11 +266,6 @@ watch(tab, (t) => {
     $fetch('/api/admin/mark-seen', { method: 'POST', body: { counts: { [t]: n } } }).catch(() => {})
   }
 }, { immediate: true })
-
-// --- Notification counts ---
-type Counts = Record<string, number>
-const liveCounts = ref<Counts | null>(null)
-const seenCounts = reactive<Counts>({})
 
 async function fetchCounts() {
   try {
