@@ -55,8 +55,10 @@ type Claim = { id: number; player_name: string; created_at: string; username: st
 const claims = ref<Claim[]>([])
 async function loadClaims() {
   if (!isAdmin.value) return
-  const res = await $fetch<{ items: Claim[] }>('/api/admin/claims')
-  claims.value = res.items
+  try {
+    const res = await $fetch<{ items: Claim[] }>('/api/admin/claims')
+    claims.value = res.items
+  } catch { /* non-fatal on SSR or auth failure */ }
 }
 
 // --- Accounts tab state ---
@@ -72,10 +74,12 @@ const claimEdits = reactive<Record<number, string>>({})
 
 async function loadUsers() {
   if (!isAdmin.value) return
-  const res = await $fetch<{ items: AdminUser[] }>('/api/admin/users', {
-    query: userSearch.value ? { search: userSearch.value } : undefined,
-  })
-  users.value = res.items
+  try {
+    const res = await $fetch<{ items: AdminUser[] }>('/api/admin/users', {
+      query: userSearch.value ? { search: userSearch.value } : undefined,
+    })
+    users.value = res.items
+  } catch { /* non-fatal on SSR or auth failure */ }
 }
 
 let userSearchDebounce: ReturnType<typeof setTimeout> | null = null
@@ -112,8 +116,10 @@ const webhookBusy = ref(false)
 
 async function loadWebhooks() {
   if (!isAdmin.value) return
-  const res = await $fetch<{ items: DiscordWebhook[] }>('/api/admin/discord-webhooks')
-  webhooks.value = res.items
+  try {
+    const res = await $fetch<{ items: DiscordWebhook[] }>('/api/admin/discord-webhooks')
+    webhooks.value = res.items
+  } catch { /* non-fatal on SSR or auth failure */ }
 }
 
 async function addWebhook() {
@@ -242,6 +248,7 @@ async function postNow() {
 }
 
 watch(tab, (t) => {
+  if (!import.meta.client) return
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
   if (t === 'discord')  loadWebhooks()
