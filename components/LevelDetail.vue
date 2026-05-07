@@ -313,6 +313,12 @@ const ratedLabel = computed(() => {
   }
   return SCORE_LABELS[score]
 })
+
+const displayedDifficulty = computed(() => {
+  if (!props.level.difficulty) return null
+  if (props.level.challenge_rank != null) return props.level.difficulty.replace(/Demon/i, 'Challenge')
+  return props.level.difficulty
+})
 const infoOpen = ref(false)
 const infoData = ref<GdInfo | null>(null)
 const infoLoading = ref(false)
@@ -406,7 +412,7 @@ const infoRows = computed<CreditRow[]>(() => {
 // original layout — the first is identity/scoring, the second is gameplay
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
-type Tile1 = 'level_id' | 'list_points' | 'challenge_rank' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
+type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
 type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
 
 const community = computed<Community | null>(() => props.level.community ?? null)
@@ -417,7 +423,6 @@ const visibleTiles1 = computed<Tile1[]>(() => {
   const out: Tile1[] = []
   if (props.level.gd_id)                    out.push('level_id')
   if (props.level.points != null)           out.push('list_points')
-  if (props.level.challenge_rank != null)   out.push('challenge_rank')
   if (props.level.enjoyment != null)        out.push('enjoyment')
   if (props.level.edel_enjoyment != null)   out.push('edel_enjoyment')
   if (props.level.gddl_tier)                out.push('gddl_tier')
@@ -710,6 +715,10 @@ const historyByDay = computed(() => {
         <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
           <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
         </p>
+        <div v-if="level.challenge_rank != null" class="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-900/40">
+          <span class="text-[10px] uppercase tracking-widest text-amber-500/80 font-medium">Challenge</span>
+          <span class="tabular-nums text-sm font-semibold text-amber-300">Ch. #{{ level.challenge_rank }}</span>
+        </div>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
           <DifficultyFace
             :difficulty="editing ? (draft.difficulty || level.difficulty) : level.difficulty"
@@ -717,7 +726,7 @@ const historyByDay = computed(() => {
             :position="editing ? (Number(draftPosition) || level.position) : level.position"
           />
           <div>
-            <p class="text-sm font-medium text-zinc-200 capitalize">{{ level.difficulty }}</p>
+            <p class="text-sm font-medium text-zinc-200 capitalize">{{ displayedDifficulty }}</p>
             <p v-if="gddlTierLabel" class="text-xs text-zinc-400 mt-0.5">{{ gddlTierLabel }}</p>
           </div>
         </div>
@@ -1230,10 +1239,6 @@ const historyByDay = computed(() => {
         <div v-if="visibleTiles1.includes('list_points')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">List Points</div>
           <div class="tabular-nums text-base text-amber-300">{{ formatPoints(level.points) }}</div>
-        </div>
-        <div v-if="visibleTiles1.includes('challenge_rank')" class="bg-zinc-950 p-4">
-          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Challenge Rank</div>
-          <div class="tabular-nums text-base text-amber-300">Ch. #{{ level.challenge_rank }}</div>
         </div>
         <div v-if="visibleTiles1.includes('enjoyment')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
