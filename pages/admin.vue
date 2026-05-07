@@ -13,12 +13,13 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
+type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'movements' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
   { id: 'levels',             label: 'Levels',          adminOnly: false },
   { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
+  { id: 'movements',          label: 'Movements',       adminOnly: false },
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
   { id: 'claims',             label: 'Claims',          adminOnly: true },
   { id: 'accounts',           label: 'Accounts',        adminOnly: true },
@@ -26,9 +27,23 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
 ]
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
+// "Pending" dropdown — groups the submission-queue tabs
+const PENDING_TABS: TabId[] = ['levels', 'awaiting', 'movements', 'records', 'opinions']
+const pendingDropdownOpen = ref(false)
+const isPendingTab = computed(() => PENDING_TABS.includes(tab.value))
+
+const pendingMenuRef = ref<HTMLElement | null>(null)
+function onPendingDocClick(e: MouseEvent) {
+  if (!pendingDropdownOpen.value) return
+  if (pendingMenuRef.value?.contains(e.target as Node)) return
+  pendingDropdownOpen.value = false
+}
+onMounted(() => document.addEventListener('click', onPendingDocClick))
+onBeforeUnmount(() => document.removeEventListener('click', onPendingDocClick))
+
 const initial = (typeof route.query.tab === 'string' && allTabs.some((t) => t.id === route.query.tab))
   ? (route.query.tab as TabId)
-  : 'records'
+  : 'levels'
 const tab = ref<TabId>(initial)
 
 watch(tab, (v) => {
@@ -70,7 +85,7 @@ watch(userSearch, () => {
 })
 
 // --- Discord tab state ---
-type WebhookKind = 'changes' | 'leaderboard' | 'level_status'
+type WebhookKind = 'changes' | 'leaderboard' | 'level_status' | 'challenge_changes'
 type DiscordWebhook = {
   id: number
   url: string
@@ -87,6 +102,7 @@ const WEBHOOK_KIND_LABELS: Record<WebhookKind, string> = {
   changes: 'Daily changes',
   leaderboard: 'Leaderboard updates',
   level_status: 'Level status',
+  challenge_changes: 'Challenge changes',
 }
 const webhooks = ref<DiscordWebhook[]>([])
 const newWebhookUrl = ref('')
@@ -349,9 +365,66 @@ async function setClaim(u: AdminUser) {
 <template>
   <div class="h-full flex flex-col">
     <nav class="border-b border-zinc-800 bg-zinc-950 shrink-0">
-      <div class="container-tight flex gap-1 py-2">
+      <div class="container-tight flex gap-1 py-2 items-center">
+        <!-- Pending dropdown: groups submission-queue tabs -->
+        <div ref="pendingMenuRef" class="relative flex items-stretch">
+          <button
+            type="button"
+            class="pl-3 pr-2 py-1.5 rounded-l text-sm font-medium transition-colors relative"
+            :class="isPendingTab && !pendingDropdownOpen
+              ? 'bg-zinc-900 text-zinc-100'
+              : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
+          >
+            {{ isPendingTab ? allTabs.find(t => t.id === tab)?.label : 'Pending' }}
+            <!-- Badge sum for all pending tabs -->
+            <span
+              v-if="PENDING_TABS.reduce((s, id) => s + tabBadge(id), 0) > 0"
+              class="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
+            >{{ PENDING_TABS.reduce((s, id) => s + tabBadge(id), 0) }}</span>
+          </button>
+          <button
+            type="button"
+            class="px-1.5 py-1.5 rounded-r text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            :class="{ 'text-zinc-100 bg-zinc-900': pendingDropdownOpen || isPendingTab }"
+            :aria-expanded="pendingDropdownOpen"
+            aria-haspopup="menu"
+            aria-label="Pending tabs"
+            @click="pendingDropdownOpen = !pendingDropdownOpen"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 transition-transform" :class="{ 'rotate-180': pendingDropdownOpen }" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div
+            v-if="pendingDropdownOpen"
+            role="menu"
+            class="absolute left-0 top-full mt-1 min-w-[11rem] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-40"
+          >
+            <button
+              v-for="id in PENDING_TABS"
+              :key="id"
+              type="button"
+              role="menuitem"
+              class="relative w-full text-left px-3 py-1.5 text-sm transition-colors"
+              :class="tab === id
+                ? 'text-zinc-100 bg-zinc-900'
+                : 'text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900'"
+              @click="tab = id; pendingDropdownOpen = false"
+            >
+              {{ allTabs.find(t => t.id === id)?.label }}
+              <span
+                v-if="tabBadge(id) > 0"
+                class="absolute top-1.5 right-2 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
+              >{{ tabBadge(id) }}</span>
+            </button>
+          </div>
+        </div>
+
+        <span class="w-px h-5 bg-zinc-800 mx-0.5" />
+
+        <!-- Non-pending tabs: open-verifications + admin-only -->
         <button
-          v-for="t in tabs"
+          v-for="t in tabs.filter(t => !PENDING_TABS.includes(t.id))"
           :key="t.id"
           type="button"
           class="relative px-3 py-1.5 rounded text-sm font-medium transition-colors"
@@ -389,6 +462,9 @@ async function setClaim(u: AdminUser) {
 
     <!-- Awaiting tab — approved but unplaced levels -->
     <AdminAwaitingReview v-else-if="tab === 'awaiting'" class="flex-1 min-h-0" />
+
+    <!-- Movements tab — pending level-position movement requests -->
+    <AdminMovementsReview v-else-if="tab === 'movements'" class="flex-1 min-h-0" />
 
     <!-- Open verifications tab — pending unverified-level submissions -->
     <AdminOpenVerificationsReview v-else-if="tab === 'open-verifications'" class="flex-1 min-h-0" />
@@ -525,6 +601,7 @@ async function setClaim(u: AdminUser) {
           </div>
           <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
             Webhooks are grouped by type: <strong class="text-zinc-400">Daily changes</strong> receives a nightly summary of level moves,
+            <strong class="text-zinc-400">Challenge changes</strong> is the same but filtered to challenge-rated levels only (with challenge ranks),
             <strong class="text-zinc-400">Leaderboard updates</strong> fires when a record is approved,
             and <strong class="text-zinc-400">Level status</strong> fires when a level reaches Awaiting Placement or the Void list.
             Set the <code class="text-zinc-300">SITE_URL</code> env var to enable level links inside the embeds.
@@ -546,6 +623,7 @@ async function setClaim(u: AdminUser) {
               class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             >
               <option value="changes">Daily changes</option>
+              <option value="challenge_changes">Challenge changes</option>
               <option value="leaderboard">Leaderboard updates</option>
               <option value="level_status">Level status</option>
             </select>
@@ -572,6 +650,7 @@ async function setClaim(u: AdminUser) {
                     class="text-[10px] px-1.5 py-0.5 rounded border"
                     :class="{
                       'border-blue-900/60 bg-blue-950/40 text-blue-300': w.kind === 'changes',
+                      'border-amber-900/60 bg-amber-950/40 text-amber-300': w.kind === 'challenge_changes',
                       'border-emerald-900/60 bg-emerald-950/30 text-emerald-400': w.kind === 'leaderboard',
                       'border-purple-900/60 bg-purple-950/30 text-purple-300': w.kind === 'level_status',
                     }"
@@ -593,11 +672,12 @@ async function setClaim(u: AdminUser) {
                   @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
                 >
                   <option value="changes">Daily changes</option>
+                  <option value="challenge_changes">Challenge changes</option>
                   <option value="leaderboard">Leaderboard updates</option>
                   <option value="level_status">Level status</option>
                 </select>
                 <label
-                  v-if="w.kind === 'changes'"
+                  v-if="w.kind === 'changes' || w.kind === 'challenge_changes'"
                   class="flex items-center gap-1.5 cursor-pointer select-none text-xs transition-colors"
                   :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
                   :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in embeds'"

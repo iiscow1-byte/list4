@@ -913,6 +913,27 @@ function initSchema(db: DatabaseSync) {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_gdl_claim ON accounts(claimed_gdl_id) WHERE claimed_gdl_id IS NOT NULL`)
   }
 
+  // Pending level-position movement requests. Any logged-in user can submit a
+  // request to move a level to a different position; mods review and approve/reject.
+  // level_gd_id is used at approval time to look up the level's current position
+  // (which may differ from from_position if an admin already moved it).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pending_movements (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      level_name    TEXT    NOT NULL,
+      level_gd_id   INTEGER,
+      from_position INTEGER NOT NULL,
+      to_position   INTEGER NOT NULL,
+      notes         TEXT,
+      submitted_by  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitted_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      status        TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      decided_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_movements_status ON pending_movements(status);
+  `)
+
   // Widen claim_requests.source CHECK to include 'gdl'. Same rebuild dance as
   // when 'pointercrate' was added — SQLite can't ALTER a CHECK in place.
   const claimSql2 = (db.prepare(

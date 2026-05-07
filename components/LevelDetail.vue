@@ -519,9 +519,15 @@ async function saveEdit() {
 // Move-below: clicking a level in the left nav (via parent mediation) sets the
 // draft position to place this level immediately below the clicked one.
 const moveBelowActive = ref(false)
+const pendingMoveReady = ref(false)
+const pendingMoveSubmitting = ref(false)
+const pendingMoveNotes = ref('')
+const pendingMoveSuccess = ref(false)
+const pendingMoveError = ref<string | null>(null)
 
 function startMoveBelow() {
   moveBelowActive.value = true
+  pendingMoveReady.value = false
   emit('start-move-below')
 }
 function stopMoveBelow() {
@@ -538,8 +544,38 @@ watch(() => props.moveBelowPick, (picked) => {
   draftPosition.value = target
   if (picked.gddl_tier) draft.gddl_tier = picked.gddl_tier
   if (picked.difficulty) draft.difficulty = picked.difficulty
+  pendingMoveReady.value = true
+  pendingMoveSuccess.value = false
+  pendingMoveError.value = null
   stopMoveBelow()
 })
+
+async function submitPendingMove() {
+  if (pendingMoveSubmitting.value) return
+  const toPos = Number(draftPosition.value)
+  if (!Number.isInteger(toPos) || toPos <= 0 || toPos === props.level.position) return
+  pendingMoveSubmitting.value = true
+  pendingMoveError.value = null
+  try {
+    await $fetch('/api/movements', {
+      method: 'POST',
+      body: {
+        level_name: props.level.name,
+        level_gd_id: props.level.gd_id ?? null,
+        from_position: props.level.position,
+        to_position: toPos,
+        notes: pendingMoveNotes.value.trim() || null,
+      },
+    })
+    pendingMoveSuccess.value = true
+    pendingMoveReady.value = false
+    pendingMoveNotes.value = ''
+  } catch (e: any) {
+    pendingMoveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to submit.'
+  } finally {
+    pendingMoveSubmitting.value = false
+  }
+}
 
 async function deleteLevel() {
   if (deleting.value) return
@@ -708,9 +744,52 @@ const historyByDay = computed(() => {
           :to="`/opinions/submit?position=${level.position}`"
           class="rounded border border-zinc-700 text-zinc-300 hover:text-accent hover:border-accent/40 text-xs px-3 py-1 transition-colors"
         >Submit opinion</NuxtLink>
+        <template v-if="canEdit && isPermanent">
+          <button
+            v-if="!moveBelowActive && !pendingMoveSuccess"
+            type="button"
+            class="rounded border border-zinc-700 text-zinc-300 hover:text-sky-400 hover:border-sky-700/60 text-xs px-3 py-1 transition-colors"
+            title="Pick a level in the left panel — this level will be placed immediately below it"
+            @click="startMoveBelow"
+          >Suggest move…</button>
+          <button
+            v-else-if="moveBelowActive"
+            type="button"
+            class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1 transition-colors"
+            @click="stopMoveBelow"
+          >Cancel pick</button>
+          <span v-if="moveBelowActive" class="text-[11px] text-sky-400">← pick a level in the list</span>
+        </template>
         <span v-if="promoteError" class="text-[11px] text-red-400">{{ promoteError }}</span>
       </div>
     </header>
+
+    <!-- Suggest-move submission: admins/mods only, outside edit mode -->
+    <section v-if="canEdit && isPermanent && !editing && (pendingMoveReady || pendingMoveSuccess)" class="rounded-md border border-sky-900/50 bg-sky-950/20 p-4 mb-6 space-y-3">
+      <p v-if="pendingMoveSuccess" class="text-xs text-emerald-400">
+        Pending move submitted — a moderator will review it.
+      </p>
+      <template v-else>
+        <p class="text-[11px] text-sky-400 uppercase tracking-widest font-medium">Submit as pending move</p>
+        <p class="text-[11px] text-zinc-500">
+          Propose moving <span class="text-zinc-300">{{ level.name }}</span> from #{{ level.position }} to #{{ draftPosition }} for mod review.
+        </p>
+        <textarea
+          v-model="pendingMoveNotes"
+          rows="2"
+          maxlength="2000"
+          placeholder="Optional notes (why this level should move…)"
+          class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
+        <p v-if="pendingMoveError" class="text-xs text-red-400">{{ pendingMoveError }}</p>
+        <button
+          type="button"
+          :disabled="pendingMoveSubmitting"
+          class="rounded bg-sky-700 hover:bg-sky-600 text-zinc-100 font-medium text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
+          @click="submitPendingMove"
+        >{{ pendingMoveSubmitting ? 'Submitting…' : 'Submit pending move' }}</button>
+      </template>
+    </section>
 
     <!-- Edit form -->
     <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
@@ -743,6 +822,7 @@ const historyByDay = computed(() => {
               @click="stopMoveBelow"
             >Cancel pick</button>
           </div>
+
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>

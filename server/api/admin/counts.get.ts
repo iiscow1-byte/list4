@@ -11,6 +11,7 @@ export default defineEventHandler((event) => {
     opinions:             count(`SELECT COUNT(*) AS n FROM opinions              WHERE status = 'pending'`),
     levels:               count(`SELECT COUNT(*) AS n FROM pending_levels        WHERE status = 'pending'`),
     awaiting:             count(`SELECT COUNT(*) AS n FROM awaiting_levels`),
+    movements:            count(`SELECT COUNT(*) AS n FROM pending_movements     WHERE status = 'pending'`),
     'open-verifications': count(`SELECT COUNT(*) AS n FROM open_verifications    WHERE status = 'pending'`),
     claims:               count(`SELECT COUNT(*) AS n FROM claim_requests        WHERE status = 'pending'`),
   }

@@ -26,6 +26,7 @@ export async function postLeaderboardUpdate(
     playerName: string
     levelId: number
     videoUrl: string | null
+    isVerification?: boolean
   },
 ): Promise<void> {
   const webhooks = webhooksOfKind(db, 'leaderboard')
@@ -35,14 +36,10 @@ export async function postLeaderboardUpdate(
     `SELECT name, position, points FROM levels WHERE id = ?`,
   ).get(opts.levelId) as { name: string; position: number; points: number | null } | undefined
 
+  // Compute total from the live records table so the just-approved record is
+  // already included (it was set permanent=1 before this call).
   const derived = computeDerivedStats(db, opts.playerName)
-
-  // Use sheet total if the player is already on the sheet, otherwise derived.
-  const sheet = db.prepare(
-    `SELECT total_points FROM players WHERE name = ? COLLATE NOCASE`,
-  ).get(opts.playerName) as { total_points: number } | undefined
-
-  const playerTotal = sheet?.total_points ?? derived?.total_points ?? null
+  const playerTotal = derived?.total_points ?? null
 
   const payload = buildLeaderboardEmbed({
     playerName: opts.playerName,
@@ -51,6 +48,7 @@ export async function postLeaderboardUpdate(
     levelPoints: level?.points ?? null,
     playerTotal,
     videoUrl: opts.videoUrl,
+    isVerification: opts.isVerification,
   })
 
   await broadcast(webhooks, payload)

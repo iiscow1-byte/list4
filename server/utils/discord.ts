@@ -1,5 +1,7 @@
 import type { Change } from '~/server/utils/changes'
 
+export type WebhookKind = 'changes' | 'leaderboard' | 'level_status' | 'challenge_changes'
+
 // Auto-prepend https:// if SITE_URL is set but has no scheme — Discord won't
 // render markdown links with bare hostnames (no scheme) as clickable hyperlinks.
 const _rawUrl = (process.env.SITE_URL ?? '').replace(/\/+$/, '')
@@ -98,7 +100,6 @@ export function buildDailyEmbed(
         description,
         color: 0xf4c430,
         footer: { text: `${changes.length} change${changes.length === 1 ? '' : 's'}` },
-        timestamp: new Date(`${date}T23:59:59Z`).toISOString(),
       },
     ],
   }
@@ -118,25 +119,27 @@ export function buildLeaderboardEmbed(opts: {
   levelPoints: number | null
   playerTotal: number | null
   videoUrl: string | null
+  isVerification?: boolean
 }): { embeds: unknown[] } {
-  const { playerName, levelName, levelPosition, levelPoints, playerTotal, videoUrl } = opts
+  const { playerName, levelName, levelPosition, levelPoints, playerTotal, videoUrl, isVerification } = opts
 
   const levelUrl = (levelPosition && SITE_URL_VALID) ? `${SITE_URL_VALID}/levels/${levelPosition}` : null
   const playerUrl = SITE_URL_VALID ? `${SITE_URL_VALID}/users/by-player/${encodeURIComponent(playerName)}` : null
 
-  // Description uses markdown — both names become clickable links here.
+  // Only name and level are markdown links in the description; video is a
+  // plain link for completions and omitted entirely for verifications.
   const levelRef = levelUrl ? `[${levelName}](${levelUrl})` : `**${levelName}**`
   const playerRef = playerUrl ? `[${playerName}](${playerUrl})` : `**${playerName}**`
+  const verb = isVerification ? 'verified' : 'completed'
 
-  const lines: string[] = [`${playerRef} completed ${levelRef}`]
+  const lines: string[] = [`${playerRef} ${verb} ${levelRef}`]
   if (levelPoints != null) lines.push(`**+${levelPoints.toLocaleString()} pts** from this level`)
   if (playerTotal != null) lines.push(`**${playerTotal.toLocaleString()} pts** total`)
-  if (videoUrl) lines.push(`[Watch verification](${videoUrl})`)
+  if (!isVerification && videoUrl) lines.push(`[watch completion](${videoUrl})`)
 
   return {
     embeds: [{
-      // Title is plain text; url makes the whole title link to the level page.
-      title: `${playerName} completed ${levelName}`,
+      title: `${playerName} ${verb} ${levelName}`,
       url: levelUrl ?? undefined,
       description: lines.join('\n'),
       color: 0x22c55e,
@@ -197,6 +200,62 @@ export function buildLevelStatusEmbed(opts: {
       color: isAwaiting ? 0x38bdf8 : 0xa855f7,
       timestamp: new Date().toISOString(),
       footer: { text: isAwaiting ? 'Awaiting Placement' : 'Void List' },
+    }],
+  }
+}
+
+/**
+ * Build a Discord embed showing only challenge-rated level changes.
+ * Positions are shown as challenge ranks (1 = hardest challenge on the list).
+ * Returns null when there are no challenge changes for the day.
+ */
+export function buildChallengeEmbed(
+  date: string,
+  changes: Change[],
+): { embeds: unknown[] } | null {
+  const challengeChanges = changes.filter((c) => c.level_rated === 'Challenge')
+  if (!challengeChanges.length) return null
+
+  const adds = challengeChanges.filter((c) => c.kind === 'add')
+  const movesUp = challengeChanges.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position < c.from_position!)
+  const movesDown = challengeChanges.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position > c.from_position!)
+
+  function chRank(rank: number | null, fallback: number): string {
+    return rank != null ? `Ch. #${rank}` : `#${fallback}`
+  }
+
+  const lines: string[] = []
+  if (adds.length) {
+    lines.push(`**Added (${adds.length})**`)
+    for (const c of adds) {
+      lines.push(`+ ${chRank(c.challenge_rank, c.level_position)} · ${levelLink(c.level_name, c.level_position)}`)
+    }
+    lines.push('')
+  }
+  if (movesUp.length) {
+    lines.push(`**Moved up (${movesUp.length})**`)
+    for (const c of movesUp) {
+      lines.push(`▲ ${levelLink(c.level_name, c.level_position)} ${chRank(c.from_challenge_rank, c.from_position ?? c.level_position)} → ${chRank(c.challenge_rank, c.level_position)}`)
+    }
+    lines.push('')
+  }
+  if (movesDown.length) {
+    lines.push(`**Moved down (${movesDown.length})**`)
+    for (const c of movesDown) {
+      lines.push(`▼ ${levelLink(c.level_name, c.level_position)} ${chRank(c.from_challenge_rank, c.from_position ?? c.level_position)} → ${chRank(c.challenge_rank, c.level_position)}`)
+    }
+  }
+
+  let description = lines.join('\n').trim()
+  if (description.length > 3900) description = description.slice(0, 3900) + '\n…(truncated)'
+
+  return {
+    embeds: [{
+      title: `Challenge Ranks — Recent Changes for ${date}`,
+      url: SITE_URL_VALID || undefined,
+      description,
+      color: 0xf59e0b,
+      footer: { text: `${challengeChanges.length} challenge change${challengeChanges.length === 1 ? '' : 's'}` },
     }],
   }
 }
