@@ -253,6 +253,9 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'rated')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN rated TEXT`)
   }
+  if (!pcols.some((c) => c.name === 'tentative_placement')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
+  }
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are

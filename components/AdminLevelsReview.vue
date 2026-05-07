@@ -28,6 +28,7 @@ type PendingLevel = {
   duplicate_of_id: number | null
   is_alternate: number
   alternate_of_id: number | null
+  tentative_placement: number
   rated: string | null
 }
 
@@ -60,6 +61,9 @@ const draftAlternateOf = ref<{ position: number; name: string } | null>(null)
 const flagsAlternatePickerOpen = ref(false)
 const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
+const flagsSaved = ref(false)
+let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
+let suppressFlagSave = false
 
 // --- Pending-list filters ---
 const TIER_MAX_ORD = 44
@@ -194,13 +198,15 @@ onMounted(load)
 
 watch(selected, async (s) => {
   preview.value = null
+  suppressFlagSave = true
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
   isAlternate.value = !!s?.is_alternate
   alternateOfId.value = s?.alternate_of_id ?? null
   draftAlternateOf.value = null
-  isTentative.value = false
+  isTentative.value = !!s?.tentative_placement
+  suppressFlagSave = false
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
@@ -255,6 +261,31 @@ watch(placement, (v) => {
     }, 600)
   }
 })
+
+function autoSaveFlags() {
+  if (suppressFlagSave || !selected.value) return
+  if (flagsSaveDebounce) clearTimeout(flagsSaveDebounce)
+  const id = selected.value.id
+  flagsSaveDebounce = setTimeout(async () => {
+    try {
+      await $fetch(`/api/admin/levels/pending/${id}`, {
+        method: 'POST',
+        body: {
+          action: 'save_flags',
+          same_as_above: isDuplicate.value,
+          duplicate_of_id: isDuplicate.value ? (duplicateOfId.value ?? null) : null,
+          is_alternate: isAlternate.value,
+          alternate_of_id: isAlternate.value ? (alternateOfId.value ?? null) : null,
+          tentative_placement: isTentative.value,
+        },
+      })
+      flagsSaved.value = true
+      setTimeout(() => (flagsSaved.value = false), 1500)
+    } catch { /* non-fatal */ }
+  }, 400)
+}
+
+watch([isDuplicate, isAlternate, isTentative, duplicateOfId, alternateOfId], autoSaveFlags, { flush: 'sync' })
 
 function flash(kind: 'ok' | 'err', msg: string) {
   banner.value = { kind, msg }
@@ -727,6 +758,7 @@ watch(preview, (p) => {
               <span v-if="isDuplicate || isAlternate || isTentative" class="normal-case tracking-normal text-accent ml-1">
                 {{ [isDuplicate && 'Duplicate', isAlternate && 'Alternate', isTentative && 'Tentative'].filter(Boolean).join(', ') }}
               </span>
+              <span v-if="flagsSaved" class="normal-case tracking-normal text-emerald-400 ml-1">Saved</span>
             </span>
             <svg :class="{ 'rotate-180': flagsOpen }" class="w-3.5 h-3.5 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
@@ -785,7 +817,10 @@ watch(preview, (p) => {
                 >clear</button>
               </div>
             </div>
-            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+            <label
+              class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
+              title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
+            >
               <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>

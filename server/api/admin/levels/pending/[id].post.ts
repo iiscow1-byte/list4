@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'approve' | 'reject' | 'await' | 'save_placement'
+    action: 'approve' | 'reject' | 'await' | 'save_placement' | 'save_flags'
     placement?: number
     reason?: string
     same_as_above?: boolean
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     difficulty?: string
     placement_suggestion?: number
   }>(event)
-  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await' && body.action !== 'save_placement') {
+  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await' && body.action !== 'save_placement' && body.action !== 'save_flags') {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
 
@@ -39,6 +39,20 @@ export default defineEventHandler(async (event) => {
   if (body.action === 'save_placement') {
     const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null
     db.prepare(`UPDATE pending_levels SET placement_estimate = ? WHERE id = ?`).run(n, id)
+    return { ok: true }
+  }
+
+  if (body.action === 'save_flags') {
+    db.prepare(
+      `UPDATE pending_levels SET same_as_above=?, duplicate_of_id=?, is_alternate=?, alternate_of_id=?, tentative_placement=? WHERE id=?`,
+    ).run(
+      body.same_as_above ? 1 : 0,
+      body.duplicate_of_id ?? null,
+      body.is_alternate ? 1 : 0,
+      body.alternate_of_id ?? null,
+      body.tentative_placement ? 1 : 0,
+      id,
+    )
     return { ok: true }
   }
 
@@ -91,8 +105,8 @@ export default defineEventHandler(async (event) => {
         `INSERT INTO awaiting_levels
           (gd_id, name, fps, game_version, verification, verification_url, verifier, verify_date,
            gddl_tier, difficulty, enjoyment, main_skillset, tags, notes, submitter, pending_id, approved_by,
-           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, placement_suggestion, rated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           placement_source, same_as_above, duplicate_of_id, is_alternate, alternate_of_id, placement_suggestion, rated, tentative_placement)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(
         sub.gd_id,
         sub.name ?? `Level ${sub.gd_id}`,
@@ -118,6 +132,7 @@ export default defineEventHandler(async (event) => {
         sub.alternate_of_id ?? null,
         placementSuggestion,
         sub.rated ?? null,
+        typeof body.tentative_placement === 'boolean' ? (body.tentative_placement ? 1 : 0) : (sub.tentative_placement ?? 0),
       )
       awaitingId = Number(awaitingResult.lastInsertRowid)
       db.prepare(
@@ -220,7 +235,7 @@ export default defineEventHandler(async (event) => {
         sub.is_alternate ? 1 : 0,
         sub.alternate_of_id ?? null,
         sub.rated ?? null,
-        typeof body.tentative_placement === 'boolean' ? (body.tentative_placement ? 1 : 0) : 0,
+        typeof body.tentative_placement === 'boolean' ? (body.tentative_placement ? 1 : 0) : (sub.tentative_placement ?? 0),
       )
       // Record the addition so it shows up on the recent-changes feed.
       recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)

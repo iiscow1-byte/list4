@@ -569,7 +569,10 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
                 >clear</button>
               </div>
             </div>
-            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+            <label
+              class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
+              title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
+            >
               <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
