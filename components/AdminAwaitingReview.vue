@@ -233,6 +233,25 @@ function onFlagsAlternatePick(lvl: { id?: number; position: number; name: string
 const tierOverride = ref('')
 const difficultyOverride = ref('')
 
+const submitAllLoading = ref(false)
+async function submitAllPending() {
+  if (submitAllLoading.value) return
+  if (!confirm('Place all awaiting levels (with a placement suggestion) and approve all pending movements?')) return
+  submitAllLoading.value = true
+  try {
+    const res = await $fetch<{ placed: number; moved: number }>('/api/admin/submit-all', { method: 'POST' })
+    flash('ok', `Done — ${res.placed} level${res.placed === 1 ? '' : 's'} placed, ${res.moved} movement${res.moved === 1 ? '' : 's'} approved.`)
+    selectedId.value = null
+    placement.value = ''
+    preview.value = null
+    await load()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  } finally {
+    submitAllLoading.value = false
+  }
+}
+
 const editingVideo = ref(false)
 const editVideoUrl = ref('')
 function startEditVideo() {
@@ -285,6 +304,13 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
         <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} unplaced</p>
+        <button
+          type="button"
+          :disabled="submitAllLoading"
+          class="mt-2 w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          title="Place all awaiting levels that have a placement suggestion, and approve all pending movements."
+          @click="submitAllPending"
+        >{{ submitAllLoading ? 'Submitting…' : 'Submit all pending changes' }}</button>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
         <ul v-if="items.length" class="divide-y divide-zinc-900/60">
