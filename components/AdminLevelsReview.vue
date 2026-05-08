@@ -34,6 +34,8 @@ type PendingLevel = {
   from_gdtpl_id: number | null
   gdtpl_list_slug: string | null
   gdtpl_position: number | null
+  potential_duplicate_position: number | null
+  potential_duplicate_name: string | null
 }
 
 // 'submitted' (default) drives the user-submission queue; 'gdl_import' drives
@@ -87,6 +89,7 @@ const pendingSort = ref<PendingSort>('submitted')
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
+const potentialDuplicateOnly = ref(false)
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
@@ -123,6 +126,7 @@ const filteredItems = computed<PendingLevel[]>(() => {
         if (!lower.split(',').map((x) => x.trim()).includes(t)) return false
       }
     }
+    if (potentialDuplicateOnly.value && r.potential_duplicate_position == null) return false
     return true
   })
   const sort = pendingSort.value
@@ -146,6 +150,7 @@ const activeFilterCount = computed(() => {
   if (pendingSort.value !== 'submitted') n++
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
+  if (potentialDuplicateOnly.value) n++
   return n
 })
 
@@ -156,6 +161,7 @@ function resetFilters() {
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false
+  potentialDuplicateOnly.value = false
 }
 
 // Tier range guards
@@ -536,6 +542,17 @@ watch(preview, (p) => {
             </div>
           </div>
 
+          <!-- Potential duplicates -->
+          <div>
+            <label
+              class="cursor-pointer select-none flex items-center gap-2 text-[11px] transition-colors"
+              :class="potentialDuplicateOnly ? 'text-amber-300' : 'text-zinc-400 hover:text-zinc-200'"
+            >
+              <input v-model="potentialDuplicateOnly" type="checkbox" class="accent-amber-400" />
+              Only potential duplicates
+            </label>
+          </div>
+
           <div class="flex items-center justify-between pt-1">
             <button
               type="button"
@@ -566,6 +583,11 @@ watch(preview, (p) => {
                   class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
                   title="Submitted from the void list with a difficulty opinion"
                 >Void</span>
+                <span
+                  v-if="r.potential_duplicate_position"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  :title="`Same name as ALL #${r.potential_duplicate_position} ${r.potential_duplicate_name}`"
+                >Potential Duplicate</span>
               </div>
               <div class="text-[11px] text-zinc-500 truncate">
                 #{{ r.gd_id ?? '?' }} ·
@@ -623,6 +645,13 @@ watch(preview, (p) => {
         </header>
 
         <div class="flex flex-wrap gap-2">
+          <NuxtLink
+            v-if="selected.potential_duplicate_position"
+            :to="`/levels/${selected.potential_duplicate_position}`"
+            class="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 hover:bg-amber-900/60 hover:text-amber-200 transition-colors"
+          >
+            Potential Duplicate · #{{ selected.potential_duplicate_position }} {{ selected.potential_duplicate_name }}
+          </NuxtLink>
           <span v-if="goesToVoid" class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
             No difficulty opinion · will go to void
           </span>
