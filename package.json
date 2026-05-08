@@ -14,6 +14,7 @@
     "import:pointercrate": "node --experimental-strip-types --no-warnings server/db/import-pointercrate.ts",
     "import:gdl": "node --experimental-strip-types --no-warnings server/db/import-gdl.ts",
     "import:tsl": "node --experimental-strip-types --no-warnings server/db/import-tsl.ts",
+    "import:edi": "node --experimental-strip-types --no-warnings server/db/import-edi.ts",
     "diff-sheet": "node --experimental-strip-types --no-warnings server/db/diff-sheet.ts",
     "clear-temporary-levels": "node --experimental-strip-types --no-warnings server/db/clear-temporary-levels.ts"
   },

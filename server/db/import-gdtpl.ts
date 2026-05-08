@@ -242,7 +242,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   )
 
   let importedReview = 0
-  const placementSource = `${cfg.displayName} Import`
+  const placementSource = cfg.displayName
   const difficulty = cfg.defaultDifficulty ?? 'Extreme Demon'
   db.exec('BEGIN')
   try {
