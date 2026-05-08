@@ -77,7 +77,9 @@ const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 async function load(opts: { keepSelection?: boolean } = {}) {
-  const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
+  // Hardest-first by default — easier to triage placements when tier-adjacent
+  // levels appear next to each other in the list.
+  const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500, sort: 'tier_desc' } })
   items.value = res.items
   if (opts.keepSelection) return
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {

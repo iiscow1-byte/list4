@@ -803,6 +803,10 @@ export async function importPendingList() {
   if (!found) { console.log('no header row, skipping'); return }
   const c = refineColumns(text, found.cols, found.headerIdx + 1)
   const verCol = c['verification link']
+  // The pending tab calls the source column "Source" historically, but other
+  // tabs use "Primary Source" — accept either so the import survives a header
+  // tweak on the sheet.
+  const sourceCol = c['source'] ?? c['primary source']
 
   // Dedupe across pending_levels (any source) and awaiting_levels so we don't
   // duplicate a level the user has already submitted or that's already in the
@@ -921,7 +925,7 @@ export async function importPendingList() {
         txt(r[c['demon ranking']!]),
         verCol != null ? txt(r[verCol]) : null,
         verHref,
-        txt(r[c['source']!]),
+        sourceCol != null ? txt(r[sourceCol]) : null,
         placementEstimate,
         addedOn,
       )

@@ -21,11 +21,11 @@ const PAGE_SIZE = 500
 const TIER_MAX_ORD = 44
 
 const SORTS = [
+  { value: 'tier_desc',      label: 'Tier (hardest first)' },
+  { value: 'tier_asc',       label: 'Tier (easiest first)' },
   { value: 'approved_desc',  label: 'Approved (newest)' },
   { value: 'approved_asc',   label: 'Approved (oldest)' },
   { value: 'name_asc',       label: 'Name (A → Z)' },
-  { value: 'tier_desc',      label: 'Tier (hardest first)' },
-  { value: 'tier_asc',       label: 'Tier (easiest first)' },
   { value: 'verify_desc',    label: 'Verify date (newest)' },
   { value: 'verify_asc',     label: 'Verify date (oldest)' },
   { value: 'enjoyment_desc', label: 'Enjoyment (highest)' },
@@ -59,7 +59,7 @@ const verifyFrom = ref('')
 const verifyTo = ref('')
 const enjoyMin = ref<string>('')
 const enjoyMax = ref<string>('')
-const sort = ref<typeof SORTS[number]['value']>('approved_desc')
+const sort = ref<typeof SORTS[number]['value']>('tier_desc')
 
 const activeFilterCount = computed(() => {
   let n = 0
@@ -69,7 +69,7 @@ const activeFilterCount = computed(() => {
   if (skillset.value.trim()) n++
   if (verifyFrom.value || verifyTo.value) n++
   if (enjoyMin.value !== '' || enjoyMax.value !== '') n++
-  if (sort.value !== 'approved_desc') n++
+  if (sort.value !== 'tier_desc') n++
   return n
 })
 
@@ -95,7 +95,7 @@ function buildQuery() {
     verifyTo: verifyTo.value || undefined,
     enjoyMin: enjoyMin.value !== '' ? enjoyMin.value : undefined,
     enjoyMax: enjoyMax.value !== '' ? enjoyMax.value : undefined,
-    sort: sort.value !== 'approved_desc' ? sort.value : undefined,
+    sort: sort.value !== 'tier_desc' ? sort.value : undefined,
   }
 }
 
@@ -132,7 +132,7 @@ function resetFilters() {
   verifyTo.value = ''
   enjoyMin.value = ''
   enjoyMax.value = ''
-  sort.value = 'approved_desc'
+  sort.value = 'tier_desc'
 }
 
 await loadMore()

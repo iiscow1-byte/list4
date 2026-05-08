@@ -17,6 +17,7 @@ type PendingLevel = {
   main_skillset: string | null
   tags: string | null
   notes: string | null
+  placement_source: string | null
   submitted_at: string
   submitter: string | null
   placement_estimate: number | null
@@ -92,6 +93,10 @@ const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
 type PotentialDupMode = 'show' | 'only' | 'hide'
 const potentialDuplicateMode = ref<PotentialDupMode>('show')
+// Imported-levels source filter — only meaningful when source='gdl_import',
+// which mixes GDL, GDTPL (TSL/EDI), and sheet-pending rows in one queue.
+type ImportSourceFilter = 'all' | 'sheet' | 'gdl' | 'tsl' | 'edi'
+const importSourceFilter = ref<ImportSourceFilter>('all')
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
@@ -130,6 +135,15 @@ const filteredItems = computed<PendingLevel[]>(() => {
     }
     if (potentialDuplicateMode.value === 'only' && r.potential_duplicate_position == null) return false
     if (potentialDuplicateMode.value === 'hide' && r.potential_duplicate_position != null) return false
+    if (isImported.value && importSourceFilter.value !== 'all') {
+      const slug = (r.gdtpl_list_slug ?? '').toLowerCase()
+      switch (importSourceFilter.value) {
+        case 'sheet': if (!r.from_sheet_pending) return false; break
+        case 'gdl':   if (!r.from_gdl_id)        return false; break
+        case 'tsl':   if (slug !== 'tsl')        return false; break
+        case 'edi':   if (slug !== 'edi')        return false; break
+      }
+    }
     return true
   })
   const sort = pendingSort.value
@@ -154,6 +168,7 @@ const activeFilterCount = computed(() => {
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
   if (potentialDuplicateMode.value !== 'show') n++
+  if (isImported.value && importSourceFilter.value !== 'all') n++
   return n
 })
 
@@ -165,6 +180,7 @@ function resetFilters() {
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false
   potentialDuplicateMode.value = 'show'
+  importSourceFilter.value = 'all'
 }
 
 // Tier range guards
@@ -468,6 +484,25 @@ watch(preview, (p) => {
         </div>
 
         <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
+          <!-- Import source — only on the imported-levels queue, which mixes
+               GDL / GDTPL / sheet-pending rows. -->
+          <div v-if="isImported">
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Source</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="[val, label] in ([['all','All'],['sheet','Sheet'],['gdl','GDL'],['tsl','TSL'],['edi','EDI']] as const)"
+                :key="val"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="importSourceFilter === val
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="importSourceFilter" type="radio" :value="val" class="sr-only" />
+                {{ label }}
+              </label>
+            </div>
+          </div>
+
           <!-- Sort -->
           <div>
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Sort</div>
@@ -612,7 +647,7 @@ watch(preview, (p) => {
                 #{{ r.gd_id ?? '?' }} ·
                 <template v-if="r.from_gdl_id">GDL import</template>
                 <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
-                <template v-else-if="r.from_sheet_pending">Sheet pending</template>
+                <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
                 <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
@@ -656,7 +691,7 @@ watch(preview, (p) => {
               Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
             </template>
             <template v-else-if="selected.from_sheet_pending">
-              Imported from sheet pending list · {{ selected.submitted_at }}
+              Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
             </template>
             <template v-else>
               Submitted by
@@ -950,54 +985,55 @@ watch(preview, (p) => {
           </ul>
         </div>
 
-        <div class="mt-auto flex flex-col gap-2 pt-2">
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
-            <textarea
-              v-model="rejectReason"
-              rows="2"
-              maxlength="4000"
-              placeholder="Why this can't be accepted as-is."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <button
-            type="button"
-            :disabled="decideLoading || !placement"
-            class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('approve')"
-          >Approve at #{{ placement || '—' }}</button>
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
-            <input
-              v-model="awaitPlacementSuggestion"
-              type="number" inputmode="numeric" min="1"
-              placeholder="position #"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <button
-            type="button"
-            :disabled="decideLoading"
-            class="w-full rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('await')"
-            title="Approve without a position. Goes to the public awaiting-placement list."
-          >Send to awaiting</button>
-          <button
-            type="button"
-            :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('reject')"
-          >Reject</button>
-        </div>
-
+      </div>
+      <!-- Sticky action footer: keeps Approve / Send to awaiting / Reject
+           reachable regardless of how tall the placement preview gets. -->
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 p-3 flex flex-col gap-2">
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
+          <textarea
+            v-model="rejectReason"
+            rows="2"
+            maxlength="4000"
+            placeholder="Why this can't be accepted as-is."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+        <button
+          type="button"
+          :disabled="decideLoading || !placement"
+          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
+          @click="decide('approve')"
+        >Approve at #{{ placement || '—' }}</button>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
+          <input
+            v-model="awaitPlacementSuggestion"
+            type="number" inputmode="numeric" min="1"
+            placeholder="position #"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+        <button
+          type="button"
+          :disabled="decideLoading"
+          class="w-full rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-sm py-2 transition-colors disabled:opacity-60"
+          @click="decide('await')"
+          title="Approve without a position. Goes to the public awaiting-placement list."
+        >Send to awaiting</button>
+        <button
+          type="button"
+          :disabled="decideLoading"
+          class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
+          @click="decide('reject')"
+        >Reject</button>
         <div
           v-if="banner"
           class="rounded border px-3 py-2 text-xs"
           :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
         >{{ banner.msg }}</div>
       </div>
-      <div v-else class="p-4">
+      <div v-if="!selected" class="p-4">
         <p class="text-xs text-zinc-500">Select a submission to review.</p>
       </div>
     </aside>
