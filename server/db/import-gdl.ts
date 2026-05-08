@@ -378,10 +378,21 @@ export async function importGdl() {
      ON CONFLICT(from_gdl_id) DO NOTHING`,
   )
 
+  // Auto-reject imports whose verification URL already verifies a main-list
+  // level — same video can't verify two different rankings, so it's almost
+  // always a re-posting of an already-tracked level.
+  const existingVerUrls = new Set<string>(
+    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
+      .map((r) => r.verification_url),
+  )
+
   let importedReview = 0
+  let skippedDupVer = 0
   db.exec('BEGIN')
   try {
     for (const lv of gdlOnlyForReview) {
+      if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
+
       const above = findNeighborAbove.get(lv.placement) as { position: number } | undefined
       const below = findNeighborBelow.get(lv.placement) as { position: number } | undefined
       // Midpoint between the surrounding ALL-list neighbors. If only one side
@@ -410,7 +421,7 @@ export async function importGdl() {
     db.exec('ROLLBACK')
     throw err
   }
-  console.log(`[gdl]   ${importedReview} new pending_levels rows for admin review (${gdlOnlyForReview.length} GDL-only total)`)
+  console.log(`[gdl]   ${importedReview} new pending_levels rows for admin review (${gdlOnlyForReview.length} GDL-only total, ${skippedDupVer} dup verification URL)`)
 
   // Backfill hardest_name on gdl_players from each player's recorded set.
   // Cheaper than per-player /user/get fetches — the records table already

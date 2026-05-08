@@ -241,12 +241,23 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
      ON CONFLICT(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL DO NOTHING`,
   )
 
+  // Auto-reject imports whose verification URL already verifies a main-list
+  // level — same video can't verify two different rankings, so it's almost
+  // always a re-posting of an already-tracked level under another name.
+  const existingVerUrls = new Set<string>(
+    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
+      .map((r) => r.verification_url),
+  )
+
   let importedReview = 0
+  let skippedDupVer = 0
   const placementSource = cfg.displayName
   const difficulty = cfg.defaultDifficulty ?? 'Extreme Demon'
   db.exec('BEGIN')
   try {
     for (const lv of onlyHere) {
+      if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
+
       const above = findAbove.get(cfg.source, lv.position) as { position: number } | undefined
       const below = findBelow.get(cfg.source, lv.position) as { position: number } | undefined
       let placementEstimate: number | null = null
@@ -279,6 +290,6 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
     db.exec('ROLLBACK')
     throw err
   }
-  console.log(`${tag}   ${importedReview} new pending_levels rows for admin review (${onlyHere.length} ${cfg.source}-only total)`)
+  console.log(`${tag}   ${importedReview} new pending_levels rows for admin review (${onlyHere.length} ${cfg.source}-only total, ${skippedDupVer} dup verification URL)`)
   console.log(`${tag} Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }

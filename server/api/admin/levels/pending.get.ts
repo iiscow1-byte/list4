@@ -10,8 +10,8 @@ export default defineEventHandler((event) => {
   // via from_gdtpl_id — TSL etc.). Splitting the queues keeps each tab focused
   // on the rows that match its workflow.
   const sourceFilter = source === 'gdl_import'
-    ? 'AND (p.from_gdl_id IS NOT NULL OR p.from_gdtpl_id IS NOT NULL)'
-    : 'AND p.from_gdl_id IS NULL AND p.from_gdtpl_id IS NULL'
+    ? 'AND (p.from_gdl_id IS NOT NULL OR p.from_gdtpl_id IS NOT NULL OR p.from_sheet_pending = 1)'
+    : 'AND p.from_gdl_id IS NULL AND p.from_gdtpl_id IS NULL AND p.from_sheet_pending = 0'
   const db = getDb()
   // Potential-duplicate detection: an imported level whose name (case-
   // insensitive) matches an existing ALL-list level with a different gd_id.
@@ -27,7 +27,7 @@ export default defineEventHandler((event) => {
               p.placement_estimate, p.comparison_level_id, p.comparison_level_name, p.pov_placement,
               p.from_open_verification_id, p.from_void_level_id, p.same_as_above,
               p.duplicate_of_id, p.is_alternate, p.alternate_of_id, p.rated,
-              p.tentative_placement, p.from_gdl_id, p.from_gdtpl_id,
+              p.tentative_placement, p.from_gdl_id, p.from_gdtpl_id, p.from_sheet_pending,
               g.list_slug AS gdtpl_list_slug,
               g.position AS gdtpl_position,
               a.username AS submitter,

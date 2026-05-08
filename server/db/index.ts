@@ -976,6 +976,14 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdtpl
              ON pending_levels(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL`)
 
+  // Sheet-pending origin marker. Levels imported from the source sheet's
+  // "Pending List" tab go through the same admin "Imported levels" review
+  // queue as GDL/GDTPL imports — this flag distinguishes them from user
+  // submissions and makes re-imports prunable.
+  if (!pcols.some((c) => c.name === 'from_sheet_pending')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_sheet_pending INTEGER NOT NULL DEFAULT 0`)
+  }
+
   const accCols4 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols4.some((c) => c.name === 'claimed_gdl_id')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN claimed_gdl_id INTEGER`)

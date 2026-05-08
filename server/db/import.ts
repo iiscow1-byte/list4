@@ -804,33 +804,46 @@ export async function importPendingList() {
   const c = refineColumns(text, found.cols, found.headerIdx + 1)
   const verCol = c['verification link']
 
-  // Dedupe across ALL existing awaiting rows so we never duplicate a level a
-  // user already submitted through the form.
-  const existingKeys = new Set<string>(
-    (db.prepare(`SELECT gd_id, name FROM awaiting_levels`).all() as { gd_id: number | null; name: string }[])
+  // Dedupe across pending_levels (any source) and awaiting_levels so we don't
+  // duplicate a level the user has already submitted or that's already in the
+  // post-pending awaiting queue.
+  const existingKeys = new Set<string>([
+    ...(db.prepare(`SELECT gd_id, name FROM pending_levels WHERE status = 'pending'`).all() as { gd_id: number | null; name: string }[])
       .map((r) => dupKey(r.gd_id, r.name)),
-  )
+    ...(db.prepare(`SELECT gd_id, name FROM awaiting_levels`).all() as { gd_id: number | null; name: string }[])
+      .map((r) => dupKey(r.gd_id, r.name)),
+  ])
+
   // Sheet-originated rows from earlier imports — used to prune stale entries
   // (levels that have since been removed from the sheet's pending tab).
   const existingSheetRows = db
-    .prepare(`SELECT id, gd_id, name FROM awaiting_levels WHERE pending_id = ?`)
-    .all(SHEET_PENDING_ID) as { id: number; gd_id: number | null; name: string }[]
-  // Skip levels already on the main list — overlapping with awaiting would
-  // create a confusing duplicate where the same gd_id appears in two queues.
+    .prepare(`SELECT id, gd_id, name FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`)
+    .all() as { id: number; gd_id: number | null; name: string }[]
+
+  // Skip levels already on the main list — overlapping would create a
+  // confusing duplicate where the same gd_id appears in two queues.
   const mainGdIds = new Set<number>(
     (db.prepare(`SELECT gd_id FROM levels WHERE gd_id IS NOT NULL`).all() as { gd_id: number }[])
       .map((r) => r.gd_id),
   )
+  // Auto-reject rows whose verification URL is already in use by an existing
+  // main-list level — the same video can't verify two different rankings, so
+  // these are almost always re-postings of an already-tracked level under a
+  // different name or source.
+  const existingVerUrls = new Set<string>(
+    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
+      .map((r) => r.verification_url),
+  )
 
   const insert = db.prepare(`
-    INSERT INTO awaiting_levels
+    INSERT INTO pending_levels
       (gd_id, name, verify_date, gddl_tier, difficulty,
        verification, verification_url, placement_source,
-       pending_id, placement_suggestion, approved_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       placement_estimate, status, submitted_at, from_sheet_pending)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1)
   `)
 
-  // Per-tier sorted positions for the placement-suggestion fallback. Built
+  // Per-tier sorted positions for the placement-estimate fallback. Built
   // lazily as we encounter each tier, so we only pay the query cost for tiers
   // actually present in the sheet's pending tab.
   const tierPositions = new Map<string, number[]>()
@@ -848,10 +861,13 @@ export async function importPendingList() {
   }
 
   const seenInThisRun = new Set<string>()
-  let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0
+  let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0, skippedDupVer = 0
 
   db.exec('BEGIN')
   try {
+    // Sweep legacy sheet-pending rows out of awaiting_levels — they now go
+    // through the admin "Imported levels" review queue (pending_levels).
+    const legacyAwaiting = db.prepare(`DELETE FROM awaiting_levels WHERE pending_id = ?`).run(SHEET_PENDING_ID)
     for (let i = found.headerIdx + 1; i < text.length; i++) {
       const r = text[i]!
       const rh = html[i]!
@@ -870,6 +886,12 @@ export async function importPendingList() {
       seenInThisRun.add(key)
       if (existingKeys.has(key)) { skippedExisting++; continue }
 
+      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+      // Auto-reject when the verification video already verifies a main-list
+      // entry — the curator pulled the level into pending under a different
+      // source, but it's already tracked.
+      if (verHref && existingVerUrls.has(verHref)) { skippedDupVer++; continue }
+
       // Normalize the tier string. Sheet rows can be "Tier 25", "Tier 25.5",
       // "25", "S4", etc. — we store the integer-tier form so the rest of the
       // app's tier filters/joins work, while the decimal informs the
@@ -879,15 +901,14 @@ export async function importPendingList() {
       const tier = parsedTier?.tier ?? rawTier
 
       // "General Idea / Range" looks like "~#2400" — extract the integer for
-      // the placement suggestion. If absent, fall back to a position derived
+      // the placement estimate. If absent, fall back to a position derived
       // from the GDDL tier (decimal = position within tier) so the reviewer
       // gets a sensible default instead of an empty placement field.
       const placementMatch = giRange?.match(/(\d[\d,]*)/)
-      const placementSuggestion = placementMatch
+      const placementEstimate = placementMatch
         ? num(placementMatch[1]!)
         : (parsedTier ? positionForTier(parsedTier.tier, parsedTier.frac) : null)
 
-      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
       const addedOn = txt(r[c['added to pending on']!]) ?? new Date().toISOString().slice(0, 10)
 
       insert.run(
@@ -901,15 +922,14 @@ export async function importPendingList() {
         verCol != null ? txt(r[verCol]) : null,
         verHref,
         txt(r[c['source']!]),
-        SHEET_PENDING_ID,
-        placementSuggestion,
+        placementEstimate,
         addedOn,
       )
       imported++
     }
 
     // Prune sheet rows from prior imports that are no longer on the sheet.
-    const del = db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`)
+    const del = db.prepare(`DELETE FROM pending_levels WHERE id = ?`)
     let removed = 0
     for (const row of existingSheetRows) {
       if (!seenInThisRun.has(dupKey(row.gd_id, row.name))) { del.run(row.id); removed++ }
@@ -917,8 +937,9 @@ export async function importPendingList() {
 
     db.exec('COMMIT')
     console.log(
-      `${imported} new (${skippedExisting} already in awaiting, ${skippedMain} on main list, ` +
-      `${skippedBlank} blank rows, ${removed} removed)`,
+      `${imported} new (${skippedExisting} already pending/awaiting, ${skippedMain} on main list, ` +
+      `${skippedDupVer} dup verification URL, ${skippedBlank} blank rows, ${removed} removed, ` +
+      `${legacyAwaiting.changes} legacy awaiting rows swept)`,
     )
   } catch (e) {
     db.exec('ROLLBACK')

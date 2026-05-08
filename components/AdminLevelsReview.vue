@@ -32,6 +32,7 @@ type PendingLevel = {
   rated: string | null
   from_gdl_id: number | null
   from_gdtpl_id: number | null
+  from_sheet_pending: number
   gdtpl_list_slug: string | null
   gdtpl_position: number | null
   potential_duplicate_position: number | null
@@ -89,7 +90,8 @@ const pendingSort = ref<PendingSort>('submitted')
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
-const potentialDuplicateOnly = ref(false)
+type PotentialDupMode = 'show' | 'only' | 'hide'
+const potentialDuplicateMode = ref<PotentialDupMode>('show')
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
@@ -126,7 +128,8 @@ const filteredItems = computed<PendingLevel[]>(() => {
         if (!lower.split(',').map((x) => x.trim()).includes(t)) return false
       }
     }
-    if (potentialDuplicateOnly.value && r.potential_duplicate_position == null) return false
+    if (potentialDuplicateMode.value === 'only' && r.potential_duplicate_position == null) return false
+    if (potentialDuplicateMode.value === 'hide' && r.potential_duplicate_position != null) return false
     return true
   })
   const sort = pendingSort.value
@@ -150,7 +153,7 @@ const activeFilterCount = computed(() => {
   if (pendingSort.value !== 'submitted') n++
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
-  if (potentialDuplicateOnly.value) n++
+  if (potentialDuplicateMode.value !== 'show') n++
   return n
 })
 
@@ -161,7 +164,7 @@ function resetFilters() {
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false
-  potentialDuplicateOnly.value = false
+  potentialDuplicateMode.value = 'show'
 }
 
 // Tier range guards
@@ -219,6 +222,11 @@ watch(() => props.source, load)
 
 watch(selected, async (s) => {
   preview.value = null
+  // Clear the previous selection's auto-filled tier/difficulty so they don't
+  // bleed into the middle stats panel for the next submission until the
+  // placement-preview watcher refills them from the new neighbours.
+  tierOverride.value = ''
+  difficultyOverride.value = ''
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
@@ -544,13 +552,24 @@ watch(preview, (p) => {
 
           <!-- Potential duplicates -->
           <div>
-            <label
-              class="cursor-pointer select-none flex items-center gap-2 text-[11px] transition-colors"
-              :class="potentialDuplicateOnly ? 'text-amber-300' : 'text-zinc-400 hover:text-zinc-200'"
-            >
-              <input v-model="potentialDuplicateOnly" type="checkbox" class="accent-amber-400" />
-              Only potential duplicates
-            </label>
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Potential duplicates</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="[val, label] in (
+                  [['show', 'Show'], ['only', 'Only'], ['hide', 'Hide']] as const
+                )"
+                :key="val"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="potentialDuplicateMode === val
+                  ? (val === 'only' ? 'border-amber-400/60 text-amber-300 bg-amber-400/10'
+                     : val === 'hide' ? 'border-zinc-500/60 text-zinc-200 bg-zinc-500/10'
+                     : 'border-accent/60 text-accent bg-accent/10')
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="potentialDuplicateMode" type="radio" :value="val" class="sr-only" />
+                {{ label }}
+              </label>
+            </div>
           </div>
 
           <div class="flex items-center justify-between pt-1">
@@ -593,6 +612,7 @@ watch(preview, (p) => {
                 #{{ r.gd_id ?? '?' }} ·
                 <template v-if="r.from_gdl_id">GDL import</template>
                 <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
+                <template v-else-if="r.from_sheet_pending">Sheet pending</template>
                 <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
@@ -634,6 +654,9 @@ watch(preview, (p) => {
             </template>
             <template v-else-if="selected.from_gdtpl_id">
               Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
+            </template>
+            <template v-else-if="selected.from_sheet_pending">
+              Imported from sheet pending list · {{ selected.submitted_at }}
             </template>
             <template v-else>
               Submitted by
@@ -686,11 +709,17 @@ watch(preview, (p) => {
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-            <div class="text-sm text-zinc-100">{{ selected.gddl_tier ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.gddl_tier || tierOverride || '—' }}
+              <span v-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
-            <div class="text-sm text-zinc-100">{{ selected.difficulty ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.difficulty || difficultyOverride || '—' }}
+              <span v-if="!selected.difficulty && difficultyOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
