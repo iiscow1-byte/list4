@@ -38,6 +38,24 @@ type Preview = {
 
 const items = ref<AwaitingRow[]>([])
 const selectedId = ref<number | null>(null)
+const search = ref('')
+
+const filteredItems = computed<AwaitingRow[]>(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return items.value
+  return items.value.filter((r) => {
+    const hay = `${r.name ?? ''} ${r.gd_id ?? ''} ${r.gddl_tier ?? ''} ${r.difficulty ?? ''}`.toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+// If the currently-selected row is filtered out of view, fall back to the
+// first surviving row so the detail panel doesn't show a stale entry.
+watch(filteredItems, (list) => {
+  if (selectedId.value && !list.some((r) => r.id === selectedId.value)) {
+    selectedId.value = list[0]?.id ?? null
+  }
+})
 const selected = ref<AwaitingLevel | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
@@ -58,9 +76,10 @@ const isTentative = ref(false)
 const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
-async function load() {
+async function load(opts: { keepSelection?: boolean } = {}) {
   const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
   items.value = res.items
+  if (opts.keepSelection) return
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
   } else if (!selectedId.value && items.value[0]) {
@@ -135,6 +154,21 @@ function flash(kind: 'ok' | 'err', msg: string) {
   setTimeout(() => (banner.value = null), 3500)
 }
 
+// After an action removes the current row from awaiting, advance the cursor
+// to the row that took its place at the same visible index instead of
+// jumping back to the top of the list.
+function pickNextAfterAction(actedId: number) {
+  const oldIdx = filteredItems.value.findIndex((r) => r.id === actedId)
+  // load() will repopulate items.value; recompute filteredItems off the new
+  // list and pick the entry that now occupies oldIdx (or the new last row).
+  return () => {
+    const visible = filteredItems.value
+    if (visible.length === 0) { selectedId.value = null; return }
+    const idx = oldIdx < 0 ? 0 : Math.min(oldIdx, visible.length - 1)
+    selectedId.value = visible[idx]?.id ?? null
+  }
+}
+
 async function decide(action: 'place' | 'remove') {
   if (!selected.value || decideLoading.value) return
   if (action === 'place') {
@@ -144,6 +178,8 @@ async function decide(action: 'place' | 'remove') {
       return
     }
   }
+  const actedId = selected.value.id
+  const advance = pickNextAfterAction(actedId)
   decideLoading.value = true
   try {
     const body: any = { action }
@@ -158,9 +194,8 @@ async function decide(action: 'place' | 'remove') {
       body.tentative_placement = isTentative.value
     }
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
-    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
+    await $fetch(`/api/admin/awaiting/${actedId}`, { method: 'POST', body })
     flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
-    selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
@@ -173,7 +208,8 @@ async function decide(action: 'place' | 'remove') {
     isTentative.value = false
     removeReason.value = ''
     preview.value = null
-    await load()
+    await load({ keepSelection: true })
+    advance()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
   } finally {
@@ -183,11 +219,12 @@ async function decide(action: 'place' | 'remove') {
 
 async function returnToLevels() {
   if (!selected.value || decideLoading.value) return
+  const actedId = selected.value.id
+  const advance = pickNextAfterAction(actedId)
   decideLoading.value = true
   try {
-    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body: { action: 'return' } })
+    await $fetch(`/api/admin/awaiting/${actedId}`, { method: 'POST', body: { action: 'return' } })
     flash('ok', 'Returned to the levels tab.')
-    selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
@@ -200,7 +237,8 @@ async function returnToLevels() {
     isTentative.value = false
     removeReason.value = ''
     preview.value = null
-    await load()
+    await load({ keepSelection: true })
+    advance()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
   } finally {
@@ -308,20 +346,30 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
   <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
     <!-- Left: awaiting list -->
     <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
-      <div class="p-3 border-b border-zinc-800 shrink-0">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
-        <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} unplaced</p>
+      <div class="p-3 border-b border-zinc-800 shrink-0 space-y-2">
+        <div class="flex items-baseline justify-between">
+          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
+          <p class="text-[11px] text-zinc-600">
+            {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> unplaced
+          </p>
+        </div>
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search name, ID, tier…"
+          class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
         <button
           type="button"
           :disabled="submitAllLoading"
-          class="mt-2 w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          class="w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
           title="Place all awaiting levels that have a placement suggestion, and approve all pending movements."
           @click="submitAllPending"
         >{{ submitAllLoading ? 'Submitting…' : 'Submit all pending changes' }}</button>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
-        <ul v-if="items.length" class="divide-y divide-zinc-900/60">
-          <li v-for="r in items" :key="r.id" class="relative group/li">
+        <ul v-if="filteredItems.length" class="divide-y divide-zinc-900/60">
+          <li v-for="r in filteredItems" :key="r.id" class="relative group/li">
             <button
               type="button"
               class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors"
@@ -342,6 +390,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             >✕</button>
           </li>
         </ul>
+        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} unplaced.</div>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">Nothing awaiting placement.</div>
       </div>
     </aside>
@@ -453,6 +502,11 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
     <!-- Right: placement + actions -->
     <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+        <div
+          v-if="banner"
+          class="rounded border px-3 py-2 text-xs"
+          :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
+        >{{ banner.msg }}</div>
         <div>
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Placement</p>
           <div class="flex items-center gap-1.5">
@@ -620,46 +674,43 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
           </ul>
         </div>
 
-        <div class="mt-auto flex flex-col gap-2 pt-2">
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">sent to submitter</span></span>
-            <textarea
-              v-model="removeReason"
-              rows="2"
-              maxlength="4000"
-              placeholder="Why this is being removed."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <button
-            type="button"
-            :disabled="decideLoading || !placement"
-            class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('place')"
-          >Place at #{{ placement || '—' }}</button>
-          <button
-            type="button"
-            :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-sky-600 hover:text-sky-300 text-sm py-2 transition-colors disabled:opacity-60"
-            @click="returnToLevels"
-            title="Send back to the levels (pending) tab."
-          >Return to levels tab</button>
-          <button
-            type="button"
-            :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('remove')"
-            title="Remove from awaiting without placing on the list."
-          >Remove</button>
-        </div>
-
-        <div
-          v-if="banner"
-          class="rounded border px-3 py-2 text-xs"
-          :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
-        >{{ banner.msg }}</div>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">sent to submitter</span></span>
+          <textarea
+            v-model="removeReason"
+            rows="2"
+            maxlength="4000"
+            placeholder="Why this is being removed."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
       </div>
-      <div v-else class="p-4">
+      <!-- Sticky action footer: stays visible regardless of how tall the
+           scroll area above grows, so Place / Return / Remove are always
+           reachable without scrolling. -->
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 p-3 flex flex-col gap-2">
+        <button
+          type="button"
+          :disabled="decideLoading || !placement"
+          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
+          @click="decide('place')"
+        >Place at #{{ placement || '—' }}</button>
+        <button
+          type="button"
+          :disabled="decideLoading"
+          class="w-full rounded border border-zinc-700 hover:border-sky-600 hover:text-sky-300 text-sm py-2 transition-colors disabled:opacity-60"
+          @click="returnToLevels"
+          title="Send back to the levels (pending) tab."
+        >Return to levels tab</button>
+        <button
+          type="button"
+          :disabled="decideLoading"
+          class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
+          @click="decide('remove')"
+          title="Remove from awaiting without placing on the list."
+        >Remove</button>
+      </div>
+      <div v-if="!selected" class="p-4">
         <p class="text-xs text-zinc-500">Select a level to place.</p>
       </div>
     </aside>

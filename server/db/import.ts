@@ -140,6 +140,32 @@ export function txt(s: string | undefined): string | null {
   return t === '' ? null : t
 }
 
+// Parses tier strings from the sheet, including loose forms.
+// "Tier 25" / "tier 25"   → { tier: "Tier 25",   frac: 0.5 }
+// "Tier 25.5"             → { tier: "Tier 25",   frac: 0.5 }   decimal = position within tier
+// "T25" / "tier25" / "25" → { tier: "Tier 25",   frac: 0.5 }   bare number / no space
+// "Subtier 4" / "S4"      → { tier: "Subtier 4", frac: 0.5 }
+// "Subtier 4.25"          → { tier: "Subtier 4", frac: 0.25 }
+// Anything else           → null (caller leaves the cell as-is so we don't break)
+export function parseTierLabel(raw: string | null): { tier: string; frac: number } | null {
+  if (!raw) return null
+  const t = raw.trim()
+  if (!t) return null
+  // Match Subtier first since "S5" would otherwise be eaten by the Tier regex
+  // if we made it tolerate stray letters.
+  const sub = t.match(/^(?:subtier|sub|s)\s*(\d{1,2})(?:\.(\d+))?$/i)
+  if (sub) {
+    const frac = sub[2] !== undefined ? Math.min(1, parseFloat(`0.${sub[2]}`)) : 0.5
+    return { tier: `Subtier ${Number(sub[1])}`, frac }
+  }
+  const m = t.match(/^(?:t(?:ier)?)?\s*(\d{1,2})(?:\.(\d+))?$/i)
+  if (m) {
+    const frac = m[2] !== undefined ? Math.min(1, parseFloat(`0.${m[2]}`)) : 0.5
+    return { tier: `Tier ${Number(m[1])}`, frac }
+  }
+  return null
+}
+
 // ---------- import driver ----------
 /**
  * Headers and data are sometimes off by one column in tabs that have extra
@@ -804,6 +830,23 @@ export async function importPendingList() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
 
+  // Per-tier sorted positions for the placement-suggestion fallback. Built
+  // lazily as we encounter each tier, so we only pay the query cost for tiers
+  // actually present in the sheet's pending tab.
+  const tierPositions = new Map<string, number[]>()
+  function positionForTier(tier: string, frac: number): number | null {
+    let positions = tierPositions.get(tier)
+    if (!positions) {
+      positions = (db
+        .prepare(`SELECT position FROM levels WHERE gddl_tier = ? ORDER BY position ASC`)
+        .all(tier) as { position: number }[]).map((r) => r.position)
+      tierPositions.set(tier, positions)
+    }
+    if (positions.length === 0) return null
+    const idx = Math.min(positions.length - 1, Math.floor(frac * positions.length))
+    return positions[idx]!
+  }
+
   const seenInThisRun = new Set<string>()
   let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0
 
@@ -815,11 +858,11 @@ export async function importPendingList() {
       const name = txt(r[c['level name']!])
       const gdId = num(r[c['level id']!])
       const verifyDate = txt(r[c['verify date']!])
-      const tier = txt(r[c['gddl tier']!])
+      const rawTier = txt(r[c['gddl tier']!])
       const giRange = txt(r[c['general idea / range']!])
       // Section headers / decoration: a name with no other identifying data.
       if (!name) { skippedBlank++; continue }
-      if (!gdId && !verifyDate && !tier && !giRange) { skippedBlank++; continue }
+      if (!gdId && !verifyDate && !rawTier && !giRange) { skippedBlank++; continue }
       if (gdId !== null && mainGdIds.has(gdId)) { skippedMain++; continue }
 
       const key = dupKey(gdId, name)
@@ -827,10 +870,22 @@ export async function importPendingList() {
       seenInThisRun.add(key)
       if (existingKeys.has(key)) { skippedExisting++; continue }
 
+      // Normalize the tier string. Sheet rows can be "Tier 25", "Tier 25.5",
+      // "25", "S4", etc. — we store the integer-tier form so the rest of the
+      // app's tier filters/joins work, while the decimal informs the
+      // placement-within-tier fallback below. Anything we can't parse is
+      // stored verbatim so we don't lose information.
+      const parsedTier = parseTierLabel(rawTier)
+      const tier = parsedTier?.tier ?? rawTier
+
       // "General Idea / Range" looks like "~#2400" — extract the integer for
-      // the placement suggestion. Falls through to NULL if there's no number.
+      // the placement suggestion. If absent, fall back to a position derived
+      // from the GDDL tier (decimal = position within tier) so the reviewer
+      // gets a sensible default instead of an empty placement field.
       const placementMatch = giRange?.match(/(\d[\d,]*)/)
-      const placementSuggestion = placementMatch ? num(placementMatch[1]!) : null
+      const placementSuggestion = placementMatch
+        ? num(placementMatch[1]!)
+        : (parsedTier ? positionForTier(parsedTier.tier, parsedTier.frac) : null)
 
       const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
       const addedOn = txt(r[c['added to pending on']!]) ?? new Date().toISOString().slice(0, 10)
