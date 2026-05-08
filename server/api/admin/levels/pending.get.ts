@@ -5,12 +5,13 @@ export default defineEventHandler((event) => {
   requireMod(event)
   const q = getQuery(event)
   const source = String(q.source ?? 'submitted').toLowerCase()
-  // 'submitted' (default) = user submissions only; 'gdl_import' = GDL API
-  // imports only. Splitting the queues keeps each tab focused on the rows
-  // that match its workflow.
+  // 'submitted' (default) = user submissions only; 'gdl_import' = any external
+  // list-importer source (GDL, plus every GDListTemplate-based list mirrored
+  // via from_gdtpl_id — TSL etc.). Splitting the queues keeps each tab focused
+  // on the rows that match its workflow.
   const sourceFilter = source === 'gdl_import'
-    ? 'AND p.from_gdl_id IS NOT NULL'
-    : 'AND p.from_gdl_id IS NULL'
+    ? 'AND (p.from_gdl_id IS NOT NULL OR p.from_gdtpl_id IS NOT NULL)'
+    : 'AND p.from_gdl_id IS NULL AND p.from_gdtpl_id IS NULL'
   const db = getDb()
   const items = db
     .prepare(
@@ -20,10 +21,13 @@ export default defineEventHandler((event) => {
               p.placement_estimate, p.comparison_level_id, p.comparison_level_name, p.pov_placement,
               p.from_open_verification_id, p.from_void_level_id, p.same_as_above,
               p.duplicate_of_id, p.is_alternate, p.alternate_of_id, p.rated,
-              p.tentative_placement, p.from_gdl_id,
+              p.tentative_placement, p.from_gdl_id, p.from_gdtpl_id,
+              g.list_slug AS gdtpl_list_slug,
+              g.position AS gdtpl_position,
               a.username AS submitter
        FROM pending_levels p
        LEFT JOIN accounts a ON a.id = p.submitted_by
+       LEFT JOIN gdtpl_levels g ON g.id = p.from_gdtpl_id
        WHERE p.status = 'pending' ${sourceFilter}
        ORDER BY p.submitted_at ASC`,
     )

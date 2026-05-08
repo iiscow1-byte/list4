@@ -937,6 +937,45 @@ function initSchema(db: DatabaseSync) {
   if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gdl_position ON levels(gdl_position)`)
 
+  // --- GDListTemplate mirrors. Generic table that holds level rows for any
+  // list built on the TheShittyList/GDListTemplate JSON format (one
+  // `_list.json` of slugs + one `<slug>.json` per level). Each list is
+  // identified by a short `list_slug` (e.g. 'tsl'); level rows are keyed by
+  // (list_slug, level_slug) so adding a future GDListTemplate-based list is
+  // one importer config away — no new tables or columns required.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gdtpl_levels (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_slug            TEXT    NOT NULL,
+      level_slug           TEXT    NOT NULL,
+      position             INTEGER NOT NULL,
+      gd_id                INTEGER,
+      name                 TEXT,
+      author               TEXT,
+      creators_json        TEXT,
+      verifier             TEXT,
+      verification_url     TEXT,
+      showcase_url         TEXT,
+      percent_to_qualify   INTEGER,
+      password             TEXT,
+      promoted_to_position INTEGER,
+      fetched_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(list_slug, level_slug)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_list  ON gdtpl_levels(list_slug, position);
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_gd_id ON gdtpl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_promoted ON gdtpl_levels(promoted_to_position);
+  `)
+
+  // pending_levels.from_gdtpl_id: link from a pending-review row back to the
+  // gdtpl_levels row that produced it. Unique-when-not-null so a re-import is
+  // idempotent — one pending row per imported gdtpl level.
+  if (!pcols.some((c) => c.name === 'from_gdtpl_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_gdtpl_id INTEGER`)
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdtpl
+             ON pending_levels(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL`)
+
   const accCols4 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols4.some((c) => c.name === 'claimed_gdl_id')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN claimed_gdl_id INTEGER`)

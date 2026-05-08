@@ -3,6 +3,7 @@ import { runImport } from '~/server/db/import'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importGsv } from '~/server/db/import-gsv'
+import { importTsl } from '~/server/db/import-tsl'
 
 /**
  * On boot, if the levels table is empty, kick off a background import of the
@@ -58,6 +59,13 @@ export default defineNitroPlugin(() => {
         // dedup at query time) is populated before records land.
         console.log('[db-init] running Global Stats Viewer import in background (refresh on restart)')
         await importGsv().catch((err) => console.error('[db-init] gsv import failed:', err))
+      }
+      if (process.env.LIST_SKIP_TSL_IMPORT !== '1') {
+        // TSL (and any other GDListTemplate-based list) — fast: ~160 small JSON
+        // fetches. Idempotent, safe to re-run on every boot. Adding another
+        // GDListTemplate-based list later is one more importTsl-style call.
+        console.log('[db-init] running TSL import in background (refresh on restart)')
+        await importTsl().catch((err) => console.error('[db-init] tsl import failed:', err))
       }
     })
 })

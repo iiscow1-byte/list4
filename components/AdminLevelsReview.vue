@@ -31,6 +31,9 @@ type PendingLevel = {
   tentative_placement: number
   rated: string | null
   from_gdl_id: number | null
+  from_gdtpl_id: number | null
+  gdtpl_list_slug: string | null
+  gdtpl_position: number | null
 }
 
 // 'submitted' (default) drives the user-submission queue; 'gdl_import' drives
@@ -565,7 +568,10 @@ watch(preview, (p) => {
                 >Void</span>
               </div>
               <div class="text-[11px] text-zinc-500 truncate">
-                #{{ r.gd_id ?? '?' }} · {{ r.from_gdl_id ? 'GDL import' : `by ${r.submitter ?? 'unknown'}` }}
+                #{{ r.gd_id ?? '?' }} ·
+                <template v-if="r.from_gdl_id">GDL import</template>
+                <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
+                <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
                 <span
@@ -603,6 +609,9 @@ watch(preview, (p) => {
           <p class="text-xs text-zinc-500 mt-1">
             <template v-if="selected.from_gdl_id">
               Imported from GDL · {{ selected.submitted_at }}
+            </template>
+            <template v-else-if="selected.from_gdtpl_id">
+              Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
             </template>
             <template v-else>
               Submitted by
