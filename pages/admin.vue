@@ -13,11 +13,12 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'awaiting' | 'movements' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
+type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
   { id: 'levels',             label: 'Levels',          adminOnly: false },
+  { id: 'imported-levels',    label: 'Imported levels', adminOnly: false },
   { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
   { id: 'movements',          label: 'Movements',       adminOnly: false },
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
@@ -28,7 +29,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
 // "Pending" dropdown — groups the submission-queue tabs
-const PENDING_TABS: TabId[] = ['levels', 'awaiting', 'movements', 'records', 'opinions']
+const PENDING_TABS: TabId[] = ['levels', 'imported-levels', 'awaiting', 'movements', 'records', 'opinions']
 const pendingDropdownOpen = ref(false)
 const isPendingTab = computed(() => PENDING_TABS.includes(tab.value))
 
@@ -480,7 +481,10 @@ async function setClaim(u: AdminUser) {
     <AdminOpinionsReview v-else-if="tab === 'opinions'" class="flex-1 min-h-0" />
 
     <!-- Levels tab — pending level submissions -->
-    <AdminLevelsReview v-else-if="tab === 'levels'" class="flex-1 min-h-0" />
+    <AdminLevelsReview v-else-if="tab === 'levels'" source="submitted" class="flex-1 min-h-0" />
+
+    <!-- Imported levels tab — auto-imported from the GDL API -->
+    <AdminLevelsReview v-else-if="tab === 'imported-levels'" source="gdl_import" class="flex-1 min-h-0" />
 
     <!-- Awaiting tab — approved but unplaced levels -->
     <AdminAwaitingReview v-else-if="tab === 'awaiting'" class="flex-1 min-h-0" />

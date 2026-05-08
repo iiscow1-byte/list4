@@ -30,7 +30,15 @@ type PendingLevel = {
   alternate_of_id: number | null
   tentative_placement: number
   rated: string | null
+  from_gdl_id: number | null
 }
+
+// 'submitted' (default) drives the user-submission queue; 'gdl_import' drives
+// the GDL-imported queue. Both render the same UI with a few label tweaks.
+const props = withDefaults(defineProps<{ source?: 'submitted' | 'gdl_import' }>(), {
+  source: 'submitted',
+})
+const isImported = computed(() => props.source === 'gdl_import')
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
 type Preview = {
@@ -185,7 +193,9 @@ const goesToVoid = computed(() => {
 })
 
 async function load() {
-  const res = await $fetch<{ items: PendingLevel[] }>('/api/admin/levels/pending')
+  const res = await $fetch<{ items: PendingLevel[] }>('/api/admin/levels/pending', {
+    query: { source: props.source },
+  })
   items.value = res.items
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
@@ -194,6 +204,9 @@ async function load() {
   }
 }
 onMounted(load)
+// Reload when the parent swaps tabs without unmounting (admin.vue v-if guards
+// against this, but be defensive in case of future refactors).
+watch(() => props.source, load)
 
 watch(selected, async (s) => {
   preview.value = null
@@ -407,7 +420,7 @@ watch(preview, (p) => {
     <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <div class="flex items-baseline justify-between mb-2">
-          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Pending levels</p>
+          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
           <p class="text-[11px] text-zinc-600">
             {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> waiting
           </p>
@@ -552,7 +565,7 @@ watch(preview, (p) => {
                 >Void</span>
               </div>
               <div class="text-[11px] text-zinc-500 truncate">
-                #{{ r.gd_id ?? '?' }} · by {{ r.submitter ?? 'unknown' }}
+                #{{ r.gd_id ?? '?' }} · {{ r.from_gdl_id ? 'GDL import' : `by ${r.submitter ?? 'unknown'}` }}
               </div>
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
                 <span
@@ -574,8 +587,8 @@ watch(preview, (p) => {
             </button>
           </li>
         </ul>
-        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} pending.</div>
-        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No pending submissions.</div>
+        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} {{ isImported ? 'imported' : 'pending' }}.</div>
+        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">{{ isImported ? 'No imported levels to review.' : 'No pending submissions.' }}</div>
       </div>
     </aside>
 
@@ -588,10 +601,15 @@ watch(preview, (p) => {
         <header>
           <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
           <p class="text-xs text-zinc-500 mt-1">
-            Submitted by
-            <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
-            <span v-else>unknown</span>
-            · {{ selected.submitted_at }}
+            <template v-if="selected.from_gdl_id">
+              Imported from GDL · {{ selected.submitted_at }}
+            </template>
+            <template v-else>
+              Submitted by
+              <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
+              <span v-else>unknown</span>
+              · {{ selected.submitted_at }}
+            </template>
           </p>
         </header>
 

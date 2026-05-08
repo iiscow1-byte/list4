@@ -256,6 +256,15 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'tentative_placement')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
   }
+  // GDL-imported pending rows: levels auto-pulled from the GDL API that aren't
+  // on the ALL list yet. The unique index keeps the importer idempotent — a
+  // re-run for the same gdl_id is a no-op even if the curator has edited the
+  // row in the meantime.
+  if (!pcols.some((c) => c.name === 'from_gdl_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_gdl_id INTEGER`)
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdl
+             ON pending_levels(from_gdl_id) WHERE from_gdl_id IS NOT NULL`)
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
