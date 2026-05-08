@@ -286,9 +286,16 @@ export default defineEventHandler((event) => {
       }
     }
     // Order sources for stable display: aredl first, pc, gdl, then alllist.
+    // Points: prefer the player's ALL-list standing when known, but fall back
+    // to whatever the primary source contributed when the player isn't on the
+    // ALL list. The earlier behaviour zero'd these out unconditionally, which
+    // made the column read "0" for every external-only player.
     for (const row of merged.values()) {
       row.sources.sort((a, b) => SOURCE_RANK[a] - SOURCE_RANK[b])
-      row.points = allPointsMap.get(row.player.toLowerCase()) ?? 0
+      const allPts = allPointsMap.get(row.player.toLowerCase())
+      if (allPts != null) row.points = allPts
+      // else: keep `row.points` as-is (the primary source's value carried
+      // through from the original push above).
     }
     const mergedRows = Array.from(merged.values())
 

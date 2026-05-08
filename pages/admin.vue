@@ -13,7 +13,7 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'open-verifications' | 'claims' | 'accounts' | 'discord'
+type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'open-verifications' | 'imports' | 'claims' | 'accounts' | 'discord'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
@@ -22,6 +22,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
   { id: 'movements',          label: 'Movements',       adminOnly: false },
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
+  { id: 'imports',            label: 'Imports',         adminOnly: true },
   { id: 'claims',             label: 'Claims',          adminOnly: true },
   { id: 'accounts',           label: 'Accounts',        adminOnly: true },
   { id: 'discord',            label: 'Discord',         adminOnly: true },
@@ -248,6 +249,78 @@ async function postNow() {
   }
 }
 
+// --- Imports tab state ---
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'aredl' | 'pointercrate' | 'gsv'
+type ImportSource = {
+  key: ImportSourceKey
+  label: string
+  description: string
+  // Sources that don't write to pending_levels can't have anything to clear.
+  pendingKey: 'sheet' | 'gdl' | 'tsl' | 'edi' | null
+}
+const IMPORT_SOURCES: ImportSource[] = [
+  { key: 'sheet',         label: 'Source spreadsheet (full re-import)', description: 'Re-runs the entire sheet importer: levels, leaderboard, stats viewer, void list, and pending list.', pendingKey: 'sheet' },
+  { key: 'sheet-pending', label: 'Sheet pending list',                  description: 'Just the "Pending List" tab — feeds the imported-levels review queue.',                                  pendingKey: 'sheet' },
+  { key: 'gdl',           label: 'Geometry Dash List (GDL)',            description: 'Pulls extreme demons from the GDL API into the imported-levels queue.',                                  pendingKey: 'gdl' },
+  { key: 'tsl',           label: 'The Shitty List Plus (TSL)',          description: 'Mirrors the TSL placements into the imported-levels queue.',                                              pendingKey: 'tsl' },
+  { key: 'edi',           label: 'EDI list',                            description: 'Mirrors the EDI list placements into the imported-levels queue.',                                        pendingKey: 'edi' },
+  { key: 'aredl',         label: 'AREDL (records / players)',           description: 'Refreshes the AREDL player roster and records. Does not feed the pending queue.',                         pendingKey: null },
+  { key: 'pointercrate',  label: 'Pointercrate (records / players)',    description: 'Refreshes the Pointercrate player roster. Does not feed the pending queue.',                              pendingKey: null },
+  { key: 'gsv',           label: 'Global Stats Viewer (records)',       description: 'Refreshes records from the Global Stats Viewer. Does not feed the pending queue.',                        pendingKey: null },
+]
+
+const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[] }>({
+  pendingCounts: {}, running: [],
+})
+const importBusy = reactive<Record<string, boolean>>({})
+
+async function loadImportsStatus() {
+  if (!isAdmin.value) return
+  try {
+    importsStatus.value = await $fetch('/api/admin/imports/status')
+  } catch { /* non-fatal */ }
+}
+
+async function runImport(source: ImportSourceKey) {
+  if (importBusy[source]) return
+  importBusy[source] = true
+  try {
+    await $fetch('/api/admin/imports/run', { method: 'POST', body: { source } })
+    flash('ok', `Started ${source} import.`)
+    await loadImportsStatus()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  } finally {
+    importBusy[source] = false
+  }
+}
+
+async function clearPending(source: 'sheet' | 'gdl' | 'tsl' | 'edi') {
+  const count = importsStatus.value.pendingCounts[source] ?? 0
+  if (count === 0) { flash('ok', 'Nothing to clear.'); return }
+  if (!confirm(`Delete ${count} unaccepted pending level${count === 1 ? '' : 's'} imported from ${source}? This can't be undone.`)) return
+  try {
+    const res = await $fetch<{ deleted: number }>('/api/admin/imports/clear-pending', {
+      method: 'POST', body: { source },
+    })
+    flash('ok', `Removed ${res.deleted} unaccepted level${res.deleted === 1 ? '' : 's'}.`)
+    await loadImportsStatus()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+let importsTimer: ReturnType<typeof setInterval> | null = null
+watch(tab, (t) => {
+  if (importsTimer) { clearInterval(importsTimer); importsTimer = null }
+  // Poll the status endpoint while the imports tab is open so the running
+  // indicator and pending counts refresh without the admin reloading.
+  if (t === 'imports' && import.meta.client) {
+    importsTimer = setInterval(loadImportsStatus, 5_000)
+  }
+}, { immediate: true })
+onBeforeUnmount(() => { if (importsTimer) clearInterval(importsTimer) })
+
 // --- Notification counts ---
 // Declared before the watch(tab) below so the immediate callback doesn't hit
 // a temporal dead zone when it references liveCounts / seenCounts.
@@ -260,6 +333,7 @@ watch(tab, (t) => {
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
   if (t === 'discord')  loadWebhooks()
+  if (t === 'imports')  loadImportsStatus()
   // Mark tab as seen so its badge clears, and persist to server
   if (liveCounts.value) {
     const n = liveCounts.value[t as keyof typeof liveCounts.value] ?? 0
@@ -494,6 +568,58 @@ async function setClaim(u: AdminUser) {
 
     <!-- Open verifications tab — pending unverified-level submissions -->
     <AdminOpenVerificationsReview v-else-if="tab === 'open-verifications'" class="flex-1 min-h-0" />
+
+    <!-- Imports tab — manually re-run any of the data importers and clear
+         out unaccepted pending rows from each source. -->
+    <div v-else-if="tab === 'imports'" class="flex-1 overflow-y-auto">
+      <div class="container-tight py-8 max-w-4xl space-y-4">
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-base font-semibold tracking-tight">Manage imports</h2>
+          <p class="text-xs text-zinc-500 mt-1">
+            Re-run any source importer manually, or wipe its unaccepted pending submissions.
+            Importers are idempotent — re-running won't create duplicates.
+            Imports start in the background; the running indicator and pending counts refresh every few seconds.
+          </p>
+        </section>
+        <ul class="space-y-2">
+          <li
+            v-for="src in IMPORT_SOURCES"
+            :key="src.key"
+            class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3"
+          >
+            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h3 class="text-sm font-medium text-zinc-100">{{ src.label }}</h3>
+              <span
+                v-if="importsStatus.running.includes(src.key)"
+                class="text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 animate-pulse"
+              >Running</span>
+              <span
+                v-if="src.pendingKey != null"
+                class="text-[11px] text-zinc-500 tabular-nums"
+              >
+                {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
+              </span>
+            </div>
+            <p class="text-xs text-zinc-500 mt-1">{{ src.description }}</p>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                :disabled="importBusy[src.key] || importsStatus.running.includes(src.key)"
+                class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                @click="runImport(src.key)"
+              >{{ importsStatus.running.includes(src.key) ? 'Running…' : 'Reimport' }}</button>
+              <button
+                v-if="src.pendingKey != null"
+                type="button"
+                :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
+                class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                @click="clearPending(src.pendingKey)"
+              >Remove unaccepted</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
 
     <!-- Claims tab -->
     <div v-else-if="tab === 'claims'" class="flex-1 overflow-y-auto">
