@@ -253,6 +253,11 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
       if (above && below) placementEstimate = Math.round((above.position + below.position) / 2)
       else if (above) placementEstimate = above.position + 1
       else if (below) placementEstimate = Math.max(1, below.position - 1)
+      // Top-of-list extremes have ALL-positions close to their source-list
+      // positions, so the midpoint can coincidentally equal the source rank.
+      // Drop the suggestion in that case — using the source-list position as a
+      // placement on our list would be misleading.
+      if (placementEstimate === lv.position) placementEstimate = null
 
       const notes = `Imported from ${cfg.displayName} · placement #${lv.position}`
       const result = insPending.run(
