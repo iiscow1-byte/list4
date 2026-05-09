@@ -705,28 +705,49 @@ const gdlEstimatedData = ref<EstimatedGdlPlacement | null>(null)
 const gdlEstimatedLoading = ref(false)
 const gdlEstimatedFetched = ref(false)
 
+type EstimatedClPlacement = {
+  estimated_cl: number | null
+  bracket: {
+    above: { position: number; name: string; challenge_list_position: number } | null
+    below: { position: number; name: string; challenge_list_position: number } | null
+  }
+}
+const clEstimatedData = ref<EstimatedClPlacement | null>(null)
+const clEstimatedLoading = ref(false)
+const clEstimatedFetched = ref(false)
+
 function onOtherListsToggle(e: Event) {
   const open = (e.target as HTMLDetailsElement).open
   if (!open) return
-  if (!isExtremeLevel.value) return
 
   const hasAredl = props.level.other_lists?.some((entry) => entry.list === 'AREDL')
   const hasGdl = props.level.other_lists?.some((entry) => entry.list === 'GDL')
+  const hasCl = props.level.other_lists?.some((entry) => entry.list === 'Challenge List')
 
-  if (!hasAredl && !estimatedFetched.value) {
-    estimatedLoading.value = true
-    $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
-      .then((data) => { estimatedData.value = data; estimatedFetched.value = true })
-      .catch(() => { estimatedData.value = null })
-      .finally(() => { estimatedLoading.value = false })
+  if (isExtremeLevel.value) {
+    if (!hasAredl && !estimatedFetched.value) {
+      estimatedLoading.value = true
+      $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
+        .then((data) => { estimatedData.value = data; estimatedFetched.value = true })
+        .catch(() => { estimatedData.value = null })
+        .finally(() => { estimatedLoading.value = false })
+    }
+
+    if (!hasGdl && !gdlEstimatedFetched.value) {
+      gdlEstimatedLoading.value = true
+      $fetch<EstimatedGdlPlacement>(`/api/levels/${props.level.position}/estimated-gdl-placement`)
+        .then((data) => { gdlEstimatedData.value = data; gdlEstimatedFetched.value = true })
+        .catch(() => { gdlEstimatedData.value = null })
+        .finally(() => { gdlEstimatedLoading.value = false })
+    }
   }
 
-  if (!hasGdl && !gdlEstimatedFetched.value) {
-    gdlEstimatedLoading.value = true
-    $fetch<EstimatedGdlPlacement>(`/api/levels/${props.level.position}/estimated-gdl-placement`)
-      .then((data) => { gdlEstimatedData.value = data; gdlEstimatedFetched.value = true })
-      .catch(() => { gdlEstimatedData.value = null })
-      .finally(() => { gdlEstimatedLoading.value = false })
+  if (isChallengeLevel.value && !hasCl && !clEstimatedFetched.value) {
+    clEstimatedLoading.value = true
+    $fetch<EstimatedClPlacement>(`/api/levels/${props.level.position}/estimated-cl-placement`)
+      .then((data) => { clEstimatedData.value = data; clEstimatedFetched.value = true })
+      .catch(() => { clEstimatedData.value = null })
+      .finally(() => { clEstimatedLoading.value = false })
   }
 }
 
@@ -736,6 +757,8 @@ watch(() => props.level.position, () => {
   estimatedFetched.value = false
   gdlEstimatedData.value = null
   gdlEstimatedFetched.value = false
+  clEstimatedData.value = null
+  clEstimatedFetched.value = false
 })
 
 const deletingHistoryId = ref<number | null>(null)
@@ -1627,6 +1650,32 @@ const historyByDay = computed(() => {
                 </p>
                 <p v-else class="text-[11px] text-zinc-600">No nearby AREDL-ranked levels found for estimation.</p>
               </template>
+            </template>
+          </template>
+        </div>
+
+        <!-- CL estimation — only for challenge levels (Tier 21+) not already ranked -->
+        <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.list === 'Challenge List')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <div v-if="clEstimatedLoading" class="text-xs text-zinc-600">Loading Challenge List estimate…</div>
+          <template v-else-if="clEstimatedData">
+            <template v-if="clEstimatedData.estimated_cl">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
+                <span class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
+              </div>
+              <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
+                Based on nearby ranked levels:
+                <template v-if="clEstimatedData.bracket.above">
+                  <NuxtLink :to="`/levels/${clEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.above.name }}</NuxtLink>
+                  (CL #{{ clEstimatedData.bracket.above.challenge_list_position }})
+                </template>
+                <template v-if="clEstimatedData.bracket.above && clEstimatedData.bracket.below"> — </template>
+                <template v-if="clEstimatedData.bracket.below">
+                  <NuxtLink :to="`/levels/${clEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.below.name }}</NuxtLink>
+                  (CL #{{ clEstimatedData.bracket.below.challenge_list_position }})
+                </template>
+              </p>
+              <p v-else class="text-[11px] text-zinc-600">No nearby Challenge List-ranked levels found for estimation.</p>
             </template>
           </template>
         </div>
