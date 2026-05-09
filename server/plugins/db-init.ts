@@ -5,6 +5,7 @@ import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importGsv } from '~/server/db/import-gsv'
 import { importTsl } from '~/server/db/import-tsl'
 import { importEdi } from '~/server/db/import-edi'
+import { importCcl } from '~/server/db/import-ccl'
 
 /**
  * On boot, if the levels table is empty, kick off a background import of the
@@ -71,6 +72,10 @@ export default defineNitroPlugin(() => {
       if (process.env.LIST_SKIP_EDI_IMPORT !== '1') {
         console.log('[db-init] running EDI import in background (refresh on restart)')
         await importEdi().catch((err) => console.error('[db-init] edi import failed:', err))
+      }
+      if (process.env.LIST_SKIP_CCL_IMPORT !== '1') {
+        console.log('[db-init] running CCL import in background (refresh on restart)')
+        await importCcl().catch((err) => console.error('[db-init] ccl import failed:', err))
       }
     })
 })
