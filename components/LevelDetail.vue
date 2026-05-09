@@ -712,33 +712,26 @@ const clEstimatedData = ref<EstimatedClPlacement | null>(null)
 const clEstimatedLoading = ref(false)
 const clEstimatedFetched = ref(false)
 
-function onOtherListsToggle(e: Event) {
-  const open = (e.target as HTMLDetailsElement).open
-  if (!open) return
+function fetchAredlEstimate() {
+  if (!isExtremeLevel.value) return
+  if (props.level.other_lists?.some((e) => e.list === 'AREDL')) return
+  if (estimatedFetched.value) return
+  estimatedLoading.value = true
+  $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
+    .then((data) => { estimatedData.value = data; estimatedFetched.value = true })
+    .catch(() => { estimatedData.value = null })
+    .finally(() => { estimatedLoading.value = false })
+}
 
-  const hasAredl = props.level.other_lists?.some((entry) => entry.list === 'AREDL')
-  const hasGdl = props.level.other_lists?.some((entry) => entry.list === 'GDL')
-  const hasCl = props.level.other_lists?.some((entry) => entry.list === 'Challenge List')
-
-  if (isExtremeLevel.value) {
-    if (!hasAredl && !estimatedFetched.value) {
-      estimatedLoading.value = true
-      $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
-        .then((data) => { estimatedData.value = data; estimatedFetched.value = true })
-        .catch(() => { estimatedData.value = null })
-        .finally(() => { estimatedLoading.value = false })
-    }
-
-    if (!hasGdl && !gdlEstimatedFetched.value) {
-      gdlEstimatedLoading.value = true
-      $fetch<EstimatedGdlPlacement>(`/api/levels/${props.level.position}/estimated-gdl-placement`)
-        .then((data) => { gdlEstimatedData.value = data; gdlEstimatedFetched.value = true })
-        .catch(() => { gdlEstimatedData.value = null })
-        .finally(() => { gdlEstimatedLoading.value = false })
-    }
-  }
-
-  fetchClEstimate()
+function fetchGdlEstimate() {
+  if (!isExtremeLevel.value) return
+  if (props.level.other_lists?.some((e) => e.list === 'GDL')) return
+  if (gdlEstimatedFetched.value) return
+  gdlEstimatedLoading.value = true
+  $fetch<EstimatedGdlPlacement>(`/api/levels/${props.level.position}/estimated-gdl-placement`)
+    .then((data) => { gdlEstimatedData.value = data; gdlEstimatedFetched.value = true })
+    .catch(() => { gdlEstimatedData.value = null })
+    .finally(() => { gdlEstimatedLoading.value = false })
 }
 
 function fetchClEstimate() {
@@ -752,7 +745,14 @@ function fetchClEstimate() {
     .finally(() => { clEstimatedLoading.value = false })
 }
 
-// Reset when navigating to a different level
+function onOtherListsToggle(e: Event) {
+  if (!(e.target as HTMLDetailsElement).open) return
+  fetchAredlEstimate()
+  fetchGdlEstimate()
+  fetchClEstimate()
+}
+
+// Fetch all estimates on level load (covers pre-opened panel and SSR)
 watch(() => props.level.position, () => {
   estimatedData.value = null
   estimatedFetched.value = false
@@ -760,6 +760,8 @@ watch(() => props.level.position, () => {
   gdlEstimatedFetched.value = false
   clEstimatedData.value = null
   clEstimatedFetched.value = false
+  fetchAredlEstimate()
+  fetchGdlEstimate()
   fetchClEstimate()
 }, { immediate: true })
 
@@ -1573,96 +1575,87 @@ const historyByDay = computed(() => {
           </li>
         </ul>
 
-        <!-- GDL estimation — only for extreme levels not already on GDL -->
-        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'GDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <div v-if="gdlEstimatedLoading" class="text-xs text-zinc-600">Loading GDL estimate…</div>
-          <template v-else-if="gdlEstimatedData">
-            <template v-if="gdlEstimatedData.bracket.above && !gdlEstimatedData.bracket.below">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-400">GDL</span>
-                <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-              </div>
-            </template>
-            <template v-else-if="gdlEstimatedData.estimated_gdl">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-300">GDL (estimated)</span>
-                <span class="tabular-nums text-base text-zinc-400">~#{{ gdlEstimatedData.estimated_gdl }}</span>
-              </div>
-              <p v-if="gdlEstimatedData.bracket.above || gdlEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                Based on:
-                <template v-if="gdlEstimatedData.bracket.above">
-                  <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.above.name }}</NuxtLink>
-                  (GDL #{{ gdlEstimatedData.bracket.above.gdl_position }})
-                </template>
-                <template v-if="gdlEstimatedData.bracket.above && gdlEstimatedData.bracket.below"> — </template>
-                <template v-if="gdlEstimatedData.bracket.below">
-                  <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.below.name }}</NuxtLink>
-                  (GDL #{{ gdlEstimatedData.bracket.below.gdl_position }})
-                </template>
-              </p>
-            </template>
+        <!-- GDL estimation — only for extreme levels not already on GDL, shown once data arrives -->
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'GDL') && gdlEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <template v-if="gdlEstimatedData.bracket.above && !gdlEstimatedData.bracket.below">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-400">GDL</span>
+              <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
+            </div>
+          </template>
+          <template v-else-if="gdlEstimatedData.estimated_gdl">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-300">GDL (estimated)</span>
+              <span class="tabular-nums text-base text-zinc-400">~#{{ gdlEstimatedData.estimated_gdl }}</span>
+            </div>
+            <p v-if="gdlEstimatedData.bracket.above || gdlEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
+              Based on:
+              <template v-if="gdlEstimatedData.bracket.above">
+                <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.above.name }}</NuxtLink>
+                (GDL #{{ gdlEstimatedData.bracket.above.gdl_position }})
+              </template>
+              <template v-if="gdlEstimatedData.bracket.above && gdlEstimatedData.bracket.below"> — </template>
+              <template v-if="gdlEstimatedData.bracket.below">
+                <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.below.name }}</NuxtLink>
+                (GDL #{{ gdlEstimatedData.bracket.below.gdl_position }})
+              </template>
+            </p>
           </template>
         </div>
 
-        <!-- AREDL estimation — only for extreme levels not already on AREDL -->
-        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading AREDL estimate…</div>
-          <template v-else-if="estimatedData">
-            <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-400">AREDL</span>
-                <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-              </div>
-            </template>
-            <template v-else-if="estimatedData.estimated_aredl">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
-                <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
-              </div>
-              <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                Based on:
-                <template v-if="estimatedData.bracket.above">
-                  <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
-                  (AREDL #{{ estimatedData.bracket.above.aredl_position }})
-                </template>
-                <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
-                <template v-if="estimatedData.bracket.below">
-                  <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.below.name }}</NuxtLink>
-                  (AREDL #{{ estimatedData.bracket.below.aredl_position }})
-                </template>
-              </p>
-            </template>
+        <!-- AREDL estimation — only for extreme levels not already on AREDL, shown once data arrives -->
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'AREDL') && estimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-400">AREDL</span>
+              <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
+            </div>
+          </template>
+          <template v-else-if="estimatedData.estimated_aredl">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
+              <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
+            </div>
+            <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
+              Based on:
+              <template v-if="estimatedData.bracket.above">
+                <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
+                (AREDL #{{ estimatedData.bracket.above.aredl_position }})
+              </template>
+              <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
+              <template v-if="estimatedData.bracket.below">
+                <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.below.name }}</NuxtLink>
+                (AREDL #{{ estimatedData.bracket.below.aredl_position }})
+              </template>
+            </p>
           </template>
         </div>
 
-        <!-- CL estimation — only for challenge levels not already on CL -->
-        <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.list === 'Challenge List')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <div v-if="clEstimatedLoading" class="text-xs text-zinc-600">Loading Challenge List estimate…</div>
-          <template v-else-if="clEstimatedData">
-            <template v-if="clEstimatedData.estimated_cl">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
-                <span class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
-              </div>
-              <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                Based on:
-                <template v-if="clEstimatedData.bracket.above">
-                  <NuxtLink :to="`/levels/${clEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.above.name }}</NuxtLink>
-                  (CL #{{ clEstimatedData.bracket.above.challenge_list_position }})
-                </template>
-                <template v-if="clEstimatedData.bracket.above && clEstimatedData.bracket.below"> — </template>
-                <template v-if="clEstimatedData.bracket.below">
-                  <NuxtLink :to="`/levels/${clEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.below.name }}</NuxtLink>
-                  (CL #{{ clEstimatedData.bracket.below.challenge_list_position }})
-                </template>
-              </p>
-            </template>
-            <template v-else>
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-400">Challenge List</span>
-                <span class="ml-auto text-sm text-zinc-500 italic">No estimate available</span>
-              </div>
-            </template>
+        <!-- CL estimation — only for challenge levels not already on CL, shown once data arrives -->
+        <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.list === 'Challenge List') && clEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <template v-if="clEstimatedData.estimated_cl">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
+              <span class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
+            </div>
+            <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
+              Based on:
+              <template v-if="clEstimatedData.bracket.above">
+                <NuxtLink :to="`/levels/${clEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.above.name }}</NuxtLink>
+                (CL #{{ clEstimatedData.bracket.above.challenge_list_position }})
+              </template>
+              <template v-if="clEstimatedData.bracket.above && clEstimatedData.bracket.below"> — </template>
+              <template v-if="clEstimatedData.bracket.below">
+                <NuxtLink :to="`/levels/${clEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.below.name }}</NuxtLink>
+                (CL #{{ clEstimatedData.bracket.below.challenge_list_position }})
+              </template>
+            </p>
+          </template>
+          <template v-else>
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium text-zinc-400">Challenge List</span>
+              <span class="ml-auto text-sm text-zinc-500 italic">No estimate available</span>
+            </div>
           </template>
         </div>
 
