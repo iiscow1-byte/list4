@@ -250,7 +250,7 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'pointercrate' | 'gsv'
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'pointercrate' | 'gsv' | 'cl'
 type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl'
 type ImportSource = {
   key: ImportSourceKey
@@ -283,14 +283,19 @@ const IMPORT_GROUPS: ImportGroup[] = [
   {
     heading: 'Records & players',
     sources: [
-      { key: 'aredl',        label: 'AREDL',          pendingKey: null },
-      { key: 'pointercrate', label: 'Pointercrate',   pendingKey: null },
-      { key: 'gsv',          label: 'Stats Viewer',   pendingKey: null },
+      { key: 'aredl',        label: 'AREDL',           pendingKey: null },
+      { key: 'pointercrate', label: 'Pointercrate',    pendingKey: null },
+      { key: 'cl',           label: 'Challenge List',  pendingKey: null },
+      { key: 'gsv',          label: 'Stats Viewer',    pendingKey: null },
     ],
   },
 ]
 // Flat list kept for functions that need to iterate all sources.
 const IMPORT_SOURCES = IMPORT_GROUPS.flatMap(g => g.sources)
+// All groups start open; admins can collapse any section they're not using.
+const groupsOpen = reactive<Record<string, boolean>>(
+  Object.fromEntries(IMPORT_GROUPS.map(g => [g.heading, true])),
+)
 
 const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[] }>({
   pendingCounts: {}, running: [],
@@ -635,16 +640,27 @@ async function setClaim(u: AdminUser) {
           </button>
         </div>
 
-        <!-- Grouped source tables -->
+        <!-- Grouped source tables — each group is collapsible -->
         <section
           v-for="group in IMPORT_GROUPS"
           :key="group.heading"
           class="rounded-md border border-zinc-800 bg-zinc-950/60 overflow-hidden"
         >
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-4 py-2 border-b border-zinc-800 bg-zinc-900/40">
-            {{ group.heading }}
-          </h3>
-          <ul class="divide-y divide-zinc-900/60">
+          <!-- Group heading / toggle -->
+          <button
+            type="button"
+            class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-zinc-900/40 hover:bg-zinc-900/70 transition-colors text-left"
+            @click="groupsOpen[group.heading] = !groupsOpen[group.heading]"
+          >
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ group.heading }}</span>
+            <span
+              class="text-zinc-600 transition-transform text-[11px]"
+              :class="groupsOpen[group.heading] ? 'rotate-180' : ''"
+            >▾</span>
+          </button>
+
+          <!-- Rows (collapsed when group toggled) -->
+          <ul v-if="groupsOpen[group.heading]" class="divide-y divide-zinc-900/60 border-t border-zinc-800">
             <li
               v-for="src in group.sources"
               :key="src.key"
@@ -664,7 +680,7 @@ async function setClaim(u: AdminUser) {
                   {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
                 </template>
                 <template v-else>
-                  <span class="text-zinc-700">records only</span>
+                  <span class="text-zinc-700">positions only</span>
                 </template>
               </span>
               <!-- Actions -->

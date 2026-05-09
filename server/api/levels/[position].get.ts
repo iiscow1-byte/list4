@@ -180,6 +180,13 @@ export default defineEventHandler((event) => {
       url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
     })
   }
+  if (level.challenge_list_position != null && level.challenge_list_position <= 20) {
+    other_lists.push({
+      list: 'Challenge List',
+      position: level.challenge_list_position,
+      url: `https://challengelist.gd/demonlist/${level.challenge_list_position}/`,
+    })
+  }
 
   const challengeRow = db.prepare(
     `SELECT CASE WHEN ${IS_CHALLENGE_L}

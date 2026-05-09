@@ -861,6 +861,8 @@ function initSchema(db: DatabaseSync) {
 
   if (!has('pointercrate_position')) db.exec(`ALTER TABLE levels ADD COLUMN pointercrate_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_pc_position ON levels(pointercrate_position)`)
+  if (!has('challenge_list_position')) db.exec(`ALTER TABLE levels ADD COLUMN challenge_list_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_cl_position ON levels(challenge_list_position)`)
 
   const accCols3 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols3.some((c) => c.name === 'claimed_pointercrate_id')) {

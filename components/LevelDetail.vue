@@ -666,11 +666,16 @@ const isExtremeLevel = computed(() =>
   !!props.level.difficulty?.toLowerCase().includes('extreme')
 )
 
-// GDL/AREDL placements are suppressed (replaced by NLW) for non-extreme levels.
+const isChallengeLevel = computed(() => props.level.rated === 'Challenge')
+
+// GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
 const visibleOtherLists = computed(() => {
   const lists = props.level.other_lists ?? []
-  if (isExtremeLevel.value) return lists
-  return lists.filter((e) => e.list !== 'GDL' && e.list !== 'AREDL')
+  return lists.filter((e) => {
+    if (e.list === 'GDL' || e.list === 'AREDL') return isExtremeLevel.value
+    if (e.list === 'Challenge List') return isChallengeLevel.value
+    return true
+  })
 })
 
 type EstimatedPlacement = {

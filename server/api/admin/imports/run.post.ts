@@ -11,6 +11,7 @@ import { importTcl } from '~/server/db/import-tcl'
 import { importSfl } from '~/server/db/import-sfl'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
+import { importCl } from '~/server/db/import-cl'
 import { importGsv } from '~/server/db/import-gsv'
 
 const RUNNERS: Record<string, () => Promise<void>> = {
@@ -26,6 +27,7 @@ const RUNNERS: Record<string, () => Promise<void>> = {
   'sfl':           async () => { await importSfl() },
   'aredl':         async () => { await importAredl() },
   'pointercrate':  async () => { await importPointercrate() },
+  'cl':            async () => { await importCl() },
   'gsv':           async () => { await importGsv() },
 }
 
