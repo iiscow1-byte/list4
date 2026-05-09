@@ -251,7 +251,7 @@ async function postNow() {
 
 // --- Imports tab state ---
 type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'pointercrate' | 'gsv' | 'cl'
-type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl'
+type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl'
 type ImportSource = {
   key: ImportSourceKey
   label: string
@@ -277,16 +277,16 @@ const IMPORT_GROUPS: ImportGroup[] = [
       { key: 'll',   label: 'LL',   pendingKey: 'll'  },
       { key: 'tcl',  label: 'TCL',  pendingKey: 'tcl' },
       { key: 'sfl',  label: 'SFL',  pendingKey: 'sfl' },
-      { key: 'ddl',  label: 'DDL',  pendingKey: 'ddl' },
+      { key: 'ddl',  label: 'DDL',             pendingKey: 'ddl' },
+      { key: 'cl',   label: 'Challenge List',  pendingKey: 'cl'  },
     ],
   },
   {
     heading: 'Records & players',
     sources: [
-      { key: 'aredl',        label: 'AREDL',           pendingKey: null },
-      { key: 'pointercrate', label: 'Pointercrate',    pendingKey: null },
-      { key: 'cl',           label: 'Challenge List',  pendingKey: null },
-      { key: 'gsv',          label: 'Stats Viewer',    pendingKey: null },
+      { key: 'aredl',        label: 'AREDL',        pendingKey: null },
+      { key: 'pointercrate', label: 'Pointercrate', pendingKey: null },
+      { key: 'gsv',          label: 'Stats Viewer', pendingKey: null },
     ],
   },
 ]

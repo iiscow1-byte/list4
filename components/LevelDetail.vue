@@ -666,7 +666,12 @@ const isExtremeLevel = computed(() =>
   !!props.level.difficulty?.toLowerCase().includes('extreme')
 )
 
-const isChallengeLevel = computed(() => props.level.rated === 'Challenge')
+const isChallengeLevel = computed(() => {
+  const isChallenge = props.level.rated === 'Challenge' || isChallengeSource(props.level.placement_source)
+  if (!isChallenge) return false
+  const m = (props.level.gddl_tier ?? '').match(/^Tier (\d+)$/)
+  return m != null && Number(m[1]) > 20
+})
 
 // GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
 const visibleOtherLists = computed(() => {

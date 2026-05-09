@@ -180,7 +180,7 @@ export default defineEventHandler((event) => {
       url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
     })
   }
-  if (level.challenge_list_position != null && level.challenge_list_position <= 20) {
+  if (level.challenge_list_position != null) {
     other_lists.push({
       list: 'Challenge List',
       position: level.challenge_list_position,

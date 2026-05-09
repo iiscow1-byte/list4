@@ -33,6 +33,9 @@ const SELECTORS: Record<string, { sql: string; params?: any[] }> = {
   'ddl': {
     sql: `status = 'pending' AND from_gdtpl_id IN (SELECT id FROM gdtpl_levels WHERE list_slug = 'ddl')`,
   },
+  'cl': {
+    sql: `status = 'pending' AND from_gdtpl_id IN (SELECT id FROM gdtpl_levels WHERE list_slug = 'cl')`,
+  },
   'all': {
     sql: `status = 'pending' AND (from_sheet_pending = 1 OR from_gdl_id IS NOT NULL OR from_gdtpl_id IS NOT NULL)`,
   },
