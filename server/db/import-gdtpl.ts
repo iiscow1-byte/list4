@@ -242,24 +242,40 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
     author: string | null; verifier: string | null; verification_url: string | null
   }>
 
-  // Position estimate: midpoint between the surrounding ALL-list neighbors
-  // (looked up via the same gdtpl_levels.list_slug). Falls back to ±1 from a
-  // single-sided neighbor when this level is harder/easier than anything ALL
-  // already knows about on this source list.
-  const findAbove = db.prepare(
-    `SELECT l.position
+  // Prefetch all source-list levels that are *also* on the ALL list, sorted by
+  // source-list position. We binary-search this array per pending row instead
+  // of running 4 join-against-52k-row SELECTs for every iteration — node:sqlite
+  // is synchronous, and per-row queries inside one big transaction starve the
+  // event loop (no HTTP request returns for the duration of the import).
+  type Neighbour = { sourcePos: number; allPos: number; tier: string | null }
+  const sharedAll: Neighbour[] = (db.prepare(
+    `SELECT g.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
        FROM gdtpl_levels g
        JOIN levels l ON l.gd_id = g.gd_id
-      WHERE g.list_slug = ? AND g.position < ?
-      ORDER BY g.position DESC LIMIT 1`,
-  )
-  const findBelow = db.prepare(
-    `SELECT l.position
-       FROM gdtpl_levels g
-       JOIN levels l ON l.gd_id = g.gd_id
-      WHERE g.list_slug = ? AND g.position > ?
-      ORDER BY g.position ASC LIMIT 1`,
-  )
+      WHERE g.list_slug = ?
+      ORDER BY g.position ASC`,
+  ).all(cfg.source) as { source_pos: number; all_pos: number; tier: string | null }[])
+    .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier }))
+  // Tier estimation needs only neighbours that actually have a gddl_tier, so
+  // pre-filter once.
+  const sharedTiered: Neighbour[] = sharedAll.filter((n) => n.tier != null && n.tier.trim() !== '')
+
+  // Find first index in `arr` whose sourcePos is strictly greater than `pos`.
+  // arr must be sorted ascending by sourcePos.
+  function gtIdx(arr: Neighbour[], pos: number): number {
+    let lo = 0, hi = arr.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (arr[mid]!.sourcePos <= pos) lo = mid + 1
+      else hi = mid
+    }
+    return lo
+  }
+  function neighboursAt(arr: Neighbour[], pos: number): { above: Neighbour | null; below: Neighbour | null } {
+    const i = gtIdx(arr, pos)
+    return { above: i > 0 ? arr[i - 1]! : null, below: i < arr.length ? arr[i]! : null }
+  }
+
   // Conflict-target must repeat the partial-index WHERE clause for SQLite to
   // match `idx_pending_levels_from_gdtpl` (a unique-when-not-null index).
   const insPending = db.prepare(
@@ -269,24 +285,6 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
         status, submitted_at, from_gdtpl_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
      ON CONFLICT(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL DO NOTHING`,
-  )
-
-  // Tier estimate: same idea as the placement estimate, but in tier-ordinal
-  // space. Find the nearest source-list neighbours (above/below) that are
-  // *already on the ALL list and have a gddl_tier*, take the midpoint.
-  const findTierAbove = db.prepare(
-    `SELECT l.gddl_tier
-       FROM gdtpl_levels g
-       JOIN levels l ON l.gd_id = g.gd_id
-      WHERE g.list_slug = ? AND g.position < ? AND l.gddl_tier IS NOT NULL AND l.gddl_tier <> ''
-      ORDER BY g.position DESC LIMIT 1`,
-  )
-  const findTierBelow = db.prepare(
-    `SELECT l.gddl_tier
-       FROM gdtpl_levels g
-       JOIN levels l ON l.gd_id = g.gd_id
-      WHERE g.list_slug = ? AND g.position > ? AND l.gddl_tier IS NOT NULL AND l.gddl_tier <> ''
-      ORDER BY g.position ASC LIMIT 1`,
   )
 
   // Auto-reject imports whose verification URL already verifies a main-list
@@ -301,57 +299,67 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   let skippedDupVer = 0
   const placementSource = cfg.displayName
   const difficulty = cfg.defaultDifficulty ?? 'Extreme Demon'
-  db.exec('BEGIN')
-  try {
-    for (const lv of onlyHere) {
-      if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-      const above = findAbove.get(cfg.source, lv.position) as { position: number } | undefined
-      const below = findBelow.get(cfg.source, lv.position) as { position: number } | undefined
-      let placementEstimate: number | null = null
-      if (above && below) placementEstimate = Math.round((above.position + below.position) / 2)
-      else if (above) placementEstimate = above.position + 1
-      else if (below) placementEstimate = Math.max(1, below.position - 1)
-      // Top-of-list extremes have ALL-positions close to their source-list
-      // positions, so the midpoint can coincidentally equal the source rank.
-      // Drop the suggestion in that case — using the source-list position as a
-      // placement on our list would be misleading.
-      if (placementEstimate === lv.position) placementEstimate = null
+  // Batch the inserts so we yield to the event loop between batches. With one
+  // big transaction the site freezes (node:sqlite holds the writer for the
+  // whole loop and there are no awaits). 100 rows/batch keeps each blocking
+  // window short enough that HTTP requests stay responsive.
+  const BATCH_SIZE = 100
+  for (let i = 0; i < onlyHere.length; i += BATCH_SIZE) {
+    const slice = onlyHere.slice(i, i + BATCH_SIZE)
+    db.exec('BEGIN')
+    try {
+      for (const lv of slice) {
+        if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-      const aboveTier = (findTierAbove.get(cfg.source, lv.position) as { gddl_tier: string } | undefined)?.gddl_tier ?? null
-      const belowTier = (findTierBelow.get(cfg.source, lv.position) as { gddl_tier: string } | undefined)?.gddl_tier ?? null
-      const aboveOrd = tierToOrd(aboveTier)
-      const belowOrd = tierToOrd(belowTier)
-      let estimatedTier: string | null = null
-      if (aboveOrd != null && belowOrd != null) {
-        estimatedTier = ordToTier((aboveOrd + belowOrd) / 2)
-      } else if (aboveOrd != null) {
-        estimatedTier = ordToTier(aboveOrd)
-      } else if (belowOrd != null) {
-        estimatedTier = ordToTier(belowOrd)
+        const { above, below } = neighboursAt(sharedAll, lv.position)
+        let placementEstimate: number | null = null
+        if (above && below) placementEstimate = Math.round((above.allPos + below.allPos) / 2)
+        else if (above) placementEstimate = above.allPos + 1
+        else if (below) placementEstimate = Math.max(1, below.allPos - 1)
+        // Top-of-list extremes have ALL-positions close to their source-list
+        // positions, so the midpoint can coincidentally equal the source rank.
+        // Drop the suggestion in that case — using the source-list position as a
+        // placement on our list would be misleading.
+        if (placementEstimate === lv.position) placementEstimate = null
+
+        const { above: tAbove, below: tBelow } = neighboursAt(sharedTiered, lv.position)
+        const aboveOrd = tierToOrd(tAbove?.tier ?? null)
+        const belowOrd = tierToOrd(tBelow?.tier ?? null)
+        let estimatedTier: string | null = null
+        if (aboveOrd != null && belowOrd != null) {
+          estimatedTier = ordToTier((aboveOrd + belowOrd) / 2)
+        } else if (aboveOrd != null) {
+          estimatedTier = ordToTier(aboveOrd)
+        } else if (belowOrd != null) {
+          estimatedTier = ordToTier(belowOrd)
+        }
+
+        const notes = `Imported from ${cfg.displayName} · placement #${lv.position}`
+        const result = insPending.run(
+          lv.gd_id,
+          lv.name,
+          lv.verification_url,
+          lv.verifier,
+          difficulty,
+          notes,
+          placementSource,
+          placementEstimate,
+          estimatedTier,
+          estimatedTier ? 1 : 0,
+          now,
+          lv.id,
+        )
+        if (result.changes > 0) importedReview++
       }
-
-      const notes = `Imported from ${cfg.displayName} · placement #${lv.position}`
-      const result = insPending.run(
-        lv.gd_id,
-        lv.name,
-        lv.verification_url,
-        lv.verifier,
-        difficulty,
-        notes,
-        placementSource,
-        placementEstimate,
-        estimatedTier,
-        estimatedTier ? 1 : 0,
-        now,
-        lv.id,
-      )
-      if (result.changes > 0) importedReview++
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      throw err
     }
-    db.exec('COMMIT')
-  } catch (err) {
-    db.exec('ROLLBACK')
-    throw err
+    // Hand control back to the event loop so the running HTTP server can
+    // serve requests between write batches.
+    await new Promise<void>((r) => setImmediate(r))
   }
   console.log(`${tag}   ${importedReview} new pending_levels rows for admin review (${onlyHere.length} ${cfg.source}-only total, ${skippedDupVer} dup verification URL)`)
   console.log(`${tag} Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
