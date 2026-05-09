@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'place' | 'remove' | 'return' | 'save_placement' | 'update_video'
+    action: 'place' | 'remove' | 'return' | 'save_placement' | 'update_video' | 'save_metadata'
     placement?: number
     reason?: string
     gddl_tier?: string
@@ -27,8 +27,9 @@ export default defineEventHandler(async (event) => {
     alternate_of_id?: number | null
     tentative_placement?: boolean
     verification_url?: string | null
+    fields?: Record<string, unknown>
   }>(event)
-  const VALID_ACTIONS = new Set(['place', 'remove', 'return', 'save_placement', 'update_video'])
+  const VALID_ACTIONS = new Set(['place', 'remove', 'return', 'save_placement', 'update_video', 'save_metadata'])
   if (!VALID_ACTIONS.has(body.action)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
@@ -37,6 +38,28 @@ export default defineEventHandler(async (event) => {
   const db = getDb()
   const sub = db.prepare(`SELECT * FROM awaiting_levels WHERE id = ?`).get(id) as any
   if (!sub) throw createError({ statusCode: 404, statusMessage: 'Awaiting level not found.' })
+
+  if (body.action === 'save_metadata') {
+    // Whitelisted fields admins can edit on an awaiting row. `placement_suggestion`
+    // is intentionally excluded — it has its own save_placement action.
+    const ALLOWED = new Set([
+      'name', 'gd_id', 'verifier', 'verify_date', 'gddl_tier', 'difficulty',
+      'enjoyment', 'main_skillset', 'tags', 'notes',
+      'verification', 'verification_url', 'placement_source',
+    ])
+    const fields = body.fields ?? {}
+    const cols: string[] = []
+    const params: any[] = []
+    for (const [k, v] of Object.entries(fields)) {
+      if (!ALLOWED.has(k)) continue
+      cols.push(`${k} = ?`)
+      params.push(v === '' || v === undefined ? null : v)
+    }
+    if (cols.length === 0) return { ok: true, updated: 0 }
+    params.push(id)
+    const res = db.prepare(`UPDATE awaiting_levels SET ${cols.join(', ')} WHERE id = ?`).run(...params)
+    return { ok: true, updated: res.changes }
+  }
   // Resolve the original submitter via the linked pending row (we copied
   // pending_id when sending the level here in the first place).
   const submitterId: number | null = sub.pending_id

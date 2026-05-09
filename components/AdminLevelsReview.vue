@@ -439,6 +439,97 @@ function onFlagsAlternatePick(lvl: ListLevel) {
 const tierOverride = ref('')
 const difficultyOverride = ref('')
 const awaitPlacementSuggestion = ref('')
+
+// --- Inline metadata edit (mirrors LevelDetail's edit panel for the main list) ---
+const editing = ref(false)
+const editSaving = ref(false)
+const editError = ref<string | null>(null)
+type EditableMetadata = {
+  name: string
+  gd_id: string
+  verifier: string
+  verify_date: string
+  gddl_tier: string
+  difficulty: string
+  enjoyment: string
+  main_skillset: string
+  placement_source: string
+  rated: string
+  verification: string
+  verification_url: string
+  tags: string
+  notes: string
+}
+const editDraft = reactive<EditableMetadata>({
+  name: '', gd_id: '', verifier: '', verify_date: '',
+  gddl_tier: '', difficulty: '', enjoyment: '', main_skillset: '',
+  placement_source: '', rated: '',
+  verification: '', verification_url: '', tags: '', notes: '',
+})
+
+function startEdit() {
+  if (!selected.value) return
+  const s = selected.value
+  editDraft.name = s.name ?? ''
+  editDraft.gd_id = s.gd_id != null ? String(s.gd_id) : ''
+  editDraft.verifier = s.verifier ?? ''
+  editDraft.verify_date = s.verify_date ?? ''
+  editDraft.gddl_tier = s.gddl_tier ?? ''
+  editDraft.difficulty = s.difficulty ?? ''
+  editDraft.enjoyment = s.enjoyment != null ? String(s.enjoyment) : ''
+  editDraft.main_skillset = s.main_skillset ?? ''
+  editDraft.placement_source = s.placement_source ?? ''
+  editDraft.rated = s.rated ?? ''
+  editDraft.verification = s.verification ?? ''
+  editDraft.verification_url = s.verification_url ?? ''
+  editDraft.tags = s.tags ?? ''
+  editDraft.notes = s.notes ?? ''
+  editError.value = null
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+  editError.value = null
+}
+// Drop edit state when switching submissions so the form doesn't leak the
+// previous level's draft into the new selection.
+watch(selectedId, () => { editing.value = false; editError.value = null })
+
+async function saveEdit() {
+  if (!selected.value || editSaving.value) return
+  editSaving.value = true
+  editError.value = null
+  try {
+    const fields: Record<string, unknown> = {
+      name: editDraft.name.trim() || null,
+      gd_id: editDraft.gd_id.trim() === '' ? null : Number(editDraft.gd_id.trim()),
+      verifier: editDraft.verifier.trim(),
+      verify_date: editDraft.verify_date.trim(),
+      gddl_tier: editDraft.gddl_tier.trim(),
+      difficulty: editDraft.difficulty.trim(),
+      enjoyment: editDraft.enjoyment.trim() === '' ? null : Number(editDraft.enjoyment.trim()),
+      main_skillset: editDraft.main_skillset.trim(),
+      placement_source: editDraft.placement_source.trim(),
+      rated: editDraft.rated.trim(),
+      verification: editDraft.verification.trim(),
+      verification_url: editDraft.verification_url.trim(),
+      tags: editDraft.tags.trim(),
+      notes: editDraft.notes.trim(),
+    }
+    if (fields.gd_id != null && (!Number.isInteger(fields.gd_id) || (fields.gd_id as number) <= 0)) {
+      throw createError({ statusMessage: 'Level ID must be a positive integer.' })
+    }
+    await $fetch(`/api/admin/levels/pending/${selected.value.id}`, {
+      method: 'POST', body: { action: 'save_metadata', fields },
+    })
+    editing.value = false
+    await load()
+  } catch (e: any) {
+    editError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
+  } finally {
+    editSaving.value = false
+  }
+}
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
@@ -450,7 +541,7 @@ watch(preview, (p) => {
 <template>
   <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
     <!-- Left: pending list -->
-    <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+    <aside class="flex flex-col min-h-0 overflow-hidden border-r border-zinc-800 bg-zinc-950">
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <div class="flex items-baseline justify-between mb-2">
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
@@ -681,26 +772,126 @@ watch(preview, (p) => {
         {{ items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
-        <header>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
-          <p class="text-xs text-zinc-500 mt-1">
-            <template v-if="selected.from_gdl_id">
-              Imported from GDL · {{ selected.submitted_at }}
-            </template>
-            <template v-else-if="selected.from_gdtpl_id">
-              Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
-            </template>
-            <template v-else-if="selected.from_sheet_pending">
-              Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
-            </template>
-            <template v-else>
-              Submitted by
-              <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
-              <span v-else>unknown</span>
-              · {{ selected.submitted_at }}
-            </template>
-          </p>
+        <header class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-2xl font-semibold tracking-tight truncate">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
+            <p class="text-xs text-zinc-500 mt-1">
+              <template v-if="selected.from_gdl_id">
+                Imported from GDL · {{ selected.submitted_at }}
+              </template>
+              <template v-else-if="selected.from_gdtpl_id">
+                Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
+              </template>
+              <template v-else-if="selected.from_sheet_pending">
+                Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
+              </template>
+              <template v-else>
+                Submitted by
+                <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
+                <span v-else>unknown</span>
+                · {{ selected.submitted_at }}
+              </template>
+            </p>
+          </div>
+          <button
+            v-if="!editing"
+            type="button"
+            class="shrink-0 rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
+            @click="startEdit"
+          >Edit</button>
         </header>
+
+        <!-- Inline edit form: same role as the Edit panel on the main-list
+             LevelDetail. Updates pending_levels in place; closes on save. -->
+        <section
+          v-if="editing"
+          class="rounded-md border border-accent/40 bg-zinc-950/80 p-4 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs uppercase tracking-widest text-accent font-medium">Editing submission</h3>
+            <p v-if="editError" class="text-xs text-red-400">{{ editError }}</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block sm:col-span-2 text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Name</span>
+              <input v-model="editDraft.name" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Level ID</span>
+              <input v-model="editDraft.gd_id" type="text" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <input v-model="editDraft.verifier" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verify date</span>
+              <input v-model="editDraft.verify_date" type="date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <input v-model="editDraft.gddl_tier" type="text" placeholder="e.g. Tier 25" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+              <input v-model="editDraft.difficulty" type="text" placeholder="e.g. Extreme Demon" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Rated</span>
+              <input v-model="editDraft.rated" type="text" placeholder="Rated / Featured / Epic / Legendary / Mythic / Challenge" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
+              <input v-model="editDraft.enjoyment" type="number" step="0.1" min="0" max="10" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <input v-model="editDraft.main_skillset" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Source</span>
+              <input v-model="editDraft.placement_source" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification title</span>
+              <input v-model="editDraft.verification" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+              <input v-model="editDraft.verification_url" type="url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">comma-separated</span></span>
+            <input v-model="editDraft.tags" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Notes</span>
+            <textarea v-model="editDraft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="saveEdit"
+            >{{ editSaving ? 'Saving…' : 'Save' }}</button>
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded border border-zinc-700 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+              @click="cancelEdit"
+            >Cancel</button>
+          </div>
+        </section>
 
         <div class="flex flex-wrap gap-2">
           <NuxtLink
@@ -808,7 +999,7 @@ watch(preview, (p) => {
     </section>
 
     <!-- Right: placement + actions -->
-    <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
+    <aside class="flex flex-col min-h-0 overflow-hidden border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
         <div>
           <div class="flex items-baseline justify-between mb-1">
@@ -985,10 +1176,9 @@ watch(preview, (p) => {
           </ul>
         </div>
 
-      </div>
-      <!-- Sticky action footer: keeps Approve / Send to awaiting / Reject
-           reachable regardless of how tall the placement preview gets. -->
-      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 p-3 flex flex-col gap-2">
+        <!-- Reason / placement-suggestion inputs live at the END of the
+             scroll area so the action footer below stays compact and visible
+             on short viewports. -->
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
           <textarea
@@ -999,12 +1189,6 @@ watch(preview, (p) => {
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
-        <button
-          type="button"
-          :disabled="decideLoading || !placement"
-          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-          @click="decide('approve')"
-        >Approve at #{{ placement || '—' }}</button>
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
           <input
@@ -1014,22 +1198,34 @@ watch(preview, (p) => {
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
+      </div>
+      <!-- Sticky action footer: kept lean (just the buttons) so it fits in
+           the column even on short viewports. -->
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-2 flex flex-col gap-1.5">
         <button
           type="button"
-          :disabled="decideLoading"
-          class="w-full rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-          @click="decide('await')"
-          title="Approve without a position. Goes to the public awaiting-placement list."
-        >Send to awaiting</button>
-        <button
-          type="button"
-          :disabled="decideLoading"
-          class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
-          @click="decide('reject')"
-        >Reject</button>
+          :disabled="decideLoading || !placement"
+          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          @click="decide('approve')"
+        >Approve at #{{ placement || '—' }}</button>
+        <div class="flex gap-1.5">
+          <button
+            type="button"
+            :disabled="decideLoading"
+            class="flex-1 rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+            @click="decide('await')"
+            title="Approve without a position. Goes to the public awaiting-placement list."
+          >Awaiting</button>
+          <button
+            type="button"
+            :disabled="decideLoading"
+            class="flex-1 rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs py-1.5 transition-colors disabled:opacity-60"
+            @click="decide('reject')"
+          >Reject</button>
+        </div>
         <div
           v-if="banner"
-          class="rounded border px-3 py-2 text-xs"
+          class="rounded border px-2 py-1 text-[11px]"
           :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
         >{{ banner.msg }}</div>
       </div>
