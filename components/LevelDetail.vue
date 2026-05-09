@@ -666,12 +666,9 @@ const isExtremeLevel = computed(() =>
   !!props.level.difficulty?.toLowerCase().includes('extreme')
 )
 
-const isChallengeLevel = computed(() => {
-  // Use challenge_rank from the server (matches the IS_CHALLENGE_L expression used by the challenge tab)
-  if (props.level.challenge_rank == null) return false
-  const m = (props.level.gddl_tier ?? '').match(/^Tier (\d+)$/)
-  return m != null && Number(m[1]) > 20
-})
+// True for any level that appears in the challenge tab (rated=Challenge, isChallengeSource, or short/tiny+score=0).
+// The server already computes challenge_rank using the full IS_CHALLENGE_L expression.
+const isChallengeLevel = computed(() => props.level.challenge_rank != null)
 
 // GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
 const visibleOtherLists = computed(() => {
@@ -1553,7 +1550,7 @@ const historyByDay = computed(() => {
     <!-- Rankings on other lists — always shown as a collapsible. When the level
          has no real rankings, estimated GDL/AREDL positions are fetched on open. -->
     <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
-      <details :open="(level.other_lists?.length ?? 0) > 0" class="group" @toggle="onOtherListsToggle">
+      <details :open="visibleOtherLists.length > 0 || isChallengeLevel" class="group" @toggle="onOtherListsToggle">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
