@@ -184,7 +184,7 @@ export default defineEventHandler((event) => {
     other_lists.push({
       list: 'Challenge List',
       position: level.challenge_list_position,
-      url: `https://challengelist.gd/demonlist/${level.challenge_list_position}/`,
+      url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
     })
   }
 

@@ -667,8 +667,8 @@ const isExtremeLevel = computed(() =>
 )
 
 const isChallengeLevel = computed(() => {
-  const isChallenge = props.level.rated === 'Challenge' || isChallengeSource(props.level.placement_source)
-  if (!isChallenge) return false
+  // Use challenge_rank from the server (matches the IS_CHALLENGE_L expression used by the challenge tab)
+  if (props.level.challenge_rank == null) return false
   const m = (props.level.gddl_tier ?? '').match(/^Tier (\d+)$/)
   return m != null && Number(m[1]) > 20
 })
@@ -742,13 +742,18 @@ function onOtherListsToggle(e: Event) {
     }
   }
 
-  if (isChallengeLevel.value && !hasCl && !clEstimatedFetched.value) {
-    clEstimatedLoading.value = true
-    $fetch<EstimatedClPlacement>(`/api/levels/${props.level.position}/estimated-cl-placement`)
-      .then((data) => { clEstimatedData.value = data; clEstimatedFetched.value = true })
-      .catch(() => { clEstimatedData.value = null })
-      .finally(() => { clEstimatedLoading.value = false })
-  }
+  fetchClEstimate()
+}
+
+function fetchClEstimate() {
+  if (!isChallengeLevel.value) return
+  if (props.level.other_lists?.some((e) => e.list === 'Challenge List')) return
+  if (clEstimatedFetched.value) return
+  clEstimatedLoading.value = true
+  $fetch<EstimatedClPlacement>(`/api/levels/${props.level.position}/estimated-cl-placement`)
+    .then((data) => { clEstimatedData.value = data; clEstimatedFetched.value = true })
+    .catch(() => { clEstimatedData.value = null })
+    .finally(() => { clEstimatedLoading.value = false })
 }
 
 // Reset when navigating to a different level
@@ -759,7 +764,8 @@ watch(() => props.level.position, () => {
   gdlEstimatedFetched.value = false
   clEstimatedData.value = null
   clEstimatedFetched.value = false
-})
+  fetchClEstimate()
+}, { immediate: true })
 
 const deletingHistoryId = ref<number | null>(null)
 async function deleteHistoryEntry(entryId: number) {
@@ -1676,6 +1682,12 @@ const historyByDay = computed(() => {
                 </template>
               </p>
               <p v-else class="text-[11px] text-zinc-600">No nearby Challenge List-ranked levels found for estimation.</p>
+            </template>
+            <template v-else>
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-300">Challenge List</span>
+                <span class="ml-auto text-sm text-zinc-500 italic">No estimate available</span>
+              </div>
             </template>
           </template>
         </div>

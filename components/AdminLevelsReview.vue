@@ -107,23 +107,20 @@ const potentialDuplicateMode = ref<PotentialDupMode>('show')
 // in the pending queue.
 const importSourceFilter = ref<string>('all')
 
-// Derive the list of source-filter chips from whatever's currently in the
-// queue. Always show the built-in three; append every distinct gdtpl
-// list_slug we see in `items`. Keeps the UI in sync as new lists are wired up.
-const importSourceOptions = computed<{ value: string; label: string }[]>(() => {
-  const slugs = new Set<string>()
-  for (const r of items.value) {
-    const s = (r.gdtpl_list_slug ?? '').toLowerCase()
-    if (s) slugs.add(s)
-  }
-  const base = [
-    { value: 'all',   label: 'All' },
-    { value: 'sheet', label: 'Sheet' },
-    { value: 'gdl',   label: 'GDL' },
-  ]
-  for (const s of [...slugs].sort()) base.push({ value: s, label: s.toUpperCase() })
-  return base
-})
+const IMPORT_SOURCE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all',   label: 'All' },
+  { value: 'sheet', label: 'Sheet' },
+  { value: 'gdl',   label: 'GDL' },
+  { value: 'tsl',   label: 'TSL' },
+  { value: 'edi',   label: 'EDI' },
+  { value: 'ccl',   label: 'CCL' },
+  { value: 'll',    label: 'LL' },
+  { value: 'tcl',   label: 'TCL' },
+  { value: 'sfl',   label: 'SFL' },
+  { value: 'ddl',   label: 'DDL' },
+  { value: 'cl',    label: 'CL' },
+]
+const importSourceOptions = IMPORT_SOURCE_OPTIONS
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
