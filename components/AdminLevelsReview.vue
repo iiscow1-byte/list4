@@ -79,6 +79,7 @@ const placementSaved = ref(false)
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 const flagsSaved = ref(false)
 let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
+let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 // --- Pending-list filters ---
 const TIER_MAX_ORD = 44
@@ -265,6 +266,7 @@ watch(selected, async (s) => {
   // after autoSaveFlags syncs items.value) — only reset on actual level switch.
   if (s?.id === lastLoadedId) return
   lastLoadedId = s?.id ?? null
+  if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
   preview.value = null
   // Clear the previous selection's auto-filled tier/difficulty so they don't
   // bleed into the middle stats panel for the next submission until the
@@ -370,6 +372,34 @@ function autoSaveFlags() {
   }, 400)
 }
 
+function autoSaveTierDifficulty() {
+  if (!selected.value) return
+  if (tierSaveDebounce) clearTimeout(tierSaveDebounce)
+  const id = selected.value.id
+  tierSaveDebounce = setTimeout(async () => {
+    const t = tierOverride.value.trim()
+    const d = difficultyOverride.value.trim()
+    const fields: Record<string, unknown> = {}
+    if (t) fields.gddl_tier = t
+    if (d) fields.difficulty = d
+    if (Object.keys(fields).length === 0) return
+    try {
+      await $fetch(`/api/admin/levels/pending/${id}`, {
+        method: 'POST',
+        body: { action: 'save_metadata', fields },
+      })
+      const idx = items.value.findIndex(r => r.id === id)
+      if (idx >= 0) {
+        items.value[idx] = {
+          ...items.value[idx]!,
+          ...(t ? { gddl_tier: t, gddl_tier_estimated: 0 } : {}),
+          ...(d ? { difficulty: d } : {}),
+        }
+      }
+    } catch { /* non-fatal */ }
+  }, 600)
+}
+
 function flash(kind: 'ok' | 'err', msg: string) {
   banner.value = { kind, msg }
   setTimeout(() => (banner.value = null), 3500)
@@ -402,6 +432,8 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     if (action === 'await') {
       const n = Number(awaitPlacementSuggestion.value)
       if (Number.isInteger(n) && n > 0) body.placement_suggestion = n
+      if (tierOverride.value.trim()) body.gddl_tier = tierOverride.value.trim()
+      if (difficultyOverride.value.trim()) body.difficulty = difficultyOverride.value.trim()
     }
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     const res = await $fetch<{ ok: boolean; voided?: boolean; awaiting?: boolean }>(`/api/admin/levels/pending/${selected.value.id}`, {
@@ -1088,6 +1120,7 @@ watch(preview, (p) => {
             type="text"
             placeholder="e.g. Tier 15"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @input="autoSaveTierDifficulty"
           />
         </label>
 
@@ -1098,6 +1131,7 @@ watch(preview, (p) => {
             type="text"
             placeholder="e.g. Extreme Demon"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @input="autoSaveTierDifficulty"
           />
         </label>
 
