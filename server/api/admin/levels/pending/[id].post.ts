@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   }
   const body = await readBody<{
-    action: 'approve' | 'reject' | 'await' | 'save_placement' | 'save_flags'
+    action: 'approve' | 'reject' | 'await' | 'save_placement' | 'save_flags' | 'save_metadata'
     placement?: number
     reason?: string
     same_as_above?: boolean
@@ -29,12 +29,42 @@ export default defineEventHandler(async (event) => {
     gddl_tier?: string
     difficulty?: string
     placement_suggestion?: number
+    fields?: Record<string, unknown>
   }>(event)
-  if (body.action !== 'approve' && body.action !== 'reject' && body.action !== 'await' && body.action !== 'save_placement' && body.action !== 'save_flags') {
+  const VALID_ACTIONS = new Set(['approve', 'reject', 'await', 'save_placement', 'save_flags', 'save_metadata'])
+  if (!VALID_ACTIONS.has(body.action)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid action' })
   }
 
   const db = getDb()
+
+  if (body.action === 'save_metadata') {
+    // Whitelisted fields admins can edit on a pending row before deciding it.
+    // Whitelisting (rather than blanket UPDATE) keeps `status`, `submitted_by`,
+    // `from_*` flags, and the timestamps off-limits to client edits.
+    const ALLOWED = new Set([
+      'name', 'gd_id', 'verifier', 'verify_date', 'gddl_tier', 'difficulty',
+      'enjoyment', 'main_skillset', 'tags', 'notes',
+      'verification', 'verification_url', 'placement_source', 'rated',
+    ])
+    const fields = body.fields ?? {}
+    const cols: string[] = []
+    const params: any[] = []
+    for (const [k, v] of Object.entries(fields)) {
+      if (!ALLOWED.has(k)) continue
+      cols.push(`${k} = ?`)
+      // Empty strings become NULL so the row reads "—" in the UI rather than
+      // a blank value the editor will keep treating as "filled".
+      params.push(v === '' || v === undefined ? null : v)
+    }
+    // Once an admin types over the tier, drop the estimated flag — what's in
+    // the column is now their value, not the importer's guess.
+    if ('gddl_tier' in fields) cols.push(`gddl_tier_estimated = 0`)
+    if (cols.length === 0) return { ok: true, updated: 0 }
+    params.push(id)
+    const res = db.prepare(`UPDATE pending_levels SET ${cols.join(', ')} WHERE id = ?`).run(...params)
+    return { ok: true, updated: res.changes }
+  }
 
   if (body.action === 'save_placement') {
     const n = (typeof body.placement === 'number' && Number.isInteger(body.placement) && body.placement > 0) ? body.placement : null

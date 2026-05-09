@@ -150,6 +150,35 @@ function youtubeId(url: string | null): string | null {
 }
 
 const ytId = computed(() => youtubeId(props.level.verification_url))
+
+// Autofill verify_date from the YouTube upload date when a level has a
+// verification link but no date yet — mirrors the submit page. Mods/admins
+// only (the PATCH endpoint requires it). Reloads the page so the new date
+// shows in the stat tile.
+const verifyDateAutofilling = ref(false)
+watch(() => props.level.position, () => {
+  if (verifyDateAutofilling.value) return
+  if (!canEdit.value) return
+  if (props.level.verify_date) return
+  const id = ytId.value
+  if (!id) return
+  verifyDateAutofilling.value = true
+  ;(async () => {
+    try {
+      const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
+      const date = res?.date
+      if (!date) return
+      await $fetch(`/api/admin/levels/${props.level.position}`, {
+        method: 'PATCH', body: { verify_date: date },
+      })
+      // Soft refresh any useFetch/useAsyncData on the surrounding page so the
+      // new verify_date renders in the stat tile.
+      await refreshNuxtData()
+    } catch { /* ignore — admin can edit later */ } finally {
+      verifyDateAutofilling.value = false
+    }
+  })()
+}, { immediate: true })
 const fallbackSearch = computed(() => {
   if (!props.level.verification) return null
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
@@ -612,6 +641,23 @@ async function deleteLevel() {
     deleteError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Delete failed.'
   } finally {
     deleting.value = false
+  }
+}
+
+const sendingToAwaiting = ref(false)
+const sendToAwaitingError = ref<string | null>(null)
+async function sendToAwaiting() {
+  if (sendingToAwaiting.value) return
+  if (!confirm(`Send "${props.level.name}" (#${props.level.position}) back to the Awaiting Placement list? This removes it from the main list and shifts everything below up by one.`)) return
+  sendingToAwaiting.value = true
+  sendToAwaitingError.value = null
+  try {
+    await $fetch(`/api/admin/levels/${props.level.position}/to-awaiting`, { method: 'POST' })
+    await navigateTo('/awaiting')
+  } catch (e: any) {
+    sendToAwaitingError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    sendingToAwaiting.value = false
   }
 }
 
@@ -1118,12 +1164,21 @@ const historyByDay = computed(() => {
         <button
           v-if="isAdminLevel"
           type="button"
+          :disabled="sendingToAwaiting"
+          class="ml-auto rounded border border-amber-900/60 text-amber-300 text-sm px-4 py-1.5 hover:bg-amber-950/40 hover:border-amber-700 disabled:opacity-60 transition-colors"
+          title="Move this level back to the Awaiting Placement list"
+          @click="sendToAwaiting"
+        >{{ sendingToAwaiting ? 'Sending…' : 'Send to awaiting' }}</button>
+        <button
+          v-if="isAdminLevel"
+          type="button"
           :disabled="deleting"
-          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          class="rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
           @click="deleteLevel"
         >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
         <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
         <span v-if="deleteError" class="text-xs text-red-400">{{ deleteError }}</span>
+        <span v-if="sendToAwaitingError" class="text-xs text-red-400">{{ sendToAwaitingError }}</span>
       </div>
     </section>
 

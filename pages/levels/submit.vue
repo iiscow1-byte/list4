@@ -372,33 +372,11 @@ const ytId = computed(() => youtubeId(verificationUrl.value.trim()))
 const dateLoading = ref(false)
 watch(ytId, async (id) => {
   if (!id) return
+  if (verifyDate.value) return
   dateLoading.value = true
   try {
-    // Call Piped directly from the browser using the user's IP.
-    // Piped is a public YouTube proxy whose API is designed to be called
-    // programmatically. Fetching from the browser avoids the datacenter-IP
-    // blocking that prevents server-side requests from reaching YouTube or Piped.
-    const pipedBases = [
-      'https://pipedapi.kavin.rocks',
-      'https://piped-api.garudalinux.org',
-      'https://api.piped.projectsegfau.lt',
-    ]
-    for (const base of pipedBases) {
-      try {
-        const data = await $fetch<{ uploadDate?: string; error?: string }>(
-          `${base}/streams/${id}`,
-        )
-        if (data?.uploadDate && /^\d{4}-\d{2}-\d{2}/.test(data.uploadDate)) {
-          verifyDate.value = data.uploadDate.slice(0, 10)
-          return
-        }
-        if (data?.error) break // video not found — no point retrying other instances
-      } catch { /* instance unavailable, try next */ }
-    }
-    // All Piped instances failed — try the server-side fallback which also
-    // attempts YouTube scraping.
     const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
-    if (res?.date) verifyDate.value = res.date
+    if (res?.date && !verifyDate.value) verifyDate.value = res.date
   } catch { /* ignore — user can fill in the date manually */ } finally {
     dateLoading.value = false
   }

@@ -15,6 +15,13 @@ export const TABS = [
 const LEADERBOARD_GID = '280339977'
 const STATS_VIEWER_GID = '943829784'
 const VOID_LIST_GID = '1630809094'
+const PENDING_LIST_GID = '139895069'
+
+// Sentinel pending_id for awaiting rows that originated from the sheet's
+// Pending List tab. Lets re-imports prune stale sheet entries without
+// touching real user-submitted approvals (which always have a positive
+// pending_levels.id). pending_id has no FK, so -1 is safe.
+const SHEET_PENDING_ID = -1
 
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
@@ -131,6 +138,32 @@ export function num(s: string | undefined): number | null {
 export function txt(s: string | undefined): string | null {
   const t = (s ?? '').trim()
   return t === '' ? null : t
+}
+
+// Parses tier strings from the sheet, including loose forms.
+// "Tier 25" / "tier 25"   → { tier: "Tier 25",   frac: 0.5 }
+// "Tier 25.5"             → { tier: "Tier 25",   frac: 0.5 }   decimal = position within tier
+// "T25" / "tier25" / "25" → { tier: "Tier 25",   frac: 0.5 }   bare number / no space
+// "Subtier 4" / "S4"      → { tier: "Subtier 4", frac: 0.5 }
+// "Subtier 4.25"          → { tier: "Subtier 4", frac: 0.25 }
+// Anything else           → null (caller leaves the cell as-is so we don't break)
+export function parseTierLabel(raw: string | null): { tier: string; frac: number } | null {
+  if (!raw) return null
+  const t = raw.trim()
+  if (!t) return null
+  // Match Subtier first since "S5" would otherwise be eaten by the Tier regex
+  // if we made it tolerate stray letters.
+  const sub = t.match(/^(?:subtier|sub|s)\s*(\d{1,2})(?:\.(\d+))?$/i)
+  if (sub) {
+    const frac = sub[2] !== undefined ? Math.min(1, parseFloat(`0.${sub[2]}`)) : 0.5
+    return { tier: `Subtier ${Number(sub[1])}`, frac }
+  }
+  const m = t.match(/^(?:t(?:ier)?)?\s*(\d{1,2})(?:\.(\d+))?$/i)
+  if (m) {
+    const frac = m[2] !== undefined ? Math.min(1, parseFloat(`0.${m[2]}`)) : 0.5
+    return { tier: `Tier ${Number(m[1])}`, frac }
+  }
+  return null
 }
 
 // ---------- import driver ----------
@@ -762,12 +795,169 @@ export async function importVoidList() {
   console.log(`${imported} levels`)
 }
 
+export async function importPendingList() {
+  const db = getDb()
+  process.stdout.write(`Fetching pending list (gid=${PENDING_LIST_GID})... `)
+  const { text, html } = await fetchTabRows(PENDING_LIST_GID)
+  const found = findHeaderColumns(text)
+  if (!found) { console.log('no header row, skipping'); return }
+  const c = refineColumns(text, found.cols, found.headerIdx + 1)
+  const verCol = c['verification link']
+  // The pending tab calls the source column "Source" historically, but other
+  // tabs use "Primary Source" — accept either so the import survives a header
+  // tweak on the sheet.
+  const sourceCol = c['source'] ?? c['primary source']
+
+  // Dedupe across pending_levels (any source) and awaiting_levels so we don't
+  // duplicate a level the user has already submitted or that's already in the
+  // post-pending awaiting queue.
+  const existingKeys = new Set<string>([
+    ...(db.prepare(`SELECT gd_id, name FROM pending_levels WHERE status = 'pending'`).all() as { gd_id: number | null; name: string }[])
+      .map((r) => dupKey(r.gd_id, r.name)),
+    ...(db.prepare(`SELECT gd_id, name FROM awaiting_levels`).all() as { gd_id: number | null; name: string }[])
+      .map((r) => dupKey(r.gd_id, r.name)),
+  ])
+
+  // Sheet-originated rows from earlier imports — used to prune stale entries
+  // (levels that have since been removed from the sheet's pending tab).
+  const existingSheetRows = db
+    .prepare(`SELECT id, gd_id, name FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`)
+    .all() as { id: number; gd_id: number | null; name: string }[]
+
+  // Skip levels already on the main list — overlapping would create a
+  // confusing duplicate where the same gd_id appears in two queues.
+  const mainGdIds = new Set<number>(
+    (db.prepare(`SELECT gd_id FROM levels WHERE gd_id IS NOT NULL`).all() as { gd_id: number }[])
+      .map((r) => r.gd_id),
+  )
+  // Auto-reject rows whose verification URL is already in use by an existing
+  // main-list level — the same video can't verify two different rankings, so
+  // these are almost always re-postings of an already-tracked level under a
+  // different name or source.
+  const existingVerUrls = new Set<string>(
+    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
+      .map((r) => r.verification_url),
+  )
+
+  const insert = db.prepare(`
+    INSERT INTO pending_levels
+      (gd_id, name, verify_date, gddl_tier, difficulty,
+       verification, verification_url, placement_source,
+       placement_estimate, status, submitted_at, from_sheet_pending)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1)
+  `)
+
+  // Per-tier sorted positions for the placement-estimate fallback. Built
+  // lazily as we encounter each tier, so we only pay the query cost for tiers
+  // actually present in the sheet's pending tab.
+  const tierPositions = new Map<string, number[]>()
+  function positionForTier(tier: string, frac: number): number | null {
+    let positions = tierPositions.get(tier)
+    if (!positions) {
+      positions = (db
+        .prepare(`SELECT position FROM levels WHERE gddl_tier = ? ORDER BY position ASC`)
+        .all(tier) as { position: number }[]).map((r) => r.position)
+      tierPositions.set(tier, positions)
+    }
+    if (positions.length === 0) return null
+    const idx = Math.min(positions.length - 1, Math.floor(frac * positions.length))
+    return positions[idx]!
+  }
+
+  const seenInThisRun = new Set<string>()
+  let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0, skippedDupVer = 0
+
+  db.exec('BEGIN')
+  try {
+    // Sweep legacy sheet-pending rows out of awaiting_levels — they now go
+    // through the admin "Imported levels" review queue (pending_levels).
+    const legacyAwaiting = db.prepare(`DELETE FROM awaiting_levels WHERE pending_id = ?`).run(SHEET_PENDING_ID)
+    for (let i = found.headerIdx + 1; i < text.length; i++) {
+      const r = text[i]!
+      const rh = html[i]!
+      const name = txt(r[c['level name']!])
+      const gdId = num(r[c['level id']!])
+      const verifyDate = txt(r[c['verify date']!])
+      const rawTier = txt(r[c['gddl tier']!])
+      const giRange = txt(r[c['general idea / range']!])
+      // Section headers / decoration: a name with no other identifying data.
+      if (!name) { skippedBlank++; continue }
+      if (!gdId && !verifyDate && !rawTier && !giRange) { skippedBlank++; continue }
+      if (gdId !== null && mainGdIds.has(gdId)) { skippedMain++; continue }
+
+      const key = dupKey(gdId, name)
+      if (seenInThisRun.has(key)) continue
+      seenInThisRun.add(key)
+      if (existingKeys.has(key)) { skippedExisting++; continue }
+
+      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
+      // Auto-reject when the verification video already verifies a main-list
+      // entry — the curator pulled the level into pending under a different
+      // source, but it's already tracked.
+      if (verHref && existingVerUrls.has(verHref)) { skippedDupVer++; continue }
+
+      // Normalize the tier string. Sheet rows can be "Tier 25", "Tier 25.5",
+      // "25", "S4", etc. — we store the integer-tier form so the rest of the
+      // app's tier filters/joins work, while the decimal informs the
+      // placement-within-tier fallback below. Anything we can't parse is
+      // stored verbatim so we don't lose information.
+      const parsedTier = parseTierLabel(rawTier)
+      const tier = parsedTier?.tier ?? rawTier
+
+      // "General Idea / Range" looks like "~#2400" — extract the integer for
+      // the placement estimate. If absent, fall back to a position derived
+      // from the GDDL tier (decimal = position within tier) so the reviewer
+      // gets a sensible default instead of an empty placement field.
+      const placementMatch = giRange?.match(/(\d[\d,]*)/)
+      const placementEstimate = placementMatch
+        ? num(placementMatch[1]!)
+        : (parsedTier ? positionForTier(parsedTier.tier, parsedTier.frac) : null)
+
+      const addedOn = txt(r[c['added to pending on']!]) ?? new Date().toISOString().slice(0, 10)
+
+      insert.run(
+        gdId,
+        name,
+        verifyDate,
+        tier,
+        // Demon Ranking ("Extreme Demon", "Hard Demon", …) is GD's difficulty
+        // category — fits the existing `difficulty` text column.
+        txt(r[c['demon ranking']!]),
+        verCol != null ? txt(r[verCol]) : null,
+        verHref,
+        sourceCol != null ? txt(r[sourceCol]) : null,
+        placementEstimate,
+        addedOn,
+      )
+      imported++
+    }
+
+    // Prune sheet rows from prior imports that are no longer on the sheet.
+    const del = db.prepare(`DELETE FROM pending_levels WHERE id = ?`)
+    let removed = 0
+    for (const row of existingSheetRows) {
+      if (!seenInThisRun.has(dupKey(row.gd_id, row.name))) { del.run(row.id); removed++ }
+    }
+
+    db.exec('COMMIT')
+    console.log(
+      `${imported} new (${skippedExisting} already pending/awaiting, ${skippedMain} on main list, ` +
+      `${skippedDupVer} dup verification URL, ${skippedBlank} blank rows, ${removed} removed, ` +
+      `${legacyAwaiting.changes} legacy awaiting rows swept)`,
+    )
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+}
+
 export async function runImport() {
   const t0 = Date.now()
   await importLevels()
   await importLeaderboard()
   await importStatsViewer()
   await importVoidList()
+  await importPendingList()
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
 }
 

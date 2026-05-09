@@ -9,7 +9,8 @@ export default defineEventHandler((event) => {
   return {
     records:              count(`SELECT COUNT(*) AS n FROM records               WHERE permanent = 0`),
     opinions:             count(`SELECT COUNT(*) AS n FROM opinions              WHERE status = 'pending'`),
-    levels:               count(`SELECT COUNT(*) AS n FROM pending_levels        WHERE status = 'pending'`),
+    levels:               count(`SELECT COUNT(*) AS n FROM pending_levels        WHERE status = 'pending' AND from_gdl_id IS NULL`),
+    'imported-levels':    count(`SELECT COUNT(*) AS n FROM pending_levels        WHERE status = 'pending' AND from_gdl_id IS NOT NULL`),
     awaiting:             count(`SELECT COUNT(*) AS n FROM awaiting_levels`),
     movements:            count(`SELECT COUNT(*) AS n FROM pending_movements     WHERE status = 'pending'`),
     'open-verifications': count(`SELECT COUNT(*) AS n FROM open_verifications    WHERE status = 'pending'`),

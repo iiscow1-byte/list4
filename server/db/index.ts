@@ -256,6 +256,15 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'tentative_placement')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
   }
+  // GDL-imported pending rows: levels auto-pulled from the GDL API that aren't
+  // on the ALL list yet. The unique index keeps the importer idempotent — a
+  // re-run for the same gdl_id is a no-op even if the curator has edited the
+  // row in the meantime.
+  if (!pcols.some((c) => c.name === 'from_gdl_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_gdl_id INTEGER`)
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdl
+             ON pending_levels(from_gdl_id) WHERE from_gdl_id IS NOT NULL`)
 
   // Void list: levels with no difficulty opinion (gid=1630809094 of the source
   // sheet). Stored in a separate table from `levels` because positions are
@@ -927,6 +936,59 @@ function initSchema(db: DatabaseSync) {
 
   if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gdl_position ON levels(gdl_position)`)
+
+  // --- GDListTemplate mirrors. Generic table that holds level rows for any
+  // list built on the TheShittyList/GDListTemplate JSON format (one
+  // `_list.json` of slugs + one `<slug>.json` per level). Each list is
+  // identified by a short `list_slug` (e.g. 'tsl'); level rows are keyed by
+  // (list_slug, level_slug) so adding a future GDListTemplate-based list is
+  // one importer config away — no new tables or columns required.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gdtpl_levels (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_slug            TEXT    NOT NULL,
+      level_slug           TEXT    NOT NULL,
+      position             INTEGER NOT NULL,
+      gd_id                INTEGER,
+      name                 TEXT,
+      author               TEXT,
+      creators_json        TEXT,
+      verifier             TEXT,
+      verification_url     TEXT,
+      showcase_url         TEXT,
+      percent_to_qualify   INTEGER,
+      password             TEXT,
+      promoted_to_position INTEGER,
+      fetched_at           TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(list_slug, level_slug)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_list  ON gdtpl_levels(list_slug, position);
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_gd_id ON gdtpl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_gdtpl_levels_promoted ON gdtpl_levels(promoted_to_position);
+  `)
+
+  // pending_levels.from_gdtpl_id: link from a pending-review row back to the
+  // gdtpl_levels row that produced it. Unique-when-not-null so a re-import is
+  // idempotent — one pending row per imported gdtpl level.
+  if (!pcols.some((c) => c.name === 'from_gdtpl_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_gdtpl_id INTEGER`)
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdtpl
+             ON pending_levels(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL`)
+
+  // Sheet-pending origin marker. Levels imported from the source sheet's
+  // "Pending List" tab go through the same admin "Imported levels" review
+  // queue as GDL/GDTPL imports — this flag distinguishes them from user
+  // submissions and makes re-imports prunable.
+  if (!pcols.some((c) => c.name === 'from_sheet_pending')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_sheet_pending INTEGER NOT NULL DEFAULT 0`)
+  }
+  // Marks pending rows whose gddl_tier was inferred by an importer (midpoint
+  // of shared-list neighbours that are already on the ALL list) rather than
+  // submitted by a human. Cleared when an admin edits the tier.
+  if (!pcols.some((c) => c.name === 'gddl_tier_estimated')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN gddl_tier_estimated INTEGER NOT NULL DEFAULT 0`)
+  }
 
   const accCols4 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols4.some((c) => c.name === 'claimed_gdl_id')) {

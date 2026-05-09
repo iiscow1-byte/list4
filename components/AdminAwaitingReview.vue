@@ -15,6 +15,7 @@ type AwaitingLevel = {
   main_skillset: string | null
   tags: string | null
   notes: string | null
+  placement_source: string | null
   submitter: string | null
   approved_at: string
   placement_suggestion: number | null
@@ -38,6 +39,24 @@ type Preview = {
 
 const items = ref<AwaitingRow[]>([])
 const selectedId = ref<number | null>(null)
+const search = ref('')
+
+const filteredItems = computed<AwaitingRow[]>(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return items.value
+  return items.value.filter((r) => {
+    const hay = `${r.name ?? ''} ${r.gd_id ?? ''} ${r.gddl_tier ?? ''} ${r.difficulty ?? ''}`.toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+// If the currently-selected row is filtered out of view, fall back to the
+// first surviving row so the detail panel doesn't show a stale entry.
+watch(filteredItems, (list) => {
+  if (selectedId.value && !list.some((r) => r.id === selectedId.value)) {
+    selectedId.value = list[0]?.id ?? null
+  }
+})
 const selected = ref<AwaitingLevel | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
@@ -60,9 +79,12 @@ const flagsSaved = ref(false)
 let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
-async function load() {
-  const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500 } })
+async function load(opts: { keepSelection?: boolean } = {}) {
+  // Hardest-first by default — easier to triage placements when tier-adjacent
+  // levels appear next to each other in the list.
+  const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500, sort: 'tier_desc' } })
   items.value = res.items
+  if (opts.keepSelection) return
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
   } else if (!selectedId.value && items.value[0]) {
@@ -137,6 +159,21 @@ function flash(kind: 'ok' | 'err', msg: string) {
   setTimeout(() => (banner.value = null), 3500)
 }
 
+// After an action removes the current row from awaiting, advance the cursor
+// to the row that took its place at the same visible index instead of
+// jumping back to the top of the list.
+function pickNextAfterAction(actedId: number) {
+  const oldIdx = filteredItems.value.findIndex((r) => r.id === actedId)
+  // load() will repopulate items.value; recompute filteredItems off the new
+  // list and pick the entry that now occupies oldIdx (or the new last row).
+  return () => {
+    const visible = filteredItems.value
+    if (visible.length === 0) { selectedId.value = null; return }
+    const idx = oldIdx < 0 ? 0 : Math.min(oldIdx, visible.length - 1)
+    selectedId.value = visible[idx]?.id ?? null
+  }
+}
+
 async function decide(action: 'place' | 'remove') {
   if (!selected.value || decideLoading.value) return
   if (action === 'place') {
@@ -146,6 +183,8 @@ async function decide(action: 'place' | 'remove') {
       return
     }
   }
+  const actedId = selected.value.id
+  const advance = pickNextAfterAction(actedId)
   decideLoading.value = true
   try {
     const body: any = { action }
@@ -160,9 +199,8 @@ async function decide(action: 'place' | 'remove') {
       body.tentative_placement = isTentative.value
     }
     if (action === 'remove') body.reason = removeReason.value.trim() || undefined
-    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body })
+    await $fetch(`/api/admin/awaiting/${actedId}`, { method: 'POST', body })
     flash('ok', action === 'place' ? `Placed at #${placement.value}.` : 'Removed from awaiting.')
-    selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
@@ -175,7 +213,8 @@ async function decide(action: 'place' | 'remove') {
     isTentative.value = false
     removeReason.value = ''
     preview.value = null
-    await load()
+    await load({ keepSelection: true })
+    advance()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
   } finally {
@@ -185,11 +224,12 @@ async function decide(action: 'place' | 'remove') {
 
 async function returnToLevels() {
   if (!selected.value || decideLoading.value) return
+  const actedId = selected.value.id
+  const advance = pickNextAfterAction(actedId)
   decideLoading.value = true
   try {
-    await $fetch(`/api/admin/awaiting/${selected.value.id}`, { method: 'POST', body: { action: 'return' } })
+    await $fetch(`/api/admin/awaiting/${actedId}`, { method: 'POST', body: { action: 'return' } })
     flash('ok', 'Returned to the levels tab.')
-    selectedId.value = null
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
@@ -202,7 +242,8 @@ async function returnToLevels() {
     isTentative.value = false
     removeReason.value = ''
     preview.value = null
-    await load()
+    await load({ keepSelection: true })
+    advance()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
   } finally {
@@ -299,6 +340,96 @@ async function submitAllPending() {
 
 const editingVideo = ref(false)
 const editVideoUrl = ref('')
+
+// --- Inline metadata edit (mirrors LevelDetail's edit panel for the main list) ---
+const editing = ref(false)
+const editSaving = ref(false)
+const editError = ref<string | null>(null)
+type EditableMetadata = {
+  name: string
+  gd_id: string
+  verifier: string
+  verify_date: string
+  gddl_tier: string
+  difficulty: string
+  enjoyment: string
+  main_skillset: string
+  placement_source: string
+  verification: string
+  verification_url: string
+  tags: string
+  notes: string
+}
+const editDraft = reactive<EditableMetadata>({
+  name: '', gd_id: '', verifier: '', verify_date: '',
+  gddl_tier: '', difficulty: '', enjoyment: '', main_skillset: '',
+  placement_source: '',
+  verification: '', verification_url: '', tags: '', notes: '',
+})
+
+function startEdit() {
+  if (!selected.value) return
+  const s = selected.value
+  editDraft.name = s.name ?? ''
+  editDraft.gd_id = s.gd_id != null ? String(s.gd_id) : ''
+  editDraft.verifier = s.verifier ?? ''
+  editDraft.verify_date = s.verify_date ?? ''
+  editDraft.gddl_tier = s.gddl_tier ?? ''
+  editDraft.difficulty = s.difficulty ?? ''
+  editDraft.enjoyment = s.enjoyment != null ? String(s.enjoyment) : ''
+  editDraft.main_skillset = s.main_skillset ?? ''
+  editDraft.placement_source = s.placement_source ?? ''
+  editDraft.verification = s.verification ?? ''
+  editDraft.verification_url = s.verification_url ?? ''
+  editDraft.tags = s.tags ?? ''
+  editDraft.notes = s.notes ?? ''
+  editError.value = null
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+  editError.value = null
+}
+// Drop edit state when switching levels so the form doesn't leak the
+// previous level's draft into the new selection.
+watch(selectedId, () => { editing.value = false; editError.value = null })
+
+async function saveEdit() {
+  if (!selected.value || editSaving.value) return
+  editSaving.value = true
+  editError.value = null
+  try {
+    const fields: Record<string, unknown> = {
+      name: editDraft.name.trim() || null,
+      gd_id: editDraft.gd_id.trim() === '' ? null : Number(editDraft.gd_id.trim()),
+      verifier: editDraft.verifier.trim(),
+      verify_date: editDraft.verify_date.trim(),
+      gddl_tier: editDraft.gddl_tier.trim(),
+      difficulty: editDraft.difficulty.trim(),
+      enjoyment: editDraft.enjoyment.trim() === '' ? null : Number(editDraft.enjoyment.trim()),
+      main_skillset: editDraft.main_skillset.trim(),
+      placement_source: editDraft.placement_source.trim(),
+      verification: editDraft.verification.trim(),
+      verification_url: editDraft.verification_url.trim(),
+      tags: editDraft.tags.trim(),
+      notes: editDraft.notes.trim(),
+    }
+    if (fields.gd_id != null && (!Number.isInteger(fields.gd_id) || (fields.gd_id as number) <= 0)) {
+      throw createError({ statusMessage: 'Level ID must be a positive integer.' })
+    }
+    await $fetch(`/api/admin/awaiting/${selected.value.id}`, {
+      method: 'POST', body: { action: 'save_metadata', fields },
+    })
+    // Reload the detail row + the list so the new values show up.
+    selected.value = await $fetch(`/api/awaiting/levels/${selected.value.id}`) as any
+    editing.value = false
+    await load({ keepSelection: true })
+  } catch (e: any) {
+    editError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
+  } finally {
+    editSaving.value = false
+  }
+}
 function startEditVideo() {
   editVideoUrl.value = selected.value?.verification_url ?? ''
   editingVideo.value = true
@@ -340,26 +471,64 @@ function youtubeId(url: string | null): string | null {
   return null
 }
 const verificationYtId = computed(() => youtubeId(selected.value?.verification_url ?? null))
+
+// Autofill verify_date from the YouTube upload date for awaiting rows that
+// have a verification link but no date yet — mirrors the behaviour on the
+// public submit page. Persists the value via save_metadata so when the level
+// gets placed onto the main list later, the date is already in.
+const verifyDateAutofilling = ref(false)
+watch(verificationYtId, async (id) => {
+  if (!id) return
+  const sel = selected.value
+  if (!sel) return
+  if (sel.verify_date) return
+  if (verifyDateAutofilling.value) return
+  verifyDateAutofilling.value = true
+  try {
+    const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
+    const date = res?.date
+    // Re-check that the row is still the selected one and still missing a
+    // date — admin may have clicked away or typed a value while we waited.
+    if (!date || !selected.value || selected.value.id !== sel.id || selected.value.verify_date) return
+    await $fetch(`/api/admin/awaiting/${sel.id}`, {
+      method: 'POST',
+      body: { action: 'save_metadata', fields: { verify_date: date } },
+    })
+    selected.value = { ...selected.value, verify_date: date }
+  } catch { /* ignore — admin can fill manually */ } finally {
+    verifyDateAutofilling.value = false
+  }
+}, { immediate: true })
 </script>
 
 <template>
   <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
     <!-- Left: awaiting list -->
-    <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
-      <div class="p-3 border-b border-zinc-800 shrink-0">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
-        <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} unplaced</p>
+    <aside class="flex flex-col min-h-0 overflow-hidden border-r border-zinc-800 bg-zinc-950">
+      <div class="p-3 border-b border-zinc-800 shrink-0 space-y-2">
+        <div class="flex items-baseline justify-between">
+          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Awaiting placement</p>
+          <p class="text-[11px] text-zinc-600">
+            {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> unplaced
+          </p>
+        </div>
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search name, ID, tier…"
+          class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
         <button
           type="button"
           :disabled="submitAllLoading"
-          class="mt-2 w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          class="w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
           title="Place all awaiting levels that have a placement suggestion, and approve all pending movements."
           @click="submitAllPending"
         >{{ submitAllLoading ? 'Submitting…' : 'Submit all pending changes' }}</button>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
-        <ul v-if="items.length" class="divide-y divide-zinc-900/60">
-          <li v-for="r in items" :key="r.id" class="relative group/li">
+        <ul v-if="filteredItems.length" class="divide-y divide-zinc-900/60">
+          <li v-for="r in filteredItems" :key="r.id" class="relative group/li">
             <button
               type="button"
               class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors"
@@ -380,6 +549,7 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
             >✕</button>
           </li>
         </ul>
+        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} unplaced.</div>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">Nothing awaiting placement.</div>
       </div>
     </aside>
@@ -390,16 +560,112 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
         {{ items.length === 0 ? 'Nothing to place.' : 'Pick a level on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
-        <header>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name }}</h2>
-          <p class="text-xs text-zinc-500 mt-1">
-            <template v-if="selected.submitter">
-              Submitted by
-              <NuxtLink :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink> ·
-            </template>
-            Approved {{ selected.approved_at }}
-          </p>
+        <header class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-2xl font-semibold tracking-tight truncate">{{ selected.name }}</h2>
+            <p class="text-xs text-zinc-500 mt-1">
+              <template v-if="selected.submitter">
+                Submitted by
+                <NuxtLink :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink> ·
+              </template>
+              Approved {{ selected.approved_at }}
+            </p>
+          </div>
+          <button
+            v-if="!editing"
+            type="button"
+            class="shrink-0 rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
+            @click="startEdit"
+          >Edit</button>
         </header>
+
+        <!-- Inline edit form: same role as the Edit panel on the main-list
+             LevelDetail. Updates awaiting_levels in place; closes on save. -->
+        <section
+          v-if="editing"
+          class="rounded-md border border-accent/40 bg-zinc-950/80 p-4 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs uppercase tracking-widest text-accent font-medium">Editing level</h3>
+            <p v-if="editError" class="text-xs text-red-400">{{ editError }}</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block sm:col-span-2 text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Name</span>
+              <input v-model="editDraft.name" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Level ID</span>
+              <input v-model="editDraft.gd_id" type="text" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <input v-model="editDraft.verifier" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verify date</span>
+              <input v-model="editDraft.verify_date" type="date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <input v-model="editDraft.gddl_tier" type="text" placeholder="e.g. Tier 25" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+              <input v-model="editDraft.difficulty" type="text" placeholder="e.g. Extreme Demon" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
+              <input v-model="editDraft.enjoyment" type="number" step="0.1" min="0" max="10" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <input v-model="editDraft.main_skillset" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Source</span>
+              <input v-model="editDraft.placement_source" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification title</span>
+              <input v-model="editDraft.verification" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+              <input v-model="editDraft.verification_url" type="url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">comma-separated</span></span>
+            <input v-model="editDraft.tags" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Notes</span>
+            <textarea v-model="editDraft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="saveEdit"
+            >{{ editSaving ? 'Saving…' : 'Save' }}</button>
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded border border-zinc-700 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+              @click="cancelEdit"
+            >Cancel</button>
+          </div>
+        </section>
 
         <!-- Stats grid -->
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
@@ -489,8 +755,13 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
     </section>
 
     <!-- Right: placement + actions -->
-    <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
+    <aside class="flex flex-col min-h-0 overflow-hidden border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+        <div
+          v-if="banner"
+          class="rounded border px-3 py-2 text-xs"
+          :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
+        >{{ banner.msg }}</div>
         <div>
           <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Placement</p>
           <div class="flex items-center gap-1.5">
@@ -659,46 +930,45 @@ const verificationYtId = computed(() => youtubeId(selected.value?.verification_u
           </ul>
         </div>
 
-        <div class="mt-auto flex flex-col gap-2 pt-2">
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">sent to submitter</span></span>
-            <textarea
-              v-model="removeReason"
-              rows="2"
-              maxlength="4000"
-              placeholder="Why this is being removed."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <button
-            type="button"
-            :disabled="decideLoading || !placement"
-            class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('place')"
-          >Place at #{{ placement || '—' }}</button>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">sent to submitter</span></span>
+          <textarea
+            v-model="removeReason"
+            rows="2"
+            maxlength="4000"
+            placeholder="Why this is being removed."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+      </div>
+      <!-- Sticky action footer: kept lean (just the action buttons) so it
+           fits in the column even on short viewports. The reason textarea
+           lives at the end of the scroll area above. -->
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-2 flex flex-col gap-1.5">
+        <button
+          type="button"
+          :disabled="decideLoading || !placement"
+          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          @click="decide('place')"
+        >Place at #{{ placement || '—' }}</button>
+        <div class="flex gap-1.5">
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-sky-600 hover:text-sky-300 text-sm py-2 transition-colors disabled:opacity-60"
+            class="flex-1 rounded border border-zinc-700 hover:border-sky-600 hover:text-sky-300 text-xs py-1.5 transition-colors disabled:opacity-60"
             @click="returnToLevels"
             title="Send back to the levels (pending) tab."
-          >Return to levels tab</button>
+          >Return</button>
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
+            class="flex-1 rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs py-1.5 transition-colors disabled:opacity-60"
             @click="decide('remove')"
             title="Remove from awaiting without placing on the list."
           >Remove</button>
         </div>
-
-        <div
-          v-if="banner"
-          class="rounded border px-3 py-2 text-xs"
-          :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
-        >{{ banner.msg }}</div>
       </div>
-      <div v-else class="p-4">
+      <div v-if="!selected" class="p-4">
         <p class="text-xs text-zinc-500">Select a level to place.</p>
       </div>
     </aside>

@@ -15,7 +15,8 @@ type Row = {
 
 export default defineEventHandler((event) => {
   const q = getQuery(event)
-  const limit = Math.min(500, Math.max(1, Number(q.limit) || 100))
+  const limit = Math.min(2000, Math.max(1, Number(q.limit) || 100))
+  const offset = Math.max(0, Number(q.offset) || 0)
   const search = String(q.q ?? '').trim()
   const followedOnly = String(q.followed ?? '') === '1'
 
@@ -29,10 +30,17 @@ export default defineEventHandler((event) => {
   ).all() as { player_name: string; role: string }[]
   const roleMap = new Map(roleRows.map((r) => [r.player_name.toLowerCase(), r.role]))
 
-  // Count accepted records per player (every ALL list level is an extreme demon).
+  // Count accepted records per player on Extreme Demon levels or GDDL Tier 20+.
   const extremesMap = new Map<string, number>()
   ;(db.prepare(
-    `SELECT LOWER(player_name) AS k, COUNT(*) AS n FROM records WHERE permanent = 1 GROUP BY LOWER(player_name)`,
+    `SELECT LOWER(r.player_name) AS k, COUNT(*) AS n
+       FROM records r
+       JOIN levels l ON l.id = r.level_id
+      WHERE r.permanent = 1
+        AND (l.difficulty = 'Extreme Demon'
+             OR (l.gddl_tier IS NOT NULL
+                 AND CAST(REPLACE(l.gddl_tier, 'Tier ', '') AS INTEGER) >= 20))
+      GROUP BY LOWER(r.player_name)`,
   ).all() as { k: string; n: number }[]).forEach((r) => extremesMap.set(r.k, r.n))
 
   const sheet = db
@@ -113,6 +121,6 @@ export default defineEventHandler((event) => {
   // points, so the top result in a search is always shown as #1.
   const ranked = filtered.map((p, i) => ({ rank: i + 1, ...p }))
   const total = ranked.length
-  const items = ranked.slice(0, limit)
+  const items = ranked.slice(offset, offset + limit)
   return { total, items }
 })

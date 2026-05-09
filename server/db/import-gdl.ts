@@ -342,6 +342,87 @@ export async function importGdl() {
   console.log(`[gdl] Levels: ${merged} merged into ALL, ${gdlOnly} GDL-only`)
   console.log(`[gdl] Records: ${recImported} imported`)
 
+  // Surface gdl-only levels in the admin "Imported levels" tab as pending_levels
+  // rows, autofilled from the API. We run this AFTER the merge loop above so
+  // levels.gdl_position is populated everywhere — that's what the placement
+  // midpoint search reads. Idempotent via the unique idx on from_gdl_id.
+  console.log('[gdl] Refreshing pending_levels for GDL-only levels…')
+  const gdlOnlyForReview = db.prepare(
+    `SELECT gl.gdl_id, gl.gd_id, gl.placement, gl.name, gl.list_type,
+            gl.creator, gl.verifier_name, gl.verification_url
+       FROM gdl_levels gl
+       LEFT JOIN levels l ON l.gd_id = gl.gd_id
+      WHERE l.id IS NULL
+        AND gl.promoted_to_position IS NULL`,
+  ).all() as Array<{
+    gdl_id: number; gd_id: number; placement: number; name: string;
+    list_type: string | null; creator: string | null;
+    verifier_name: string | null; verification_url: string | null
+  }>
+
+  const findNeighborAbove = db.prepare(
+    `SELECT position FROM levels
+      WHERE gdl_position IS NOT NULL AND gdl_position < ?
+      ORDER BY gdl_position DESC LIMIT 1`,
+  )
+  const findNeighborBelow = db.prepare(
+    `SELECT position FROM levels
+      WHERE gdl_position IS NOT NULL AND gdl_position > ?
+      ORDER BY gdl_position ASC LIMIT 1`,
+  )
+  const insPending = db.prepare(
+    `INSERT INTO pending_levels
+       (gd_id, name, verification_url, verifier, difficulty, notes,
+        placement_source, placement_estimate, status, submitted_at, from_gdl_id)
+     VALUES (?, ?, ?, ?, 'Extreme Demon', ?, 'GDL Import', ?, 'pending', ?, ?)
+     ON CONFLICT(from_gdl_id) DO NOTHING`,
+  )
+
+  // Auto-reject imports whose verification URL already verifies a main-list
+  // level — same video can't verify two different rankings, so it's almost
+  // always a re-posting of an already-tracked level.
+  const existingVerUrls = new Set<string>(
+    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
+      .map((r) => r.verification_url),
+  )
+
+  let importedReview = 0
+  let skippedDupVer = 0
+  db.exec('BEGIN')
+  try {
+    for (const lv of gdlOnlyForReview) {
+      if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
+
+      const above = findNeighborAbove.get(lv.placement) as { position: number } | undefined
+      const below = findNeighborBelow.get(lv.placement) as { position: number } | undefined
+      // Midpoint between the surrounding ALL-list neighbors. If only one side
+      // has a match (this level is harder/easier than anything ALL knows about
+      // on GDL), nudge by ±1 from that neighbor as a starting suggestion.
+      let placementEstimate: number | null = null
+      if (above && below) placementEstimate = Math.round((above.position + below.position) / 2)
+      else if (above) placementEstimate = above.position + 1
+      else if (below) placementEstimate = Math.max(1, below.position - 1)
+
+      const notes = `Imported from GDL · placement #${lv.placement} on ${lv.list_type ?? 'classic'} list`
+      const result = insPending.run(
+        lv.gd_id,
+        lv.name,
+        lv.verification_url,
+        lv.verifier_name,
+        notes,
+        placementEstimate,
+        now,
+        lv.gdl_id,
+      )
+      if (result.changes > 0) importedReview++
+    }
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+  console.log(`[gdl]   ${importedReview} new pending_levels rows for admin review (${gdlOnlyForReview.length} GDL-only total, ${skippedDupVer} dup verification URL)`)
+
   // Backfill hardest_name on gdl_players from each player's recorded set.
   // Cheaper than per-player /user/get fetches — the records table already
   // tells us which level each player has 100%'d, and we know each level's

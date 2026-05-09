@@ -34,7 +34,8 @@ type Row = {
 
 export default defineEventHandler((event) => {
   const q = getQuery(event)
-  const limit = Math.max(1, Math.min(500, Number(q.limit) || 200))
+  const limit = Math.max(1, Math.min(2000, Number(q.limit) || 200))
+  const offset = Math.max(0, Number(q.offset) || 0)
   const search = String(q.q ?? '').trim()
   const source = String(q.source ?? 'all').toLowerCase()
 
@@ -163,7 +164,14 @@ export default defineEventHandler((event) => {
 
     const extremesMap = new Map<string, number>()
     ;(db.prepare(
-      `SELECT LOWER(player_name) AS k, COUNT(*) AS n FROM records WHERE permanent = 1 GROUP BY LOWER(player_name)`,
+      `SELECT LOWER(r.player_name) AS k, COUNT(*) AS n
+         FROM records r
+         JOIN levels l ON l.id = r.level_id
+        WHERE r.permanent = 1
+          AND (l.difficulty = 'Extreme Demon'
+               OR (l.gddl_tier IS NOT NULL
+                   AND CAST(REPLACE(l.gddl_tier, 'Tier ', '') AS INTEGER) >= 20))
+        GROUP BY LOWER(r.player_name)`,
     ).all() as { k: string; n: number }[]).forEach((r) => extremesMap.set(r.k, r.n))
 
     const sheetRows = db.prepare(
@@ -241,15 +249,18 @@ export default defineEventHandler((event) => {
   if (isCombined) {
     // Merge duplicates across sources: a player who shows up in AREDL + PC
     // (or any combination) collapses into ONE row with `sources` listing
-    // every list they appear on. The chip in the UI then renders as
-    // "AREDL/PC" instead of two separate rows. Match by case-insensitive
-    // player name — there's no canonical cross-source ID.
+    // every list they appear on. Match by case-insensitive player name —
+    // there's no canonical cross-source ID.
     //
     // Routing priority (which `source` + `id` we keep): aredl > pointercrate
-    // > alllist. Points use the maximum across sources (the player's best
-    // standing). Extras (extremes, pack_points) merge field-by-field,
-    // preferring whichever source has a value.
+    // > gdl > alllist. Points always reflect the player's ALL list standing
+    // (even when their primary routing source is external) so the column is
+    // a uniform currency across rows. Players with no ALL list entry get 0.
     const SOURCE_RANK: Record<Source, number> = { aredl: 0, pointercrate: 1, gdl: 2, alllist: 3 }
+    const allPointsMap = new Map<string, number>()
+    for (const r of rows) {
+      if (r.source === 'alllist') allPointsMap.set(r.player.toLowerCase(), r.points ?? 0)
+    }
     const merged = new Map<string, Row>()
     for (const r of rows) {
       const key = r.player.toLowerCase()
@@ -266,7 +277,6 @@ export default defineEventHandler((event) => {
       for (const s of r.sources) {
         if (!existing.sources.includes(s)) existing.sources.push(s)
       }
-      if ((r.points ?? 0) > (existing.points ?? 0)) existing.points = r.points
       existing.country = existing.country ?? r.country
       existing.hardest = existing.hardest ?? r.hardest
       existing.claimed_account = existing.claimed_account ?? r.claimed_account
@@ -275,13 +285,21 @@ export default defineEventHandler((event) => {
         pack_points: existing.extras.pack_points ?? r.extras.pack_points,
       }
     }
-    // Order sources for stable display: aredl first, pc, then alllist.
+    // Order sources for stable display: aredl first, pc, gdl, then alllist.
+    // Points: prefer the player's ALL-list standing when known, but fall back
+    // to whatever the primary source contributed when the player isn't on the
+    // ALL list. The earlier behaviour zero'd these out unconditionally, which
+    // made the column read "0" for every external-only player.
     for (const row of merged.values()) {
       row.sources.sort((a, b) => SOURCE_RANK[a] - SOURCE_RANK[b])
+      const allPts = allPointsMap.get(row.player.toLowerCase())
+      if (allPts != null) row.points = allPts
+      // else: keep `row.points` as-is (the primary source's value carried
+      // through from the original push above).
     }
     const mergedRows = Array.from(merged.values())
 
-    // Sort merged set by points and assign unified ranks across all lists.
+    // Sort merged set by ALL points and assign unified ranks across all lists.
     mergedRows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
       return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
@@ -293,8 +311,8 @@ export default defineEventHandler((event) => {
     const visible = search
       ? mergedRows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
       : mergedRows
-    return { total: visible.length, items: visible.slice(0, limit) }
+    return { total: visible.length, items: visible.slice(offset, offset + limit) }
   }
 
-  return { total: rows.length, items: rows.slice(0, limit) }
+  return { total: rows.length, items: rows.slice(offset, offset + limit) }
 })

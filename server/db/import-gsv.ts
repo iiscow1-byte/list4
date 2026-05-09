@@ -11,8 +11,10 @@
  * working unchanged.
  *
  * Records are uuid-namespaced as `gsv-${completion_id}` so a future re-run
- * upserts cleanly. The table is wiped at the start of each run so a player
- * who removes a completion on GSV doesn't keep a stale row here.
+ * upserts cleanly. Stale-while-revalidate: instead of a global wipe up
+ * front, each successfully-fetched player has their existing rows replaced
+ * atomically per batch. Old data stays visible for the rest of the run, and
+ * a transient fetch failure for one player doesn't blank their records.
  */
 import { getDb } from './index.ts'
 
@@ -106,11 +108,7 @@ export async function importGsv() {
   const profileCount = accounts.length - userCount
   console.log(`[gsv]   ${accounts.length} accounts (${userCount} users, ${profileCount} profiles)`)
 
-  // Wipe and re-import — GSV is now the canonical source for aredl_records.
-  // Doing the wipe outside the per-batch transaction means a partially-failed
-  // run leaves the table half-full, which the next successful run repairs.
-  console.log('[gsv] Clearing aredl_records…')
-  db.exec('DELETE FROM aredl_records')
+  const delPlayerRecords = db.prepare(`DELETE FROM aredl_records WHERE player_uuid = ?`)
 
   const insRec = db.prepare(`
     INSERT INTO aredl_records
@@ -146,6 +144,9 @@ export async function importGsv() {
         // we can fit into aredl_records' NOT NULL columns. Anonymous profiles
         // without an AREDL link are skipped.
         if (!playerUuid) { accountsDone++; continue }
+        // Replace this player's old rows atomically inside the batch txn so
+        // readers always see a coherent snapshot — either all old or all new.
+        delPlayerRecords.run(playerUuid)
         const playerName = resp.player_info?.username ?? account.username
         for (const c of resp.demonlist ?? []) {
           if (!c.completion_id || !c.aredl_uuid) continue

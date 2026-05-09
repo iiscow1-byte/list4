@@ -12,11 +12,13 @@ type PendingLevel = {
   verifier: string | null
   verify_date: string | null
   gddl_tier: string | null
+  gddl_tier_estimated: number
   difficulty: string | null
   enjoyment: number | null
   main_skillset: string | null
   tags: string | null
   notes: string | null
+  placement_source: string | null
   submitted_at: string
   submitter: string | null
   placement_estimate: number | null
@@ -30,7 +32,21 @@ type PendingLevel = {
   alternate_of_id: number | null
   tentative_placement: number
   rated: string | null
+  from_gdl_id: number | null
+  from_gdtpl_id: number | null
+  from_sheet_pending: number
+  gdtpl_list_slug: string | null
+  gdtpl_position: number | null
+  potential_duplicate_position: number | null
+  potential_duplicate_name: string | null
 }
+
+// 'submitted' (default) drives the user-submission queue; 'gdl_import' drives
+// the GDL-imported queue. Both render the same UI with a few label tweaks.
+const props = withDefaults(defineProps<{ source?: 'submitted' | 'gdl_import' }>(), {
+  source: 'submitted',
+})
+const isImported = computed(() => props.source === 'gdl_import')
 
 type PreviewRow = { position: number; name: string; rated: string | null; gddl_tier: string | null; difficulty: string | null }
 type Preview = {
@@ -72,10 +88,41 @@ type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc'
 const filtersOpen = ref(false)
 const search = ref('')
 const difficultyFilter = ref<DifficultyFilter>('all')
-const pendingSort = ref<PendingSort>('submitted')
+// The auto-import queue mixes hundreds of GDL/GDTPL/sheet rows in arbitrary
+// submission order; sorting by tier desc surfaces the hardest unreviewed
+// imports first, which is what mods want by default. User submissions stay
+// in submission order so chronological review still works.
+const pendingSort = ref<PendingSort>(props.source === 'gdl_import' ? 'tier_desc' : 'submitted')
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
+type PotentialDupMode = 'show' | 'only' | 'hide'
+const potentialDuplicateMode = ref<PotentialDupMode>('show')
+// Imported-levels source filter — only meaningful when source='gdl_import',
+// which mixes GDL, GDTPL (TSL/EDI/CCL/…), and sheet-pending rows in one queue.
+// Built-in keys are 'all' / 'sheet' / 'gdl'; any other value is interpreted as
+// a gdtpl_levels.list_slug, so adding a new GDListTemplate-based list (CCL,
+// etc.) makes its filter chip appear automatically once any of its rows land
+// in the pending queue.
+const importSourceFilter = ref<string>('all')
+
+// Derive the list of source-filter chips from whatever's currently in the
+// queue. Always show the built-in three; append every distinct gdtpl
+// list_slug we see in `items`. Keeps the UI in sync as new lists are wired up.
+const importSourceOptions = computed<{ value: string; label: string }[]>(() => {
+  const slugs = new Set<string>()
+  for (const r of items.value) {
+    const s = (r.gdtpl_list_slug ?? '').toLowerCase()
+    if (s) slugs.add(s)
+  }
+  const base = [
+    { value: 'all',   label: 'All' },
+    { value: 'sheet', label: 'Sheet' },
+    { value: 'gdl',   label: 'GDL' },
+  ]
+  for (const s of [...slugs].sort()) base.push({ value: s, label: s.toUpperCase() })
+  return base
+})
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
@@ -112,6 +159,15 @@ const filteredItems = computed<PendingLevel[]>(() => {
         if (!lower.split(',').map((x) => x.trim()).includes(t)) return false
       }
     }
+    if (potentialDuplicateMode.value === 'only' && r.potential_duplicate_position == null) return false
+    if (potentialDuplicateMode.value === 'hide' && r.potential_duplicate_position != null) return false
+    if (isImported.value && importSourceFilter.value !== 'all') {
+      const slug = (r.gdtpl_list_slug ?? '').toLowerCase()
+      const f = importSourceFilter.value
+      if (f === 'sheet')      { if (!r.from_sheet_pending) return false }
+      else if (f === 'gdl')   { if (!r.from_gdl_id)        return false }
+      else                    { if (slug !== f)            return false }
+    }
     return true
   })
   const sort = pendingSort.value
@@ -132,19 +188,23 @@ const activeFilterCount = computed(() => {
   let n = 0
   if (search.value.trim()) n++
   if (difficultyFilter.value !== 'all') n++
-  if (pendingSort.value !== 'submitted') n++
+  if (pendingSort.value !== (props.source === 'gdl_import' ? 'tier_desc' : 'submitted')) n++
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
+  if (potentialDuplicateMode.value !== 'show') n++
+  if (isImported.value && importSourceFilter.value !== 'all') n++
   return n
 })
 
 function resetFilters() {
   search.value = ''
   difficultyFilter.value = 'all'
-  pendingSort.value = 'submitted'
+  pendingSort.value = props.source === 'gdl_import' ? 'tier_desc' : 'submitted'
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false
+  potentialDuplicateMode.value = 'show'
+  importSourceFilter.value = 'all'
 }
 
 // Tier range guards
@@ -185,7 +245,9 @@ const goesToVoid = computed(() => {
 })
 
 async function load() {
-  const res = await $fetch<{ items: PendingLevel[] }>('/api/admin/levels/pending')
+  const res = await $fetch<{ items: PendingLevel[] }>('/api/admin/levels/pending', {
+    query: { source: props.source },
+  })
   items.value = res.items
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
@@ -194,6 +256,9 @@ async function load() {
   }
 }
 onMounted(load)
+// Reload when the parent swaps tabs without unmounting (admin.vue v-if guards
+// against this, but be defensive in case of future refactors).
+watch(() => props.source, load)
 
 watch(selected, async (s) => {
   // Skip full reset when the same level's in-memory record was updated (e.g.
@@ -201,6 +266,11 @@ watch(selected, async (s) => {
   if (s?.id === lastLoadedId) return
   lastLoadedId = s?.id ?? null
   preview.value = null
+  // Clear the previous selection's auto-filled tier/difficulty so they don't
+  // bleed into the middle stats panel for the next submission until the
+  // placement-preview watcher refills them from the new neighbours.
+  tierOverride.value = ''
+  difficultyOverride.value = ''
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
@@ -411,6 +481,97 @@ function onFlagsAlternatePick(lvl: ListLevel) {
 const tierOverride = ref('')
 const difficultyOverride = ref('')
 const awaitPlacementSuggestion = ref('')
+
+// --- Inline metadata edit (mirrors LevelDetail's edit panel for the main list) ---
+const editing = ref(false)
+const editSaving = ref(false)
+const editError = ref<string | null>(null)
+type EditableMetadata = {
+  name: string
+  gd_id: string
+  verifier: string
+  verify_date: string
+  gddl_tier: string
+  difficulty: string
+  enjoyment: string
+  main_skillset: string
+  placement_source: string
+  rated: string
+  verification: string
+  verification_url: string
+  tags: string
+  notes: string
+}
+const editDraft = reactive<EditableMetadata>({
+  name: '', gd_id: '', verifier: '', verify_date: '',
+  gddl_tier: '', difficulty: '', enjoyment: '', main_skillset: '',
+  placement_source: '', rated: '',
+  verification: '', verification_url: '', tags: '', notes: '',
+})
+
+function startEdit() {
+  if (!selected.value) return
+  const s = selected.value
+  editDraft.name = s.name ?? ''
+  editDraft.gd_id = s.gd_id != null ? String(s.gd_id) : ''
+  editDraft.verifier = s.verifier ?? ''
+  editDraft.verify_date = s.verify_date ?? ''
+  editDraft.gddl_tier = s.gddl_tier ?? ''
+  editDraft.difficulty = s.difficulty ?? ''
+  editDraft.enjoyment = s.enjoyment != null ? String(s.enjoyment) : ''
+  editDraft.main_skillset = s.main_skillset ?? ''
+  editDraft.placement_source = s.placement_source ?? ''
+  editDraft.rated = s.rated ?? ''
+  editDraft.verification = s.verification ?? ''
+  editDraft.verification_url = s.verification_url ?? ''
+  editDraft.tags = s.tags ?? ''
+  editDraft.notes = s.notes ?? ''
+  editError.value = null
+  editing.value = true
+}
+function cancelEdit() {
+  editing.value = false
+  editError.value = null
+}
+// Drop edit state when switching submissions so the form doesn't leak the
+// previous level's draft into the new selection.
+watch(selectedId, () => { editing.value = false; editError.value = null })
+
+async function saveEdit() {
+  if (!selected.value || editSaving.value) return
+  editSaving.value = true
+  editError.value = null
+  try {
+    const fields: Record<string, unknown> = {
+      name: editDraft.name.trim() || null,
+      gd_id: editDraft.gd_id.trim() === '' ? null : Number(editDraft.gd_id.trim()),
+      verifier: editDraft.verifier.trim(),
+      verify_date: editDraft.verify_date.trim(),
+      gddl_tier: editDraft.gddl_tier.trim(),
+      difficulty: editDraft.difficulty.trim(),
+      enjoyment: editDraft.enjoyment.trim() === '' ? null : Number(editDraft.enjoyment.trim()),
+      main_skillset: editDraft.main_skillset.trim(),
+      placement_source: editDraft.placement_source.trim(),
+      rated: editDraft.rated.trim(),
+      verification: editDraft.verification.trim(),
+      verification_url: editDraft.verification_url.trim(),
+      tags: editDraft.tags.trim(),
+      notes: editDraft.notes.trim(),
+    }
+    if (fields.gd_id != null && (!Number.isInteger(fields.gd_id) || (fields.gd_id as number) <= 0)) {
+      throw createError({ statusMessage: 'Level ID must be a positive integer.' })
+    }
+    await $fetch(`/api/admin/levels/pending/${selected.value.id}`, {
+      method: 'POST', body: { action: 'save_metadata', fields },
+    })
+    editing.value = false
+    await load()
+  } catch (e: any) {
+    editError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
+  } finally {
+    editSaving.value = false
+  }
+}
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
@@ -422,10 +583,10 @@ watch(preview, (p) => {
 <template>
   <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
     <!-- Left: pending list -->
-    <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+    <aside class="flex flex-col min-h-0 overflow-hidden border-r border-zinc-800 bg-zinc-950">
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <div class="flex items-baseline justify-between mb-2">
-          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Pending levels</p>
+          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
           <p class="text-[11px] text-zinc-600">
             {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> waiting
           </p>
@@ -456,6 +617,25 @@ watch(preview, (p) => {
         </div>
 
         <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
+          <!-- Import source — only on the imported-levels queue, which mixes
+               GDL / GDTPL / sheet-pending rows. -->
+          <div v-if="isImported">
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Source</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="opt in importSourceOptions"
+                :key="opt.value"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="importSourceFilter === opt.value
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="importSourceFilter" type="radio" :value="opt.value" class="sr-only" />
+                {{ opt.label }}
+              </label>
+            </div>
+          </div>
+
           <!-- Sort -->
           <div>
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Sort</div>
@@ -538,6 +718,28 @@ watch(preview, (p) => {
             </div>
           </div>
 
+          <!-- Potential duplicates -->
+          <div>
+            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Potential duplicates</div>
+            <div class="flex flex-wrap gap-1.5">
+              <label
+                v-for="[val, label] in (
+                  [['show', 'Show'], ['only', 'Only'], ['hide', 'Hide']] as const
+                )"
+                :key="val"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                :class="potentialDuplicateMode === val
+                  ? (val === 'only' ? 'border-amber-400/60 text-amber-300 bg-amber-400/10'
+                     : val === 'hide' ? 'border-zinc-500/60 text-zinc-200 bg-zinc-500/10'
+                     : 'border-accent/60 text-accent bg-accent/10')
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              >
+                <input v-model="potentialDuplicateMode" type="radio" :value="val" class="sr-only" />
+                {{ label }}
+              </label>
+            </div>
+          </div>
+
           <div class="flex items-center justify-between pt-1">
             <button
               type="button"
@@ -568,15 +770,28 @@ watch(preview, (p) => {
                   class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
                   title="Submitted from the void list with a difficulty opinion"
                 >Void</span>
+                <span
+                  v-if="r.potential_duplicate_position"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  :title="`Same name as ALL #${r.potential_duplicate_position} ${r.potential_duplicate_name}`"
+                >Potential Duplicate</span>
               </div>
               <div class="text-[11px] text-zinc-500 truncate">
-                #{{ r.gd_id ?? '?' }} · by {{ r.submitter ?? 'unknown' }}
+                #{{ r.gd_id ?? '?' }} ·
+                <template v-if="r.from_gdl_id">GDL import</template>
+                <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
+                <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
+                <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
                 <span
                   v-if="r.gddl_tier"
-                  class="shrink-0 px-1.5 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-300 tabular-nums"
-                >{{ r.gddl_tier }}</span>
+                  class="shrink-0 px-1.5 py-px rounded border tabular-nums"
+                  :class="r.gddl_tier_estimated
+                    ? 'border-sky-900/60 bg-sky-950/30 text-sky-300'
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-300'"
+                  :title="r.gddl_tier_estimated ? 'Estimated from neighbouring shared levels' : ''"
+                >{{ r.gddl_tier }}<span v-if="r.gddl_tier_estimated" class="ml-1 text-[9px] uppercase tracking-widest opacity-80">est</span></span>
                 <span
                   v-if="r.difficulty === 'Extreme Demon'"
                   class="shrink-0 px-1.5 py-px rounded border border-red-900/60 bg-red-950/30 text-red-300"
@@ -592,8 +807,8 @@ watch(preview, (p) => {
             </button>
           </li>
         </ul>
-        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} pending.</div>
-        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No pending submissions.</div>
+        <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} {{ isImported ? 'imported' : 'pending' }}.</div>
+        <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">{{ isImported ? 'No imported levels to review.' : 'No pending submissions.' }}</div>
       </div>
     </aside>
 
@@ -603,17 +818,135 @@ watch(preview, (p) => {
         {{ items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
-        <header>
-          <h2 class="text-2xl font-semibold tracking-tight">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
-          <p class="text-xs text-zinc-500 mt-1">
-            Submitted by
-            <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
-            <span v-else>unknown</span>
-            · {{ selected.submitted_at }}
-          </p>
+        <header class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-2xl font-semibold tracking-tight truncate">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
+            <p class="text-xs text-zinc-500 mt-1">
+              <template v-if="selected.from_gdl_id">
+                Imported from GDL · {{ selected.submitted_at }}
+              </template>
+              <template v-else-if="selected.from_gdtpl_id">
+                Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
+              </template>
+              <template v-else-if="selected.from_sheet_pending">
+                Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
+              </template>
+              <template v-else>
+                Submitted by
+                <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
+                <span v-else>unknown</span>
+                · {{ selected.submitted_at }}
+              </template>
+            </p>
+          </div>
+          <button
+            v-if="!editing"
+            type="button"
+            class="shrink-0 rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
+            @click="startEdit"
+          >Edit</button>
         </header>
 
+        <!-- Inline edit form: same role as the Edit panel on the main-list
+             LevelDetail. Updates pending_levels in place; closes on save. -->
+        <section
+          v-if="editing"
+          class="rounded-md border border-accent/40 bg-zinc-950/80 p-4 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs uppercase tracking-widest text-accent font-medium">Editing submission</h3>
+            <p v-if="editError" class="text-xs text-red-400">{{ editError }}</p>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block sm:col-span-2 text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Name</span>
+              <input v-model="editDraft.name" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Level ID</span>
+              <input v-model="editDraft.gd_id" type="text" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <input v-model="editDraft.verifier" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verify date</span>
+              <input v-model="editDraft.verify_date" type="date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <input v-model="editDraft.gddl_tier" type="text" placeholder="e.g. Tier 25" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+              <input v-model="editDraft.difficulty" type="text" placeholder="e.g. Extreme Demon" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Rated</span>
+              <input v-model="editDraft.rated" type="text" placeholder="Rated / Featured / Epic / Legendary / Mythic / Challenge" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
+              <input v-model="editDraft.enjoyment" type="number" step="0.1" min="0" max="10" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <input v-model="editDraft.main_skillset" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Source</span>
+              <input v-model="editDraft.placement_source" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification title</span>
+              <input v-model="editDraft.verification" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block text-xs">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+              <input v-model="editDraft.verification_url" type="url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+          </div>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">comma-separated</span></span>
+            <input v-model="editDraft.tags" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <label class="block text-xs">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Notes</span>
+            <textarea v-model="editDraft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          </label>
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="saveEdit"
+            >{{ editSaving ? 'Saving…' : 'Save' }}</button>
+            <button
+              type="button"
+              :disabled="editSaving"
+              class="rounded border border-zinc-700 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+              @click="cancelEdit"
+            >Cancel</button>
+          </div>
+        </section>
+
         <div class="flex flex-wrap gap-2">
+          <NuxtLink
+            v-if="selected.potential_duplicate_position"
+            :to="`/levels/${selected.potential_duplicate_position}`"
+            class="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 hover:bg-amber-900/60 hover:text-amber-200 transition-colors"
+          >
+            Potential Duplicate · #{{ selected.potential_duplicate_position }} {{ selected.potential_duplicate_name }}
+          </NuxtLink>
           <span v-if="goesToVoid" class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
             No difficulty opinion · will go to void
           </span>
@@ -648,11 +981,18 @@ watch(preview, (p) => {
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-            <div class="text-sm text-zinc-100">{{ selected.gddl_tier ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.gddl_tier || tierOverride || '—' }}
+              <span v-if="selected.gddl_tier && selected.gddl_tier_estimated" class="text-[10px] text-sky-300 ml-1">(estimated)</span>
+              <span v-else-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
-            <div class="text-sm text-zinc-100">{{ selected.difficulty ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.difficulty || difficultyOverride || '—' }}
+              <span v-if="!selected.difficulty && difficultyOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
@@ -706,7 +1046,7 @@ watch(preview, (p) => {
     </section>
 
     <!-- Right: placement + actions -->
-    <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
+    <aside class="flex flex-col min-h-0 overflow-hidden border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
         <div>
           <div class="flex items-baseline justify-between mb-1">
@@ -883,54 +1223,60 @@ watch(preview, (p) => {
           </ul>
         </div>
 
-        <div class="mt-auto flex flex-col gap-2 pt-2">
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
-            <textarea
-              v-model="rejectReason"
-              rows="2"
-              maxlength="4000"
-              placeholder="Why this can't be accepted as-is."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
-          <button
-            type="button"
-            :disabled="decideLoading || !placement"
-            class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
-            @click="decide('approve')"
-          >Approve at #{{ placement || '—' }}</button>
-          <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
-            <input
-              v-model="awaitPlacementSuggestion"
-              type="number" inputmode="numeric" min="1"
-              placeholder="position #"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-          </label>
+        <!-- Reason / placement-suggestion inputs live at the END of the
+             scroll area so the action footer below stays compact and visible
+             on short viewports. -->
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for denial <span class="text-zinc-600 normal-case">sent to submitter</span></span>
+          <textarea
+            v-model="rejectReason"
+            rows="2"
+            maxlength="4000"
+            placeholder="Why this can't be accepted as-is."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement suggestion <span class="text-zinc-600 normal-case">pre-fills awaiting tab</span></span>
+          <input
+            v-model="awaitPlacementSuggestion"
+            type="number" inputmode="numeric" min="1"
+            placeholder="position #"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+      </div>
+      <!-- Sticky action footer: kept lean (just the buttons) so it fits in
+           the column even on short viewports. -->
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-2 flex flex-col gap-1.5">
+        <button
+          type="button"
+          :disabled="decideLoading || !placement"
+          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          @click="decide('approve')"
+        >Approve at #{{ placement || '—' }}</button>
+        <div class="flex gap-1.5">
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-sm py-2 transition-colors disabled:opacity-60"
+            class="flex-1 rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
             @click="decide('await')"
             title="Approve without a position. Goes to the public awaiting-placement list."
-          >Send to awaiting</button>
+          >Awaiting</button>
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
+            class="flex-1 rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs py-1.5 transition-colors disabled:opacity-60"
             @click="decide('reject')"
           >Reject</button>
         </div>
-
         <div
           v-if="banner"
-          class="rounded border px-3 py-2 text-xs"
+          class="rounded border px-2 py-1 text-[11px]"
           :class="banner.kind === 'ok' ? 'border-emerald-900/50 bg-emerald-950/30 text-emerald-300' : 'border-red-900/50 bg-red-950/30 text-red-300'"
         >{{ banner.msg }}</div>
       </div>
-      <div v-else class="p-4">
+      <div v-if="!selected" class="p-4">
         <p class="text-xs text-zinc-500">Select a submission to review.</p>
       </div>
     </aside>

@@ -3,6 +3,12 @@ import { runImport } from '~/server/db/import'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importGsv } from '~/server/db/import-gsv'
+import { importTsl } from '~/server/db/import-tsl'
+import { importEdi } from '~/server/db/import-edi'
+import { importCcl } from '~/server/db/import-ccl'
+import { importLl } from '~/server/db/import-ll'
+import { importTcl } from '~/server/db/import-tcl'
+import { importSfl } from '~/server/db/import-sfl'
 
 /**
  * On boot, if the levels table is empty, kick off a background import of the
@@ -58,6 +64,33 @@ export default defineNitroPlugin(() => {
         // dedup at query time) is populated before records land.
         console.log('[db-init] running Global Stats Viewer import in background (refresh on restart)')
         await importGsv().catch((err) => console.error('[db-init] gsv import failed:', err))
+      }
+      if (process.env.LIST_SKIP_TSL_IMPORT !== '1') {
+        // TSL (and any other GDListTemplate-based list) — fast: ~160 small JSON
+        // fetches. Idempotent, safe to re-run on every boot. Adding another
+        // GDListTemplate-based list later is one more importTsl-style call.
+        console.log('[db-init] running TSL import in background (refresh on restart)')
+        await importTsl().catch((err) => console.error('[db-init] tsl import failed:', err))
+      }
+      if (process.env.LIST_SKIP_EDI_IMPORT !== '1') {
+        console.log('[db-init] running EDI import in background (refresh on restart)')
+        await importEdi().catch((err) => console.error('[db-init] edi import failed:', err))
+      }
+      if (process.env.LIST_SKIP_CCL_IMPORT !== '1') {
+        console.log('[db-init] running CCL import in background (refresh on restart)')
+        await importCcl().catch((err) => console.error('[db-init] ccl import failed:', err))
+      }
+      if (process.env.LIST_SKIP_LL_IMPORT !== '1') {
+        console.log('[db-init] running LL import in background (refresh on restart)')
+        await importLl().catch((err) => console.error('[db-init] ll import failed:', err))
+      }
+      if (process.env.LIST_SKIP_TCL_IMPORT !== '1') {
+        console.log('[db-init] running TCL import in background (refresh on restart)')
+        await importTcl().catch((err) => console.error('[db-init] tcl import failed:', err))
+      }
+      if (process.env.LIST_SKIP_SFL_IMPORT !== '1') {
+        console.log('[db-init] running SFL import in background (refresh on restart)')
+        await importSfl().catch((err) => console.error('[db-init] sfl import failed:', err))
       }
     })
 })
