@@ -88,7 +88,11 @@ type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc'
 const filtersOpen = ref(false)
 const search = ref('')
 const difficultyFilter = ref<DifficultyFilter>('all')
-const pendingSort = ref<PendingSort>('submitted')
+// The auto-import queue mixes hundreds of GDL/GDTPL/sheet rows in arbitrary
+// submission order; sorting by tier desc surfaces the hardest unreviewed
+// imports first, which is what mods want by default. User submissions stay
+// in submission order so chronological review still works.
+const pendingSort = ref<PendingSort>(props.source === 'gdl_import' ? 'tier_desc' : 'submitted')
 const tierMin = ref(0)
 const tierMax = ref(TIER_MAX_ORD)
 const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false })
@@ -184,7 +188,7 @@ const activeFilterCount = computed(() => {
   let n = 0
   if (search.value.trim()) n++
   if (difficultyFilter.value !== 'all') n++
-  if (pendingSort.value !== 'submitted') n++
+  if (pendingSort.value !== (props.source === 'gdl_import' ? 'tier_desc' : 'submitted')) n++
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
   if (PENDING_TAGS.some((t) => pendingTagSet[t])) n++
   if (potentialDuplicateMode.value !== 'show') n++
@@ -195,7 +199,7 @@ const activeFilterCount = computed(() => {
 function resetFilters() {
   search.value = ''
   difficultyFilter.value = 'all'
-  pendingSort.value = 'submitted'
+  pendingSort.value = props.source === 'gdl_import' ? 'tier_desc' : 'submitted'
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
   for (const t of PENDING_TAGS) pendingTagSet[t] = false

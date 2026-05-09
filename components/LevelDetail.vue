@@ -171,8 +171,9 @@ watch(() => props.level.position, () => {
       await $fetch(`/api/admin/levels/${props.level.position}`, {
         method: 'PATCH', body: { verify_date: date },
       })
-      // Soft refresh the surrounding page so the new date renders.
-      await reloadNuxtApp({ ttl: 0 })
+      // Soft refresh any useFetch/useAsyncData on the surrounding page so the
+      // new verify_date renders in the stat tile.
+      await refreshNuxtData()
     } catch { /* ignore — admin can edit later */ } finally {
       verifyDateAutofilling.value = false
     }
