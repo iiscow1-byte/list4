@@ -5,6 +5,7 @@ import { importGdl } from '~/server/db/import-gdl'
 import { importTsl } from '~/server/db/import-tsl'
 import { importEdi } from '~/server/db/import-edi'
 import { importCcl } from '~/server/db/import-ccl'
+import { importDdl } from '~/server/db/import-ddl'
 import { importLl } from '~/server/db/import-ll'
 import { importTcl } from '~/server/db/import-tcl'
 import { importSfl } from '~/server/db/import-sfl'
@@ -19,6 +20,7 @@ const RUNNERS: Record<string, () => Promise<void>> = {
   'tsl':           async () => { await importTsl() },
   'edi':           async () => { await importEdi() },
   'ccl':           async () => { await importCcl() },
+  'ddl':           async () => { await importDdl() },
   'll':            async () => { await importLl() },
   'tcl':           async () => { await importTcl() },
   'sfl':           async () => { await importSfl() },
