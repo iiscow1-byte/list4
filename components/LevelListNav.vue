@@ -13,6 +13,7 @@ type LevelRow = {
   aredl_position?: number | null
   pointercrate_position?: number | null
   gdl_position?: number | null
+  challenge_list_position?: number | null
 }
 
 const props = defineProps<{
@@ -124,7 +125,7 @@ function tierTextLabel(lvl: LevelRow): string | null {
   return tier
 }
 
-type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'GDL'
+type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'GDL' | 'CL'
 const listVariant = ref<ListVariant>('Classic')
 const externalList = ref('')
 
@@ -150,12 +151,16 @@ function applyVariant(v: ListVariant) {
   } else if (v === 'GDL') {
     externalList.value = 'gdl'
     sort.value = 'gdl_asc'
+  } else if (v === 'CL') {
+    externalList.value = 'cl'
+    sort.value = 'cl_asc'
   }
 }
 
 function displayNum(lvl: LevelRow): number {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return lvl.aredl_position
   if (listVariant.value === 'GDL' && lvl.gdl_position != null) return lvl.gdl_position
+  if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return lvl.challenge_list_position
   return lvl.displayRank ?? lvl.position
 }
 
@@ -569,6 +574,16 @@ watch(
                   >
                     <input type="radio" value="GDL" :checked="listVariant === 'GDL'" class="sr-only" @change="applyVariant('GDL')" />
                     GDL
+                  </label>
+                  <label
+                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    :class="listVariant === 'CL'
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                    title="Levels ranked on the Challenge List, sorted by their CL position"
+                  >
+                    <input type="radio" value="CL" :checked="listVariant === 'CL'" class="sr-only" @change="applyVariant('CL')" />
+                    CL
                   </label>
                 </div>
               </div>

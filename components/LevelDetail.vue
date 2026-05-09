@@ -675,7 +675,6 @@ const visibleOtherLists = computed(() => {
   const lists = props.level.other_lists ?? []
   return lists.filter((e) => {
     if (e.list === 'GDL' || e.list === 'AREDL') return isExtremeLevel.value
-    if (e.list === 'Challenge List') return isChallengeLevel.value
     return true
   })
 })
@@ -1547,16 +1546,15 @@ const historyByDay = computed(() => {
       </section>
     </template>
 
-    <!-- Rankings on other lists — always shown as a collapsible. When the level
-         has no real rankings, estimated GDL/AREDL positions are fetched on open. -->
+    <!-- Rankings on other lists -->
     <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
-      <details :open="visibleOtherLists.length > 0 || isChallengeLevel" class="group" @toggle="onOtherListsToggle">
+      <details :open="visibleOtherLists.length > 0 || isExtremeLevel || isChallengeLevel" class="group" @toggle="onOtherListsToggle">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
 
-        <!-- Real rankings -->
+        <!-- Actual rankings -->
         <ul v-if="visibleOtherLists.length > 0" class="divide-y divide-zinc-900 border-t border-zinc-900">
           <li
             v-for="entry in visibleOtherLists"
@@ -1575,89 +1573,69 @@ const historyByDay = computed(() => {
           </li>
         </ul>
 
-        <!-- GDL estimation or Not List Worthy (shown above AREDL) -->
-        <div v-if="!isExtremeLevel || !level.other_lists?.some(e => e.list === 'GDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <template v-if="!isExtremeLevel">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-200">GDL</span>
-              <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-            </div>
-          </template>
-          <template v-else>
-            <div v-if="gdlEstimatedLoading" class="text-xs text-zinc-600">Loading GDL estimate…</div>
-            <template v-else-if="gdlEstimatedData">
-              <template v-if="gdlEstimatedData.bracket.above && !gdlEstimatedData.bracket.below">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-zinc-200">GDL</span>
-                  <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-                </div>
-              </template>
-              <template v-else-if="gdlEstimatedData.estimated_gdl">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-zinc-300">GDL (estimated)</span>
-                  <span class="tabular-nums text-base text-zinc-400">~#{{ gdlEstimatedData.estimated_gdl }}</span>
-                </div>
-                <p v-if="gdlEstimatedData.bracket.above || gdlEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                  Based on nearby ranked levels:
-                  <template v-if="gdlEstimatedData.bracket.above">
-                    <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.above.name }}</NuxtLink>
-                    (GDL #{{ gdlEstimatedData.bracket.above.gdl_position }})
-                  </template>
-                  <template v-if="gdlEstimatedData.bracket.above && gdlEstimatedData.bracket.below"> — </template>
-                  <template v-if="gdlEstimatedData.bracket.below">
-                    <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.below.name }}</NuxtLink>
-                    (GDL #{{ gdlEstimatedData.bracket.below.gdl_position }})
-                  </template>
-                </p>
-                <p v-else class="text-[11px] text-zinc-600">No nearby GDL-ranked levels found for estimation.</p>
-              </template>
+        <!-- GDL estimation — only for extreme levels not already on GDL -->
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'GDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <div v-if="gdlEstimatedLoading" class="text-xs text-zinc-600">Loading GDL estimate…</div>
+          <template v-else-if="gdlEstimatedData">
+            <template v-if="gdlEstimatedData.bracket.above && !gdlEstimatedData.bracket.below">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-400">GDL</span>
+                <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
+              </div>
+            </template>
+            <template v-else-if="gdlEstimatedData.estimated_gdl">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-300">GDL (estimated)</span>
+                <span class="tabular-nums text-base text-zinc-400">~#{{ gdlEstimatedData.estimated_gdl }}</span>
+              </div>
+              <p v-if="gdlEstimatedData.bracket.above || gdlEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
+                Based on:
+                <template v-if="gdlEstimatedData.bracket.above">
+                  <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.above.name }}</NuxtLink>
+                  (GDL #{{ gdlEstimatedData.bracket.above.gdl_position }})
+                </template>
+                <template v-if="gdlEstimatedData.bracket.above && gdlEstimatedData.bracket.below"> — </template>
+                <template v-if="gdlEstimatedData.bracket.below">
+                  <NuxtLink :to="`/levels/${gdlEstimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ gdlEstimatedData.bracket.below.name }}</NuxtLink>
+                  (GDL #{{ gdlEstimatedData.bracket.below.gdl_position }})
+                </template>
+              </p>
             </template>
           </template>
         </div>
 
-        <!-- AREDL estimation or Not List Worthy (loaded on open, only when not explicitly ranked) -->
-        <div v-if="!isExtremeLevel || !level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
-          <template v-if="!isExtremeLevel">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-zinc-200">AREDL</span>
-              <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-            </div>
-          </template>
-          <template v-else>
-            <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading AREDL estimate…</div>
-            <template v-else-if="estimatedData">
-              <!-- NLW: no AREDL-ranked ALL list level is easier than this one -->
-              <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-zinc-200">AREDL</span>
-                  <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
-                </div>
-              </template>
-              <!-- Otherwise: level falls within or above the AREDL range → show estimate -->
-              <template v-else-if="estimatedData.estimated_aredl">
-                <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
-                  <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
-                </div>
-                <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                  Based on nearby ranked levels:
-                  <template v-if="estimatedData.bracket.above">
-                    <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
-                    (AREDL #{{ estimatedData.bracket.above.aredl_position }})
-                  </template>
-                  <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
-                  <template v-if="estimatedData.bracket.below">
-                    <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.below.name }}</NuxtLink>
-                    (AREDL #{{ estimatedData.bracket.below.aredl_position }})
-                  </template>
-                </p>
-                <p v-else class="text-[11px] text-zinc-600">No nearby AREDL-ranked levels found for estimation.</p>
-              </template>
+        <!-- AREDL estimation — only for extreme levels not already on AREDL -->
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'AREDL')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+          <div v-if="estimatedLoading" class="text-xs text-zinc-600">Loading AREDL estimate…</div>
+          <template v-else-if="estimatedData">
+            <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-400">AREDL</span>
+                <span class="ml-auto text-sm text-zinc-500 italic">Not List Worthy</span>
+              </div>
+            </template>
+            <template v-else-if="estimatedData.estimated_aredl">
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
+                <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
+              </div>
+              <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
+                Based on:
+                <template v-if="estimatedData.bracket.above">
+                  <NuxtLink :to="`/levels/${estimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.above.name }}</NuxtLink>
+                  (AREDL #{{ estimatedData.bracket.above.aredl_position }})
+                </template>
+                <template v-if="estimatedData.bracket.above && estimatedData.bracket.below"> — </template>
+                <template v-if="estimatedData.bracket.below">
+                  <NuxtLink :to="`/levels/${estimatedData.bracket.below.position}`" class="text-zinc-500 hover:text-accent">{{ estimatedData.bracket.below.name }}</NuxtLink>
+                  (AREDL #{{ estimatedData.bracket.below.aredl_position }})
+                </template>
+              </p>
             </template>
           </template>
         </div>
 
-        <!-- CL estimation — only for challenge levels (Tier 21+) not already ranked -->
+        <!-- CL estimation — only for challenge levels not already on CL -->
         <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.list === 'Challenge List')" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <div v-if="clEstimatedLoading" class="text-xs text-zinc-600">Loading Challenge List estimate…</div>
           <template v-else-if="clEstimatedData">
@@ -1667,7 +1645,7 @@ const historyByDay = computed(() => {
                 <span class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
               </div>
               <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
-                Based on nearby ranked levels:
+                Based on:
                 <template v-if="clEstimatedData.bracket.above">
                   <NuxtLink :to="`/levels/${clEstimatedData.bracket.above.position}`" class="text-zinc-500 hover:text-accent">{{ clEstimatedData.bracket.above.name }}</NuxtLink>
                   (CL #{{ clEstimatedData.bracket.above.challenge_list_position }})
@@ -1678,15 +1656,19 @@ const historyByDay = computed(() => {
                   (CL #{{ clEstimatedData.bracket.below.challenge_list_position }})
                 </template>
               </p>
-              <p v-else class="text-[11px] text-zinc-600">No nearby Challenge List-ranked levels found for estimation.</p>
             </template>
             <template v-else>
               <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-zinc-300">Challenge List</span>
+                <span class="text-sm font-medium text-zinc-400">Challenge List</span>
                 <span class="ml-auto text-sm text-zinc-500 italic">No estimate available</span>
               </div>
             </template>
           </template>
+        </div>
+
+        <!-- Empty state when nothing applies -->
+        <div v-if="visibleOtherLists.length === 0 && !isExtremeLevel && !isChallengeLevel" class="border-t border-zinc-900 px-4 py-3">
+          <p class="text-xs text-zinc-600">No external list rankings for this level.</p>
         </div>
       </details>
     </section>
