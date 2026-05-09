@@ -615,6 +615,23 @@ async function deleteLevel() {
   }
 }
 
+const sendingToAwaiting = ref(false)
+const sendToAwaitingError = ref<string | null>(null)
+async function sendToAwaiting() {
+  if (sendingToAwaiting.value) return
+  if (!confirm(`Send "${props.level.name}" (#${props.level.position}) back to the Awaiting Placement list? This removes it from the main list and shifts everything below up by one.`)) return
+  sendingToAwaiting.value = true
+  sendToAwaitingError.value = null
+  try {
+    await $fetch(`/api/admin/levels/${props.level.position}/to-awaiting`, { method: 'POST' })
+    await navigateTo('/awaiting')
+  } catch (e: any) {
+    sendToAwaitingError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    sendingToAwaiting.value = false
+  }
+}
+
 // Estimated placement for levels not on any external list
 const isExtremeLevel = computed(() =>
   !!props.level.difficulty?.toLowerCase().includes('extreme')
@@ -1118,12 +1135,21 @@ const historyByDay = computed(() => {
         <button
           v-if="isAdminLevel"
           type="button"
+          :disabled="sendingToAwaiting"
+          class="ml-auto rounded border border-amber-900/60 text-amber-300 text-sm px-4 py-1.5 hover:bg-amber-950/40 hover:border-amber-700 disabled:opacity-60 transition-colors"
+          title="Move this level back to the Awaiting Placement list"
+          @click="sendToAwaiting"
+        >{{ sendingToAwaiting ? 'Sending…' : 'Send to awaiting' }}</button>
+        <button
+          v-if="isAdminLevel"
+          type="button"
           :disabled="deleting"
-          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          class="rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
           @click="deleteLevel"
         >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
         <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
         <span v-if="deleteError" class="text-xs text-red-400">{{ deleteError }}</span>
+        <span v-if="sendToAwaitingError" class="text-xs text-red-400">{{ sendToAwaitingError }}</span>
       </div>
     </section>
 
