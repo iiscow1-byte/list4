@@ -746,10 +746,24 @@ function fetchClEstimate() {
 }
 
 function onOtherListsToggle(e: Event) {
-  if (!(e.target as HTMLDetailsElement).open) return
-  fetchAredlEstimate()
-  fetchGdlEstimate()
-  fetchClEstimate()
+  onOtherListsOpenChange((e.target as HTMLDetailsElement).open)
+}
+
+function shouldOpenOtherLists(): boolean {
+  return (props.level.other_lists?.length ?? 0) > 0 || isExtremeLevel.value || isChallengeLevel.value
+}
+
+// Stable open state — set once per level so Vue never re-opens the panel
+// reactively (which causes scroll jumps). User toggles are preserved.
+const otherListsOpen = ref(false)
+
+function onOtherListsOpenChange(open: boolean) {
+  otherListsOpen.value = open
+  if (open) {
+    fetchAredlEstimate()
+    fetchGdlEstimate()
+    fetchClEstimate()
+  }
 }
 
 // Fetch all estimates on level load (covers pre-opened panel and SSR)
@@ -760,6 +774,7 @@ watch(() => props.level.position, () => {
   gdlEstimatedFetched.value = false
   clEstimatedData.value = null
   clEstimatedFetched.value = false
+  otherListsOpen.value = shouldOpenOtherLists()
   fetchAredlEstimate()
   fetchGdlEstimate()
   fetchClEstimate()
@@ -1550,7 +1565,7 @@ const historyByDay = computed(() => {
 
     <!-- Rankings on other lists -->
     <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
-      <details :open="visibleOtherLists.length > 0 || isExtremeLevel || isChallengeLevel" class="group" @toggle="onOtherListsToggle">
+      <details :open="otherListsOpen" class="group" @toggle="onOtherListsToggle">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>

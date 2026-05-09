@@ -863,6 +863,14 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_pc_position ON levels(pointercrate_position)`)
   if (!has('challenge_list_position')) db.exec(`ALTER TABLE levels ADD COLUMN challenge_list_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_cl_position ON levels(challenge_list_position)`)
+  // Remove any challenge_list_position values set by the name-based fallback (no matching gd_id in gdtpl_levels).
+  db.exec(`
+    UPDATE levels SET challenge_list_position = NULL
+    WHERE challenge_list_position IS NOT NULL
+      AND (gd_id IS NULL OR NOT EXISTS (
+        SELECT 1 FROM gdtpl_levels g WHERE g.list_slug = 'cl' AND g.gd_id = levels.gd_id
+      ))
+  `)
 
   const accCols3 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols3.some((c) => c.name === 'claimed_pointercrate_id')) {

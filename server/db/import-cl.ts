@@ -129,8 +129,7 @@ export async function importCl(): Promise<void> {
       verification_url = excluded.verification_url,
       fetched_at       = excluded.fetched_at
   `)
-  const updateChallengePosByGdId = db.prepare(`UPDATE levels SET challenge_list_position = ? WHERE gd_id = ?`)
-  const updateChallengePosByName = db.prepare(`UPDATE levels SET challenge_list_position = ? WHERE LOWER(name) = LOWER(?) AND challenge_list_position IS NULL`)
+  const updateChallengePos = db.prepare(`UPDATE levels SET challenge_list_position = ? WHERE gd_id = ?`)
 
   db.exec('BEGIN')
   try {
@@ -141,12 +140,7 @@ export async function importCl(): Promise<void> {
         LIST_SLUG, String(d.id), d.position, d.level_id,
         d.name, d.verifier?.name ?? null, d.video ?? null, now,
       )
-      if (d.level_id != null) {
-        updateChallengePosByGdId.run(d.position, d.level_id)
-      } else {
-        // Fallback: match by name when the CL entry has no GD level_id set
-        updateChallengePosByName.run(d.position, d.name)
-      }
+      updateChallengePos.run(d.position, d.level_id)
     }
     db.exec('COMMIT')
   } catch (err) {
@@ -156,26 +150,16 @@ export async function importCl(): Promise<void> {
   console.log(`[cl]   gdtpl_levels upserted, challenge_list_position refreshed`)
 
   // --- 2. Backfill verifier / verification_url on matched main-list rows ---
-  const mergeExistingByGdId = db.prepare(`
+  const mergeExisting = db.prepare(`
     UPDATE levels
        SET verifier         = CASE WHEN COALESCE(verifier,'')         = '' THEN ? ELSE verifier         END,
            verification_url = CASE WHEN COALESCE(verification_url,'') = '' THEN ? ELSE verification_url END
      WHERE gd_id = ?
   `)
-  const mergeExistingByName = db.prepare(`
-    UPDATE levels
-       SET verifier         = CASE WHEN COALESCE(verifier,'')         = '' THEN ? ELSE verifier         END,
-           verification_url = CASE WHEN COALESCE(verification_url,'') = '' THEN ? ELSE verification_url END
-     WHERE LOWER(name) = LOWER(?)
-  `)
   db.exec('BEGIN')
   try {
     for (const d of demons) {
-      if (d.level_id != null) {
-        mergeExistingByGdId.run(d.verifier?.name ?? null, d.video ?? null, d.level_id)
-      } else {
-        mergeExistingByName.run(d.verifier?.name ?? null, d.video ?? null, d.name)
-      }
+      mergeExisting.run(d.verifier?.name ?? null, d.video ?? null, d.level_id)
     }
     db.exec('COMMIT')
   } catch (err) {
