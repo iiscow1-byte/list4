@@ -12,6 +12,7 @@ type PendingLevel = {
   verifier: string | null
   verify_date: string | null
   gddl_tier: string | null
+  gddl_tier_estimated: number
   difficulty: string | null
   enjoyment: number | null
   main_skillset: string | null
@@ -94,9 +95,30 @@ const pendingTagSet = reactive<Record<string, boolean>>({ old: false, uldm: fals
 type PotentialDupMode = 'show' | 'only' | 'hide'
 const potentialDuplicateMode = ref<PotentialDupMode>('show')
 // Imported-levels source filter — only meaningful when source='gdl_import',
-// which mixes GDL, GDTPL (TSL/EDI), and sheet-pending rows in one queue.
-type ImportSourceFilter = 'all' | 'sheet' | 'gdl' | 'tsl' | 'edi'
-const importSourceFilter = ref<ImportSourceFilter>('all')
+// which mixes GDL, GDTPL (TSL/EDI/CCL/…), and sheet-pending rows in one queue.
+// Built-in keys are 'all' / 'sheet' / 'gdl'; any other value is interpreted as
+// a gdtpl_levels.list_slug, so adding a new GDListTemplate-based list (CCL,
+// etc.) makes its filter chip appear automatically once any of its rows land
+// in the pending queue.
+const importSourceFilter = ref<string>('all')
+
+// Derive the list of source-filter chips from whatever's currently in the
+// queue. Always show the built-in three; append every distinct gdtpl
+// list_slug we see in `items`. Keeps the UI in sync as new lists are wired up.
+const importSourceOptions = computed<{ value: string; label: string }[]>(() => {
+  const slugs = new Set<string>()
+  for (const r of items.value) {
+    const s = (r.gdtpl_list_slug ?? '').toLowerCase()
+    if (s) slugs.add(s)
+  }
+  const base = [
+    { value: 'all',   label: 'All' },
+    { value: 'sheet', label: 'Sheet' },
+    { value: 'gdl',   label: 'GDL' },
+  ]
+  for (const s of [...slugs].sort()) base.push({ value: s, label: s.toUpperCase() })
+  return base
+})
 
 function tierOrd(label: string | null): number | null {
   if (!label) return null
@@ -137,12 +159,10 @@ const filteredItems = computed<PendingLevel[]>(() => {
     if (potentialDuplicateMode.value === 'hide' && r.potential_duplicate_position != null) return false
     if (isImported.value && importSourceFilter.value !== 'all') {
       const slug = (r.gdtpl_list_slug ?? '').toLowerCase()
-      switch (importSourceFilter.value) {
-        case 'sheet': if (!r.from_sheet_pending) return false; break
-        case 'gdl':   if (!r.from_gdl_id)        return false; break
-        case 'tsl':   if (slug !== 'tsl')        return false; break
-        case 'edi':   if (slug !== 'edi')        return false; break
-      }
+      const f = importSourceFilter.value
+      if (f === 'sheet')      { if (!r.from_sheet_pending) return false }
+      else if (f === 'gdl')   { if (!r.from_gdl_id)        return false }
+      else                    { if (slug !== f)            return false }
     }
     return true
   })
@@ -581,15 +601,15 @@ watch(preview, (p) => {
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Source</div>
             <div class="flex flex-wrap gap-1.5">
               <label
-                v-for="[val, label] in ([['all','All'],['sheet','Sheet'],['gdl','GDL'],['tsl','TSL'],['edi','EDI']] as const)"
-                :key="val"
+                v-for="opt in importSourceOptions"
+                :key="opt.value"
                 class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
-                :class="importSourceFilter === val
+                :class="importSourceFilter === opt.value
                   ? 'border-accent/60 text-accent bg-accent/10'
                   : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
               >
-                <input v-model="importSourceFilter" type="radio" :value="val" class="sr-only" />
-                {{ label }}
+                <input v-model="importSourceFilter" type="radio" :value="opt.value" class="sr-only" />
+                {{ opt.label }}
               </label>
             </div>
           </div>
@@ -744,8 +764,12 @@ watch(preview, (p) => {
               <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
                 <span
                   v-if="r.gddl_tier"
-                  class="shrink-0 px-1.5 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-300 tabular-nums"
-                >{{ r.gddl_tier }}</span>
+                  class="shrink-0 px-1.5 py-px rounded border tabular-nums"
+                  :class="r.gddl_tier_estimated
+                    ? 'border-sky-900/60 bg-sky-950/30 text-sky-300'
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-300'"
+                  :title="r.gddl_tier_estimated ? 'Estimated from neighbouring shared levels' : ''"
+                >{{ r.gddl_tier }}<span v-if="r.gddl_tier_estimated" class="ml-1 text-[9px] uppercase tracking-widest opacity-80">est</span></span>
                 <span
                   v-if="r.difficulty === 'Extreme Demon'"
                   class="shrink-0 px-1.5 py-px rounded border border-red-900/60 bg-red-950/30 text-red-300"
@@ -937,7 +961,8 @@ watch(preview, (p) => {
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
             <div class="text-sm text-zinc-100">
               {{ selected.gddl_tier || tierOverride || '—' }}
-              <span v-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+              <span v-if="selected.gddl_tier && selected.gddl_tier_estimated" class="text-[10px] text-sky-300 ml-1">(estimated)</span>
+              <span v-else-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
             </div>
           </div>
           <div class="bg-zinc-950 p-3">

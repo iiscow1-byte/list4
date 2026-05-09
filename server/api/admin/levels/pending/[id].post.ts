@@ -57,6 +57,9 @@ export default defineEventHandler(async (event) => {
       // a blank value the editor will keep treating as "filled".
       params.push(v === '' || v === undefined ? null : v)
     }
+    // Once an admin types over the tier, drop the estimated flag — what's in
+    // the column is now their value, not the importer's guess.
+    if ('gddl_tier' in fields) cols.push(`gddl_tier_estimated = 0`)
     if (cols.length === 0) return { ok: true, updated: 0 }
     params.push(id)
     const res = db.prepare(`UPDATE pending_levels SET ${cols.join(', ')} WHERE id = ?`).run(...params)

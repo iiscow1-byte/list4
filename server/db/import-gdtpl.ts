@@ -88,6 +88,35 @@ function pctNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+// Some lists (notably CCL) ship a level "id" as a space-separated pair of GD
+// level IDs (the second is the alternate copy). Take the first numeric token —
+// it's always the canonical level the list is ranking.
+function firstId(v: unknown): number | null {
+  if (v == null) return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  const m = String(v).match(/-?\d+/)
+  if (!m) return null
+  const n = Number(m[0])
+  return Number.isFinite(n) ? n : null
+}
+
+// Tier label ↔ ordinal helpers. Mirror the admin UI:
+//   "Subtier N" (1..5) → N
+//   "Tier N"    (1..)  → 5 + N
+function tierToOrd(label: string | null): number | null {
+  if (!label) return null
+  const sub = label.match(/^Subtier (\d{1,2})$/)
+  if (sub) return Number(sub[1])
+  const t = label.match(/^Tier (\d{1,2})$/)
+  if (t) return 5 + Number(t[1])
+  return null
+}
+function ordToTier(ord: number): string {
+  const r = Math.max(1, Math.round(ord))
+  if (r <= 5) return `Subtier ${r}`
+  return `Tier ${r - 5}`
+}
+
 export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   const t0 = Date.now()
   const db = getDb()
@@ -152,7 +181,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   try {
     for (const f of ok) {
       const d = f.data
-      const gdId = pctNum(d.id)
+      const gdId = firstId(d.id)
       const creators = Array.isArray(d.creators)
         ? d.creators.filter((s): s is string => typeof s === 'string' && s.length > 0)
         : []
@@ -236,9 +265,28 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   const insPending = db.prepare(
     `INSERT INTO pending_levels
        (gd_id, name, verification_url, verifier, difficulty, notes,
-        placement_source, placement_estimate, status, submitted_at, from_gdtpl_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        placement_source, placement_estimate, gddl_tier, gddl_tier_estimated,
+        status, submitted_at, from_gdtpl_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
      ON CONFLICT(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL DO NOTHING`,
+  )
+
+  // Tier estimate: same idea as the placement estimate, but in tier-ordinal
+  // space. Find the nearest source-list neighbours (above/below) that are
+  // *already on the ALL list and have a gddl_tier*, take the midpoint.
+  const findTierAbove = db.prepare(
+    `SELECT l.gddl_tier
+       FROM gdtpl_levels g
+       JOIN levels l ON l.gd_id = g.gd_id
+      WHERE g.list_slug = ? AND g.position < ? AND l.gddl_tier IS NOT NULL AND l.gddl_tier <> ''
+      ORDER BY g.position DESC LIMIT 1`,
+  )
+  const findTierBelow = db.prepare(
+    `SELECT l.gddl_tier
+       FROM gdtpl_levels g
+       JOIN levels l ON l.gd_id = g.gd_id
+      WHERE g.list_slug = ? AND g.position > ? AND l.gddl_tier IS NOT NULL AND l.gddl_tier <> ''
+      ORDER BY g.position ASC LIMIT 1`,
   )
 
   // Auto-reject imports whose verification URL already verifies a main-list
@@ -270,6 +318,19 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
       // placement on our list would be misleading.
       if (placementEstimate === lv.position) placementEstimate = null
 
+      const aboveTier = (findTierAbove.get(cfg.source, lv.position) as { gddl_tier: string } | undefined)?.gddl_tier ?? null
+      const belowTier = (findTierBelow.get(cfg.source, lv.position) as { gddl_tier: string } | undefined)?.gddl_tier ?? null
+      const aboveOrd = tierToOrd(aboveTier)
+      const belowOrd = tierToOrd(belowTier)
+      let estimatedTier: string | null = null
+      if (aboveOrd != null && belowOrd != null) {
+        estimatedTier = ordToTier((aboveOrd + belowOrd) / 2)
+      } else if (aboveOrd != null) {
+        estimatedTier = ordToTier(aboveOrd)
+      } else if (belowOrd != null) {
+        estimatedTier = ordToTier(belowOrd)
+      }
+
       const notes = `Imported from ${cfg.displayName} · placement #${lv.position}`
       const result = insPending.run(
         lv.gd_id,
@@ -280,6 +341,8 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
         notes,
         placementSource,
         placementEstimate,
+        estimatedTier,
+        estimatedTier ? 1 : 0,
         now,
         lv.id,
       )

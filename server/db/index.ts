@@ -983,6 +983,12 @@ function initSchema(db: DatabaseSync) {
   if (!pcols.some((c) => c.name === 'from_sheet_pending')) {
     db.exec(`ALTER TABLE pending_levels ADD COLUMN from_sheet_pending INTEGER NOT NULL DEFAULT 0`)
   }
+  // Marks pending rows whose gddl_tier was inferred by an importer (midpoint
+  // of shared-list neighbours that are already on the ALL list) rather than
+  // submitted by a human. Cleared when an admin edits the tier.
+  if (!pcols.some((c) => c.name === 'gddl_tier_estimated')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN gddl_tier_estimated INTEGER NOT NULL DEFAULT 0`)
+  }
 
   const accCols4 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols4.some((c) => c.name === 'claimed_gdl_id')) {
