@@ -278,13 +278,31 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
 
   // Conflict-target must repeat the partial-index WHERE clause for SQLite to
   // match `idx_pending_levels_from_gdtpl` (a unique-when-not-null index).
+  // On re-import we refresh the importer-computed estimates so adding a level
+  // to the ALL list (which shifts neighbour midpoints) actually propagates to
+  // existing pending rows. The DO UPDATE only touches rows still in 'pending'
+  // status, and it leaves a manually-edited tier alone — once an admin sets
+  // gddl_tier_estimated=0 (via save_metadata), the importer stops overwriting
+  // their value.
   const insPending = db.prepare(
     `INSERT INTO pending_levels
        (gd_id, name, verification_url, verifier, difficulty, notes,
         placement_source, placement_estimate, gddl_tier, gddl_tier_estimated,
         status, submitted_at, from_gdtpl_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-     ON CONFLICT(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL DO NOTHING`,
+     ON CONFLICT(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL DO UPDATE SET
+       placement_estimate = excluded.placement_estimate,
+       gddl_tier = CASE
+         WHEN pending_levels.gddl_tier_estimated = 1 OR pending_levels.gddl_tier IS NULL
+           THEN excluded.gddl_tier
+         ELSE pending_levels.gddl_tier
+       END,
+       gddl_tier_estimated = CASE
+         WHEN pending_levels.gddl_tier_estimated = 1 OR pending_levels.gddl_tier IS NULL
+           THEN excluded.gddl_tier_estimated
+         ELSE pending_levels.gddl_tier_estimated
+       END
+     WHERE pending_levels.status = 'pending'`,
   )
 
   // Auto-reject imports whose verification URL already verifies a main-list
@@ -361,6 +379,6 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
     // serve requests between write batches.
     await new Promise<void>((r) => setImmediate(r))
   }
-  console.log(`${tag}   ${importedReview} new pending_levels rows for admin review (${onlyHere.length} ${cfg.source}-only total, ${skippedDupVer} dup verification URL)`)
+  console.log(`${tag}   ${importedReview} pending_levels rows written (insert or estimate refresh) (${onlyHere.length} ${cfg.source}-only total, ${skippedDupVer} dup verification URL)`)
   console.log(`${tag} Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }
