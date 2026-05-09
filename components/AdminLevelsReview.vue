@@ -85,7 +85,7 @@ let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
 const TIER_MAX_ORD = 44
 const PENDING_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 type DifficultyFilter = 'all' | 'extreme' | 'non-extreme'
-type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc'
+type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc' | 'list_position'
 const filtersOpen = ref(false)
 const search = ref('')
 const difficultyFilter = ref<DifficultyFilter>('all')
@@ -178,6 +178,11 @@ const filteredItems = computed<PendingLevel[]>(() => {
       const ac = a.rated === 'Challenge' ? 0 : 1
       const bc = b.rated === 'Challenge' ? 0 : 1
       return ac - bc
+    }
+    if (sort === 'list_position') {
+      const ap = a.gdtpl_position ?? Infinity
+      const bp = b.gdtpl_position ?? Infinity
+      return ap - bp
     }
     const ao = tierOrd(a.gddl_tier) ?? (sort === 'tier_asc' ? Infinity : -Infinity)
     const bo = tierOrd(b.gddl_tier) ?? (sort === 'tier_asc' ? Infinity : -Infinity)
@@ -673,7 +678,7 @@ watch(preview, (p) => {
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Sort</div>
             <div class="flex flex-wrap gap-1.5">
               <label
-                v-for="[val, label] in ([['submitted','Submission order'],['challenge_first','Challenge first'],['tier_asc','Easiest first'],['tier_desc','Hardest first']] as const)"
+                v-for="[val, label] in ([['submitted','Submission order'],['challenge_first','Challenge first'],['tier_asc','Easiest first'],['tier_desc','Hardest first'],['list_position','List position']] as const)"
                 :key="val"
                 class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
                 :class="pendingSort === val

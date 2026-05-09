@@ -251,33 +251,55 @@ async function postNow() {
 
 // --- Imports tab state ---
 type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'pointercrate' | 'gsv'
+type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl'
 type ImportSource = {
   key: ImportSourceKey
   label: string
-  description: string
   // Sources that don't write to pending_levels can't have anything to clear.
-  pendingKey: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | null
+  pendingKey: PendingKey | null
 }
-const IMPORT_SOURCES: ImportSource[] = [
-  { key: 'sheet',         label: 'Source spreadsheet (full re-import)', description: 'Re-runs the entire sheet importer: levels, leaderboard, stats viewer, void list, and pending list.', pendingKey: 'sheet' },
-  { key: 'sheet-pending', label: 'Sheet pending list',                  description: 'Just the "Pending List" tab — feeds the imported-levels review queue.',                                  pendingKey: 'sheet' },
-  { key: 'gdl',           label: 'Geometry Dash List (GDL)',            description: 'Pulls extreme demons from the GDL API into the imported-levels queue.',                                  pendingKey: 'gdl' },
-  { key: 'tsl',           label: 'The Shitty List Plus (TSL)',          description: 'Mirrors the TSL placements into the imported-levels queue.',                                              pendingKey: 'tsl' },
-  { key: 'edi',           label: 'EDI list',                            description: 'Mirrors the EDI list placements into the imported-levels queue.',                                        pendingKey: 'edi' },
-  { key: 'ccl',           label: 'Consistency Challenge List (CCL)',    description: 'Mirrors the CCL placements into the imported-levels queue.',                                              pendingKey: 'ccl' },
-  { key: 'll',            label: 'Laylist (LL)',                        description: 'Mirrors the Laylist placements into the imported-levels queue.',                                          pendingKey: 'll' },
-  { key: 'tcl',           label: 'Tiny Challenge List (TCL)',           description: 'Mirrors the TCL placements into the imported-levels queue.',                                              pendingKey: 'tcl' },
-  { key: 'sfl',           label: 'Straight Fly List (SFL)',             description: 'Mirrors the SFL placements into the imported-levels queue.',                                              pendingKey: 'sfl' },
-  { key: 'ddl',           label: 'Denouement Demon List (DDL)',         description: 'Mirrors the DDL placements into the imported-levels queue.',                                              pendingKey: 'ddl' },
-  { key: 'aredl',         label: 'AREDL (records / players)',           description: 'Refreshes the AREDL player roster and records. Does not feed the pending queue.',                         pendingKey: null },
-  { key: 'pointercrate',  label: 'Pointercrate (records / players)',    description: 'Refreshes the Pointercrate player roster. Does not feed the pending queue.',                              pendingKey: null },
-  { key: 'gsv',           label: 'Global Stats Viewer (records)',       description: 'Refreshes records from the Global Stats Viewer. Does not feed the pending queue.',                        pendingKey: null },
+type ImportGroup = { heading: string; sources: ImportSource[] }
+const IMPORT_GROUPS: ImportGroup[] = [
+  {
+    heading: 'Sheet',
+    sources: [
+      { key: 'sheet',         label: 'Full re-import',   pendingKey: 'sheet' },
+      { key: 'sheet-pending', label: 'Pending list only', pendingKey: 'sheet' },
+    ],
+  },
+  {
+    heading: 'Demon lists',
+    sources: [
+      { key: 'gdl',  label: 'GDL',  pendingKey: 'gdl' },
+      { key: 'tsl',  label: 'TSL',  pendingKey: 'tsl' },
+      { key: 'edi',  label: 'EDI',  pendingKey: 'edi' },
+      { key: 'ccl',  label: 'CCL',  pendingKey: 'ccl' },
+      { key: 'll',   label: 'LL',   pendingKey: 'll'  },
+      { key: 'tcl',  label: 'TCL',  pendingKey: 'tcl' },
+      { key: 'sfl',  label: 'SFL',  pendingKey: 'sfl' },
+      { key: 'ddl',  label: 'DDL',  pendingKey: 'ddl' },
+    ],
+  },
+  {
+    heading: 'Records & players',
+    sources: [
+      { key: 'aredl',        label: 'AREDL',          pendingKey: null },
+      { key: 'pointercrate', label: 'Pointercrate',   pendingKey: null },
+      { key: 'gsv',          label: 'Stats Viewer',   pendingKey: null },
+    ],
+  },
 ]
+// Flat list kept for functions that need to iterate all sources.
+const IMPORT_SOURCES = IMPORT_GROUPS.flatMap(g => g.sources)
 
 const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[] }>({
   pendingCounts: {}, running: [],
 })
 const importBusy = reactive<Record<string, boolean>>({})
+
+const totalUnaccepted = computed(() =>
+  IMPORT_SOURCES.reduce((n, s) => n + (s.pendingKey ? (importsStatus.value.pendingCounts[s.pendingKey] ?? 0) : 0), 0),
+)
 
 async function loadImportsStatus() {
   if (!isAdmin.value) return
@@ -300,13 +322,28 @@ async function runImport(source: ImportSourceKey) {
   }
 }
 
-async function clearPending(source: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl') {
+async function clearPending(source: PendingKey) {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
   if (!confirm(`Delete ${count} unaccepted pending level${count === 1 ? '' : 's'} imported from ${source}? This can't be undone.`)) return
   try {
     const res = await $fetch<{ deleted: number }>('/api/admin/imports/clear-pending', {
       method: 'POST', body: { source },
+    })
+    flash('ok', `Removed ${res.deleted} unaccepted level${res.deleted === 1 ? '' : 's'}.`)
+    await loadImportsStatus()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+async function clearAllPending() {
+  const total = totalUnaccepted.value
+  if (total === 0) { flash('ok', 'Nothing to clear.'); return }
+  if (!confirm(`Delete all ${total} unaccepted imported pending level${total === 1 ? '' : 's'}? This can't be undone.`)) return
+  try {
+    const res = await $fetch<{ deleted: number }>('/api/admin/imports/clear-pending', {
+      method: 'POST', body: { source: 'all' },
     })
     flash('ok', `Removed ${res.deleted} unaccepted level${res.deleted === 1 ? '' : 's'}.`)
     await loadImportsStatus()
@@ -577,52 +614,79 @@ async function setClaim(u: AdminUser) {
     <!-- Imports tab — manually re-run any of the data importers and clear
          out unaccepted pending rows from each source. -->
     <div v-else-if="tab === 'imports'" class="flex-1 overflow-y-auto">
-      <div class="container-tight py-8 max-w-4xl space-y-4">
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 class="text-base font-semibold tracking-tight">Manage imports</h2>
-          <p class="text-xs text-zinc-500 mt-1">
-            Re-run any source importer manually, or wipe its unaccepted pending submissions.
-            Importers are idempotent — re-running won't create duplicates.
-            Imports start in the background; the running indicator and pending counts refresh every few seconds.
-          </p>
-        </section>
-        <ul class="space-y-2">
-          <li
-            v-for="src in IMPORT_SOURCES"
-            :key="src.key"
-            class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3"
+      <div class="container-tight py-8 max-w-3xl space-y-6">
+
+        <!-- Header + global clear -->
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-semibold tracking-tight">Manage imports</h2>
+            <p class="text-xs text-zinc-500 mt-0.5">
+              Importers are idempotent — re-running won't create duplicates. Status refreshes every 5 s.
+            </p>
+          </div>
+          <button
+            type="button"
+            :disabled="totalUnaccepted === 0"
+            class="shrink-0 rounded border border-red-800/60 text-red-400 hover:bg-red-950/40 text-xs px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            @click="clearAllPending"
           >
-            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <h3 class="text-sm font-medium text-zinc-100">{{ src.label }}</h3>
-              <span
-                v-if="importsStatus.running.includes(src.key)"
-                class="text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 animate-pulse"
-              >Running</span>
-              <span
-                v-if="src.pendingKey != null"
-                class="text-[11px] text-zinc-500 tabular-nums"
-              >
-                {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
+            Clear all unaccepted
+            <span v-if="totalUnaccepted > 0" class="ml-1 tabular-nums">({{ totalUnaccepted }})</span>
+          </button>
+        </div>
+
+        <!-- Grouped source tables -->
+        <section
+          v-for="group in IMPORT_GROUPS"
+          :key="group.heading"
+          class="rounded-md border border-zinc-800 bg-zinc-950/60 overflow-hidden"
+        >
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-4 py-2 border-b border-zinc-800 bg-zinc-900/40">
+            {{ group.heading }}
+          </h3>
+          <ul class="divide-y divide-zinc-900/60">
+            <li
+              v-for="src in group.sources"
+              :key="src.key"
+              class="flex items-center gap-3 px-4 py-2.5"
+            >
+              <!-- Name + running badge -->
+              <div class="flex items-center gap-2 w-44 shrink-0">
+                <span class="text-sm text-zinc-100 font-medium">{{ src.label }}</span>
+                <span
+                  v-if="importsStatus.running.includes(src.key)"
+                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 animate-pulse"
+                >Running</span>
+              </div>
+              <!-- Unaccepted count -->
+              <span class="flex-1 text-xs text-zinc-500 tabular-nums">
+                <template v-if="src.pendingKey != null">
+                  {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
+                </template>
+                <template v-else>
+                  <span class="text-zinc-700">records only</span>
+                </template>
               </span>
-            </div>
-            <p class="text-xs text-zinc-500 mt-1">{{ src.description }}</p>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                :disabled="importBusy[src.key] || importsStatus.running.includes(src.key)"
-                class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                @click="runImport(src.key)"
-              >{{ importsStatus.running.includes(src.key) ? 'Running…' : 'Reimport' }}</button>
-              <button
-                v-if="src.pendingKey != null"
-                type="button"
-                :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
-                class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                @click="clearPending(src.pendingKey)"
-              >Remove unaccepted</button>
-            </div>
-          </li>
-        </ul>
+              <!-- Actions -->
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  :disabled="importBusy[src.key] || importsStatus.running.includes(src.key)"
+                  class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  @click="runImport(src.key)"
+                >{{ importsStatus.running.includes(src.key) ? 'Running…' : 'Reimport' }}</button>
+                <button
+                  v-if="src.pendingKey != null"
+                  type="button"
+                  :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
+                  class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  @click="clearPending(src.pendingKey)"
+                >Clear</button>
+              </div>
+            </li>
+          </ul>
+        </section>
+
       </div>
     </div>
 
