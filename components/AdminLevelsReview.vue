@@ -498,6 +498,7 @@ function onPlacementHelperPick(picked: ListLevel) {
   placement.value = String(picked.position + 1)
   if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
   if (picked.difficulty) difficultyOverride.value = picked.difficulty
+  autoSaveTierDifficulty()
 }
 
 function onFlagsDuplicatePick(lvl: ListLevel) {

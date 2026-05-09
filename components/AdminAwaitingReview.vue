@@ -78,6 +78,7 @@ const placementSaved = ref(false)
 const flagsSaved = ref(false)
 let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
+let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 async function load(opts: { keepSelection?: boolean } = {}) {
   // Hardest-first by default — easier to triage placements when tier-adjacent
@@ -94,8 +95,11 @@ async function load(opts: { keepSelection?: boolean } = {}) {
 onMounted(load)
 
 watch(selectedId, async (id) => {
+  if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
   placement.value = ''
   preview.value = null
+  tierOverride.value = ''
+  difficultyOverride.value = ''
   isDuplicate.value = false
   duplicateOfId.value = null
   draftDuplicateOf.value = null
@@ -116,6 +120,8 @@ watch(selectedId, async (id) => {
     isAlternate.value = !!selected.value?.is_alternate
     alternateOfId.value = selected.value?.alternate_of_id ?? null
     isTentative.value = !!selected.value?.tentative_placement
+    tierOverride.value = selected.value?.gddl_tier ?? ''
+    difficultyOverride.value = selected.value?.difficulty ?? ''
   } catch {
     selected.value = null
   }
@@ -264,11 +270,39 @@ async function quickRemove(id: number) {
 
 function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
+function autoSaveTierDifficulty() {
+  if (!selected.value) return
+  if (tierSaveDebounce) clearTimeout(tierSaveDebounce)
+  const id = selected.value.id
+  tierSaveDebounce = setTimeout(async () => {
+    const t = tierOverride.value.trim()
+    const d = difficultyOverride.value.trim()
+    const fields: Record<string, unknown> = {}
+    if (t) fields.gddl_tier = t
+    if (d) fields.difficulty = d
+    if (Object.keys(fields).length === 0) return
+    try {
+      await $fetch(`/api/admin/awaiting/${id}`, {
+        method: 'POST',
+        body: { action: 'save_metadata', fields },
+      })
+      if (selected.value?.id === id) {
+        selected.value = {
+          ...selected.value,
+          ...(t ? { gddl_tier: t } : {}),
+          ...(d ? { difficulty: d } : {}),
+        }
+      }
+    } catch { /* non-fatal */ }
+  }, 600)
+}
+
 const placementHelperOpen = ref(false)
 function onPlacementHelperPick(picked: { position: number; name: string; gddl_tier: string | null; difficulty: string | null }) {
   placement.value = String(picked.position + 1)
   if (picked.gddl_tier) tierOverride.value = picked.gddl_tier
   if (picked.difficulty) difficultyOverride.value = picked.difficulty
+  autoSaveTierDifficulty()
 }
 
 function autoSaveFlags() {
@@ -680,11 +714,17 @@ watch(verificationYtId, async (id) => {
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-            <div class="text-sm text-zinc-100">{{ selected.gddl_tier ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.gddl_tier || tierOverride || '—' }}
+              <span v-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
-            <div class="text-sm text-zinc-100">{{ selected.difficulty ?? '—' }}</div>
+            <div class="text-sm text-zinc-100">
+              {{ selected.difficulty || difficultyOverride || '—' }}
+              <span v-if="!selected.difficulty && difficultyOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
+            </div>
           </div>
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
@@ -795,6 +835,7 @@ watch(verificationYtId, async (id) => {
             type="text"
             placeholder="e.g. Tier 15"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @input="autoSaveTierDifficulty"
           />
         </label>
 
@@ -805,6 +846,7 @@ watch(verificationYtId, async (id) => {
             type="text"
             placeholder="e.g. Extreme Demon"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @input="autoSaveTierDifficulty"
           />
         </label>
 
