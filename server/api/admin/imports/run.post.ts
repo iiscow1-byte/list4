@@ -6,6 +6,8 @@ import { importTsl } from '~/server/db/import-tsl'
 import { importEdi } from '~/server/db/import-edi'
 import { importCcl } from '~/server/db/import-ccl'
 import { importLl } from '~/server/db/import-ll'
+import { importTcl } from '~/server/db/import-tcl'
+import { importSfl } from '~/server/db/import-sfl'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importGsv } from '~/server/db/import-gsv'
@@ -18,6 +20,8 @@ const RUNNERS: Record<string, () => Promise<void>> = {
   'edi':           async () => { await importEdi() },
   'ccl':           async () => { await importCcl() },
   'll':            async () => { await importLl() },
+  'tcl':           async () => { await importTcl() },
+  'sfl':           async () => { await importSfl() },
   'aredl':         async () => { await importAredl() },
   'pointercrate':  async () => { await importPointercrate() },
   'gsv':           async () => { await importGsv() },

@@ -7,6 +7,8 @@ import { importTsl } from '~/server/db/import-tsl'
 import { importEdi } from '~/server/db/import-edi'
 import { importCcl } from '~/server/db/import-ccl'
 import { importLl } from '~/server/db/import-ll'
+import { importTcl } from '~/server/db/import-tcl'
+import { importSfl } from '~/server/db/import-sfl'
 
 /**
  * On boot, if the levels table is empty, kick off a background import of the
@@ -81,6 +83,14 @@ export default defineNitroPlugin(() => {
       if (process.env.LIST_SKIP_LL_IMPORT !== '1') {
         console.log('[db-init] running LL import in background (refresh on restart)')
         await importLl().catch((err) => console.error('[db-init] ll import failed:', err))
+      }
+      if (process.env.LIST_SKIP_TCL_IMPORT !== '1') {
+        console.log('[db-init] running TCL import in background (refresh on restart)')
+        await importTcl().catch((err) => console.error('[db-init] tcl import failed:', err))
+      }
+      if (process.env.LIST_SKIP_SFL_IMPORT !== '1') {
+        console.log('[db-init] running SFL import in background (refresh on restart)')
+        await importSfl().catch((err) => console.error('[db-init] sfl import failed:', err))
       }
     })
 })
