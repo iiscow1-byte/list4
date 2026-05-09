@@ -21,6 +21,9 @@ const SELECTORS: Record<string, { sql: string; params?: any[] }> = {
   'ccl': {
     sql: `status = 'pending' AND from_gdtpl_id IN (SELECT id FROM gdtpl_levels WHERE list_slug = 'ccl')`,
   },
+  'll': {
+    sql: `status = 'pending' AND from_gdtpl_id IN (SELECT id FROM gdtpl_levels WHERE list_slug = 'll')`,
+  },
 }
 
 export default defineEventHandler(async (event) => {

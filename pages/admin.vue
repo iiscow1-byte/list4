@@ -250,13 +250,13 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'aredl' | 'pointercrate' | 'gsv'
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'aredl' | 'pointercrate' | 'gsv'
 type ImportSource = {
   key: ImportSourceKey
   label: string
   description: string
   // Sources that don't write to pending_levels can't have anything to clear.
-  pendingKey: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | null
+  pendingKey: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | null
 }
 const IMPORT_SOURCES: ImportSource[] = [
   { key: 'sheet',         label: 'Source spreadsheet (full re-import)', description: 'Re-runs the entire sheet importer: levels, leaderboard, stats viewer, void list, and pending list.', pendingKey: 'sheet' },
@@ -265,6 +265,7 @@ const IMPORT_SOURCES: ImportSource[] = [
   { key: 'tsl',           label: 'The Shitty List Plus (TSL)',          description: 'Mirrors the TSL placements into the imported-levels queue.',                                              pendingKey: 'tsl' },
   { key: 'edi',           label: 'EDI list',                            description: 'Mirrors the EDI list placements into the imported-levels queue.',                                        pendingKey: 'edi' },
   { key: 'ccl',           label: 'Consistency Challenge List (CCL)',    description: 'Mirrors the CCL placements into the imported-levels queue.',                                              pendingKey: 'ccl' },
+  { key: 'll',            label: 'Laylist (LL)',                        description: 'Mirrors the Laylist placements into the imported-levels queue.',                                          pendingKey: 'll' },
   { key: 'aredl',         label: 'AREDL (records / players)',           description: 'Refreshes the AREDL player roster and records. Does not feed the pending queue.',                         pendingKey: null },
   { key: 'pointercrate',  label: 'Pointercrate (records / players)',    description: 'Refreshes the Pointercrate player roster. Does not feed the pending queue.',                              pendingKey: null },
   { key: 'gsv',           label: 'Global Stats Viewer (records)',       description: 'Refreshes records from the Global Stats Viewer. Does not feed the pending queue.',                        pendingKey: null },
@@ -296,7 +297,7 @@ async function runImport(source: ImportSourceKey) {
   }
 }
 
-async function clearPending(source: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl') {
+async function clearPending(source: 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll') {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
   if (!confirm(`Delete ${count} unaccepted pending level${count === 1 ? '' : 's'} imported from ${source}? This can't be undone.`)) return

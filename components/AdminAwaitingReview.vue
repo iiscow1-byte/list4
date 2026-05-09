@@ -433,6 +433,34 @@ function youtubeId(url: string | null): string | null {
   return null
 }
 const verificationYtId = computed(() => youtubeId(selected.value?.verification_url ?? null))
+
+// Autofill verify_date from the YouTube upload date for awaiting rows that
+// have a verification link but no date yet — mirrors the behaviour on the
+// public submit page. Persists the value via save_metadata so when the level
+// gets placed onto the main list later, the date is already in.
+const verifyDateAutofilling = ref(false)
+watch(verificationYtId, async (id) => {
+  if (!id) return
+  const sel = selected.value
+  if (!sel) return
+  if (sel.verify_date) return
+  if (verifyDateAutofilling.value) return
+  verifyDateAutofilling.value = true
+  try {
+    const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
+    const date = res?.date
+    // Re-check that the row is still the selected one and still missing a
+    // date — admin may have clicked away or typed a value while we waited.
+    if (!date || !selected.value || selected.value.id !== sel.id || selected.value.verify_date) return
+    await $fetch(`/api/admin/awaiting/${sel.id}`, {
+      method: 'POST',
+      body: { action: 'save_metadata', fields: { verify_date: date } },
+    })
+    selected.value = { ...selected.value, verify_date: date }
+  } catch { /* ignore — admin can fill manually */ } finally {
+    verifyDateAutofilling.value = false
+  }
+}, { immediate: true })
 </script>
 
 <template>

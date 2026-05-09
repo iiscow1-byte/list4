@@ -18,6 +18,9 @@ export default defineEventHandler((event) => {
     ccl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
                         WHERE p.status = 'pending' AND p.from_gdtpl_id IN
                               (SELECT id FROM gdtpl_levels WHERE list_slug = 'ccl')`).get() as { n: number }).n,
+    ll:    (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
+                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
+                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'll')`).get() as { n: number }).n,
   }
 
   const running = Array.from(getImportRunningSet())

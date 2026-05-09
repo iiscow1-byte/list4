@@ -150,6 +150,34 @@ function youtubeId(url: string | null): string | null {
 }
 
 const ytId = computed(() => youtubeId(props.level.verification_url))
+
+// Autofill verify_date from the YouTube upload date when a level has a
+// verification link but no date yet — mirrors the submit page. Mods/admins
+// only (the PATCH endpoint requires it). Reloads the page so the new date
+// shows in the stat tile.
+const verifyDateAutofilling = ref(false)
+watch(() => props.level.position, () => {
+  if (verifyDateAutofilling.value) return
+  if (!canEdit.value) return
+  if (props.level.verify_date) return
+  const id = ytId.value
+  if (!id) return
+  verifyDateAutofilling.value = true
+  ;(async () => {
+    try {
+      const res = await $fetch<{ date: string | null }>(`/api/youtube/upload-date?id=${id}`)
+      const date = res?.date
+      if (!date) return
+      await $fetch(`/api/admin/levels/${props.level.position}`, {
+        method: 'PATCH', body: { verify_date: date },
+      })
+      // Soft refresh the surrounding page so the new date renders.
+      await reloadNuxtApp({ ttl: 0 })
+    } catch { /* ignore — admin can edit later */ } finally {
+      verifyDateAutofilling.value = false
+    }
+  })()
+}, { immediate: true })
 const fallbackSearch = computed(() => {
   if (!props.level.verification) return null
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
