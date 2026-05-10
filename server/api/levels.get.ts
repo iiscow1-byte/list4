@@ -55,16 +55,6 @@ const EFFECTIVE_RATED_SQL = `
   END
 `
 
-const CHALLENGE_RANK_CTE = `
-  challenge_ranks AS (
-    SELECT lc.position,
-           ROW_NUMBER() OVER (ORDER BY lc.position ASC) AS challenge_rank
-    FROM levels lc
-    LEFT JOIN gd_info_cache cc ON cc.gd_id = lc.gd_id
-    WHERE ${IS_CHALLENGE_SQL.replace(/\bc\.info_json/g, 'cc.info_json')}
-  )
-`
-
 // Numeric ladder for rating sorts. Higher number = "more rated"
 // (Mythic > Legendary > Epic > Featured > Rated > Unrated > Challenge).
 const RATING_ORD_SQL = `
@@ -255,6 +245,15 @@ export default defineEventHandler((event) => {
 
   const total = (db.prepare(`SELECT COUNT(*) as n FROM ${fromClause} ${allWhere}`).get(...allParams) as { n: number }).n
 
+  // Pre-fetch all challenge level positions (ordered) to compute absolute
+  // challenge ranks in JS — avoids window functions in the main query.
+  const challengePositions = (db.prepare(
+    `SELECT position FROM ${fromClause} WHERE (${IS_CHALLENGE_SQL}) ORDER BY position ASC`,
+  ).all() as { position: number }[]).map((r) => r.position)
+  const challengeRankMap = new Map<number, number>(
+    challengePositions.map((pos, i) => [pos, i + 1]),
+  )
+
   let items: any[]
   if (useFilterRank) {
     // Rank within the filter-only set, then narrow to the search hit list.
@@ -262,14 +261,11 @@ export default defineEventHandler((event) => {
     // independent of pagination offsets).
     const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
     const sql = `
-      WITH ${CHALLENGE_RANK_CTE},
-      ranked AS (
+      WITH ranked AS (
         SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id,
                aredl_position, pointercrate_position, gdl_position, challenge_list_position,
-               cr.challenge_rank, (cr.challenge_rank IS NOT NULL) AS is_challenge,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
-        LEFT JOIN challenge_ranks cr ON cr.position = levels.position
         ${filterWhere}
       )
       SELECT * FROM ranked
@@ -282,15 +278,20 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `WITH ${CHALLENGE_RANK_CTE}
-       SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, aredl_position, pointercrate_position, gdl_position, challenge_list_position,
-              cr.challenge_rank, (cr.challenge_rank IS NOT NULL) AS is_challenge
+      `SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id,
+              aredl_position, pointercrate_position, gdl_position, challenge_list_position
        FROM ${fromClause}
-       LEFT JOIN challenge_ranks cr ON cr.position = levels.position
        ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
     ).all(...allParams, ...orderParams, pageSize, offset) as any[]
+  }
+
+  // Attach challenge rank and is_challenge flag from the pre-fetched map.
+  for (const item of items as any[]) {
+    const rank = challengeRankMap.get(item.position)
+    item.challenge_rank = rank ?? null
+    item.is_challenge = rank != null ? 1 : 0
   }
 
   if (tierFrac) {

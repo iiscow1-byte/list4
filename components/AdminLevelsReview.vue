@@ -270,11 +270,12 @@ watch(selected, async (s) => {
   lastLoadedId = s?.id ?? null
   if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
   preview.value = null
-  // Pre-fill tier/difficulty from the level's own stored values so the
-  // panel reflects the import's estimate immediately. The preview watcher
-  // will only fill these in if they are still empty (no own tier/difficulty).
+  // Pre-fill tier from the level's own stored value. For difficulty, if the
+  // level has an estimated placement let the preview watcher inherit from the
+  // level above instead of using the importer's value (which may be from a
+  // different list's difficulty scale). The preview watcher only fills if empty.
   tierOverride.value = s?.gddl_tier ?? ''
-  difficultyOverride.value = s?.difficulty ?? ''
+  difficultyOverride.value = s?.placement_estimate != null ? '' : (s?.difficulty ?? '')
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
