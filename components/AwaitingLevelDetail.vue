@@ -15,6 +15,7 @@ type AwaitingLevel = {
   main_skillset: string | null
   tags: string | null
   notes: string | null
+  admin_notes: string | null
   submitter: string | null
   approved_at: string
 }
@@ -158,6 +159,11 @@ const tagList = computed(() => {
           <span v-else class="text-zinc-600">—</span>
         </dd>
       </dl>
+    </section>
+
+    <section v-if="level.admin_notes" class="rounded-md border border-accent/20 bg-accent/5 px-4 py-3 mb-6">
+      <h3 class="text-[10px] uppercase tracking-widest text-accent font-medium mb-1.5">Notes</h3>
+      <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.admin_notes }}</p>
     </section>
 
     <section v-if="level.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">

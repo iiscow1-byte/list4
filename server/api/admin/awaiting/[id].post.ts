@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
     // is intentionally excluded — it has its own save_placement action.
     const ALLOWED = new Set([
       'name', 'gd_id', 'verifier', 'verify_date', 'gddl_tier', 'difficulty',
-      'enjoyment', 'main_skillset', 'tags', 'notes',
+      'enjoyment', 'main_skillset', 'tags', 'notes', 'admin_notes',
       'verification', 'verification_url', 'placement_source',
     ])
     const fields = body.fields ?? {}

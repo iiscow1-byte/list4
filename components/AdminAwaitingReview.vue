@@ -15,6 +15,7 @@ type AwaitingLevel = {
   main_skillset: string | null
   tags: string | null
   notes: string | null
+  admin_notes: string | null
   placement_source: string | null
   submitter: string | null
   approved_at: string
@@ -76,9 +77,12 @@ const flagsAlternatePickerOpen = ref(false)
 const isTentative = ref(false)
 const placementSaved = ref(false)
 const flagsSaved = ref(false)
+const adminNotes = ref('')
+const adminNotesSaved = ref(false)
 let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let placementSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
+let adminNotesSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 async function load(opts: { keepSelection?: boolean } = {}) {
   // Hardest-first by default — easier to triage placements when tier-adjacent
@@ -96,6 +100,7 @@ onMounted(load)
 
 watch(selectedId, async (id) => {
   if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
+  if (adminNotesSaveDebounce) { clearTimeout(adminNotesSaveDebounce); adminNotesSaveDebounce = null }
   placement.value = ''
   preview.value = null
   tierOverride.value = ''
@@ -107,6 +112,7 @@ watch(selectedId, async (id) => {
   alternateOfId.value = null
   draftAlternateOf.value = null
   isTentative.value = false
+  adminNotes.value = ''
   editingVideo.value = false
   editVideoUrl.value = ''
   if (id == null) { selected.value = null; return }
@@ -122,6 +128,7 @@ watch(selectedId, async (id) => {
     isTentative.value = !!selected.value?.tentative_placement
     tierOverride.value = selected.value?.gddl_tier ?? ''
     difficultyOverride.value = selected.value?.difficulty ?? ''
+    adminNotes.value = selected.value?.admin_notes ?? ''
   } catch {
     selected.value = null
   }
@@ -490,6 +497,23 @@ watch(preview, (p) => {
   if (above?.difficulty) difficultyOverride.value = above.difficulty
 })
 
+watch(adminNotes, (v) => {
+  if (adminNotesSaveDebounce) clearTimeout(adminNotesSaveDebounce)
+  const id = selectedId.value
+  if (!id) return
+  adminNotesSaveDebounce = setTimeout(async () => {
+    if (selectedId.value !== id) return
+    try {
+      await $fetch(`/api/admin/awaiting/${id}`, {
+        method: 'POST',
+        body: { action: 'save_metadata', fields: { admin_notes: v.trim() || null } },
+      })
+      adminNotesSaved.value = true
+      setTimeout(() => (adminNotesSaved.value = false), 1500)
+    } catch { /* non-fatal */ }
+  }, 600)
+})
+
 function youtubeId(url: string | null): string | null {
   if (!url) return null
   const patterns = [
@@ -787,6 +811,10 @@ watch(verificationYtId, async (id) => {
           </div>
         </section>
 
+        <section v-if="adminNotes" class="rounded-md border border-accent/20 bg-accent/5 px-4 py-3">
+          <h3 class="text-[10px] uppercase tracking-widest text-accent font-medium mb-1.5">Public notes</h3>
+          <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ adminNotes }}</p>
+        </section>
         <section v-if="selected.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
           <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ selected.notes }}</p>
@@ -971,6 +999,20 @@ watch(verificationYtId, async (id) => {
             </li>
           </ul>
         </div>
+
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium flex items-center gap-2">
+            Public notes
+            <span v-if="adminNotesSaved" class="text-[10px] normal-case tracking-normal text-emerald-400">Saved</span>
+          </span>
+          <textarea
+            v-model="adminNotes"
+            rows="3"
+            maxlength="2000"
+            placeholder="Visible to everyone on the awaiting page."
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
 
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Reason for removal <span class="text-zinc-600 normal-case">sent to submitter</span></span>

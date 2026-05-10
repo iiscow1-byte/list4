@@ -246,6 +246,7 @@ type EditableFields = Pick<Level,
 }
 const editing = ref(false)
 const apiOverridesOpen = ref(false)
+const sourcesOpen = ref(false)
 const gameplayOpen = ref(false)
 const creditsOpen = ref(false)
 const verificationOpen = ref(false)
@@ -1377,6 +1378,46 @@ const historyByDay = computed(() => {
           </div>
         </div>
 
+        <!-- Sources dropdown -->
+        <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
+          <button
+            type="button"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            :aria-expanded="sourcesOpen"
+            @click="sourcesOpen = !sourcesOpen"
+          >
+            <span>
+              Sources
+              <span v-if="selectedSources.length" class="normal-case tracking-normal text-accent ml-1">{{ selectedSources.join(' | ') }}</span>
+            </span>
+            <svg
+              :class="{ 'rotate-180': sourcesOpen }"
+              class="w-3.5 h-3.5 transition-transform"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div v-if="sourcesOpen" class="px-3 pb-3">
+            <div v-if="availableSources.length" class="flex flex-wrap gap-1.5">
+              <label
+                v-for="src in availableSources"
+                :key="src"
+                class="cursor-pointer select-none px-2.5 py-1 rounded border text-xs transition-colors"
+                :class="selectedSources.includes(src)
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-700 text-zinc-400 bg-zinc-900 hover:text-zinc-200 hover:border-zinc-600'"
+              >
+                <input type="checkbox" :checked="selectedSources.includes(src)" class="sr-only" @change="toggleSource(src)" />
+                {{ src }}
+              </label>
+            </div>
+            <p v-else class="text-xs text-zinc-600">Loading sources…</p>
+          </div>
+        </div>
+
         <!-- Fields that override values pulled from the GD API. Collapsed by
              default since they're only used to correct/replace API data. -->
         <div class="sm:col-span-2 rounded border border-zinc-800/80 bg-zinc-950/40">
@@ -1408,26 +1449,6 @@ const historyByDay = computed(() => {
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
               <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
-            </label>
-            <label class="block sm:col-span-2">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source <span class="text-zinc-600 normal-case">— select all that apply</span></span>
-              <div v-if="availableSources.length" class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
-                <label
-                  v-for="src in availableSources"
-                  :key="src"
-                  class="flex items-center gap-1.5 cursor-pointer select-none"
-                >
-                  <input
-                    type="checkbox"
-                    :checked="selectedSources.includes(src)"
-                    class="accent-accent"
-                    @change="toggleSource(src)"
-                  />
-                  <span class="text-xs text-zinc-300">{{ src }}</span>
-                </label>
-              </div>
-              <p v-else class="mt-1 text-xs text-zinc-600">Loading sources…</p>
-              <p v-if="selectedSources.length" class="mt-1 text-[11px] text-zinc-600">{{ selectedSources.join(' | ') }}</p>
             </label>
             <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">

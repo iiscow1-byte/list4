@@ -337,6 +337,9 @@ function initSchema(db: DatabaseSync) {
   if (!acols.some((c) => c.name === 'tentative_placement')) {
     db.exec(`ALTER TABLE awaiting_levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
   }
+  if (!acols.some((c) => c.name === 'admin_notes')) {
+    db.exec(`ALTER TABLE awaiting_levels ADD COLUMN admin_notes TEXT`)
+  }
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS void_levels (

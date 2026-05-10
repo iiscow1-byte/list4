@@ -228,25 +228,40 @@ function buildQuery() {
   }
 }
 
+let activeFetch: AbortController | null = null
+
 async function loadMore() {
   if (loading.value || (initialLoaded.value && done.value)) return
   loading.value = true
+  const ctrl = new AbortController()
+  activeFetch = ctrl
   try {
     const res = await $fetch<{ total: number; page: number; pageSize: number; items: LevelRow[]; challengeMode: boolean }>(
       '/api/levels',
-      { query: buildQuery() },
+      { query: buildQuery(), signal: ctrl.signal },
     )
+    if (activeFetch !== ctrl) return  // superseded by a newer request
     total.value = res.total
     challengeMode.value = !!res.challengeMode
     items.value.push(...res.items)
     nextPage.value += 1
     initialLoaded.value = true
+  } catch (e: any) {
+    if (e?.name !== 'AbortError' && e?.cause?.name !== 'AbortError') throw e
   } finally {
-    loading.value = false
+    if (activeFetch === ctrl) {
+      loading.value = false
+      activeFetch = null
+    }
   }
 }
 
 function reset() {
+  if (activeFetch) {
+    activeFetch.abort()
+    activeFetch = null
+    loading.value = false
+  }
   items.value = []
   nextPage.value = 1
   total.value = 0
@@ -364,8 +379,7 @@ function refilter(immediate = false) {
     reset()
     await loadMore()
   }
-  if (immediate) run()
-  else debounce = setTimeout(run, 400)
+  debounce = setTimeout(run, immediate ? 150 : 400)
 }
 
 watch(search, () => refilter())
