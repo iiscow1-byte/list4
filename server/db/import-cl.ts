@@ -241,8 +241,13 @@ export async function importCl(): Promise<void> {
 
         const { above, below } = neighboursAt(sharedAll, lv.position)
         let est: number | null = null
-        if (above && below) est = Math.round((above.allPos + below.allPos) / 2)
-        else if (above) est = above.allPos + 1
+        if (above && below) {
+          // Linear interpolation against the CL position — a flat midpoint
+          // collapses every level in a sparse bracket to the same suggestion.
+          const span = below.sourcePos - above.sourcePos
+          const frac = span > 0 ? (lv.position - above.sourcePos) / span : 0.5
+          est = Math.round(above.allPos + frac * (below.allPos - above.allPos))
+        } else if (above) est = above.allPos + 1
         else if (below) est = Math.max(1, below.allPos - 1)
         if (est === lv.position) est = null
 

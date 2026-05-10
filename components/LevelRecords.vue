@@ -61,7 +61,10 @@ async function deleteRecord(id: number) {
 <template>
   <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800 shrink-0">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">Records</h2>
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">
+        Records
+        <span class="ml-1 tabular-nums text-zinc-600">{{ props.records.length }}</span>
+      </h2>
       <div v-if="showFilter" class="inline-flex rounded border border-zinc-800 overflow-hidden">
         <button
           v-for="[val, label] in visibleChips"

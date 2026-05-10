@@ -361,12 +361,12 @@ export async function importGdl() {
   }>
 
   const findNeighborAbove = db.prepare(
-    `SELECT position FROM levels
+    `SELECT position, gdl_position FROM levels
       WHERE gdl_position IS NOT NULL AND gdl_position < ?
       ORDER BY gdl_position DESC LIMIT 1`,
   )
   const findNeighborBelow = db.prepare(
-    `SELECT position FROM levels
+    `SELECT position, gdl_position FROM levels
       WHERE gdl_position IS NOT NULL AND gdl_position > ?
       ORDER BY gdl_position ASC LIMIT 1`,
   )
@@ -393,14 +393,20 @@ export async function importGdl() {
     for (const lv of gdlOnlyForReview) {
       if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-      const above = findNeighborAbove.get(lv.placement) as { position: number } | undefined
-      const below = findNeighborBelow.get(lv.placement) as { position: number } | undefined
-      // Midpoint between the surrounding ALL-list neighbors. If only one side
-      // has a match (this level is harder/easier than anything ALL knows about
-      // on GDL), nudge by ±1 from that neighbor as a starting suggestion.
+      const above = findNeighborAbove.get(lv.placement) as { position: number; gdl_position: number } | undefined
+      const below = findNeighborBelow.get(lv.placement) as { position: number; gdl_position: number } | undefined
+      // Linear interpolation against the GDL position. With sparse overlap the
+      // bracket can span hundreds of GDL slots, so a flat midpoint puts every
+      // level in the gap at the same ALL-position regardless of where it sits
+      // on GDL. Scaling by the GDL fraction tracks the source list's gradient.
+      // If only one side has a match (this level is harder/easier than anything
+      // ALL knows about on GDL), nudge by ±1 from that neighbor as a starter.
       let placementEstimate: number | null = null
-      if (above && below) placementEstimate = Math.round((above.position + below.position) / 2)
-      else if (above) placementEstimate = above.position + 1
+      if (above && below) {
+        const span = below.gdl_position - above.gdl_position
+        const frac = span > 0 ? (lv.placement - above.gdl_position) / span : 0.5
+        placementEstimate = Math.round(above.position + frac * (below.position - above.position))
+      } else if (above) placementEstimate = above.position + 1
       else if (below) placementEstimate = Math.max(1, below.position - 1)
 
       const notes = `Imported from GDL · placement #${lv.placement} on ${lv.list_type ?? 'classic'} list`
