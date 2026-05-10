@@ -20,6 +20,8 @@ const props = defineProps<{
   activePosition?: number | null
   pickMode?: boolean
   pickedPosition?: number | null
+  pickedPositions?: number[]
+  pickModeHint?: string
 }>()
 const emit = defineEmits<{ (e: 'pick', level: LevelRow): void }>()
 
@@ -454,7 +456,7 @@ watch(
 <template>
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
     <div v-if="pickMode" class="px-3 py-2 bg-accent/10 border-b border-accent/30 shrink-0 flex items-center gap-2">
-      <span class="text-[11px] text-accent leading-snug flex-1">← Click a level to place current level below it</span>
+      <span class="text-[11px] text-accent leading-snug flex-1">{{ pickModeHint ?? '← Click a level to place current level below it' }}</span>
     </div>
     <div class="p-3 border-b border-zinc-800 shrink-0">
       <div class="flex items-center gap-2 mb-3 px-1">
@@ -830,10 +832,10 @@ watch(
             v-if="pickMode"
             type="button"
             class="w-full flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors"
-            :style="lvl.position === pickedPosition
+            :style="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
               ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
               : undefined"
-            :class="lvl.position === pickedPosition
+            :class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
               ? 'ring-1 ring-inset ring-accent/80'
               : 'text-zinc-300 hover:bg-zinc-900/70'"
             @click="emit('pick', lvl)"

@@ -15,10 +15,18 @@ useHead(() => ({
 type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
 const moveBelowMode = ref(false)
 const moveBelowPick = ref<NavLevel | null>(null)
+const groupMoveMode = ref(false)
+const groupMovePicks = ref<NavLevel[]>([])
 const sidebarOpen = ref(true)
 
 function onNavPick(lvl: NavLevel) {
-  moveBelowPick.value = lvl
+  if (groupMoveMode.value) {
+    const idx = groupMovePicks.value.findIndex((p) => p.position === lvl.position)
+    if (idx >= 0) groupMovePicks.value.splice(idx, 1)
+    else groupMovePicks.value.push(lvl)
+  } else {
+    moveBelowPick.value = lvl
+  }
 }
 function onStartMoveBelow() {
   moveBelowMode.value = true
@@ -28,8 +36,23 @@ function onEndMoveBelow() {
   moveBelowMode.value = false
   moveBelowPick.value = null
 }
-// Reset pick mode when navigating to a different level
-watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null })
+function onStartGroupMove() {
+  groupMoveMode.value = true
+  groupMovePicks.value = []
+  moveBelowMode.value = false
+  moveBelowPick.value = null
+}
+function onEndGroupMove() {
+  groupMoveMode.value = false
+  groupMovePicks.value = []
+}
+// Reset pick modes when navigating to a different level
+watch(position, () => {
+  moveBelowMode.value = false
+  moveBelowPick.value = null
+  groupMoveMode.value = false
+  groupMovePicks.value = []
+})
 </script>
 
 <template>
@@ -41,8 +64,10 @@ watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null 
       <LevelListNav
         v-show="sidebarOpen"
         :active-position="position"
-        :pick-mode="moveBelowMode"
+        :pick-mode="moveBelowMode || groupMoveMode"
         :picked-position="moveBelowPick?.position ?? null"
+        :picked-positions="groupMovePicks.map((p) => p.position)"
+        :pick-mode-hint="groupMoveMode ? '← Click levels to add/remove from group move' : undefined"
         @pick="onNavPick"
       />
     </div>
@@ -65,9 +90,12 @@ watch(position, () => { moveBelowMode.value = false; moveBelowPick.value = null 
         v-else-if="level"
         :level="level"
         :move-below-pick="moveBelowPick"
+        :group-move-picks="groupMovePicks"
         @refresh="refresh"
         @start-move-below="onStartMoveBelow"
         @end-move-below="onEndMoveBelow"
+        @start-group-move="onStartGroupMove"
+        @end-group-move="onEndGroupMove"
       />
     </div>
     <LevelRecords

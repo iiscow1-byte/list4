@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
   }
   const name = strOrNull(body.name, 200)
   if (!name) throw createError({ statusCode: 400, statusMessage: 'Level name is required.' })
+  if (name.includes(',')) throw createError({ statusCode: 400, statusMessage: 'Level names cannot contain commas.' })
 
   const verifier = strOrNull(body.verifier, 100)
   if (!verifier) throw createError({ statusCode: 400, statusMessage: 'Verifier is required.' })

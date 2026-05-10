@@ -97,7 +97,8 @@ export default defineEventHandler((event) => {
   const q = getQuery(event)
   const page = Math.max(1, Number(q.page) || 1)
   const pageSize = Math.min(500, Math.max(1, Number(q.pageSize) || 100))
-  const search = typeof q.search === 'string' ? q.search.trim() : ''
+  const rawSearch = typeof q.search === 'string' ? q.search.trim() : ''
+  const searchTerms = rawSearch ? rawSearch.split(',').map((s) => s.trim()).filter(Boolean) : []
   const offset = (page - 1) * pageSize
 
   const tierMin = q.tierMin != null && q.tierMin !== '' ? Number(q.tierMin) : null
@@ -132,15 +133,19 @@ export default defineEventHandler((event) => {
   const searchConds: string[] = []
   const searchParams: any[] = []
 
-  if (search) {
-    const asPos = Number(search.replace(/^#/, ''))
-    if (Number.isInteger(asPos) && asPos > 0) {
-      searchConds.push('(name LIKE ? COLLATE NOCASE OR position = ?)')
-      searchParams.push(`%${search}%`, asPos)
-    } else {
-      searchConds.push('(name LIKE ? COLLATE NOCASE)')
-      searchParams.push(`%${search}%`)
+  if (searchTerms.length > 0) {
+    const orParts: string[] = []
+    for (const term of searchTerms) {
+      const asPos = Number(term.replace(/^#/, ''))
+      if (Number.isInteger(asPos) && asPos > 0) {
+        orParts.push('name LIKE ? COLLATE NOCASE OR position = ?')
+        searchParams.push(`%${term}%`, asPos)
+      } else {
+        orParts.push('name LIKE ? COLLATE NOCASE')
+        searchParams.push(`%${term}%`)
+      }
     }
+    searchConds.push(`(${orParts.join(' OR ')})`)
   }
 
   if (Number.isFinite(tierMin)) { filterConds.push(`(${TIER_ORD_SQL}) >= ?`); filterParams.push(tierMin) }
@@ -214,10 +219,10 @@ export default defineEventHandler((event) => {
   const useFilterRank = rankByFilter || challengeOnly
 
   const orderBySort = SORT_SQL[sort]!
-  const orderBy = search
-    ? `(name = ? COLLATE NOCASE) DESC, ${orderBySort}`
+  const orderBy = searchTerms.length > 0
+    ? `(${searchTerms.map(() => 'name = ? COLLATE NOCASE').join(' OR ')}) DESC, ${orderBySort}`
     : orderBySort
-  const orderParams = search ? [search] : []
+  const orderParams = [...searchTerms]
 
   const db = getDb()
   const filterWhere = filterConds.length ? `WHERE ${filterConds.join(' AND ')}` : ''

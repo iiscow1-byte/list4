@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireMod, isAdminRole } from '~/server/utils/auth'
 import { recomputePoints } from '~/server/utils/points'
 
 // `points` is no longer editable — it's derived from gddl_tier + position,
@@ -67,9 +67,13 @@ export default defineEventHandler(async (event) => {
   const values: (string | number | null)[] = []
   for (const [key, type] of Object.entries(FIELDS)) {
     if (!(key in body)) continue
-    if (ADMIN_ONLY_FIELDS.has(key) && account.role !== 'admin') continue
+    if (ADMIN_ONLY_FIELDS.has(key) && !isAdminRole(account.role)) continue
+    const coerced = coerce(body[key], type)
+    if (key === 'name' && typeof coerced === 'string' && coerced.includes(',')) {
+      throw createError({ statusCode: 400, statusMessage: 'Level names cannot contain commas.' })
+    }
     sets.push(`${key} = ?`)
-    values.push(coerce(body[key], type))
+    values.push(coerced)
   }
   if (sets.length === 0) return { ok: true, updated: 0 }
 

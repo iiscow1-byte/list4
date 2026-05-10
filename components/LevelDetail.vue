@@ -60,11 +60,14 @@ const props = defineProps<{
   level: Level
   readonly?: boolean
   moveBelowPick?: NavLevel | null
+  groupMovePicks?: NavLevel[]
 }>()
 const emit = defineEmits<{
   (e: 'refresh'): void
   (e: 'start-move-below'): void
   (e: 'end-move-below'): void
+  (e: 'start-group-move'): void
+  (e: 'end-group-move'): void
 }>()
 
 const { data: meRes } = useCurrentUser()
@@ -577,6 +580,52 @@ const pendingMoveNotes = ref('')
 const pendingMoveSuccess = ref(false)
 const pendingMoveError = ref<string | null>(null)
 
+// Group move: admin selects multiple levels from the nav and shifts them all by
+// the same delta.
+const groupMoveActive = ref(false)
+const groupMoveDelta = ref(1)
+const groupMoveSubmitting = ref(false)
+const groupMoveError = ref<string | null>(null)
+
+function startGroupMove() {
+  groupMoveActive.value = true
+  groupMoveError.value = null
+  actionsOpen.value = false
+  if (moveBelowActive.value) {
+    moveBelowActive.value = false
+    emit('end-move-below')
+  }
+  emit('start-group-move')
+}
+function stopGroupMove() {
+  groupMoveActive.value = false
+  groupMoveError.value = null
+  emit('end-group-move')
+}
+
+async function submitGroupMove() {
+  if (groupMoveSubmitting.value) return
+  if (!props.groupMovePicks?.length) return
+  if (!groupMoveDelta.value) return
+  groupMoveSubmitting.value = true
+  groupMoveError.value = null
+  try {
+    await $fetch('/api/admin/levels/group-move', {
+      method: 'POST',
+      body: {
+        positions: props.groupMovePicks.map((p) => p.position),
+        delta: groupMoveDelta.value,
+      },
+    })
+    emit('refresh')
+    stopGroupMove()
+  } catch (e: any) {
+    groupMoveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Group move failed.'
+  } finally {
+    groupMoveSubmitting.value = false
+  }
+}
+
 function startMoveBelow() {
   moveBelowActive.value = true
   pendingMoveReady.value = false
@@ -596,6 +645,11 @@ watch(() => props.level.position, () => {
   if (moveBelowActive.value) {
     moveBelowActive.value = false
     emit('end-move-below')
+  }
+  if (groupMoveActive.value) {
+    groupMoveActive.value = false
+    groupMoveError.value = null
+    emit('end-group-move')
   }
 })
 
@@ -908,7 +962,7 @@ const historyByDay = computed(() => {
               class="block px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
               @click="actionsOpen = false"
             >Submit opinion</NuxtLink>
-            <template v-if="canEdit && isPermanent && !moveBelowActive && !pendingMoveSuccess">
+            <template v-if="canEdit && isPermanent && !moveBelowActive && !pendingMoveSuccess && !groupMoveActive">
               <div v-if="canSubmitRecord" class="my-1 border-t border-zinc-800" />
               <button
                 type="button"
@@ -916,6 +970,13 @@ const historyByDay = computed(() => {
                 class="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
                 @click="actionsOpen = false; startMoveBelow()"
               >Suggest move…</button>
+              <button
+                v-if="isAdminLevel"
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+                @click="startGroupMove()"
+              >Group move…</button>
             </template>
           </div>
         </div>
@@ -959,6 +1020,41 @@ const historyByDay = computed(() => {
           @click="submitPendingMove"
         >{{ pendingMoveSubmitting ? 'Submitting…' : 'Submit pending move' }}</button>
       </template>
+    </section>
+
+    <!-- Group move panel: admins only -->
+    <section v-if="isAdminLevel && isPermanent && groupMoveActive && !editing" class="rounded-md border border-violet-900/50 bg-violet-950/20 p-4 mb-6 space-y-3">
+      <p class="text-[11px] text-violet-400 uppercase tracking-widest font-medium">Group move</p>
+      <p v-if="!groupMovePicks?.length" class="text-[11px] text-zinc-500">← Click levels in the list to add them to the group. Click again to remove.</p>
+      <ul v-else class="space-y-0.5">
+        <li v-for="lvl in groupMovePicks" :key="lvl.position" class="flex items-center gap-2 text-xs">
+          <span class="text-zinc-500 tabular-nums w-10 shrink-0">#{{ lvl.position }}</span>
+          <span class="text-zinc-200">{{ lvl.name }}</span>
+        </li>
+      </ul>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-zinc-500 shrink-0">Move by</label>
+        <input
+          v-model.number="groupMoveDelta"
+          type="number"
+          class="w-20 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        />
+        <span class="text-[11px] text-zinc-500">positions (positive = down the list)</span>
+      </div>
+      <p v-if="groupMoveError" class="text-xs text-red-400">{{ groupMoveError }}</p>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          :disabled="groupMoveSubmitting || !groupMovePicks?.length || !groupMoveDelta"
+          class="rounded bg-violet-700 hover:bg-violet-600 text-zinc-100 font-medium text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
+          @click="submitGroupMove"
+        >{{ groupMoveSubmitting ? 'Moving…' : 'Apply group move' }}</button>
+        <button
+          type="button"
+          class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+          @click="stopGroupMove"
+        >Cancel</button>
+      </div>
     </section>
 
     <!-- Edit form -->
