@@ -55,18 +55,22 @@ type PositionHistoryEntry = {
   changed_by: string | null
 }
 
-type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null; gd_id?: number | null }
 const props = defineProps<{
   level: Level
   readonly?: boolean
   moveBelowPick?: NavLevel | null
   groupMovePicks?: NavLevel[]
+  groupMoveTargetPick?: NavLevel | null
+  groupMovePhase?: 'select' | 'target'
 }>()
 const emit = defineEmits<{
   (e: 'refresh'): void
   (e: 'start-move-below'): void
   (e: 'end-move-below'): void
   (e: 'start-group-move'): void
+  (e: 'continue-group-move'): void
+  (e: 'back-group-move'): void
   (e: 'end-group-move'): void
 }>()
 
@@ -268,6 +272,18 @@ const draft = reactive<Record<keyof EditableFields, any>>({
   alternate_of_id: null,
   tentative_placement: false,
 })
+// Multiple placement sources: admins can tag a level with several source lists.
+// Stored as pipe-separated in placement_source; managed as an array here.
+const availableSources = ref<string[]>([])
+const selectedSources = ref<string[]>([])
+watch(selectedSources, (arr) => { draft.placement_source = arr.join('|') }, { deep: true })
+
+function toggleSource(src: string) {
+  const idx = selectedSources.value.indexOf(src)
+  if (idx >= 0) selectedSources.value.splice(idx, 1)
+  else selectedSources.value.push(src)
+}
+
 // Display-side cache of the picked originals, so the edit panel can show
 // "#42 Foo" without an extra fetch. Pre-populated from props on edit start.
 const draftDuplicateOf = ref<{ position: number; name: string } | null>(null)
@@ -311,6 +327,17 @@ function startEdit() {
   creditsOpen.value = false
   verificationOpen.value = false
   flagsOpen.value = false
+  // Init sources: parse existing pipe-separated value
+  selectedSources.value = (props.level.placement_source ?? '').split('|').map((s) => s.trim()).filter(Boolean)
+  // Load available sources in the background (don't block edit opening)
+  $fetch<{ sources: { source: string; count: number }[] }>('/api/levels/sources').then((res) => {
+    const known = res.sources.map((s) => s.source)
+    // Ensure current selections appear even if not in the fetched list
+    const all = [...new Set([...known, ...selectedSources.value])]
+    availableSources.value = all
+  }).catch(() => {
+    availableSources.value = [...selectedSources.value]
+  })
   editing.value = true
 }
 
@@ -580,12 +607,21 @@ const pendingMoveNotes = ref('')
 const pendingMoveSuccess = ref(false)
 const pendingMoveError = ref<string | null>(null)
 
-// Group move: admin selects multiple levels from the nav and shifts them all by
-// the same delta.
+// Group move: two-phase — first select levels, then pick a target level to
+// place the group below. Admins only.
 const groupMoveActive = ref(false)
-const groupMoveDelta = ref(1)
 const groupMoveSubmitting = ref(false)
 const groupMoveError = ref<string | null>(null)
+
+// Computed delta from the target pick: group leader (min position) lands just
+// below the clicked level, same logic as single-level move-below.
+const groupMoveDelta = computed<number | null>(() => {
+  if (!props.groupMoveTargetPick || !props.groupMovePicks?.length) return null
+  const minGroupPos = Math.min(...props.groupMovePicks.map((p) => p.position))
+  const t = props.groupMoveTargetPick.position
+  const targetPos = t < minGroupPos ? t + 1 : t
+  return targetPos - minGroupPos
+})
 
 function startGroupMove() {
   groupMoveActive.value = true
@@ -597,6 +633,14 @@ function startGroupMove() {
   }
   emit('start-group-move')
 }
+function continueGroupMove() {
+  groupMoveError.value = null
+  emit('continue-group-move')
+}
+function backGroupMove() {
+  groupMoveError.value = null
+  emit('back-group-move')
+}
 function stopGroupMove() {
   groupMoveActive.value = false
   groupMoveError.value = null
@@ -605,22 +649,36 @@ function stopGroupMove() {
 
 async function submitGroupMove() {
   if (groupMoveSubmitting.value) return
-  if (!props.groupMovePicks?.length) return
-  if (!groupMoveDelta.value) return
+  if (!props.groupMovePicks?.length || groupMoveDelta.value == null) return
   groupMoveSubmitting.value = true
   groupMoveError.value = null
   try {
     await $fetch('/api/admin/levels/group-move', {
       method: 'POST',
-      body: {
-        positions: props.groupMovePicks.map((p) => p.position),
-        delta: groupMoveDelta.value,
-      },
+      body: { positions: props.groupMovePicks.map((p) => p.position), delta: groupMoveDelta.value },
     })
     emit('refresh')
     stopGroupMove()
   } catch (e: any) {
     groupMoveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Group move failed.'
+  } finally {
+    groupMoveSubmitting.value = false
+  }
+}
+
+async function submitGroupMoveRequest() {
+  if (groupMoveSubmitting.value) return
+  if (!props.groupMovePicks?.length || groupMoveDelta.value == null) return
+  groupMoveSubmitting.value = true
+  groupMoveError.value = null
+  try {
+    await $fetch('/api/admin/levels/group-move-request', {
+      method: 'POST',
+      body: { positions: props.groupMovePicks.map((p) => p.position), delta: groupMoveDelta.value },
+    })
+    stopGroupMove()
+  } catch (e: any) {
+    groupMoveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to submit requests.'
   } finally {
     groupMoveSubmitting.value = false
   }
@@ -646,11 +704,7 @@ watch(() => props.level.position, () => {
     moveBelowActive.value = false
     emit('end-move-below')
   }
-  if (groupMoveActive.value) {
-    groupMoveActive.value = false
-    groupMoveError.value = null
-    emit('end-group-move')
-  }
+  if (groupMoveActive.value) stopGroupMove()
 })
 
 watch(() => props.moveBelowPick, (picked) => {
@@ -1022,39 +1076,104 @@ const historyByDay = computed(() => {
       </template>
     </section>
 
-    <!-- Group move panel: admins only -->
+    <!-- Group move panel: admins only, two-phase -->
     <section v-if="isAdminLevel && isPermanent && groupMoveActive && !editing" class="rounded-md border border-violet-900/50 bg-violet-950/20 p-4 mb-6 space-y-3">
-      <p class="text-[11px] text-violet-400 uppercase tracking-widest font-medium">Group move</p>
-      <p v-if="!groupMovePicks?.length" class="text-[11px] text-zinc-500">← Click levels in the list to add them to the group. Click again to remove.</p>
-      <ul v-else class="space-y-0.5">
-        <li v-for="lvl in groupMovePicks" :key="lvl.position" class="flex items-center gap-2 text-xs">
-          <span class="text-zinc-500 tabular-nums w-10 shrink-0">#{{ lvl.position }}</span>
-          <span class="text-zinc-200">{{ lvl.name }}</span>
-        </li>
-      </ul>
-      <div class="flex items-center gap-2">
-        <label class="text-[11px] text-zinc-500 shrink-0">Move by</label>
-        <input
-          v-model.number="groupMoveDelta"
-          type="number"
-          class="w-20 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-        <span class="text-[11px] text-zinc-500">positions (positive = down the list)</span>
-      </div>
-      <p v-if="groupMoveError" class="text-xs text-red-400">{{ groupMoveError }}</p>
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          :disabled="groupMoveSubmitting || !groupMovePicks?.length || !groupMoveDelta"
-          class="rounded bg-violet-700 hover:bg-violet-600 text-zinc-100 font-medium text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
-          @click="submitGroupMove"
-        >{{ groupMoveSubmitting ? 'Moving…' : 'Apply group move' }}</button>
-        <button
-          type="button"
-          class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
-          @click="stopGroupMove"
-        >Cancel</button>
-      </div>
+
+      <!-- Phase 1: select levels -->
+      <template v-if="groupMovePhase !== 'target'">
+        <p class="text-[11px] text-violet-400 uppercase tracking-widest font-medium">
+          Group move — <span class="normal-case font-normal">{{ groupMovePicks?.length ? `${groupMovePicks.length} selected` : 'select levels' }}</span>
+        </p>
+        <p class="text-[11px] text-zinc-500">← Click levels in the list to add them. Click again to remove.</p>
+        <ul v-if="groupMovePicks?.length" class="space-y-0.5">
+          <li v-for="lvl in groupMovePicks" :key="lvl.position" class="flex items-center gap-2 text-xs">
+            <span class="text-zinc-500 tabular-nums w-10 shrink-0">#{{ lvl.position }}</span>
+            <span class="text-zinc-200">{{ lvl.name }}</span>
+          </li>
+        </ul>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            :disabled="!groupMovePicks?.length"
+            class="rounded bg-violet-700 hover:bg-violet-600 text-zinc-100 font-medium text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
+            @click="continueGroupMove"
+          >Continue →</button>
+          <button
+            type="button"
+            class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+            @click="stopGroupMove"
+          >Cancel</button>
+        </div>
+      </template>
+
+      <!-- Phase 2: pick target, then confirm -->
+      <template v-else>
+        <p class="text-[11px] text-violet-400 uppercase tracking-widest font-medium">Group move — pick target</p>
+
+        <!-- 2a: waiting for target click -->
+        <template v-if="!groupMoveTargetPick">
+          <p class="text-[11px] text-zinc-500">← Click a level in the list to place the group below it.</p>
+          <ul class="space-y-0.5">
+            <li v-for="lvl in groupMovePicks" :key="lvl.position" class="flex items-center gap-2 text-xs">
+              <span class="text-zinc-500 tabular-nums w-10 shrink-0">#{{ lvl.position }}</span>
+              <span class="text-zinc-200">{{ lvl.name }}</span>
+            </li>
+          </ul>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              @click="backGroupMove"
+            >← Back</button>
+            <button
+              type="button"
+              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              @click="stopGroupMove"
+            >Cancel</button>
+          </div>
+        </template>
+
+        <!-- 2b: target picked, show confirmation -->
+        <template v-else>
+          <p class="text-[11px] text-zinc-300">
+            Move <span class="text-violet-300">{{ groupMovePicks?.length }} level{{ groupMovePicks?.length !== 1 ? 's' : '' }}</span>
+            below <span class="text-zinc-100">#{{ groupMoveTargetPick.position }} {{ groupMoveTargetPick.name }}</span>
+            <span class="text-zinc-500"> ({{ groupMoveDelta != null && groupMoveDelta > 0 ? '+' : '' }}{{ groupMoveDelta }} positions)</span>
+          </p>
+          <ul class="space-y-0.5">
+            <li v-for="lvl in groupMovePicks" :key="lvl.position" class="flex items-center gap-2 text-xs text-zinc-400">
+              <span class="tabular-nums w-10 shrink-0">#{{ lvl.position }}</span>
+              <span>{{ lvl.name }}</span>
+              <span class="text-zinc-600">→ #{{ lvl.position + (groupMoveDelta ?? 0) }}</span>
+            </li>
+          </ul>
+          <p v-if="groupMoveError" class="text-xs text-red-400">{{ groupMoveError }}</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              :disabled="groupMoveSubmitting"
+              class="rounded bg-violet-700 hover:bg-violet-600 text-zinc-100 font-medium text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
+              @click="submitGroupMove"
+            >{{ groupMoveSubmitting ? 'Moving…' : 'Apply group move' }}</button>
+            <button
+              type="button"
+              :disabled="groupMoveSubmitting"
+              class="rounded border border-violet-700/60 text-violet-300 hover:bg-violet-900/30 text-xs px-3 py-1.5 transition-colors disabled:opacity-60"
+              @click="submitGroupMoveRequest"
+            >Send to move requests</button>
+            <button
+              type="button"
+              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              @click="backGroupMove"
+            >← Back</button>
+            <button
+              type="button"
+              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              @click="stopGroupMove"
+            >Cancel</button>
+          </div>
+        </template>
+      </template>
     </section>
 
     <!-- Edit form -->
@@ -1291,8 +1410,24 @@ const historyByDay = computed(() => {
               <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block sm:col-span-2">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
-              <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source <span class="text-zinc-600 normal-case">— select all that apply</span></span>
+              <div v-if="availableSources.length" class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1.5">
+                <label
+                  v-for="src in availableSources"
+                  :key="src"
+                  class="flex items-center gap-1.5 cursor-pointer select-none"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="selectedSources.includes(src)"
+                    class="accent-accent"
+                    @change="toggleSource(src)"
+                  />
+                  <span class="text-xs text-zinc-300">{{ src }}</span>
+                </label>
+              </div>
+              <p v-else class="mt-1 text-xs text-zinc-600">Loading sources…</p>
+              <p v-if="selectedSources.length" class="mt-1 text-[11px] text-zinc-600">{{ selectedSources.join(' | ') }}</p>
             </label>
             <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">

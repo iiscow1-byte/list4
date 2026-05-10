@@ -8,6 +8,7 @@ type LevelRow = {
   difficulty: string | null
   points: number | null
   gddl_tier: string | null
+  gd_id?: number | null
   gddl_tier_frac?: number | null
   displayRank?: number
   aredl_position?: number | null

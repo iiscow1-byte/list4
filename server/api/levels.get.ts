@@ -163,8 +163,9 @@ export default defineEventHandler((event) => {
   }
 
   if (source) {
-    filterConds.push(`placement_source = ?`)
-    filterParams.push(source)
+    // Match within pipe-separated multi-source values (e.g. "Demon List|AREDL")
+    filterConds.push(`('|' || COALESCE(placement_source, '') || '|') LIKE ?`)
+    filterParams.push(`%|${source}|%`)
   }
 
   if (skillsets.length) {
@@ -246,7 +247,7 @@ export default defineEventHandler((event) => {
     const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
     const sql = `
       WITH ranked AS (
-        SELECT id, position, name, difficulty, points, gddl_tier,
+        SELECT id, position, name, difficulty, points, gddl_tier, gd_id,
                aredl_position, pointercrate_position, gdl_position, challenge_list_position,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
@@ -262,7 +263,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT id, position, name, difficulty, points, gddl_tier, aredl_position, pointercrate_position, gdl_position, challenge_list_position
+      `SELECT id, position, name, difficulty, points, gddl_tier, gd_id, aredl_position, pointercrate_position, gdl_position, challenge_list_position
        FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,

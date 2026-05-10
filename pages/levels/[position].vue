@@ -12,18 +12,24 @@ useHead(() => ({
   title: level.value ? `#${level.value.position} ${level.value.name} — All Levels List` : 'All Levels List',
 }))
 
-type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null; gd_id?: number | null }
 const moveBelowMode = ref(false)
 const moveBelowPick = ref<NavLevel | null>(null)
 const groupMoveMode = ref(false)
+const groupMovePhase = ref<'select' | 'target'>('select')
 const groupMovePicks = ref<NavLevel[]>([])
+const groupMoveTargetPick = ref<NavLevel | null>(null)
 const sidebarOpen = ref(true)
 
 function onNavPick(lvl: NavLevel) {
   if (groupMoveMode.value) {
-    const idx = groupMovePicks.value.findIndex((p) => p.position === lvl.position)
-    if (idx >= 0) groupMovePicks.value.splice(idx, 1)
-    else groupMovePicks.value.push(lvl)
+    if (groupMovePhase.value === 'target') {
+      groupMoveTargetPick.value = lvl
+    } else {
+      const idx = groupMovePicks.value.findIndex((p) => p.position === lvl.position)
+      if (idx >= 0) groupMovePicks.value.splice(idx, 1)
+      else groupMovePicks.value.push(lvl)
+    }
   } else {
     moveBelowPick.value = lvl
   }
@@ -38,20 +44,51 @@ function onEndMoveBelow() {
 }
 function onStartGroupMove() {
   groupMoveMode.value = true
+  groupMovePhase.value = 'select'
   groupMovePicks.value = []
+  groupMoveTargetPick.value = null
   moveBelowMode.value = false
   moveBelowPick.value = null
 }
+function onContinueGroupMove() {
+  groupMovePhase.value = 'target'
+  groupMoveTargetPick.value = null
+}
+function onBackGroupMove() {
+  groupMovePhase.value = 'select'
+  groupMoveTargetPick.value = null
+}
 function onEndGroupMove() {
   groupMoveMode.value = false
+  groupMovePhase.value = 'select'
   groupMovePicks.value = []
+  groupMoveTargetPick.value = null
 }
-// Reset pick modes when navigating to a different level
+// Reset all pick modes when navigating to a different level
 watch(position, () => {
   moveBelowMode.value = false
   moveBelowPick.value = null
   groupMoveMode.value = false
+  groupMovePhase.value = 'select'
   groupMovePicks.value = []
+  groupMoveTargetPick.value = null
+})
+
+const navPickedPositions = computed(() =>
+  groupMoveMode.value && groupMovePhase.value === 'select'
+    ? groupMovePicks.value.map((p) => p.position)
+    : [],
+)
+const navPickedPosition = computed(() =>
+  groupMoveMode.value && groupMovePhase.value === 'target'
+    ? groupMoveTargetPick.value?.position ?? null
+    : moveBelowPick.value?.position ?? null,
+)
+const navHint = computed(() => {
+  if (!groupMoveMode.value) return undefined
+  return groupMovePhase.value === 'target'
+    ? '← Click a level to place the group below it'
+    : '← Click levels to add/remove from group'
 })
 </script>
 
@@ -65,9 +102,9 @@ watch(position, () => {
         v-show="sidebarOpen"
         :active-position="position"
         :pick-mode="moveBelowMode || groupMoveMode"
-        :picked-position="moveBelowPick?.position ?? null"
-        :picked-positions="groupMovePicks.map((p) => p.position)"
-        :pick-mode-hint="groupMoveMode ? '← Click levels to add/remove from group move' : undefined"
+        :picked-position="navPickedPosition"
+        :picked-positions="navPickedPositions"
+        :pick-mode-hint="navHint"
         @pick="onNavPick"
       />
     </div>
@@ -91,10 +128,14 @@ watch(position, () => {
         :level="level"
         :move-below-pick="moveBelowPick"
         :group-move-picks="groupMovePicks"
+        :group-move-target-pick="groupMoveTargetPick"
+        :group-move-phase="groupMovePhase"
         @refresh="refresh"
         @start-move-below="onStartMoveBelow"
         @end-move-below="onEndMoveBelow"
         @start-group-move="onStartGroupMove"
+        @continue-group-move="onContinueGroupMove"
+        @back-group-move="onBackGroupMove"
         @end-group-move="onEndGroupMove"
       />
     </div>
