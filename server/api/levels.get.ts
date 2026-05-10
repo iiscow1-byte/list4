@@ -247,7 +247,7 @@ export default defineEventHandler((event) => {
     const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
     const sql = `
       WITH ranked AS (
-        SELECT id, position, name, difficulty, points, gddl_tier, gd_id,
+        SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id,
                aredl_position, pointercrate_position, gdl_position, challenge_list_position,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
@@ -263,7 +263,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT id, position, name, difficulty, points, gddl_tier, gd_id, aredl_position, pointercrate_position, gdl_position, challenge_list_position
+      `SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, aredl_position, pointercrate_position, gdl_position, challenge_list_position
        FROM ${fromClause} ${allWhere}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,
