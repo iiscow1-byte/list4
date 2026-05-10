@@ -332,11 +332,19 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
 
         const { above, below } = neighboursAt(sharedAll, lv.position)
         let placementEstimate: number | null = null
-        if (above && below) placementEstimate = Math.round((above.allPos + below.allPos) / 2)
-        else if (above) placementEstimate = above.allPos + 1
+        if (above && below) {
+          // Linear interpolation against the source-list position. With sparse
+          // overlap the bracket can span huge gaps, so a flat midpoint puts
+          // every level in that gap at the same ALL-position regardless of
+          // whether it's near the top or bottom of the gap. Scaling by the
+          // source-list fraction gives a much closer estimate.
+          const span = below.sourcePos - above.sourcePos
+          const frac = span > 0 ? (lv.position - above.sourcePos) / span : 0.5
+          placementEstimate = Math.round(above.allPos + frac * (below.allPos - above.allPos))
+        } else if (above) placementEstimate = above.allPos + 1
         else if (below) placementEstimate = Math.max(1, below.allPos - 1)
         // Top-of-list extremes have ALL-positions close to their source-list
-        // positions, so the midpoint can coincidentally equal the source rank.
+        // positions, so the estimate can coincidentally equal the source rank.
         // Drop the suggestion in that case — using the source-list position as a
         // placement on our list would be misleading.
         if (placementEstimate === lv.position) placementEstimate = null
@@ -346,7 +354,9 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
         const belowOrd = tierToOrd(tBelow?.tier ?? null)
         let estimatedTier: string | null = null
         if (aboveOrd != null && belowOrd != null) {
-          estimatedTier = ordToTier((aboveOrd + belowOrd) / 2)
+          const span = tBelow!.sourcePos - tAbove!.sourcePos
+          const frac = span > 0 ? (lv.position - tAbove!.sourcePos) / span : 0.5
+          estimatedTier = ordToTier(aboveOrd + frac * (belowOrd - aboveOrd))
         } else if (aboveOrd != null) {
           estimatedTier = ordToTier(aboveOrd)
         } else if (belowOrd != null) {
