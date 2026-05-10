@@ -270,11 +270,11 @@ watch(selected, async (s) => {
   lastLoadedId = s?.id ?? null
   if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
   preview.value = null
-  // Clear the previous selection's auto-filled tier/difficulty so they don't
-  // bleed into the middle stats panel for the next submission until the
-  // placement-preview watcher refills them from the new neighbours.
-  tierOverride.value = ''
-  difficultyOverride.value = ''
+  // Pre-fill tier/difficulty from the level's own stored values so the
+  // panel reflects the import's estimate immediately. The preview watcher
+  // will only fill these in if they are still empty (no own tier/difficulty).
+  tierOverride.value = s?.gddl_tier ?? ''
+  difficultyOverride.value = s?.difficulty ?? ''
   isDuplicate.value = !!s?.same_as_above
   duplicateOfId.value = s?.duplicate_of_id ?? null
   draftDuplicateOf.value = null
@@ -282,21 +282,35 @@ watch(selected, async (s) => {
   alternateOfId.value = s?.alternate_of_id ?? null
   draftAlternateOf.value = null
   isTentative.value = !!s?.tentative_placement
+  placement.value = ''
+  // For estimated-tier levels the import's placement_estimate comes from
+  // position interpolation on the source list and may not fall inside the
+  // estimated tier. Use the tier midpoint instead so tier and placement are
+  // always consistent. For manually-set tiers (gddl_tier_estimated = 0) or
+  // levels without a tier, trust the raw placement_estimate.
+  if (s?.gddl_tier && s?.gddl_tier_estimated) {
+    const tier = s.gddl_tier
+    try {
+      const res = await $fetch<{ midpoint: number | null }>('/api/admin/levels/tier-midpoint', {
+        query: { tier },
+      })
+      if (selected.value?.id === s.id && res.midpoint != null) {
+        placement.value = String(res.midpoint)
+      }
+    } catch { /* non-fatal */ }
+    return
+  }
   if (s?.placement_estimate != null) {
     placement.value = String(s.placement_estimate)
     return
   }
-  placement.value = ''
-  // No submitter estimate — fall back to the midpoint of the tier so the
-  // reviewer starts with a sensible default rather than an empty input.
+  // No estimate at all — fall back to the midpoint of the tier.
   if (s?.gddl_tier) {
     const tier = s.gddl_tier
     try {
       const res = await $fetch<{ midpoint: number | null }>('/api/admin/levels/tier-midpoint', {
         query: { tier },
       })
-      // Guard against the user picking a different submission while the
-      // request was in flight.
       if (selected.value?.id === s.id && res.midpoint != null && !placement.value) {
         placement.value = String(res.midpoint)
       }
@@ -610,8 +624,11 @@ async function saveEdit() {
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
-  if (above?.gddl_tier) tierOverride.value = above.gddl_tier
-  if (above?.difficulty) difficultyOverride.value = above.difficulty
+  // Only fall back to the level-above values if the pending level itself
+  // has no tier/difficulty — prevents the neighbour from overwriting the
+  // import's estimated tier.
+  if (!tierOverride.value && above?.gddl_tier) tierOverride.value = above.gddl_tier
+  if (!difficultyOverride.value && above?.difficulty) difficultyOverride.value = above.difficulty
 })
 </script>
 
