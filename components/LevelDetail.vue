@@ -1140,6 +1140,13 @@ const historyByDay = computed(() => {
                 >clear</button>
               </div>
             </div>
+            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input v-model="draft.tentative_placement" type="checkbox" class="mt-0.5 accent-yellow-400" />
+              <span>
+                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
+                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -1189,13 +1196,6 @@ const historyByDay = computed(() => {
                 placeholder="Leave blank to use the description pulled from GD."
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
-            </label>
-            <label class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none sm:col-span-2 pt-1">
-              <input v-model="draft.tentative_placement" type="checkbox" class="mt-0.5 accent-yellow-400" />
-              <span>
-                <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
-                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
-              </span>
             </label>
           </div>
         </div>
