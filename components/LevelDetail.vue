@@ -587,6 +587,18 @@ function stopMoveBelow() {
   emit('end-move-below')
 }
 
+watch(() => props.level.position, () => {
+  pendingMoveReady.value = false
+  pendingMoveSubmitting.value = false
+  pendingMoveNotes.value = ''
+  pendingMoveSuccess.value = false
+  pendingMoveError.value = null
+  if (moveBelowActive.value) {
+    moveBelowActive.value = false
+    emit('end-move-below')
+  }
+})
+
 watch(() => props.moveBelowPick, (picked) => {
   if (!picked) return
   const cur = props.level.position

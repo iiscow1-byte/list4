@@ -26,13 +26,10 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
 
-  // Prevent duplicate pending movements for the same level.
-  const existing = db.prepare(
-    `SELECT id FROM pending_movements WHERE from_position = ? AND status = 'pending'`,
-  ).get(fromPosition) as { id: number } | undefined
-  if (existing) {
-    throw createError({ statusCode: 409, statusMessage: 'A pending movement for this level already exists.' })
-  }
+  // Replace any existing pending movement for the same level.
+  db.prepare(
+    `DELETE FROM pending_movements WHERE level_name = ? AND status = 'pending'`,
+  ).run(levelName)
 
   const result = db.prepare(
     `INSERT INTO pending_movements (level_name, level_gd_id, from_position, to_position, notes, submitted_by)
