@@ -861,7 +861,7 @@ watch(
             <span
               class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-">{{ displayNum(lvl) }}</span>
+            >{{ displayNum(lvl) }}</span>
             <span class="truncate flex-1">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
