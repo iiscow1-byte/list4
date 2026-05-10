@@ -362,7 +362,7 @@ function refilter(immediate = false) {
     await loadMore()
   }
   if (immediate) run()
-  else debounce = setTimeout(run, 200)
+  else debounce = setTimeout(run, 400)
 }
 
 watch(search, () => refilter())

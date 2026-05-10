@@ -346,7 +346,9 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
         const belowOrd = tierToOrd(tBelow?.tier ?? null)
         let estimatedTier: string | null = null
         if (aboveOrd != null && belowOrd != null) {
-          estimatedTier = ordToTier((aboveOrd + belowOrd) / 2)
+          const span = tBelow!.sourcePos - tAbove!.sourcePos
+          const frac = span > 0 ? (lv.position - tAbove!.sourcePos) / span : 0.5
+          estimatedTier = ordToTier(aboveOrd + frac * (belowOrd - aboveOrd))
         } else if (aboveOrd != null) {
           estimatedTier = ordToTier(aboveOrd)
         } else if (belowOrd != null) {

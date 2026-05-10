@@ -250,8 +250,11 @@ export async function importCl(): Promise<void> {
         const aOrd = tierToOrd(tA?.tier ?? null)
         const bOrd = tierToOrd(tB?.tier ?? null)
         let tier: string | null = null
-        if (aOrd != null && bOrd != null) tier = ordToTier((aOrd + bOrd) / 2)
-        else if (aOrd != null) tier = ordToTier(aOrd)
+        if (aOrd != null && bOrd != null) {
+          const span = tB!.sourcePos - tA!.sourcePos
+          const frac = span > 0 ? (lv.position - tA!.sourcePos) / span : 0.5
+          tier = ordToTier(aOrd + frac * (bOrd - aOrd))
+        } else if (aOrd != null) tier = ordToTier(aOrd)
         else if (bOrd != null) tier = ordToTier(bOrd)
 
         const res = insPending.run(
