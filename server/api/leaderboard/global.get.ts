@@ -292,10 +292,7 @@ export default defineEventHandler((event) => {
     // made the column read "0" for every external-only player.
     for (const row of merged.values()) {
       row.sources.sort((a, b) => SOURCE_RANK[a] - SOURCE_RANK[b])
-      const allPts = allPointsMap.get(row.player.toLowerCase())
-      if (allPts != null) row.points = allPts
-      // else: keep `row.points` as-is (the primary source's value carried
-      // through from the original push above).
+      row.points = allPointsMap.get(row.player.toLowerCase()) ?? 0
     }
     const mergedRows = Array.from(merged.values())
 

@@ -297,8 +297,8 @@ const groupsOpen = reactive<Record<string, boolean>>(
   Object.fromEntries(IMPORT_GROUPS.map(g => [g.heading, true])),
 )
 
-const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[] }>({
-  pendingCounts: {}, running: [],
+const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[]; queued: string[] }>({
+  pendingCounts: {}, running: [], queued: [],
 })
 const importBusy = reactive<Record<string, boolean>>({})
 
@@ -317,8 +317,9 @@ async function runImport(source: ImportSourceKey) {
   if (importBusy[source]) return
   importBusy[source] = true
   try {
-    await $fetch('/api/admin/imports/run', { method: 'POST', body: { source } })
-    flash('ok', `Started ${source} import.`)
+    const res = await $fetch<{ started: boolean; queued: boolean }>('/api/admin/imports/run', { method: 'POST', body: { source } })
+    if (res.queued) flash('ok', `${source} queued — will start when current run finishes.`)
+    else flash('ok', `Started ${source} import.`)
     await loadImportsStatus()
   } catch (e: any) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
@@ -666,13 +667,17 @@ async function setClaim(u: AdminUser) {
               :key="src.key"
               class="flex items-center gap-3 px-4 py-2.5"
             >
-              <!-- Name + running badge -->
+              <!-- Name + running/queued badge -->
               <div class="flex items-center gap-2 w-44 shrink-0">
                 <span class="text-sm text-zinc-100 font-medium">{{ src.label }}</span>
                 <span
                   v-if="importsStatus.running.includes(src.key)"
                   class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 animate-pulse"
                 >Running</span>
+                <span
+                  v-else-if="importsStatus.queued.includes(src.key)"
+                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
+                >Queued</span>
               </div>
               <!-- Unaccepted count -->
               <span class="flex-1 text-xs text-zinc-500 tabular-nums">
@@ -687,10 +692,10 @@ async function setClaim(u: AdminUser) {
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  :disabled="importBusy[src.key] || importsStatus.running.includes(src.key)"
+                  :disabled="importBusy[src.key] || importsStatus.queued.includes(src.key)"
                   class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   @click="runImport(src.key)"
-                >{{ importsStatus.running.includes(src.key) ? 'Running…' : 'Reimport' }}</button>
+                >{{ importsStatus.queued.includes(src.key) ? 'Queued' : importsStatus.running.includes(src.key) ? 'Queue' : 'Reimport' }}</button>
                 <button
                   v-if="src.pendingKey != null"
                   type="button"

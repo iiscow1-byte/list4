@@ -92,16 +92,16 @@ function badgeLabel(b: string | null): string | null {
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">GDL points</dt>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
               <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
             </div>
             <div>
               <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
               <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
-            </div>
-            <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">GDL rank</dt>
-              <dd class="tabular-nums text-zinc-100 text-base">{{ data.player.rank != null ? `#${data.player.rank}` : '—' }}</dd>
             </div>
             <div>
               <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>

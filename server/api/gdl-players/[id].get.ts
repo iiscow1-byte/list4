@@ -54,19 +54,22 @@ export default defineEventHandler((event) => {
       ORDER BY gl.placement ASC`,
   ).all(gdlId)
 
+  const sortedByPts = [...(completedLevels as Array<{ points: number | null }>)].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+  const allTotalPoints = sortedByPts.reduce((s, r) => s + (r.points ?? 0), 0)
+  const allSkillPoints = sortedByPts.reduce((s, r, i) => s + (r.points ?? 0) * Math.pow(0.95, i), 0)
+
   return {
     player: {
       name: player.username,
       country: player.country,
-      total_points: player.points,
+      total_points: allTotalPoints,
       pack_points: 0,
       extremes: 0,
       hardest: player.hardest_name,
       rank: player.placement,
       banned: !!player.is_banned,
       badge: player.badge,
-      // Shape parity with the AREDL / PC player APIs.
-      skill_points: 0,
+      skill_points: allSkillPoints,
       tier: null,
     },
     description: null,

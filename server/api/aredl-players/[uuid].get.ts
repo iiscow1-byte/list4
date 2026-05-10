@@ -120,18 +120,20 @@ export default defineEventHandler(async (event) => {
   // the name follows the same alpha-2 contract as the rest of the site.
   const country = countryNumericToAlpha2(player.country)
 
+  const sortedByPts = [...allRecords].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+  const allTotalPoints = sortedByPts.reduce((s, r) => s + (r.points ?? 0), 0)
+  const allSkillPoints = sortedByPts.reduce((s, r, i) => s + (r.points ?? 0) * Math.pow(0.95, i), 0)
+
   return {
     player: {
       name: player.global_name,
       country,
-      total_points: player.total_points,
+      total_points: allTotalPoints,
       pack_points: player.pack_points,
       extremes: player.extremes,
       hardest: player.hardest_name,
       rank: player.rank,
-      // ProfileLevelLists / RecordCharts ignore these on the Aredl page; kept
-      // for shape parity with /api/users/by-player so the Vue templates match.
-      skill_points: 0,
+      skill_points: allSkillPoints,
       tier: null,
     },
     description,

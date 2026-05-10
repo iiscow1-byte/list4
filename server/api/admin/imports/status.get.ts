@@ -1,6 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
-import { getImportRunningSet } from '~/server/utils/imports-state'
+import { getImportRunningSet, getImportQueuedSet } from '~/server/utils/imports-state'
 
 export default defineEventHandler((event) => {
   requireAdmin(event)
@@ -36,5 +36,6 @@ export default defineEventHandler((event) => {
   }
 
   const running = Array.from(getImportRunningSet())
-  return { pendingCounts, running }
+  const queued = Array.from(getImportQueuedSet())
+  return { pendingCounts, running, queued }
 })

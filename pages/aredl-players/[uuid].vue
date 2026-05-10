@@ -74,20 +74,20 @@ function fmt(n: number | null | undefined) {
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">AREDL points</dt>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
               <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Extremes</dt>
-              <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.extremes) }}</dd>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
             </div>
             <div>
               <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
               <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">AREDL rank</dt>
-              <dd class="tabular-nums text-zinc-100 text-base">{{ data.player.rank != null ? `#${data.player.rank}` : '—' }}</dd>
+              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Extremes</dt>
+              <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.extremes) }}</dd>
             </div>
           </dl>
         </section>

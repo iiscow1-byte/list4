@@ -53,19 +53,22 @@ export default defineEventHandler((event) => {
       ORDER BY pcr.demon_position ASC`,
   ).all(pcId)
 
+  const sortedByPts = [...(completedLevels as Array<{ points: number | null }>)].sort((a, b) => (b.points ?? 0) - (a.points ?? 0))
+  const allTotalPoints = sortedByPts.reduce((s, r) => s + (r.points ?? 0), 0)
+  const allSkillPoints = sortedByPts.reduce((s, r, i) => s + (r.points ?? 0) * Math.pow(0.95, i), 0)
+
   return {
     player: {
       name: player.name,
       country: player.nationality,
       subdivision: player.subdivision,
-      total_points: player.score,
+      total_points: allTotalPoints,
       pack_points: 0,
       extremes: 0,
       hardest: player.hardest_name,
       rank: player.rank,
       banned: !!player.banned,
-      // Shape parity with the Aredl player API (RecordCharts ignores these on PC).
-      skill_points: 0,
+      skill_points: allSkillPoints,
       tier: null,
     },
     description: null,

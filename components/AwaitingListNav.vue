@@ -95,7 +95,7 @@ function buildQuery() {
     verifyTo: verifyTo.value || undefined,
     enjoyMin: enjoyMin.value !== '' ? enjoyMin.value : undefined,
     enjoyMax: enjoyMax.value !== '' ? enjoyMax.value : undefined,
-    sort: sort.value !== 'tier_desc' ? sort.value : undefined,
+    sort: sort.value,
   }
 }
 
