@@ -1865,7 +1865,7 @@ const historyByDay = computed(() => {
           <template v-else-if="gdlEstimatedData.estimated_gdl">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-300">GDL (estimated)</span>
-              <span class="tabular-nums text-base text-zinc-400">~#{{ gdlEstimatedData.estimated_gdl }}</span>
+              <span class="tabular-nums text-base" :class="gdlEstimatedData.estimated_gdl <= 150 ? 'text-amber-300' : 'text-zinc-400'">~#{{ gdlEstimatedData.estimated_gdl }}</span>
             </div>
             <p v-if="gdlEstimatedData.bracket.above || gdlEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
               Based on:
@@ -1893,7 +1893,7 @@ const historyByDay = computed(() => {
           <template v-else-if="estimatedData.estimated_aredl">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-300">AREDL (estimated)</span>
-              <span class="tabular-nums text-base text-zinc-400">~#{{ estimatedData.estimated_aredl }}</span>
+              <span class="tabular-nums text-base" :class="estimatedData.estimated_aredl <= 150 ? 'text-amber-300' : 'text-zinc-400'">~#{{ estimatedData.estimated_aredl }}</span>
             </div>
             <p v-if="estimatedData.bracket.above || estimatedData.bracket.below" class="text-[11px] text-zinc-600">
               Based on:
@@ -1915,7 +1915,7 @@ const historyByDay = computed(() => {
           <template v-if="clEstimatedData.estimated_cl">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
-              <span class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
+              <span class="tabular-nums text-base" :class="clEstimatedData.estimated_cl <= 100 ? 'text-amber-300' : 'text-zinc-400'">~#{{ clEstimatedData.estimated_cl }}</span>
             </div>
             <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
               Based on:

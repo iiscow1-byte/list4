@@ -15,6 +15,8 @@ type LevelRow = {
   pointercrate_position?: number | null
   gdl_position?: number | null
   challenge_list_position?: number | null
+  is_challenge?: boolean | number | null
+  challenge_rank?: number | null
 }
 
 const props = defineProps<{
@@ -160,11 +162,12 @@ function applyVariant(v: ListVariant) {
   }
 }
 
-function displayNum(lvl: LevelRow): number {
-  if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return lvl.aredl_position
-  if (listVariant.value === 'GDL' && lvl.gdl_position != null) return lvl.gdl_position
-  if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return lvl.challenge_list_position
-  return lvl.displayRank ?? lvl.position
+function displayNum(lvl: LevelRow): string {
+  if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return `#${lvl.aredl_position}`
+  if (listVariant.value === 'GDL' && lvl.gdl_position != null) return `#${lvl.gdl_position}`
+  if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return `#${lvl.challenge_list_position}`
+  if (lvl.is_challenge && lvl.challenge_rank != null) return `Ch. ${lvl.challenge_rank}`
+  return `#${lvl.displayRank ?? lvl.position}`
 }
 
 const activeFilterCount = computed(() => {
@@ -858,7 +861,7 @@ watch(
             <span
               class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >#{{ displayNum(lvl) }}</span>
+">{{ displayNum(lvl) }}</span>
             <span class="truncate flex-1">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
@@ -876,7 +879,7 @@ watch(
               class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >
-              #{{ displayNum(lvl) }}
+              {{ displayNum(lvl) }}
             </span>
             <span class="truncate flex-1">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>

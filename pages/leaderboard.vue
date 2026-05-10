@@ -160,9 +160,12 @@ function relative(at: string): string {
   return new Date(t).toLocaleDateString()
 }
 
-// Polymorphic row link: AREDL rows go to the Aredl player profile page (keyed
-// by UUID), everything else goes to the existing by-player route.
+// Polymorphic row link: claimed external players go directly to their site
+// profile (which shows ALL list points). Unclaimed external rows go to their
+// respective external player page. ALL list rows use the by-player route.
 function rowLink(p: Row): string {
+  const claimed = (p as GlobalRow).claimed_account?.username
+  if (claimed) return `/users/${encodeURIComponent(claimed)}`
   if (p.source === 'aredl') return `/aredl-players/${p.id}`
   if (p.source === 'pointercrate') return `/pointercrate-players/${p.id}`
   if (p.source === 'gdl') return `/gdl-players/${p.id}`
