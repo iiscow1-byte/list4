@@ -152,7 +152,7 @@ function paraParts(p: string): { text: string; href: string | null } {
           class="inline-flex items-center gap-1.5 rounded border border-accent/40 text-accent bg-accent/5 font-medium text-sm px-4 py-2 hover:bg-accent/15 transition-colors"
         >Submit a new level +</NuxtLink>
         <a
-          href="https://docs.google.com/spreadsheets/d/1ZRsTUeX4XRCLMcMbyacbk5dkZv8lild8F0zZNs6DGn4"
+          href="https://docs.google.com/spreadsheets/d/test"
           target="_blank"
           rel="noopener noreferrer"
           class="inline-flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
