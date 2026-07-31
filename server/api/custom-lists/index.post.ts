@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
        VALUES (?,?,?,?,?)`,
     ).run(newPublicId(), account.id, title, description, body?.is_public ? 1 : 0)
     const listId = Number(info.lastInsertRowid)
-    replaceItems(db, listId, Array.isArray(body?.items) ? body.items : [])
+    replaceItems(db, listId, Array.isArray(body?.items) ? body.items : [], account.id)
     db.exec('COMMIT')
     return { ok: true, list: loadList(db, listId) }
   } catch (err) {

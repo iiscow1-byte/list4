@@ -13,6 +13,9 @@ export default defineEventHandler(async (event) => {
     items?: CustomListItemInput[]
     is_public?: boolean
     accepts_records?: boolean
+    accepts_submissions?: boolean
+    discord_url?: string
+    youtube_url?: string
     max_points?: number
     min_points?: number
     scored_count?: number
@@ -46,6 +49,21 @@ export default defineEventHandler(async (event) => {
       db.prepare(`UPDATE custom_lists SET accepts_records = ? WHERE id = ?`)
         .run(body.accepts_records ? 1 : 0, row.id)
     }
+    if (typeof body?.accepts_submissions === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET accepts_submissions = ? WHERE id = ?`)
+        .run(body.accepts_submissions ? 1 : 0, row.id)
+    }
+    // Social links are rendered as anchors on a public page, so only http(s)
+    // URLs are stored — a javascript: value here would be a stored XSS.
+    for (const [key, col] of [['discord_url', 'discord_url'], ['youtube_url', 'youtube_url']] as const) {
+      const raw = (body as any)?.[key]
+      if (typeof raw !== 'string') continue
+      const url = raw.trim().slice(0, 300)
+      if (url && !/^https?:\/\//i.test(url)) {
+        throw createError({ statusCode: 400, statusMessage: 'Links must start with http:// or https://' })
+      }
+      db.prepare(`UPDATE custom_lists SET ${col} = ? WHERE id = ?`).run(url || null, row.id)
+    }
     // Scoring knobs. max is clamped above min so the decay curve can't invert.
     const maxPts = Number(body?.max_points)
     const minPts = Number(body?.min_points)
@@ -65,7 +83,7 @@ export default defineEventHandler(async (event) => {
         .run(Math.max(0, Math.min(10_000, Math.round(scored))), row.id)
     }
 
-    if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items)
+    if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items, account.id)
 
     // Packs are replaced wholesale; item ids are filtered to this list so a
     // stale client can't attach someone else's rows.

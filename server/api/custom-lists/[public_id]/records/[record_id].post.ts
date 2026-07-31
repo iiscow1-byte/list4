@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
 
 /**
  * Approve or reject a record on a custom list. Restricted to the list's owner
@@ -56,6 +57,13 @@ export default defineEventHandler(async (event) => {
       related_kind: 'custom_list',
       related_id: list.id,
     })
+  }
+
+  if (action === 'approve') {
+    notifyListWebhooks(db, list.id, 'records', {
+      title: `Record accepted on ${list.title}`,
+      description: `**${record.player_name}** — ${record.level_name} at ${record.percent}%`,
+    }).catch(() => {})
   }
 
   return { ok: true, status: action === 'approve' ? 'approved' : 'rejected' }

@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
 
 /**
  * Submit a record to a custom list. Goes to the list owner's queue as
@@ -94,6 +95,10 @@ export default defineEventHandler(async (event) => {
       related_kind: 'custom_list',
       related_id: list.id,
     })
+    notifyListWebhooks(db, list.id, 'records', {
+      title: `New record on ${list.title}`,
+      description: `**${playerName}** — ${item.name} at ${percent}%`,
+    }).catch(() => {})
   }
 
   return { ok: true, status }

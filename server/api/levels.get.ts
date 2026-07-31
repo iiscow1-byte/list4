@@ -118,6 +118,10 @@ export default defineEventHandler((event) => {
   const alternates = q.alternates === 'hide' || q.alternates === 'only' ? q.alternates : 'show'
   // Tri-state filter for levels flagged as tentative placements.
   const tentativePlacements = q.tentativePlacements === 'hide' || q.tentativePlacements === 'only' ? q.tentativePlacements : 'show'
+  // Levels on the site but not in the source sheet: promoted submissions and
+  // hand-placed additions. `sheet_placement` is cleared for exactly these on
+  // every import, so its absence is the marker.
+  const siteOnly = q.siteOnly === 'hide' || q.siteOnly === 'only' ? q.siteOnly : 'show'
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
   const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''
@@ -196,6 +200,8 @@ export default defineEventHandler((event) => {
 
   if (tentativePlacements === 'hide') filterConds.push(`COALESCE(tentative_placement, 0) = 0`)
   else if (tentativePlacements === 'only') filterConds.push(`COALESCE(tentative_placement, 0) = 1`)
+  if (siteOnly === 'hide') filterConds.push(`sheet_placement IS NOT NULL`)
+  else if (siteOnly === 'only') filterConds.push(`sheet_placement IS NULL`)
 
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }

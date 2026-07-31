@@ -954,6 +954,33 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_gdl_records_name     ON gdl_records(player_name COLLATE NOCASE);
   `)
 
+  // --- MSCL (Mooncandy's Super Challenge List, https://mscl.dev) ---
+  // Pointercrate-compatible API, so this mirrors the AREDL/GDL/PC mirrors:
+  // overlapping levels get levels.mscl_position; the rest live here until a
+  // curator promotes them.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mscl_levels (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      mscl_id        INTEGER NOT NULL UNIQUE,
+      gd_id          INTEGER,
+      position       INTEGER NOT NULL,
+      name           TEXT    NOT NULL,
+      requirement    INTEGER,
+      video          TEXT,
+      thumbnail      TEXT,
+      tier           INTEGER,
+      fps            TEXT,
+      publisher_name TEXT,
+      verifier_name  TEXT,
+      promoted_to_position INTEGER,
+      fetched_at     TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_mscl_levels_gd_id    ON mscl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_mscl_levels_position ON mscl_levels(position);
+  `)
+  if (!has('mscl_position')) db.exec(`ALTER TABLE levels ADD COLUMN mscl_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_mscl_position ON levels(mscl_position)`)
+
   if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gdl_position ON levels(gdl_position)`)
 
@@ -1299,7 +1326,77 @@ function initSchema(db: DatabaseSync) {
       PRIMARY KEY (list_id, account_id)
     );
     CREATE INDEX IF NOT EXISTS idx_cle_account ON custom_list_editors(account_id);
+
+    -- Changelog for a custom list. Written whenever the list's contents move,
+    -- so a list that other people follow can show what changed and when.
+    -- item_id is nullable so an entry survives the level being removed.
+    CREATE TABLE IF NOT EXISTS custom_list_changes (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id       INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      item_id       INTEGER REFERENCES custom_list_items(id) ON DELETE SET NULL,
+      level_name    TEXT    NOT NULL,
+      kind          TEXT    NOT NULL CHECK(kind IN ('add','move','remove')),
+      from_rank     INTEGER,
+      to_rank       INTEGER,
+      changed_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      changed_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_clc_list ON custom_list_changes(list_id, changed_at DESC);
+
+    -- Levels submitted to a custom list by the public, awaiting an editor's
+    -- decision. Approving one appends it to the list; rejecting keeps the row
+    -- so the submitter can see the outcome.
+    CREATE TABLE IF NOT EXISTS custom_list_pending (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id        INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      level_id       INTEGER REFERENCES levels(id) ON DELETE SET NULL,
+      name           TEXT    NOT NULL,
+      gd_id          INTEGER,
+      creator        TEXT,
+      verifier       TEXT,
+      verification_url TEXT,
+      suggested_rank INTEGER,
+      note           TEXT,
+      status         TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      reject_reason  TEXT,
+      submitted_by   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitted_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_by     INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at     TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_clp_list ON custom_list_pending(list_id, status);
+
+    -- Per-list Discord webhooks. Separate from the site-wide discord_webhooks
+    -- table: these belong to a list owner, fire on that list's own events, and
+    -- must never be visible to anyone but the list's editors.
+    CREATE TABLE IF NOT EXISTS custom_list_webhooks (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id       INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      url           TEXT    NOT NULL,
+      label         TEXT,
+      active        INTEGER NOT NULL DEFAULT 1,
+      on_changes    INTEGER NOT NULL DEFAULT 1,
+      on_records    INTEGER NOT NULL DEFAULT 1,
+      on_submissions INTEGER NOT NULL DEFAULT 0,
+      created_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      last_status   TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_clw_list ON custom_list_webhooks(list_id, active);
   `)
+
+  // Per-list branding: links shown in the list's own header so a community can
+  // point at its Discord / YouTube without leaving the list.
+  const clCols2 = db.prepare(`PRAGMA table_info(custom_lists)`).all() as { name: string }[]
+  if (!clCols2.some((c) => c.name === 'discord_url')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN discord_url TEXT`)
+  }
+  if (!clCols2.some((c) => c.name === 'youtube_url')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN youtube_url TEXT`)
+  }
+  if (!clCols2.some((c) => c.name === 'accepts_submissions')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN accepts_submissions INTEGER NOT NULL DEFAULT 0`)
+  }
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts
   // caused by other levels being placed/removed). Powers the position-over-time

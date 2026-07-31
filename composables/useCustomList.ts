@@ -22,15 +22,18 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
 
   // The owner's pending-record count drives the Queue tab badge, so it's
   // fetched alongside the list rather than only on the queue page.
-  const pendingCount = useState<number>(() => 0)
+  const pendingCount = useState<number>(`cl-pending-${id.value}`, () => 0)
+  const suggestionCount = useState<number>(`cl-suggest-${id.value}`, () => 0)
   async function refreshPending() {
-    if (!canEdit.value) { pendingCount.value = 0; return }
-    try {
-      const res = await $fetch<{ pending_count: number }>(
-        `/api/custom-lists/${id.value}/records`, { query: { status: 'pending' } },
-      )
-      pendingCount.value = res.pending_count
-    } catch { pendingCount.value = 0 }
+    if (!canEdit.value) { pendingCount.value = 0; suggestionCount.value = 0; return }
+    // Both badges come from the same permission check, so fetch them together
+    // and let one failing not blank the other.
+    const [records, suggestions] = await Promise.allSettled([
+      $fetch<{ pending_count: number }>(`/api/custom-lists/${id.value}/records`, { query: { status: 'pending' } }),
+      $fetch<{ pending_count: number }>(`/api/custom-lists/${id.value}/pending`),
+    ])
+    pendingCount.value = records.status === 'fulfilled' ? records.value.pending_count : 0
+    suggestionCount.value = suggestions.status === 'fulfilled' ? suggestions.value.pending_count : 0
   }
   watch(canEdit, (v) => { if (v) refreshPending() }, { immediate: true })
 
@@ -50,6 +53,6 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
   return {
     data, error, pending, refresh,
     list, canEdit, canManage, editors, base,
-    pendingCount, refreshPending, liked, toggleLike,
+    pendingCount, suggestionCount, refreshPending, liked, toggleLike,
   }
 }

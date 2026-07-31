@@ -9,6 +9,7 @@ import { importDdl } from '~/server/db/import-ddl'
 import { importLl } from '~/server/db/import-ll'
 import { importTcl } from '~/server/db/import-tcl'
 import { importSfl } from '~/server/db/import-sfl'
+import { importMscl } from '~/server/db/import-mscl'
 import { importAredl } from '~/server/db/import-aredl'
 import { importAredlHistory } from '~/server/db/import-aredl-history'
 import { importPointercrate } from '~/server/db/import-pointercrate'
@@ -26,6 +27,7 @@ const RUNNERS: Record<string, () => Promise<void>> = {
   'll':            async () => { await importLl() },
   'tcl':           async () => { await importTcl() },
   'sfl':           async () => { await importSfl() },
+  'mscl':          async () => { await importMscl() },
   'aredl':         async () => { await importAredl() },
   'aredl-history': async () => { await importAredlHistory() },
   'pointercrate':  async () => { await importPointercrate() },

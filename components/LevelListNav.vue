@@ -89,6 +89,8 @@ type AltVersionMode = 'show' | 'hide' | 'only'
 const altVersions = ref<AltVersionMode>('show')
 const alternates = ref<AltVersionMode>('show')
 const tentativePlacements = ref<AltVersionMode>('show')
+// Levels that exist on the site but not in the source sheet.
+const siteOnly = ref<AltVersionMode>('show')
 const creator = ref('')
 const sourceFilter = ref('')
 const sources = ref<{ source: string; count: number }[]>([])
@@ -177,7 +179,7 @@ function displayNum(lvl: LevelRow): string {
 const activeFilterCount = computed(() => {
   let n = 0
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
-  if (TAGS.some((t) => tagSet[t]) || SKILLSETS.some((s) => skillsetSet[s]) || altVersions.value !== 'show' || alternates.value !== 'show' || tentativePlacements.value !== 'show') n++
+  if (TAGS.some((t) => tagSet[t]) || SKILLSETS.some((s) => skillsetSet[s]) || altVersions.value !== 'show' || alternates.value !== 'show' || tentativePlacements.value !== 'show' || siteOnly.value !== 'show') n++
   if (creator.value.trim()) n++
   if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
@@ -195,6 +197,7 @@ const tagsDropdownActiveCount = computed(() => {
   if (altVersions.value !== 'show') n++
   if (alternates.value !== 'show') n++
   if (tentativePlacements.value !== 'show') n++
+  if (siteOnly.value !== 'show') n++
   return n
 })
 
@@ -221,6 +224,7 @@ function buildQuery() {
     altVersions: altVersions.value !== 'show' ? altVersions.value : undefined,
     alternates: alternates.value !== 'show' ? alternates.value : undefined,
     tentativePlacements: tentativePlacements.value !== 'show' ? tentativePlacements.value : undefined,
+    siteOnly: siteOnly.value !== 'show' ? siteOnly.value : undefined,
     creator: creator.value.trim() || undefined,
     source: sourceFilter.value || undefined,
     verifyFrom: verifyFrom.value || undefined,
@@ -283,6 +287,7 @@ function resetFilters() {
   altVersions.value = 'show'
   alternates.value = 'show'
   tentativePlacements.value = 'show'
+  siteOnly.value = 'show'
   creator.value = ''
   sourceFilter.value = ''
   verifyFrom.value = ''
@@ -420,6 +425,7 @@ watch(skillsetSet, () => refilter(true), { deep: true })
 watch(altVersions, () => refilter(true))
 watch(alternates, () => refilter(true))
 watch(tentativePlacements, () => refilter(true))
+watch(siteOnly, () => refilter(true))
 watch(ratingSet, () => refilter(true), { deep: true })
 watch(rankByFilter, () => refilter(true))
 watch(showTierInList, () => refilter(true))
@@ -792,6 +798,24 @@ watch(
                   </label>
                 </div>
                 <p class="text-[10px] text-zinc-600 mt-1">Levels with uncertain placements on the list.</p>
+              </div>
+
+              <div>
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Site-only levels</div>
+                <div class="flex flex-wrap gap-1.5">
+                  <label
+                    v-for="opt in (['show', 'hide', 'only'] as const)"
+                    :key="`site-${opt}`"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
+                    :class="siteOnly === opt
+                      ? 'border-accent/60 text-accent bg-accent/10'
+                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                  >
+                    <input v-model="siteOnly" type="radio" :value="opt" class="sr-only" />
+                    {{ opt }}
+                  </label>
+                </div>
+                <p class="text-[10px] text-zinc-600 mt-1">Levels added here that aren't in the source sheet.</p>
               </div>
 
               <div>

@@ -11,7 +11,7 @@ const props = defineProps<{
   title?: string
 }>()
 
-const { list, error, canEdit, pendingCount, liked, toggleLike } = useCustomList(() => props.publicId)
+const { list, error, canEdit, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
 </script>
 
 <template>
@@ -27,6 +27,7 @@ const { list, error, canEdit, pendingCount, liked, toggleLike } = useCustomList(
       :list="list"
       :can-edit="canEdit"
       :pending-count="pendingCount"
+      :suggestion-count="suggestionCount"
       :liked="liked"
       @like="toggleLike"
     />

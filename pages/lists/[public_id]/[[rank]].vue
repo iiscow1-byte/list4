@@ -8,7 +8,7 @@ definePageMeta({ layout: 'level' })
 
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
-const { list, error, refresh, canEdit, base, pendingCount, liked, toggleLike } = useCustomList(publicId)
+const { list, error, refresh, canEdit, base, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(publicId)
 
 /**
  * `rank` is optional: `/lists/:id` opens the list at its top level and
@@ -57,6 +57,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       :list="list"
       :can-edit="canEdit"
       :pending-count="pendingCount"
+      :suggestion-count="suggestionCount"
       :liked="liked"
       @like="toggleLike"
     />

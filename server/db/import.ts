@@ -485,14 +485,12 @@ async function importLevels() {
     total += imported
   }
 
-  // Renumber non-permanent rows so positions match the freshly-collected sheet
-  // order. Permanent levels are anchors — their positions are kept fixed and
-  // sheet entries flow around them. Rows still in the DB but no longer on the
-  // sheet (e.g. a level the curators removed) drift to the end of the list,
-  // ordered by their previous position; nothing is deleted automatically.
-  // Levels no longer on the sheet: drop their placement so the list never
-  // shows a number the sheet doesn't back, and name them so a curator can see
-  // what a rename or deletion left behind.
+  // Levels on the site but not in the sheet: promoted submissions, hand-placed
+  // additions, levels the curators removed. Their placement is the site's, not
+  // the sheet's, so clear `sheet_placement` (the list must never show a number
+  // the sheet doesn't back) and pin them where they are. Previously they were
+  // swept to the bottom on every import, which is why a level added through
+  // the site kept ending up at the end of the list.
   const strays = existingRows.filter((r) => !claimed.has(r.id) && !newIds.has(r.id))
   if (strays.length) {
     db.exec('BEGIN')
@@ -500,12 +498,16 @@ async function importLevels() {
       for (const s of strays) clearSheetPlacement.run(s.id)
       db.exec('COMMIT')
     } catch (e) { db.exec('ROLLBACK'); throw e }
-    console.log(`${strays.length} level(s) no longer on the sheet — placement cleared:`)
+    console.log(`${strays.length} site-only level(s) — placement held, sheet number cleared:`)
     for (const s of strays.slice(0, 20)) console.log(`  · ${s.name}${s.gd_id ? ` (${s.gd_id})` : ''}`)
     if (strays.length > 20) console.log(`  … and ${strays.length - 20} more`)
   }
 
-  const orphans = applySheetOrder(db, sheetOrder, { newIds, recordHistory: hadLevelsBefore })
+  const orphans = applySheetOrder(db, sheetOrder, {
+    newIds,
+    recordHistory: hadLevelsBefore,
+    anchorIds: new Set(strays.map((s) => s.id)),
+  })
   applyRatedFromSheet(db, sheetOrder)
 
   // A level whose tier disagrees with both neighbours (Tier 31, 30, 31) is a
@@ -641,14 +643,18 @@ function applyRatedFromSheet(
 function applySheetOrder(
   db: ReturnType<typeof getDb>,
   sheetOrder: { key: string; gdId: number | null; name: string }[],
-  opts: { newIds?: Set<number>; recordHistory?: boolean } = {},
+  opts: { newIds?: Set<number>; recordHistory?: boolean; anchorIds?: Set<number> } = {},
 ): number {
   const sheetRank = new Map<string, number>()
   sheetOrder.forEach((s, i) => sheetRank.set(s.key, i))
 
-  const allNonPerm = db
+  const anchorIds = opts.anchorIds ?? new Set<number>()
+  const allNonPerm = (db
     .prepare(`SELECT id, gd_id, name, position FROM levels WHERE permanent = 0 OR permanent IS NULL`)
-    .all() as { id: number; gd_id: number | null; name: string; position: number }[]
+    .all() as { id: number; gd_id: number | null; name: string; position: number }[])
+    // Anchored rows keep the position they already hold; only sheet-backed
+    // levels are renumbered, and they flow around the anchors.
+    .filter((r) => !anchorIds.has(r.id))
 
   // Positions before the renumber, so real movements can be told apart from
   // the passive shifting every level does when rows are inserted above it.
@@ -661,14 +667,20 @@ function applySheetOrder(
   }))
   ranked.sort((a, b) => a.rank - b.rank || a.fallbackPos - b.fallbackPos)
 
-  const permPositions = new Set(
-    (db.prepare(`SELECT position FROM levels WHERE permanent = 1`).all() as { position: number }[])
-      .map((r) => r.position),
+  const anchoredPositions = new Set(
+    (db.prepare(
+      `SELECT id, position FROM levels WHERE permanent = 1`,
+    ).all() as { id: number; position: number }[]).map((r) => r.position),
   )
+  for (const row of db
+    .prepare(`SELECT id, position FROM levels`)
+    .all() as { id: number; position: number }[]) {
+    if (anchorIds.has(row.id)) anchoredPositions.add(row.position)
+  }
   const targets: number[] = []
   let p = 1
   while (targets.length < ranked.length) {
-    if (!permPositions.has(p)) targets.push(p)
+    if (!anchoredPositions.has(p)) targets.push(p)
     p++
   }
 

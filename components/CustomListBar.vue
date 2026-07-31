@@ -12,11 +12,15 @@ const props = defineProps<{
     is_public: number
     likes: number
     accepts_records: number
+    accepts_submissions?: number
+    discord_url?: string | null
+    youtube_url?: string | null
     items: any[]
     packs?: any[]
   }
   canEdit?: boolean
   pendingCount?: number
+  suggestionCount?: number
   liked?: boolean
 }>()
 const emit = defineEmits<{ (e: 'like'): void }>()
@@ -33,10 +37,33 @@ const tabs = computed(() => [
   { to: base.value, label: 'List', active: onListTab.value },
   { to: `${base.value}/leaderboard`, label: 'Leaderboard' },
   ...(props.list.packs?.length ? [{ to: `${base.value}/packs`, label: 'Packs' }] : []),
+  { to: `${base.value}/changelog`, label: 'Changelog' },
+  ...(props.list.accepts_submissions || props.canEdit
+    ? [{ to: `${base.value}/suggest`, label: 'Suggest', badge: props.suggestionCount }]
+    : []),
   ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit' }] : []),
   ...(props.canEdit ? [{ to: `${base.value}/queue`, label: 'Queue', badge: props.pendingCount }] : []),
   ...(props.canEdit ? [{ to: `${base.value}/settings`, label: 'Settings' }] : []),
 ])
+
+/**
+ * Fullscreen the list. Uses the Fullscreen API on the whole document so the
+ * list fills the screen without the browser chrome — the closest thing to a
+ * dedicated list site while still living inside this one.
+ */
+const isFullscreen = ref(false)
+function onFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement
+}
+onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
+
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen()
+    else await document.documentElement.requestFullscreen()
+  } catch { /* denied or unsupported — the button just does nothing */ }
+}
 
 function isActive(t: { to: string; active?: boolean }) {
   return t.active ?? route.path === t.to
@@ -85,6 +112,48 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
         </NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1.5 shrink-0" />
+
+        <!-- The list's own community links -->
+        <a
+          v-if="list.discord_url"
+          :href="list.discord_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
+          aria-label="Discord"
+          title="Discord"
+        >
+          <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+            <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
+          </svg>
+        </a>
+        <a
+          v-if="list.youtube_url"
+          :href="list.youtube_url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-zinc-900 transition-colors"
+          aria-label="YouTube"
+          title="YouTube"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+          </svg>
+        </a>
+
+        <button
+          type="button"
+          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+          :aria-pressed="isFullscreen"
+          :aria-label="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+          :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+          @click="toggleFullscreen"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4" aria-hidden="true">
+            <path v-if="!isFullscreen" d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-5v3a2 2 0 0 1-2 2h-3" />
+            <path v-else d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3m8 0v-3a2 2 0 0 1 2-2h3" />
+          </svg>
+        </button>
 
         <button
           type="button"

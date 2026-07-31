@@ -46,7 +46,12 @@ function clean(v: unknown, max = 200): string | null {
  * would silently wipe every record on the list each time someone dragged a
  * row. Only items genuinely removed from the list are deleted.
  */
-export function replaceItems(db: DatabaseSync, listId: number, items: CustomListItemInput[]): number {
+export function replaceItems(
+  db: DatabaseSync,
+  listId: number,
+  items: CustomListItemInput[],
+  actorId: number | null = null,
+): number {
   const getLevel = db.prepare(
     `SELECT id, name, gd_id, creator, difficulty, gddl_tier, verification_url FROM levels WHERE id = ?`,
   )
@@ -65,8 +70,13 @@ export function replaceItems(db: DatabaseSync, listId: number, items: CustomList
   `)
 
   const existing = db.prepare(
-    `SELECT id, level_id, name, gd_id FROM custom_list_items WHERE list_id = ?`,
-  ).all(listId) as { id: number; level_id: number | null; name: string; gd_id: number | null }[]
+    `SELECT id, level_id, name, gd_id, sort_order FROM custom_list_items WHERE list_id = ?`,
+  ).all(listId) as
+    { id: number; level_id: number | null; name: string; gd_id: number | null; sort_order: number }[]
+
+  // Ranks before this save, so the changelog can describe the difference
+  // rather than restating the whole list.
+  const rankBefore = new Map(existing.map((e) => [e.id, e.sort_order]))
 
   const byId = new Map(existing.map((e) => [e.id, e]))
   const byLevel = new Map<number, number>()
@@ -77,6 +87,14 @@ export function replaceItems(db: DatabaseSync, listId: number, items: CustomList
     if (!byNameGd.has(k)) byNameGd.set(k, e.id)
   }
 
+  type PendingChange = {
+    itemId: number | null
+    name: string
+    kind: 'add' | 'move' | 'remove'
+    from: number | null
+    to: number | null
+  }
+  const changes: PendingChange[] = []
   const keptIds = new Set<number>()
   let n = 0
 
@@ -138,20 +156,70 @@ export function replaceItems(db: DatabaseSync, listId: number, items: CustomList
         ...listMeta, matchId, listId,
       )
       keptIds.add(matchId)
+      const was = rankBefore.get(matchId)
+      if (was != null && was !== n) {
+        changes.push({ itemId: matchId, name: fields.name, kind: 'move', from: was + 1, to: n + 1 })
+      }
     } else {
-      ins.run(
+      const newId = Number(ins.run(
         listId, n, linked?.id ?? null, fields.name, fields.gd_id, fields.creator,
         fields.difficulty, fields.gddl_tier, fields.verification_url, clean(raw?.notes, 500),
         ...listMeta,
-      )
+      ).lastInsertRowid)
+      changes.push({ itemId: newId, name: fields.name, kind: 'add', from: null, to: n + 1 })
     }
     n++
   }
 
   const del = db.prepare(`DELETE FROM custom_list_items WHERE id = ?`)
-  for (const e of existing) if (!keptIds.has(e.id)) del.run(e.id)
+  for (const e of existing) {
+    if (keptIds.has(e.id)) continue
+    changes.push({ itemId: null, name: e.name, kind: 'remove', from: e.sort_order + 1, to: null })
+    del.run(e.id)
+  }
 
+  recordListChanges(db, listId, changes, actorId)
   return n
+}
+
+/**
+ * Append changelog rows for a save. Skipped entirely for a list's first save —
+ * "every level was added" is the list being created, not a change worth
+ * reading — and capped so one big reorder can't bury everything before it.
+ */
+const MAX_CHANGES_PER_SAVE = 60
+
+function recordListChanges(
+  db: DatabaseSync,
+  listId: number,
+  changes: {
+    itemId: number | null
+    name: string
+    kind: 'add' | 'move' | 'remove'
+    from: number | null
+    to: number | null
+  }[],
+  actorId: number | null,
+): void {
+  if (!changes.length) return
+
+  const alreadyLogged = (db.prepare(
+    `SELECT COUNT(*) AS n FROM custom_list_changes WHERE list_id = ?`,
+  ).get(listId) as { n: number }).n
+  const everSaved = alreadyLogged > 0
+    || (db.prepare(`SELECT COUNT(*) AS n FROM custom_list_records WHERE list_id = ?`)
+          .get(listId) as { n: number }).n > 0
+  // A brand-new list logs nothing; from its second save on, everything counts.
+  if (!everSaved && changes.every((c) => c.kind === 'add')) return
+
+  const ins = db.prepare(
+    `INSERT INTO custom_list_changes
+       (list_id, item_id, level_name, kind, from_rank, to_rank, changed_by)
+     VALUES (?,?,?,?,?,?,?)`,
+  )
+  for (const c of changes.slice(0, MAX_CHANGES_PER_SAVE)) {
+    ins.run(listId, c.itemId, c.name, c.kind, c.from, c.to, actorId)
+  }
 }
 
 /**
@@ -164,6 +232,7 @@ export function loadList(db: DatabaseSync, listId: number) {
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.created_at, cl.updated_at,
             cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
+            cl.accepts_submissions, cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl

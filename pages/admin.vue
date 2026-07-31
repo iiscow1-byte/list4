@@ -250,7 +250,7 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl'
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl' | 'mscl'
 type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl'
 type ImportSource = {
   key: ImportSourceKey
@@ -279,6 +279,7 @@ const IMPORT_GROUPS: ImportGroup[] = [
       { key: 'sfl',  label: 'SFL',  pendingKey: 'sfl' },
       { key: 'ddl',  label: 'DDL',             pendingKey: 'ddl' },
       { key: 'cl',   label: 'Challenge List',  pendingKey: 'cl'  },
+      { key: 'mscl', label: 'MSCL',            pendingKey: null  },
     ],
   },
   {
