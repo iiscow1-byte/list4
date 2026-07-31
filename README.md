@@ -125,10 +125,20 @@ level ID, percent to qualify, FPS and game version), **Leaderboard**,
 - **Packs** (`custom_list_packs`) group levels under a name and colour.
 
 A custom list is laid out like the main list rather than as a single scrolling
-page: `/lists/:public_id/:rank` is a full-viewport three-panel view — searchable
-level nav with thumbnails on the left, the selected level in the middle, its
-records on the right — with the list's own tab bar for Leaderboard, Packs,
-Submit, Queue and Settings. `/lists/:public_id` opens it at rank 1.
+page: `pages/lists/[public_id]/[[rank]].vue` is a full-viewport three-panel
+view — searchable level nav with thumbnails on the left, the selected level in
+the middle, its records on the right — with the list's own tab bar for
+Leaderboard, Packs, Submit, Queue and Settings.
+
+`rank` is an *optional* route param, so one page serves both `/lists/:id` and
+`/lists/:id/7`. An earlier version had a separate index page that redirected to
+`/1`, which rendered "this list has no levels yet" on the bare URL: the
+redirect decision ran during setup, before `useFetch` resolved, so it saw an
+empty list and fell through. Serving both from one route removes the window in
+which that can happen.
+
+The secondary pages share `components/CustomListShell.vue` (list bar, scrolling
+body, not-found and loading states) so each is just its own content.
 
 - **Editors.** Owners can appoint collaborators from **Settings → Editors**.
   Editors change the list's levels and settings and moderate its records;

@@ -10,11 +10,21 @@ const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list, error, refresh, canEdit, base, pendingCount, liked, toggleLike } = useCustomList(publicId)
 
+/**
+ * `rank` is optional: `/lists/:id` opens the list at its top level and
+ * `/lists/:id/7` at #7. Handling both here rather than redirecting from a
+ * separate index page means there's no moment where the route has resolved
+ * but the list hasn't — the redirect version rendered "no levels yet" because
+ * it made that decision during setup, before the fetch came back.
+ */
 const rank = computed(() => {
   const n = Number(route.params.rank)
   return Number.isInteger(n) && n > 0 ? n : 1
 })
-const activeItem = computed(() => list.value?.items.find((i: any) => i.rank === rank.value) ?? null)
+const activeItem = computed(() => {
+  const items = list.value?.items ?? []
+  return items.find((i: any) => i.rank === rank.value) ?? items[0] ?? null
+})
 
 useHead(() => ({
   title: activeItem.value && list.value
@@ -61,6 +71,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :item="activeItem"
         :list-title="list.title"
         :total-items="list.items.length"
+        :list-path="base"
         :can-edit="canEdit"
       />
       <CustomListRecords

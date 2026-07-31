@@ -66,32 +66,46 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="divide-y divide-zinc-900/60">
+      <ul class="divide-y divide-zinc-900/50">
         <li v-for="lvl in filtered" :key="lvl.id" :data-item="lvl.id">
           <NuxtLink
             :to="`${listPath}/${lvl.rank}`"
-            class="relative overflow-hidden flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
-            :class="lvl.id === activeId ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
+            class="relative overflow-hidden flex items-stretch gap-2.5 pr-3 py-2 text-sm transition-colors group"
+            :class="lvl.id === activeId ? 'bg-accent/[0.07]' : 'hover:bg-zinc-900/70'"
           >
             <LevelThumbBg
               :gd-id="lvl.gd_id"
               :video-url="lvl.verification_url"
               res="small"
-              :img-class="lvl.id === activeId ? 'opacity-55' : 'opacity-25 group-hover:opacity-50'"
-              overlay-class="bg-gradient-to-r from-zinc-950/92 via-zinc-950/60 to-zinc-950/20"
+              :img-class="lvl.id === activeId ? 'opacity-45' : 'opacity-20 group-hover:opacity-40'"
+              overlay-class="bg-gradient-to-r from-zinc-950/94 via-zinc-950/70 to-zinc-950/25"
+            />
+            <!-- Active marker, so the selected row reads at a glance -->
+            <span
+              class="relative w-0.5 shrink-0 rounded-r"
+              :class="lvl.id === activeId ? 'bg-accent' : 'bg-transparent'"
+              aria-hidden="true"
             />
             <span
-              class="relative text-[11px] tabular-nums px-2 py-1 w-12 shrink-0 text-center font-semibold"
+              class="relative self-center text-[11px] tabular-nums px-1.5 py-1 w-11 shrink-0 text-center font-semibold rounded"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >#{{ lvl.rank }}</span>
-            <span class="relative flex-1 min-w-0">
-              <span class="block truncate" :class="lvl.id === activeId ? 'text-accent font-medium' : ''">{{ lvl.name }}</span>
+            >{{ lvl.rank }}</span>
+            <span class="relative flex-1 min-w-0 self-center">
+              <span
+                class="block truncate"
+                :class="lvl.id === activeId ? 'text-accent font-semibold' : 'text-zinc-200'"
+              >{{ lvl.name }}</span>
               <span v-if="lvl.creator" class="block truncate text-[10px] text-zinc-500">{{ lvl.creator }}</span>
             </span>
-            <span class="relative shrink-0 text-[10px] tabular-nums text-amber-300/80">{{ lvl.points }}</span>
+            <span class="relative shrink-0 self-center text-right">
+              <span class="block text-[11px] tabular-nums text-amber-300/90 font-medium">{{ lvl.points }}</span>
+              <span v-if="lvl.records.length" class="block text-[9px] tabular-nums text-zinc-600">
+                {{ lvl.records.length }} rec
+              </span>
+            </span>
           </NuxtLink>
         </li>
-        <li v-if="!filtered.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches.</li>
+        <li v-if="!filtered.length" class="px-3 py-8 text-xs text-zinc-500 text-center">No matches.</li>
       </ul>
     </div>
   </aside>

@@ -1,0 +1,47 @@
+<script setup lang="ts">
+/**
+ * Chrome shared by a custom list's secondary pages (leaderboard, packs,
+ * submit, queue, settings): the list bar, a scrolling body, and the
+ * not-found / loading states. Keeps those pages down to their own content.
+ */
+const props = defineProps<{
+  publicId: string
+  /** Constrains the content column; the list view opts out with its own grid. */
+  width?: 'narrow' | 'wide'
+  title?: string
+}>()
+
+const { list, error, canEdit, pendingCount, liked, toggleLike } = useCustomList(() => props.publicId)
+</script>
+
+<template>
+  <div v-if="error" class="h-full flex items-center justify-center">
+    <div class="text-center">
+      <p class="text-sm text-zinc-500">This list doesn't exist.</p>
+      <NuxtLink to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse public lists →</NuxtLink>
+    </div>
+  </div>
+
+  <div v-else-if="list" class="h-full flex flex-col min-h-0">
+    <CustomListBar
+      :list="list"
+      :can-edit="canEdit"
+      :pending-count="pendingCount"
+      :liked="liked"
+      @like="toggleLike"
+    />
+    <div class="flex-1 min-h-0 overflow-y-auto">
+      <div
+        class="mx-auto px-4 sm:px-6 py-6"
+        :class="width === 'wide' ? 'max-w-5xl' : 'max-w-3xl'"
+      >
+        <h2 v-if="title" class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-3">{{ title }}</h2>
+        <slot :list="list" :can-edit="canEdit" />
+      </div>
+    </div>
+  </div>
+
+  <div v-else class="h-full flex items-center justify-center">
+    <p class="text-sm text-zinc-600">Loading…</p>
+  </div>
+</template>

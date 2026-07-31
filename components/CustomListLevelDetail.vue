@@ -7,6 +7,8 @@ const props = defineProps<{
   item: any
   listTitle: string
   totalItems: number
+  /** `/lists/:public_id` — for the prev/next links. */
+  listPath: string
   canEdit?: boolean
 }>()
 
@@ -43,6 +45,19 @@ const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
           <template v-if="item.creator && item.verifier"> · </template>
           <template v-if="item.verifier">verified by {{ item.verifier }}</template>
         </p>
+        <!-- Step through the list without going back to the nav -->
+        <nav class="flex items-center gap-1.5 pt-1">
+          <NuxtLink
+            v-if="item.rank > 1"
+            :to="`${listPath}/${item.rank - 1}`"
+            class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+          >← Harder</NuxtLink>
+          <NuxtLink
+            v-if="item.rank < totalItems"
+            :to="`${listPath}/${item.rank + 1}`"
+            class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+          >Easier →</NuxtLink>
+        </nav>
       </header>
 
       <!-- Verification video -->

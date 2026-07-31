@@ -84,10 +84,9 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
 </script>
 
 <template>
-  <div v-if="list" class="h-full flex flex-col min-h-0">
-    <CustomListBar :list="list" :can-edit="canEdit" :pending-count="pendingCount" :liked="liked" @like="toggleLike" />
-    <div class="flex-1 min-h-0 overflow-y-auto">
-      <div class="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+  <CustomListShell :public-id="publicId">
+    <template #default="{ list: l }">
+      <div class="space-y-5">
         <p v-if="!canEdit" class="text-sm text-zinc-500 py-16 text-center">
           Only this list's owner and editors can change its settings.
         </p>
@@ -116,7 +115,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               <input
                 type="checkbox"
                 class="accent-accent"
-                :checked="!!list.is_public"
+                :checked="!!l.is_public"
                 :disabled="busy"
                 @change="patch({ is_public: ($event.target as HTMLInputElement).checked }, 'Visibility updated.')"
               />
@@ -126,7 +125,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               <input
                 type="checkbox"
                 class="accent-accent"
-                :checked="!!list.accepts_records"
+                :checked="!!l.accepts_records"
                 :disabled="busy"
                 @change="patch({ accepts_records: ($event.target as HTMLInputElement).checked }, 'Record settings updated.')"
               />
@@ -185,10 +184,10 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               type="button"
               class="rounded-lg border border-red-900/60 text-red-400 text-xs px-3 py-1.5 hover:bg-red-950/40 transition-colors"
               @click="deleteList"
-            >Delete "{{ list.title }}"</button>
+            >Delete "{{ l.title }}"</button>
           </section>
         </template>
       </div>
-    </div>
-  </div>
+    </template>
+  </CustomListShell>
 </template>
