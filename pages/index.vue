@@ -56,7 +56,6 @@ useHead({ title: 'The All Levels List' })
 </script>
 
 <template>
-<<<<<<< HEAD
   <div class="container-wide py-8 space-y-8">
     <!-- Hero -->
     <header class="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-950 px-6 py-8 sm:px-10 sm:py-10">
@@ -85,34 +84,6 @@ useHead({ title: 'The All Levels List' })
         <p v-if="stats" class="mt-4 text-[11px] text-zinc-600 tabular-nums">
           {{ stats.totalLevels.toLocaleString() }} levels ranked
         </p>
-=======
-  <div class="container-tight py-10 space-y-10">
-    <!-- Hero / intro -->
-    <header class="space-y-3">
-      <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight">The All Levels List</h1>
-      <div v-if="landing" class="space-y-2 text-zinc-300 leading-relaxed">
-        <p v-for="(p, i) in landing.intro" :key="`i-${i}`">{{ p }}</p>
-      </div>
-      <div class="pt-2 flex flex-wrap gap-2">
-        <NuxtLink
-          to="/levels/1"
-          class="inline-flex items-center gap-1.5 rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
-        >Browse the list →</NuxtLink>
-        <NuxtLink
-          to="/records/submit"
-          class="inline-flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
-        >Submit a record +</NuxtLink>
-        <NuxtLink
-          to="/levels/submit"
-          class="inline-flex items-center gap-1.5 rounded border border-accent/40 text-accent bg-accent/5 font-medium text-sm px-4 py-2 hover:bg-accent/15 transition-colors"
-        >Submit a new level +</NuxtLink>
-        <a
-          href="https://docs.google.com/spreadsheets/d/test"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
-        >Legacy ALL ↗</a>
->>>>>>> 9e17461ac75d4720e14c598c28899e3bffa2d7fb
       </div>
     </header>
 
