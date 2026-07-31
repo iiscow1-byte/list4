@@ -33,6 +33,9 @@ export type Change = {
   to_position: number
   changed_at: string         // raw datetime('now') from SQLite, UTC
   changed_by: string | null  // username, null for system / deleted account
+  source: string             // 'all' = native move, 'aredl' = imported AREDL history
+  raw_from_position: number | null // original AREDL positions for source='aredl'
+  raw_to_position: number | null
 }
 export type DayGroup = {
   date: string               // YYYY-MM-DD (UTC)
@@ -57,17 +60,19 @@ const IS_CHALLENGE_L2 = `(${challengeSourceSqlExpr('l2.placement_source')} OR l2
 
 export function loadChanges(
   db: DatabaseSync,
-  opts: { since?: string; until?: string; limit?: number } = {},
+  opts: { since?: string; until?: string; limit?: number; source?: string } = {},
 ): Change[] {
   const conds: string[] = []
   const params: any[] = []
   if (opts.since) { conds.push('h.changed_at >= ?'); params.push(opts.since) }
   if (opts.until) { conds.push('h.changed_at <= ?'); params.push(opts.until) }
+  if (opts.source) { conds.push('h.source = ?'); params.push(opts.source) }
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
   const limit = Math.max(1, Math.min(opts.limit ?? 500, 2000))
 
   const rows = db.prepare(
     `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
+            h.source, h.raw_from_position, h.raw_to_position,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
                  WHEN l.rated IS NOT NULL AND l.rated <> '' THEN l.rated
@@ -94,6 +99,9 @@ export function loadChanges(
     from_position: number | null
     to_position: number
     changed_at: string
+    source: string
+    raw_from_position: number | null
+    raw_to_position: number | null
     level_position: number
     level_name: string
     level_gddl_tier: string | null
@@ -108,10 +116,12 @@ export function loadChanges(
   // we emit a single A→C entry using the earliest from_position and latest
   // to_position. If a level was added and then moved same day, the "add" entry
   // wins but its to_position is updated to the final resting place.
+  // Source is part of the key so an imported AREDL entry never merges with a
+  // native move of the same level on the same day.
   type Row = (typeof rows)[0]
   const byKey = new Map<string, Row[]>()
   for (const row of rows) {
-    const k = `${row.level_id}:${row.changed_at.slice(0, 10)}`
+    const k = `${row.level_id}:${row.source}:${row.changed_at.slice(0, 10)}`
     const bucket = byKey.get(k)
     if (bucket) bucket.push(row)
     else byKey.set(k, [row])
@@ -155,6 +165,9 @@ export function loadChanges(
     to_position: r.to_position,
     changed_at: r.changed_at,
     changed_by: r.changed_by,
+    source: r.source ?? 'all',
+    raw_from_position: r.raw_from_position ?? null,
+    raw_to_position: r.raw_to_position ?? null,
   }))
 }
 

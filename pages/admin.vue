@@ -250,7 +250,7 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'pointercrate' | 'gsv' | 'cl'
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl'
 type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl'
 type ImportSource = {
   key: ImportSourceKey
@@ -284,9 +284,10 @@ const IMPORT_GROUPS: ImportGroup[] = [
   {
     heading: 'Records & players',
     sources: [
-      { key: 'aredl',        label: 'AREDL',        pendingKey: null },
-      { key: 'pointercrate', label: 'Pointercrate', pendingKey: null },
-      { key: 'gsv',          label: 'Stats Viewer', pendingKey: null },
+      { key: 'aredl',         label: 'AREDL',         pendingKey: null },
+      { key: 'aredl-history', label: 'AREDL history', pendingKey: null },
+      { key: 'pointercrate',  label: 'Pointercrate',  pendingKey: null },
+      { key: 'gsv',           label: 'Stats Viewer',  pendingKey: null },
     ],
   },
 ]

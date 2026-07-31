@@ -203,7 +203,7 @@ function sourceLabel(p: Row): string | null {
     </div>
 
     <div class="mb-4 flex flex-wrap items-center gap-3">
-      <div class="inline-flex rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden">
+      <div class="inline-flex rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden">
         <button
           type="button"
           class="px-3 py-1.5 text-sm font-medium transition-colors"
@@ -228,12 +228,12 @@ function sourceLabel(p: Row): string | null {
           v-model="search"
           type="search"
           placeholder="Search players or accounts…"
-          class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+          class="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
         />
       </div>
     </div>
 
-    <div v-if="tab === 'followed' && !me" class="text-sm text-zinc-500 rounded-md border border-zinc-900 bg-zinc-950 px-4 py-8 text-center">
+    <div v-if="tab === 'followed' && !me" class="text-sm text-zinc-500 rounded-xl border border-zinc-800/70 bg-zinc-950 px-4 py-8 text-center">
       <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink> to follow other profiles and see them here.
     </div>
 
@@ -242,7 +242,7 @@ function sourceLabel(p: Row): string | null {
         <div v-if="pending && items.length === 0" class="text-sm text-zinc-500">loading…</div>
         <ol
           v-else
-          class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden transition-opacity"
+          class="divide-y divide-zinc-900 rounded-xl border border-zinc-800/70 bg-zinc-950 overflow-hidden transition-opacity"
           :class="{ 'opacity-50': pending }"
         >
           <li v-for="(p, i) in items" :key="rowKey(p, i)">
@@ -314,14 +314,14 @@ function sourceLabel(p: Row): string | null {
           <button
             type="button"
             :disabled="pending || page <= 1"
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="First page"
             @click="gotoPage(1)"
           >&laquo;</button>
           <button
             type="button"
             :disabled="pending || page <= 1"
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Previous page"
             @click="gotoPage(page - 1)"
           >&lsaquo;</button>
@@ -332,7 +332,7 @@ function sourceLabel(p: Row): string | null {
               type="number"
               min="1"
               :max="totalPages"
-              class="w-14 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-center text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+              class="w-14 rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-center text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
               @keydown.enter="onPageInputCommit"
               @blur="onPageInputCommit"
             />
@@ -341,14 +341,14 @@ function sourceLabel(p: Row): string | null {
           <button
             type="button"
             :disabled="pending || page >= totalPages"
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Next page"
             @click="gotoPage(page + 1)"
           >&rsaquo;</button>
           <button
             type="button"
             :disabled="pending || page >= totalPages"
-            class="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Last page"
             @click="gotoPage(totalPages)"
           >&raquo;</button>
@@ -358,7 +358,7 @@ function sourceLabel(p: Row): string | null {
       <aside v-if="tab === 'followed'" class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-1">Recent activity</h2>
         <div v-if="feedLoading" class="text-xs text-zinc-600 px-1">loading…</div>
-        <ol v-else-if="feed.length" class="divide-y divide-zinc-900 rounded-md border border-zinc-900 bg-zinc-950 overflow-hidden">
+        <ol v-else-if="feed.length" class="divide-y divide-zinc-900 rounded-xl border border-zinc-800/70 bg-zinc-950 overflow-hidden">
           <li v-for="(item, idx) in feed" :key="`${item.kind}-${idx}-${item.at}`" class="px-3 py-2.5 text-xs">
             <div class="flex items-baseline gap-2">
               <NuxtLink
@@ -394,7 +394,7 @@ function sourceLabel(p: Row): string | null {
             </div>
           </li>
         </ol>
-        <div v-else class="text-xs text-zinc-600 px-1 py-3 rounded-md border border-zinc-900 bg-zinc-950 text-center">
+        <div v-else class="text-xs text-zinc-600 px-1 py-3 rounded-xl border border-zinc-800/70 bg-zinc-950 text-center">
           No recent activity from people you follow.
         </div>
       </aside>

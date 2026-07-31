@@ -14,9 +14,10 @@
 import { getDb } from './index.ts'
 
 const API_BASE = process.env.AREDL_API_BASE || 'https://api.aredl.net/v2/api/aredl'
-const PAR = Number(process.env.AREDL_PARALLELISM || 8)
+// AREDL's rate limiter starts returning 429s above ~4 concurrent requests.
+const PAR = Number(process.env.AREDL_PARALLELISM || 4)
 
-async function fetchJson<T>(path: string, retries = 3): Promise<T> {
+async function fetchJson<T>(path: string, retries = 6): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -24,7 +25,13 @@ async function fetchJson<T>(path: string, retries = 3): Promise<T> {
       if (!res.ok) {
         if (res.status >= 500 || res.status === 429) {
           if (attempt < retries - 1) {
-            await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+            // On 429, honor Retry-After when present; otherwise back off
+            // exponentially — AREDL's limiter needs multi-second pauses.
+            const retryAfter = Number(res.headers.get('retry-after'))
+            const wait = res.status === 429
+              ? (Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 3000 * (attempt + 1))
+              : 500 * (attempt + 1)
+            await new Promise((r) => setTimeout(r, wait))
             continue
           }
         }
@@ -33,7 +40,7 @@ async function fetchJson<T>(path: string, retries = 3): Promise<T> {
       return (await res.json()) as T
     } catch (err) {
       if (attempt === retries - 1) throw err
-      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)))
+      await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)))
     }
   }
   throw new Error('unreachable')
@@ -168,6 +175,7 @@ export async function importAredl() {
 
   console.log(`[aredl] Fetching per-level detail + creators (${levels.length} × 2)…`)
   const findExisting = db.prepare(`SELECT id, creator, verifier, publisher FROM levels WHERE gd_id = ?`)
+  const claimedGdId = db.prepare(`SELECT uuid FROM aredl_levels WHERE gd_id = ?`)
   const mergeExisting = db.prepare(`
     UPDATE levels
        SET aredl_position = ?,
@@ -197,7 +205,7 @@ export async function importAredl() {
 
   // Process levels in batches: fetch detail + creators for each one, then
   // commit. A failure mid-stream still keeps work done so far.
-  let merged = 0, aredlOnly = 0
+  let merged = 0, aredlOnly = 0, skippedVariant = 0
   const PERSIST_BATCH = 50
   for (let off = 0; off < levels.length; off += PERSIST_BATCH) {
     const slice = levels.slice(off, off + PERSIST_BATCH)
@@ -225,6 +233,11 @@ export async function importAredl() {
         const tagsJson = JSON.stringify(lite.tags ?? [])
 
         const existing = findExisting.get(lite.level_id) as { id: number } | undefined
+        // AREDL lists a level's 2-player and solo variants as separate entries
+        // that share one GD level ID, but aredl_levels.gd_id is UNIQUE. Keep
+        // whichever variant we saw first — the same first-wins rule the sheet
+        // importer uses for position collisions.
+        const claimed = claimedGdId.get(lite.level_id) as { uuid: string } | undefined
         if (existing) {
           mergeExisting.run(
             lite.position,
@@ -236,6 +249,8 @@ export async function importAredl() {
             existing.id,
           )
           merged++
+        } else if (claimed && claimed.uuid !== lite.id) {
+          skippedVariant++
         } else {
           insAredlLevel.run(
             lite.id,
@@ -271,7 +286,7 @@ export async function importAredl() {
     const done = Math.min(off + PERSIST_BATCH, levels.length)
     console.log(`[aredl]   ${done}/${levels.length} levels processed (merged=${merged}, aredl-only=${aredlOnly})`)
   }
-  console.log(`[aredl] Levels: ${merged} merged into ALL, ${aredlOnly} Aredl-only`)
+  console.log(`[aredl] Levels: ${merged} merged into ALL, ${aredlOnly} Aredl-only, ${skippedVariant} duplicate-gd_id variants skipped`)
 
   console.log(`[aredl] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }

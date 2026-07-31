@@ -67,7 +67,15 @@
   .container-tight {
     @apply max-w-5xl mx-auto px-4 sm:px-6;
   }
+  /* Wider shell for the two-column pages (list builder, changelog). */
+  .container-wide {
+    @apply max-w-7xl mx-auto px-4 sm:px-6;
+  }
   .rank-badge {
     @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded text-sm font-semibold;
+  }
+  /* Surface used by the refreshed cards across the site. */
+  .card {
+    @apply rounded-xl border border-zinc-800 bg-zinc-950/70;
   }
 }

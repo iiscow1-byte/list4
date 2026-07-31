@@ -109,11 +109,23 @@ export default defineEventHandler((event) => {
 
   const position_history = db
     .prepare(
-      `SELECT h.id, h.from_position, h.to_position, h.changed_at, a.username AS changed_by
+      `SELECT h.id, h.from_position, h.to_position, h.changed_at, h.source,
+              h.raw_from_position, h.raw_to_position, a.username AS changed_by
        FROM position_history h
        LEFT JOIN accounts a ON a.id = h.changed_by
        WHERE h.level_id = ?
        ORDER BY h.changed_at DESC, h.id DESC`,
+    )
+    .all(level.id)
+
+  // Full AREDL placement trace (every event, including passive shifts) —
+  // powers the position-over-time graph. Oldest-first for charting.
+  const aredl_history = db
+    .prepare(
+      `SELECT event, aredl_position, all_position, position_diff, legacy, cause_name, action_at
+       FROM aredl_position_history
+       WHERE level_id = ?
+       ORDER BY action_at ASC, id ASC`,
     )
     .all(level.id)
 
@@ -208,6 +220,7 @@ export default defineEventHandler((event) => {
     other_lists,
     community,
     position_history,
+    aredl_history,
     submitter,
     duplicate_of,
     alternate_of,

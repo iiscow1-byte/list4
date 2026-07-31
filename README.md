@@ -7,9 +7,30 @@ An AREDL-style ranking site for the **All Levels List** — tens of thousands of
 - **Stack:** Nuxt 3 (Vue 3, server routes) · SQLite via Node's built-in `node:sqlite` (requires Node ≥ 22.5) · Tailwind CSS
 - **Data source:** the published-to-the-web All Levels List Google Sheet, fetched as CSV per tab
 - **Pages:**
+  - `/` — the list builder: drag levels out of the ALL list (or type your own) into a personal list, then save and share it
+  - `/lists/:public_id` — a saved custom list, publicly viewable by share link
   - `/levels/:position` — AREDL-style 3-panel layout (list nav · level details · records)
+  - `/changelog` — placements and movements, filterable by source (native vs imported AREDL history)
   - `/leaderboard` — players from the sheet's leaderboard tab
-  - `/about`
+  - `/about` — intro, FAQ, stats, and the demonlists used
+
+## Level thumbnails
+
+Level rows and the level-page hero use community thumbnails from the
+[Level Thumbnails API](https://levelthumbs.prevter.me/swagger/), keyed on the
+level's GD ID: `GET /thumbnail/{gd_id}/{high|medium|small}`. `components/LevelThumbBg.vue`
+renders one as an absolutely-positioned backdrop and stays invisible until the
+image actually loads, so the ~30% of levels with no thumbnail (the API 404s)
+fall back to the plain background with no flash. List rows request `small`,
+the level-page hero requests `high`.
+
+## Custom lists
+
+`custom_lists` / `custom_list_items` back the builder. An item either points at
+an ALL level (`level_id` set — its name and current placement are resolved at
+read time, so a saved list follows the level when it moves) or is fully
+hand-entered (`level_id` NULL). Guests build against `localStorage`; saving
+requires an account and mints a random `public_id` used for share URLs.
 
 ## Setup
 
@@ -32,6 +53,30 @@ records   (level_id, player_id, percent, hz, video, verified)
 ```
 
 `position` is the global rank in the sheet. URLs are keyed on `position` so re-imports don't break links.
+
+## AREDL placement history
+
+`npm run import:aredl-history` (admin panel: Imports → **AREDL history**) walks every
+ALL level that is also ranked on AREDL and pulls `GET /levels/{gd_id}/history`
+from `api.aredl.net/v2`. It writes two tables:
+
+- `aredl_position_history` — the complete raw trace, including the passive ±1
+  shifts a level absorbs when *other* levels are placed or removed. ~190k rows.
+  This is what the placement-over-time graph on the level page plots.
+- `position_history` with `source = 'aredl'` — only the level's own moves
+  (`Placed` / `MovedUp` / `MovedDown`), so the changelog shows deliberate
+  placements rather than thousands of knock-on shifts. ~1.8k rows.
+
+AREDL positions are converted to their equivalent **ALL** placements by linear
+interpolation between the nearest anchors, where an anchor is any level whose
+current AREDL *and* ALL positions we both know. The original AREDL numbers are
+kept in `raw_from_position` / `raw_to_position`, which is what the "AREDL" badge
+tooltip in the changelog shows.
+
+Re-running is idempotent: each level's imported rows are deleted and rewritten,
+so new history lands without duplicating old entries. Native admin moves
+(`source = 'all'`) are never touched. The daily Discord digest filters to
+`source = 'all'` so a backfill can't flood it.
 
 The `records` table is currently empty — the sheet does not expose per-level records. The schema and right-panel UI are in place so a future submissions flow can populate them.
 
@@ -65,19 +110,28 @@ Tabs are configured in `server/db/import.ts`. Add or remove rows there to change
 app.vue                                 root layout shell (delegates to layouts)
 layouts/default.vue                     header + main + footer (about, leaderboard)
 layouts/level.vue                       full-viewport layout for the 3-panel level page
-pages/index.vue                         redirects → /levels/1
+pages/index.vue                         home — hero + list builder + latest movement
+pages/lists/[public_id].vue             a saved custom list, by share token
 pages/levels/[position].vue             3-panel level page (uses LevelListNav, LevelDetail, LevelRecords)
+pages/changelog.vue                     full changelog, filterable by source / range
 pages/leaderboard.vue                   leaderboard
-pages/about.vue                         about
+pages/about.vue                         intro, FAQ, stats, demonlists used
 components/SiteHeader.vue · SiteFooter.vue
+components/ListBuilder.vue              drag-and-drop custom list builder
+components/LevelThumbBg.vue             thumbnail backdrop for rows / heroes
+components/PositionHistoryChart.vue     placement-over-time step chart (inverted Y)
 components/LevelListNav.vue             left 1/5: searchable scrollable list nav
 components/LevelDetail.vue              center 3/5: title, video link, tags, stats grid, metadata
-components/LevelRecords.vue             right 1/5: records (empty for now)
+components/LevelRecords.vue             right 1/5: records
+composables/useListBuilder.ts           builder draft state (localStorage-backed)
 server/api/levels.get.ts                paginated/searchable/difficulty-filterable list
-server/api/levels/[position].get.ts     full level detail + its records
+server/api/levels/[position].get.ts     full level detail + records + placement history
+server/api/custom-lists/                custom list CRUD (owner-scoped writes, public reads)
+server/api/changes/recent.get.ts        changelog feed (days / limit / source)
 server/api/leaderboard.get.ts           reads players table directly
 server/db/index.ts                      DB connection + schema
 server/db/import.ts                     Google Sheet importer (CSV per tab)
+server/db/import-aredl-history.ts       AREDL placement history → converted ALL placements
 ```
 
 ## Deploying to Railway

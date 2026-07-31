@@ -472,13 +472,14 @@ watch(
 </script>
 
 <template>
-  <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+  <aside class="flex flex-col min-h-0 border-r border-zinc-800/80 bg-zinc-950">
     <div v-if="pickMode" class="px-3 py-2 bg-accent/10 border-b border-accent/30 shrink-0 flex items-center gap-2">
       <span class="text-[11px] text-accent leading-snug flex-1">{{ pickModeHint ?? '← Click a level to place current level below it' }}</span>
     </div>
-    <div class="p-3 border-b border-zinc-800 shrink-0">
-      <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="text-xs uppercase tracking-widest text-accent font-semibold">{{ listVariant }}</span>
+    <div class="p-3 border-b border-zinc-800/80 shrink-0">
+      <div class="flex items-center gap-2 mb-2.5 px-1">
+        <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ listVariant }}</span>
+        <span class="text-[10px] text-zinc-600 tabular-nums ml-auto">{{ total.toLocaleString() }}</span>
       </div>
 
       <div class="flex items-stretch gap-1.5">
@@ -486,11 +487,11 @@ watch(
           v-model="search"
           type="search"
           placeholder="Search… [Tier], #placement, ID"
-          class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <button
           type="button"
-          class="shrink-0 px-2 rounded border text-xs font-medium transition-colors flex items-center gap-1"
+          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1"
           :class="filtersOpen || activeFilterCount
             ? 'border-accent/60 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
@@ -519,7 +520,7 @@ watch(
           role="dialog"
           aria-modal="true"
           aria-label="Advanced search"
-          class="relative w-full max-w-4xl max-h-[90vh] rounded-lg border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
+          class="relative w-full max-w-4xl max-h-[90vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
         >
           <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
             <div class="flex items-center gap-2">
@@ -560,7 +561,7 @@ watch(
                   <label
                     v-for="v in (['Classic', 'Challenge', 'Rated'] as const)"
                     :key="v"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="listVariant === v
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -576,7 +577,7 @@ watch(
                 <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Ranked by external list</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="listVariant === 'AREDL'
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -586,7 +587,7 @@ watch(
                     AREDL
                   </label>
                   <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="listVariant === 'GDL'
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -596,7 +597,7 @@ watch(
                     GDL
                   </label>
                   <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="listVariant === 'CL'
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -642,7 +643,7 @@ watch(
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="r in RATINGS" :key="r"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="ratingSet[r]
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -659,7 +660,7 @@ watch(
                 <input
                   v-model="creator"
                   type="text" placeholder="Creator name"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </label>
 
@@ -671,7 +672,7 @@ watch(
                   :option-objects="sources.map(s => ({ label: `${s.source} (${s.count.toLocaleString()})`, value: s.source }))"
                   empty-label="All sources"
                   class="mt-1"
-                  input-class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  input-class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </div>
 
@@ -681,12 +682,12 @@ watch(
                 <div class="flex items-center gap-1.5">
                   <input
                     v-model="verifyFrom" type="date"
-                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                   <span class="text-zinc-600">→</span>
                   <input
                     v-model="verifyTo" type="date"
-                    class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
               </div>
@@ -726,7 +727,7 @@ watch(
                   v-model="sort"
                   :option-objects="[...SORTS]"
                   class="mt-1"
-                  input-class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  input-class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 />
               </div>
 
@@ -744,7 +745,7 @@ watch(
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="s in SKILLSETS" :key="s"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
                     :class="skillsetSet[s]
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -761,7 +762,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="`tent-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
                     :class="tentativePlacements === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -779,7 +780,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="opt"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
                     :class="altVersions === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -797,7 +798,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="`alt-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
                     :class="alternates === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -843,46 +844,54 @@ watch(
     </Teleport>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="divide-y divide-zinc-900/60">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
           <!-- Pick mode: clickable button, no navigation -->
           <button
             v-if="pickMode"
             type="button"
-            class="w-full flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors"
-            :style="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
-              ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
-              : undefined"
+            class="relative overflow-hidden w-full flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
             :class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
-              ? 'ring-1 ring-inset ring-accent/80'
-              : 'text-zinc-300 hover:bg-zinc-900/70'"
+              ? 'ring-2 ring-inset ring-accent text-zinc-50'
+              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60'"
             @click="emit('pick', lvl)"
           >
+            <LevelThumbBg
+              :gd-id="lvl.gd_id"
+              res="small"
+              :img-class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position) ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
+              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
+            />
             <span
-              class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
+              class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >{{ displayNum(lvl) }}</span>
-            <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
+            <span class="relative truncate flex-1 text-left font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
           <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
             v-else
             :to="{ path: `/levels/${lvl.position}`, query: search ? { q: search } : {} }"
-            class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
-            :style="lvl.position === activePosition
-              ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
-              : undefined"
-            :class="lvl.position === activePosition ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
+            :class="lvl.position === activePosition
+              ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'
+              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
           >
+            <LevelThumbBg
+              :gd-id="lvl.gd_id"
+              res="small"
+              :img-class="lvl.position === activePosition ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
+              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
+            />
             <span
-              class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
+              class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >
               {{ displayNum(lvl) }}
             </span>
-            <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="text-[10px] tabular-nums opacity-60 shrink-0">{{ tierTextLabel(lvl) }}</span>
+            <span class="relative truncate flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">

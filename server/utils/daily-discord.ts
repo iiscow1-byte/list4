@@ -85,8 +85,10 @@ export async function postOneDay(wh: WebhookRow & { kind?: string }, date: strin
   const db = getDb()
   const since = `${date} 00:00:00`
   const until = `${date} 23:59:59`
-  // Pull oldest-first so the embed reads chronologically.
-  const changes = loadChanges(db, { since, until, limit: 1000 }).reverse()
+  // Pull oldest-first so the embed reads chronologically. Native moves only —
+  // imported AREDL history rows carry historical dates and would flood the
+  // digest if a backfill ran that day.
+  const changes = loadChanges(db, { since, until, limit: 1000, source: 'all' }).reverse()
 
   if (wh.kind === 'challenge_changes') {
     const payload = buildChallengeEmbed(date, changes)

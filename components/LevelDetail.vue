@@ -44,6 +44,7 @@ type Level = {
   submitter?: string | null
   community?: Community | null
   position_history?: PositionHistoryEntry[]
+  aredl_history?: AredlHistoryEntry[]
   challenge_rank?: number | null
 }
 type OtherListEntry = { list: string; position: number; url?: string | null }
@@ -53,6 +54,18 @@ type PositionHistoryEntry = {
   to_position: number
   changed_at: string
   changed_by: string | null
+  source?: string
+  raw_from_position?: number | null
+  raw_to_position?: number | null
+}
+type AredlHistoryEntry = {
+  event: string
+  aredl_position: number | null
+  all_position: number | null
+  position_diff: number | null
+  legacy: number
+  cause_name: string | null
+  action_at: string
 }
 
 type NavLevel = { position: number; name: string; gddl_tier: string | null; difficulty: string | null; gd_id?: number | null }
@@ -936,15 +949,48 @@ const historyByDay = computed(() => {
   }
   return [...map.values()]
 })
+
+// --- Placement graph series ---
+// ALL line: the converted AREDL trace (fine-grained, includes passive shifts)
+// plus native moves. AREDL self-moves in position_history are skipped here —
+// they're already part of the trace. Ends at the current placement.
+const chartAllSeries = computed(() => {
+  const pts: { at: string; position: number }[] = []
+  for (const e of props.level.aredl_history ?? []) {
+    if (e.all_position != null) pts.push({ at: e.action_at, position: e.all_position })
+  }
+  for (const h of props.level.position_history ?? []) {
+    if ((h.source ?? 'all') !== 'aredl') pts.push({ at: h.changed_at, position: h.to_position })
+  }
+  pts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
+  pts.push({ at: new Date().toISOString(), position: props.level.position })
+  return pts
+})
+const chartAredlSeries = computed(() =>
+  (props.level.aredl_history ?? [])
+    .filter((e) => e.aredl_position != null)
+    .map((e) => ({ at: e.action_at, position: e.aredl_position! })),
+)
 </script>
 
 <template>
-  <div class="px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="relative">
+    <!-- Hero backdrop: the level's thumbnail fading into the page background -->
+    <div class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
+      <LevelThumbBg
+        :gd-id="level.gd_id"
+        res="high"
+        img-class="opacity-45 scale-105"
+        overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
+      />
+    </div>
+
+    <div class="relative px-8 py-8 max-w-3xl mx-auto w-full">
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline gap-3 flex-wrap">
-          <span class="tabular-nums text-accent text-sm">#{{ level.position }}</span>
-          <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
+          <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ level.position }}</span>
+          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight drop-shadow-lg">{{ level.name }}</h1>
         </div>
         <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
           <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
@@ -1770,6 +1816,12 @@ const historyByDay = computed(() => {
       <!-- Position history: most recent first. Recorded on admin moves. -->
       <section class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Position History</h2>
+
+        <PositionHistoryChart
+          :all-series="chartAllSeries"
+          :aredl-series="chartAredlSeries"
+        />
+
         <div v-if="historyByDay.length" class="space-y-4">
           <div v-for="day in historyByDay" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
             <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
@@ -1799,6 +1851,14 @@ const historyByDay = computed(() => {
                   class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
                   title="Moved down"
                 >▼ Moved</span>
+
+                <span
+                  v-if="entry.source === 'aredl'"
+                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/50 text-sky-300/90 border border-sky-900/60"
+                  :title="entry.raw_to_position != null
+                    ? `From AREDL history — AREDL ${entry.raw_from_position != null ? '#' + entry.raw_from_position + ' → ' : ''}#${entry.raw_to_position}, converted to ALL placements`
+                    : 'Imported from AREDL history, converted to ALL placements'"
+                >AREDL</span>
 
                 <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
                   <template v-if="entry.from_position == null">#{{ entry.to_position }}</template>
@@ -1959,5 +2019,6 @@ const historyByDay = computed(() => {
       hint="Click the level this one is an alternate of."
       @confirm="(lvl) => { draft.alternate_of_id = lvl.id ?? null; draftAlternateOf = { position: lvl.position, name: lvl.name } }"
     />
+    </div>
   </div>
 </template>

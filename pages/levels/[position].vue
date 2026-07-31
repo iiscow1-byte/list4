@@ -111,7 +111,7 @@ const navHint = computed(() => {
     <div class="overflow-y-auto min-h-0 relative">
       <button
         type="button"
-        class="absolute top-3 left-3 z-10 p-1 rounded border border-zinc-800 bg-zinc-950/80 text-zinc-500 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+        class="absolute top-3 left-3 z-20 p-1.5 rounded-lg border border-zinc-800 bg-zinc-950/80 backdrop-blur text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
         :title="sidebarOpen ? 'Collapse level list' : 'Expand level list'"
         @click="sidebarOpen = !sidebarOpen"
       >

@@ -867,13 +867,20 @@ function initSchema(db: DatabaseSync) {
   if (!has('challenge_list_position')) db.exec(`ALTER TABLE levels ADD COLUMN challenge_list_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_cl_position ON levels(challenge_list_position)`)
   // Remove any challenge_list_position values set by the name-based fallback (no matching gd_id in gdtpl_levels).
-  db.exec(`
-    UPDATE levels SET challenge_list_position = NULL
-    WHERE challenge_list_position IS NOT NULL
-      AND (gd_id IS NULL OR NOT EXISTS (
-        SELECT 1 FROM gdtpl_levels g WHERE g.list_slug = 'cl' AND g.gd_id = levels.gd_id
-      ))
-  `)
+  // Guarded: on a brand-new DB this runs before gdtpl_levels is created below,
+  // and the cleanup is only meaningful for pre-existing data anyway.
+  const gdtplExists = db.prepare(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='gdtpl_levels'`,
+  ).get()
+  if (gdtplExists) {
+    db.exec(`
+      UPDATE levels SET challenge_list_position = NULL
+      WHERE challenge_list_position IS NOT NULL
+        AND (gd_id IS NULL OR NOT EXISTS (
+          SELECT 1 FROM gdtpl_levels g WHERE g.list_slug = 'cl' AND g.gd_id = levels.gd_id
+        ))
+    `)
+  }
 
   const accCols3 = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols3.some((c) => c.name === 'claimed_pointercrate_id')) {
@@ -1078,4 +1085,77 @@ function initSchema(db: DatabaseSync) {
       db.exec(`ALTER TABLE claim_requests ADD COLUMN gdl_player_id INTEGER`)
     }
   }
+
+  // --- AREDL placement history ---
+  // position_history.source: which list the entry originated from. 'all' =
+  // native admin move on this site (the default); 'aredl' = imported from
+  // AREDL's per-level history, with from/to converted to their equivalent
+  // ALL placements. raw_from/raw_to keep the original AREDL positions so
+  // the UI can show "AREDL #3 → #5" alongside the converted numbers.
+  const phCols = db.prepare(`PRAGMA table_info(position_history)`).all() as { name: string }[]
+  if (!phCols.some((c) => c.name === 'source')) {
+    db.exec(`ALTER TABLE position_history ADD COLUMN source TEXT NOT NULL DEFAULT 'all'`)
+  }
+  if (!phCols.some((c) => c.name === 'raw_from_position')) {
+    db.exec(`ALTER TABLE position_history ADD COLUMN raw_from_position INTEGER`)
+  }
+  if (!phCols.some((c) => c.name === 'raw_to_position')) {
+    db.exec(`ALTER TABLE position_history ADD COLUMN raw_to_position INTEGER`)
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_position_history_source ON position_history(source)`)
+
+  // --- Custom user lists (the home-page list builder) ---
+  // A list belongs to an account (guests build in localStorage and save once
+  // they sign in). public_id is a short random token used in share URLs so
+  // list URLs aren't enumerable. Items either reference an ALL level
+  // (level_id set; name/gd_id snapshotted for resilience) or are fully
+  // hand-entered custom levels (level_id NULL).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_lists (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      public_id        TEXT    NOT NULL UNIQUE,
+      owner_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      title            TEXT    NOT NULL DEFAULT 'My list',
+      description      TEXT,
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_lists_owner ON custom_lists(owner_account_id);
+
+    CREATE TABLE IF NOT EXISTS custom_list_items (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id          INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      sort_order       INTEGER NOT NULL,
+      level_id         INTEGER REFERENCES levels(id) ON DELETE SET NULL,
+      name             TEXT    NOT NULL,
+      gd_id            INTEGER,
+      creator          TEXT,
+      difficulty       TEXT,
+      gddl_tier        TEXT,
+      verification_url TEXT,
+      notes            TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_list_items_list ON custom_list_items(list_id, sort_order);
+  `)
+
+  // Full raw AREDL per-level trace (every event, including passive ±1 shifts
+  // caused by other levels being placed/removed). Powers the position-over-time
+  // graph on the level page; the coarser self-move entries go into
+  // position_history so they surface in the changelog.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS aredl_position_history (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      level_id       INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+      gd_id          INTEGER,
+      event          TEXT    NOT NULL,
+      aredl_position INTEGER,
+      all_position   INTEGER,
+      position_diff  INTEGER,
+      legacy         INTEGER NOT NULL DEFAULT 0,
+      cause_name     TEXT,
+      action_at      TEXT    NOT NULL,
+      fetched_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_aredl_pos_hist_level ON aredl_position_history(level_id, action_at);
+  `)
 }
