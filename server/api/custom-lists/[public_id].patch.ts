@@ -1,6 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
-import { loadList, replaceItems, type CustomListItemInput } from '~/server/utils/custom-lists'
+import { loadList, replaceItems, MAX_ITEMS, type CustomListItemInput } from '~/server/utils/custom-lists'
 
 /** Owner-only update. Any provided field replaces the stored one wholesale. */
 export default defineEventHandler(async (event) => {
@@ -11,6 +11,11 @@ export default defineEventHandler(async (event) => {
     description?: string
     items?: CustomListItemInput[]
     is_public?: boolean
+    accepts_records?: boolean
+    max_points?: number
+    min_points?: number
+    scored_count?: number
+    packs?: { name?: string; color?: string; item_ids?: number[] }[]
   }>(event)
 
   const db = getDb()
@@ -36,7 +41,56 @@ export default defineEventHandler(async (event) => {
       db.prepare(`UPDATE custom_lists SET is_public = ? WHERE id = ?`)
         .run(body.is_public ? 1 : 0, row.id)
     }
+    if (typeof body?.accepts_records === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET accepts_records = ? WHERE id = ?`)
+        .run(body.accepts_records ? 1 : 0, row.id)
+    }
+    // Scoring knobs. max is clamped above min so the decay curve can't invert.
+    const maxPts = Number(body?.max_points)
+    const minPts = Number(body?.min_points)
+    if (Number.isFinite(maxPts)) {
+      db.prepare(`UPDATE custom_lists SET max_points = ? WHERE id = ?`)
+        .run(Math.max(1, Math.min(10_000, maxPts)), row.id)
+    }
+    if (Number.isFinite(minPts)) {
+      const cap = (db.prepare(`SELECT max_points FROM custom_lists WHERE id = ?`)
+        .get(row.id) as { max_points: number }).max_points
+      db.prepare(`UPDATE custom_lists SET min_points = ? WHERE id = ?`)
+        .run(Math.max(0, Math.min(cap, minPts)), row.id)
+    }
+    const scored = Number(body?.scored_count)
+    if (Number.isFinite(scored)) {
+      db.prepare(`UPDATE custom_lists SET scored_count = ? WHERE id = ?`)
+        .run(Math.max(0, Math.min(10_000, Math.round(scored))), row.id)
+    }
+
     if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items)
+
+    // Packs are replaced wholesale; item ids are filtered to this list so a
+    // stale client can't attach someone else's rows.
+    if (Array.isArray(body?.packs)) {
+      db.prepare(`DELETE FROM custom_list_packs WHERE list_id = ?`).run(row.id)
+      const insPack = db.prepare(
+        `INSERT INTO custom_list_packs (list_id, name, color, sort_order) VALUES (?,?,?,?)`,
+      )
+      const insPackItem = db.prepare(
+        `INSERT OR IGNORE INTO custom_list_pack_items (pack_id, item_id) VALUES (?,?)`,
+      )
+      const ownItems = new Set(
+        (db.prepare(`SELECT id FROM custom_list_items WHERE list_id = ?`).all(row.id) as { id: number }[])
+          .map((r) => r.id),
+      )
+      body.packs.slice(0, 50).forEach((p, i) => {
+        const name = String(p?.name ?? '').trim().slice(0, 80)
+        if (!name) return
+        const color = String(p?.color ?? '').trim().slice(0, 20) || null
+        const packId = Number(insPack.run(row.id, name, color, i).lastInsertRowid)
+        for (const rawId of (p?.item_ids ?? []).slice(0, MAX_ITEMS)) {
+          const itemId = Number(rawId)
+          if (ownItems.has(itemId)) insPackItem.run(packId, itemId)
+        }
+      })
+    }
     db.prepare(`UPDATE custom_lists SET updated_at = datetime('now') WHERE id = ?`).run(row.id)
     db.exec('COMMIT')
   } catch (err) {

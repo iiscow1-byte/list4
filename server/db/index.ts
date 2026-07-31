@@ -1210,6 +1210,85 @@ function initSchema(db: DatabaseSync) {
   `)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_custom_lists_public ON custom_lists(is_public, likes DESC)`)
 
+  // --- Custom lists as full list sites ---
+  // A custom list can run like a real demonlist: it accepts record
+  // submissions, scores them, and ranks players on its own leaderboard.
+  // `accepts_records` lets an owner run a read-only ranking instead.
+  // `max_points` is the score the #1 level is worth; the last level is worth
+  // `min_points` (see server/utils/custom-list-scoring.ts).
+  if (!clCols.some((c) => c.name === 'accepts_records')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN accepts_records INTEGER NOT NULL DEFAULT 1`)
+  }
+  if (!clCols.some((c) => c.name === 'max_points')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN max_points REAL NOT NULL DEFAULT 250`)
+  }
+  if (!clCols.some((c) => c.name === 'min_points')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN min_points REAL NOT NULL DEFAULT 50`)
+  }
+  // Levels past this rank are worth nothing (a "legacy" tail). 0 = no cutoff.
+  if (!clCols.some((c) => c.name === 'scored_count')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN scored_count INTEGER NOT NULL DEFAULT 0`)
+  }
+
+  // Per-item list metadata, mirroring what a GDListTemplate level file holds:
+  // who verified it, the percentage a record must reach to count, and the
+  // FPS / game version the placement assumes.
+  const cliCols = db.prepare(`PRAGMA table_info(custom_list_items)`).all() as { name: string }[]
+  if (!cliCols.some((c) => c.name === 'verifier')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN verifier TEXT`)
+  }
+  if (!cliCols.some((c) => c.name === 'percent_to_qualify')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN percent_to_qualify INTEGER NOT NULL DEFAULT 100`)
+  }
+  if (!cliCols.some((c) => c.name === 'fps')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN fps TEXT`)
+  }
+  if (!cliCols.some((c) => c.name === 'game_version')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN game_version TEXT`)
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_list_records (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id      INTEGER NOT NULL REFERENCES custom_lists(id)      ON DELETE CASCADE,
+      item_id      INTEGER NOT NULL REFERENCES custom_list_items(id) ON DELETE CASCADE,
+      player_name  TEXT    NOT NULL COLLATE NOCASE,
+      percent      INTEGER NOT NULL DEFAULT 100,
+      hz           INTEGER,
+      video        TEXT,
+      mobile       INTEGER NOT NULL DEFAULT 0,
+      note         TEXT,
+      status       TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      reject_reason TEXT,
+      submitted_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      submitted_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      decided_by   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at   TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_clr_list   ON custom_list_records(list_id, status);
+    CREATE INDEX IF NOT EXISTS idx_clr_item   ON custom_list_records(item_id, status);
+    CREATE INDEX IF NOT EXISTS idx_clr_player ON custom_list_records(player_name COLLATE NOCASE);
+    -- One approved/pending record per player per level; a re-submission for
+    -- the same level replaces the old row rather than stacking up.
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_clr_unique
+      ON custom_list_records(item_id, player_name COLLATE NOCASE);
+
+    CREATE TABLE IF NOT EXISTS custom_list_packs (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id    INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      name       TEXT    NOT NULL,
+      color      TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_clp_list ON custom_list_packs(list_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS custom_list_pack_items (
+      pack_id INTEGER NOT NULL REFERENCES custom_list_packs(id) ON DELETE CASCADE,
+      item_id INTEGER NOT NULL REFERENCES custom_list_items(id) ON DELETE CASCADE,
+      PRIMARY KEY (pack_id, item_id)
+    );
+  `)
+
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts
   // caused by other levels being placed/removed). Powers the position-over-time
   // graph on the level page; the coarser self-move entries go into

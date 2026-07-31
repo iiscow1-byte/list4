@@ -144,6 +144,9 @@ function removeAt(index: number) {
 }
 
 // --- Manual entry ---
+const settingsOpen = ref(false)
+// Which row has its list-metadata editor (verifier / % to qualify / FPS) open.
+const metaOpen = ref<number | null>(null)
 const manualOpen = ref(false)
 const manual = reactive<{ name: string; gd_id: string; creator: string; difficulty: string; gddl_tier: string; verification_url: string; notes: string }>({
   name: '', gd_id: '', creator: '', difficulty: '', gddl_tier: '', verification_url: '', notes: '',
@@ -188,7 +191,12 @@ async function save() {
       title: draft.value.title,
       description: draft.value.description,
       is_public: draft.value.isPublic,
+      accepts_records: draft.value.acceptsRecords,
+      max_points: draft.value.maxPoints,
+      min_points: draft.value.minPoints,
+      scored_count: draft.value.scoredCount,
       items: draft.value.items.map((i) => ({
+        id: i.id ?? null,
         level_id: i.level_id,
         name: i.name,
         gd_id: i.gd_id,
@@ -197,12 +205,19 @@ async function save() {
         gddl_tier: i.gddl_tier,
         verification_url: i.verification_url,
         notes: i.notes,
+        verifier: i.verifier ?? null,
+        percent_to_qualify: i.percent_to_qualify ?? 100,
+        fps: i.fps ?? null,
+        game_version: i.game_version ?? null,
       })),
     }
     const res = draft.value.publicId
       ? await $fetch<{ list: any }>(`/api/custom-lists/${draft.value.publicId}`, { method: 'PATCH', body: payload })
       : await $fetch<{ list: any }>('/api/custom-lists', { method: 'POST', body: payload })
-    draft.value.publicId = res.list.public_id
+    // Reload from the saved list so every row carries its database id. Without
+    // that, the next save can't tell the server which existing rows these are,
+    // and reordering would drop the records attached to them.
+    loadFrom(res.list)
     saveOk.value = true
     await loadMyLists()
     setTimeout(() => { saveOk.value = false }, 3000)
@@ -352,6 +367,34 @@ function copyShare() {
           class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
           @click="copyShare"
         >{{ copied ? 'Link copied ✓' : 'Copy share link' }}</button>
+        <button
+          type="button"
+          class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors shrink-0"
+          @click="settingsOpen = !settingsOpen"
+        >{{ settingsOpen ? 'Hide settings' : 'List settings' }}</button>
+      </div>
+
+      <!-- List settings: how the list scores and whether it takes records -->
+      <div v-if="settingsOpen" class="px-4 py-3 border-b border-zinc-800/80 grid gap-3 sm:grid-cols-4">
+        <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none sm:col-span-4">
+          <input v-model="draft.acceptsRecords" type="checkbox" class="accent-accent" />
+          Accept record submissions — players can submit completions and appear on this list's leaderboard
+        </label>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at #1</span>
+          <input v-model.number="draft.maxPoints" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at the bottom</span>
+          <input v-model.number="draft.minPoints" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Scored levels</span>
+          <input v-model.number="draft.scoredCount" inputmode="numeric" placeholder="0 = all" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        </label>
+        <p class="text-[10px] text-zinc-600 self-end pb-1.5">
+          Points decay smoothly from #1 down to the last scored level.
+        </p>
       </div>
 
       <!-- Rows -->
@@ -398,11 +441,48 @@ function copyShare() {
             </div>
             <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
             <span v-else class="relative shrink-0 text-[10px] text-zinc-600 uppercase tracking-wider">custom</span>
-            <div class="relative shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="relative shrink-0 flex items-center gap-0.5 transition-opacity" :class="metaOpen === i ? '' : 'opacity-0 group-hover:opacity-100'">
+              <button
+                type="button"
+                class="w-6 h-6 rounded transition-colors"
+                :class="metaOpen === i ? 'text-accent bg-accent/10' : 'text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800'"
+                title="Level details (verifier, percent to qualify, FPS)"
+                @click="metaOpen = metaOpen === i ? null : i"
+              >⋯</button>
               <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move up" @click="move(i, -1)">↑</button>
               <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move down" @click="move(i, 1)">↓</button>
               <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors" title="Remove" @click="removeAt(i)">✕</button>
             </div>
+          </li>
+          <!-- Per-level list metadata -->
+          <li v-if="metaOpen === i" class="rounded-lg border border-zinc-800/70 bg-zinc-900/40 p-3 grid gap-2 sm:grid-cols-4">
+            <label class="block sm:col-span-2">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verifier</span>
+              <input v-model="item.verifier" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">% to qualify</span>
+              <input v-model.number="item.percent_to_qualify" inputmode="numeric" placeholder="100" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">FPS</span>
+              <input v-model="item.fps" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block sm:col-span-2">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification video</span>
+              <input v-model="item.verification_url" type="url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Game version</span>
+              <input v-model="item.game_version" type="text" placeholder="2.2" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
+              <input v-model="item.notes" type="text" maxlength="500" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            </label>
+            <p v-if="item.level_id" class="text-[10px] text-zinc-600 sm:col-span-4">
+              Name, creator and tier come from the ALL list for linked levels and can't be overridden here.
+            </p>
           </li>
         </template>
         <!-- Trailing drop slot -->

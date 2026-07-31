@@ -61,6 +61,40 @@ like it (`custom_list_likes`, with the count denormalised onto
 `custom_lists.likes`) or fork it into their own (`copied_from_id` credits the
 original).
 
+### Custom lists are full list sites
+
+A published list runs like a real demonlist rather than a static ranking.
+`/lists/:public_id` is a tabbed site: **List** (ranked levels with points,
+records, and an expandable per-level panel showing the verification embed,
+level ID, percent to qualify, FPS and game version), **Leaderboard**,
+**Packs**, **Submit a record**, and a **Queue** the owner moderates.
+
+- **Records** (`custom_list_records`) are submitted by any logged-in user and
+  land as `pending` for the list owner to accept or reject — inbox messages go
+  out both ways. The owner's own submissions auto-approve, since there's nobody
+  else to review them. A `UNIQUE(item_id, player_name)` index means
+  re-submitting for a level replaces the earlier attempt, which is what someone
+  upgrading a 62% to 100% expects.
+- **Points** decay exponentially with rank: the #1 level is worth
+  `max_points`, the last scored level `min_points`, anchored to the list's own
+  length so short and long lists both use the full range. `scored_count` caps
+  how far down points are awarded. A 100% record earns a level's full value; a
+  qualifying partial earns it scaled by percent. See
+  `server/utils/custom-list-scoring.ts`.
+- **The leaderboard** is derived at read time from approved records and the
+  levels' current ranks — nothing is denormalised, so reordering the list
+  immediately reshuffles standings.
+- **Packs** (`custom_list_packs`) group levels under a name and colour.
+
+Owners configure all of this from the builder's **List settings** row, and
+per-level fields from the `⋯` button on each row.
+
+Because records hang off `custom_list_items.id` with `ON DELETE CASCADE`,
+`replaceItems` *reconciles* rather than deleting and re-inserting — it matches
+incoming rows to existing ones (by id, then linked level, then name + GD ID)
+and updates them in place. A delete-and-reinsert would wipe every record on the
+list each time someone dragged a row.
+
 ## Submitting from a Geometry Dash search
 
 `/levels/find` searches GD by name or ID through `GET /api/gd/search`, which
