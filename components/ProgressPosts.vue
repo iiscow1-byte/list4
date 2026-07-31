@@ -133,7 +133,7 @@ function ytEmbed(raw: string | null): string | null {
 </script>
 
 <template>
-  <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+  <section class="rounded-xl border border-zinc-800 bg-zinc-950/60">
     <div class="px-4 pt-3 pb-2 flex items-center justify-between gap-2">
       <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium flex items-baseline gap-2">
         Progress

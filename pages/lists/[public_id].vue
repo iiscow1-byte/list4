@@ -12,6 +12,7 @@ type Item = {
   verification_url: string | null
   notes: string | null
   position: number | null
+  sheet_placement: number | null
 }
 type List = {
   public_id: string
@@ -107,7 +108,7 @@ useHead(() => ({ title: data.value ? `${data.value.list.title} — All Levels Li
             rel="noopener"
             class="relative shrink-0 text-[11px] text-zinc-500 hover:text-accent transition-colors"
           >video ↗</a>
-          <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.position }}</span>
+          <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
         </li>
       </ol>
 

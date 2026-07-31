@@ -2,7 +2,7 @@
 import { roleBadgeClass } from '~/utils/role-styles'
 
 const props = defineProps<{
-  kind: 'profile' | 'progress' | 'open_verification'
+  kind: 'profile' | 'progress' | 'open_verification' | 'level'
   targetId: number
 }>()
 

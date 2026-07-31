@@ -68,7 +68,7 @@ const tagList = computed(() => {
     </header>
 
     <!-- Verification -->
-    <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
+    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
       <iframe
         :src="`https://www.youtube.com/embed/${ytId}`"
         class="w-full h-full"
@@ -84,7 +84,7 @@ const tagList = computed(() => {
       :href="(level.verification_url ?? fallbackSearch)!"
       target="_blank"
       rel="noopener"
-      class="block aspect-video rounded-md border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
+      class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
     >
       <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center px-6">
@@ -148,7 +148,7 @@ const tagList = computed(() => {
     </div>
 
     <!-- Verification metadata -->
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ level.verifier ?? '—' }}</dd>
@@ -166,7 +166,7 @@ const tagList = computed(() => {
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.admin_notes }}</p>
     </section>
 
-    <section v-if="level.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+    <section v-if="level.notes" class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>

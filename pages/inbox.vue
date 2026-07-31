@@ -89,10 +89,10 @@ function kindLabel(kind: string) {
     </header>
 
     <div v-if="loading && !items.length" class="text-sm text-zinc-500">Loading…</div>
-    <div v-else-if="!items.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-6 text-center text-sm text-zinc-500">
+    <div v-else-if="!items.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-6 text-center text-sm text-zinc-500">
       Nothing here yet.
     </div>
-    <ul v-else class="rounded-md border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
+    <ul v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
       <li
         v-for="m in items"
         :key="m.id"

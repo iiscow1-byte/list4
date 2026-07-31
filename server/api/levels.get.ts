@@ -157,6 +157,15 @@ export default defineEventHandler((event) => {
   if (Number.isFinite(tierMin)) { filterConds.push(`(${TIER_ORD_SQL}) >= ?`); filterParams.push(tierMin) }
   if (Number.isFinite(tierMax)) { filterConds.push(`(${TIER_ORD_SQL}) <= ?`); filterParams.push(tierMax) }
 
+  // `fromPosition` returns a contiguous window starting at a position, which
+  // is how the admin placement editor loads the neighbourhood around a level
+  // without paging through everything above it.
+  const fromPosition = Number(q.fromPosition)
+  if (Number.isInteger(fromPosition) && fromPosition > 0) {
+    filterConds.push(`levels.position >= ?`)
+    filterParams.push(fromPosition)
+  }
+
   for (const tag of tags) {
     const label = tag === 'uldm' ? 'ULDM' : tag.charAt(0).toUpperCase() + tag.slice(1)
     filterConds.push(`name LIKE ? COLLATE NOCASE`)
@@ -262,7 +271,7 @@ export default defineEventHandler((event) => {
     const innerSearchClause = searchConds.length ? `WHERE ${searchConds.join(' AND ')}` : ''
     const sql = `
       WITH ranked AS (
-        SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, creator,
+        SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, creator, sheet_placement,
                aredl_position, pointercrate_position, gdl_position, challenge_list_position,
                ROW_NUMBER() OVER (ORDER BY ${orderBySort}) AS displayRank
         FROM ${fromClause}
@@ -278,7 +287,7 @@ export default defineEventHandler((event) => {
     ) as any[]
   } else {
     items = db.prepare(
-      `SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, creator,
+      `SELECT id, position, name, difficulty, points, gddl_tier, levels.gd_id, creator, sheet_placement,
               aredl_position, pointercrate_position, gdl_position, challenge_list_position
        FROM ${fromClause}
        ${allWhere}

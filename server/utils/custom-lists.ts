@@ -96,9 +96,12 @@ export function replaceItems(db: DatabaseSync, listId: number, items: CustomList
 export function loadList(db: DatabaseSync, listId: number) {
   const list = db.prepare(
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.created_at, cl.updated_at,
-            cl.owner_account_id, a.username AS owner_username
+            cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
+            a.username AS owner_username,
+            src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl
        LEFT JOIN accounts a ON a.id = cl.owner_account_id
+       LEFT JOIN custom_lists src ON src.id = cl.copied_from_id
       WHERE cl.id = ?`,
   ).get(listId) as any | undefined
   if (!list) return null
@@ -107,7 +110,7 @@ export function loadList(db: DatabaseSync, listId: number) {
   // time so a saved list follows the level when it moves.
   const items = db.prepare(
     `SELECT i.id, i.sort_order, i.level_id, i.name, i.gd_id, i.creator, i.difficulty,
-            i.gddl_tier, i.verification_url, i.notes, l.position
+            i.gddl_tier, i.verification_url, i.notes, l.position, l.sheet_placement
        FROM custom_list_items i
        LEFT JOIN levels l ON l.id = i.level_id
       WHERE i.list_id = ?

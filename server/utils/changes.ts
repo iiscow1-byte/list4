@@ -31,6 +31,12 @@ export type Change = {
   from_challenge_rank: number | null // rank at from_position for moves, null for adds / non-challenge
   from_position: number | null
   to_position: number
+  // Same two numbers expressed as sheet placements — what the UI renders.
+  // Null when no level currently sits at that position; clients fall back
+  // to the raw position.
+  from_placement: number | null
+  to_placement: number | null
+  level_sheet_placement: number | null
   changed_at: string         // raw datetime('now') from SQLite, UTC
   changed_by: string | null  // username, null for system / deleted account
   source: string             // 'all' = native move, 'aredl' = imported AREDL history
@@ -70,9 +76,16 @@ export function loadChanges(
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
   const limit = Math.max(1, Math.min(opts.limit ?? 500, 2000))
 
+  // from/to are internal positions; the UI speaks the sheet's placements, so
+  // map each through whichever level currently sits at that position. Levels
+  // are ordered identically under both numberings, so this lands on the right
+  // neighbourhood even for historical rows.
   const rows = db.prepare(
     `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
             h.source, h.raw_from_position, h.raw_to_position,
+            (SELECT sheet_placement FROM levels WHERE position = h.from_position) AS from_placement,
+            (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
+            l.sheet_placement AS level_sheet_placement,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
                  WHEN l.rated IS NOT NULL AND l.rated <> '' THEN l.rated
@@ -102,6 +115,9 @@ export function loadChanges(
     source: string
     raw_from_position: number | null
     raw_to_position: number | null
+    from_placement: number | null
+    to_placement: number | null
+    level_sheet_placement: number | null
     level_position: number
     level_name: string
     level_gddl_tier: string | null
@@ -163,6 +179,9 @@ export function loadChanges(
     from_challenge_rank: r.from_challenge_rank,
     from_position: r.from_position,
     to_position: r.to_position,
+    from_placement: r.from_placement ?? r.from_position,
+    to_placement: r.to_placement ?? r.to_position,
+    level_sheet_placement: r.level_sheet_placement ?? null,
     changed_at: r.changed_at,
     changed_by: r.changed_by,
     source: r.source ?? 'all',

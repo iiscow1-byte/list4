@@ -2,7 +2,7 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 
-type ListLevel = { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type ListLevel = { id?: number; position: number; sheet_placement?: number | null; name: string; gddl_tier: string | null; difficulty: string | null }
 
 const props = defineProps<{
   open: boolean
@@ -377,7 +377,7 @@ function confirm() {
                 <span
                   class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
                   :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-                >#{{ lvl.position }}</span>
+                >#{{ lvl.sheet_placement ?? lvl.position }}</span>
                 <span class="truncate flex-1">{{ lvl.name }}</span>
                 <span v-if="lvl.gddl_tier" class="text-[10px] opacity-70 shrink-0">{{ lvl.gddl_tier }}</span>
               </button>

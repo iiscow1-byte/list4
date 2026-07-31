@@ -1086,6 +1086,49 @@ function initSchema(db: DatabaseSync) {
     }
   }
 
+  // `sheet_placement`: the level's placement number as printed in the source
+  // Google Sheet. The sheet numbers levels continuously across its tabs
+  // (Main 1…, then each tier tab picks up where the previous left off), so it
+  // is a real global ranking — but it drifts from our `position` because
+  // levels appearing on several tabs collapse to one row. `position` stays the
+  // ordering + URL key; `sheet_placement` is what the UI displays.
+  if (!has('sheet_placement')) db.exec(`ALTER TABLE levels ADD COLUMN sheet_placement INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_sheet_placement ON levels(sheet_placement)`)
+
+  // Level comments reuse the existing `comments` table via a new target_kind.
+  // SQLite can't widen a CHECK in place, so rebuild when 'level' is missing.
+  const commentsSql = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='comments'`,
+  ).get() as { sql: string } | undefined)?.sql ?? ''
+  if (commentsSql && !commentsSql.includes("'level'")) {
+    db.exec('PRAGMA foreign_keys = OFF')
+    db.exec('BEGIN')
+    try {
+      db.exec(`
+        CREATE TABLE comments__new (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+          target_kind TEXT    NOT NULL CHECK(target_kind IN ('profile','progress','open_verification','level','custom_list')),
+          target_id   INTEGER NOT NULL,
+          body        TEXT    NOT NULL,
+          created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO comments__new (id, account_id, target_kind, target_id, body, created_at)
+          SELECT id, account_id, target_kind, target_id, body, created_at FROM comments;
+        DROP TABLE comments;
+        ALTER TABLE comments__new RENAME TO comments;
+        CREATE INDEX IF NOT EXISTS idx_comments_target  ON comments(target_kind, target_id, created_at);
+        CREATE INDEX IF NOT EXISTS idx_comments_account ON comments(account_id);
+      `)
+      db.exec('COMMIT')
+    } catch (e) {
+      db.exec('ROLLBACK')
+      db.exec('PRAGMA foreign_keys = ON')
+      throw e
+    }
+    db.exec('PRAGMA foreign_keys = ON')
+  }
+
   // --- AREDL placement history ---
   // position_history.source: which list the entry originated from. 'all' =
   // native admin move on this site (the default); 'aredl' = imported from
@@ -1118,7 +1161,10 @@ function initSchema(db: DatabaseSync) {
       title            TEXT    NOT NULL DEFAULT 'My list',
       description      TEXT,
       created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
-      updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+      updated_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+      is_public        INTEGER NOT NULL DEFAULT 0,
+      likes            INTEGER NOT NULL DEFAULT 0,
+      copied_from_id   INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_custom_lists_owner ON custom_lists(owner_account_id);
 
@@ -1137,6 +1183,32 @@ function initSchema(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_custom_list_items_list ON custom_list_items(list_id, sort_order);
   `)
+
+  // Social columns on custom_lists. Present in the CREATE above for fresh DBs;
+  // these ALTERs migrate databases made by the first version of the builder.
+  // `is_public` opts a list into the public gallery, `likes` is denormalised
+  // from custom_list_likes so the gallery sorts without a join, and
+  // `copied_from_id` credits the list a copy was forked from.
+  const clCols = db.prepare(`PRAGMA table_info(custom_lists)`).all() as { name: string }[]
+  if (!clCols.some((c) => c.name === 'is_public')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!clCols.some((c) => c.name === 'likes')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN likes INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!clCols.some((c) => c.name === 'copied_from_id')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN copied_from_id INTEGER`)
+  }
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS custom_list_likes (
+      list_id    INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES accounts(id)     ON DELETE CASCADE,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (list_id, account_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_list_likes_list ON custom_list_likes(list_id);
+  `)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_custom_lists_public ON custom_lists(is_public, likes DESC)`)
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts
   // caused by other levels being placed/removed). Powers the position-over-time

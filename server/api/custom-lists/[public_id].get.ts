@@ -11,5 +11,9 @@ export default defineEventHandler((event) => {
 
   const list = loadList(db, row.id)!
   const me = getCurrentAccount(event)
-  return { list, can_edit: !!me && me.id === list.owner_account_id }
+  const liked_by_me = me
+    ? !!db.prepare(`SELECT 1 FROM custom_list_likes WHERE list_id = ? AND account_id = ?`)
+        .get(row.id, me.id)
+    : false
+  return { list, can_edit: !!me && me.id === list.owner_account_id, liked_by_me }
 })

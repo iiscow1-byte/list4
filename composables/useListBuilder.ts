@@ -18,19 +18,23 @@ export type BuilderItem = {
   notes: string | null
   /** Current ALL placement of the linked level — display only, not persisted. */
   position?: number | null
+  /** Sheet placement of the linked level — the number shown as "#N". */
+  sheet_placement?: number | null
 }
 
 export type BuilderDraft = {
   publicId: string | null
   title: string
   description: string
+  /** Published to the public gallery. Only meaningful once saved. */
+  isPublic: boolean
   items: BuilderItem[]
 }
 
 const STORAGE_KEY = 'als:list-builder:v1'
 
 function emptyDraft(): BuilderDraft {
-  return { publicId: null, title: 'My list', description: '', items: [] }
+  return { publicId: null, title: 'My list', description: '', isPublic: false, items: [] }
 }
 
 export function useListBuilder() {
@@ -50,6 +54,7 @@ export function useListBuilder() {
           publicId: typeof parsed.publicId === 'string' ? parsed.publicId : null,
           title: typeof parsed.title === 'string' ? parsed.title : 'My list',
           description: typeof parsed.description === 'string' ? parsed.description : '',
+          isPublic: !!parsed.isPublic,
           items: parsed.items as BuilderItem[],
         }
       }
@@ -69,11 +74,12 @@ export function useListBuilder() {
   }
 
   /** Load a saved list into the builder for editing. */
-  function loadFrom(list: { public_id: string; title: string; description: string | null; items: any[] }) {
+  function loadFrom(list: { public_id: string; title: string; description: string | null; is_public?: number | boolean; items: any[] }) {
     draft.value = {
       publicId: list.public_id,
       title: list.title,
       description: list.description ?? '',
+      isPublic: !!list.is_public,
       items: (list.items ?? []).map((i) => ({
         level_id: i.level_id ?? null,
         name: i.name,
@@ -84,6 +90,7 @@ export function useListBuilder() {
         verification_url: i.verification_url ?? null,
         notes: i.notes ?? null,
         position: i.position ?? null,
+        sheet_placement: i.sheet_placement ?? null,
       })),
     }
     persist()

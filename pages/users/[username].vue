@@ -16,7 +16,13 @@ const { data, error, refresh } = await useFetch<{
   createdLevels: any[]
   verifiedLevels: any[]
   progressPosts: any[]
-  follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
+  follow: {
+    target: string; followed: boolean; followerCount: number; followingCount: number
+    isSelf: boolean; canFollow: boolean
+    followers: { username: string; has_avatar: number }[]
+    following: { name: string; username: string | null }[]
+  }
+  publicLists: { public_id: string; title: string; likes: number; is_public: number; item_count: number }[]
   favorite_level: { id: number; position: number; name: string; gddl_tier: string | null } | null
   favorite_level_note: string | null
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
@@ -110,12 +116,12 @@ const youtubeHandle = computed(() => {
         </div>
       </header>
 
-      <section v-if="data.account.bio" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section v-if="data.account.bio" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Bio</h2>
         <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ data.account.bio }}</p>
       </section>
 
-      <section v-if="data.favorite_level" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section v-if="data.favorite_level" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Favorite Level</h2>
         <NuxtLink
           :to="`/levels/${data.favorite_level.position}`"
@@ -128,7 +134,7 @@ const youtubeHandle = computed(() => {
         <p v-if="data.favorite_level_note" class="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">{{ data.favorite_level_note }}</p>
       </section>
 
-      <section v-if="data.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section v-if="data.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
@@ -156,6 +162,62 @@ const youtubeHandle = computed(() => {
         @changed="refresh()"
       />
 
+      <!-- Published lists -->
+      <section v-if="data.publicLists?.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Lists</h2>
+        <ul class="grid gap-1.5 sm:grid-cols-2">
+          <li v-for="l in data.publicLists" :key="l.public_id">
+            <NuxtLink
+              :to="`/lists/${l.public_id}`"
+              class="flex items-center gap-2 rounded-lg border border-zinc-800/70 px-3 py-2 text-sm hover:border-zinc-700 hover:bg-zinc-900/40 transition-colors"
+            >
+              <span class="truncate flex-1 text-zinc-200">{{ l.title }}</span>
+              <span v-if="!l.is_public" class="text-[10px] uppercase tracking-wider text-zinc-600 shrink-0">private</span>
+              <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">{{ l.item_count }}</span>
+              <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">★ {{ l.likes }}</span>
+            </NuxtLink>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Followers / following -->
+      <section class="grid gap-4 sm:grid-cols-2">
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">
+            Followers <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
+          </h2>
+          <p v-if="!data.follow.followers?.length" class="text-xs text-zinc-600">No followers yet.</p>
+          <ul v-else class="flex flex-wrap gap-1.5">
+            <li v-for="f in data.follow.followers" :key="f.username">
+              <NuxtLink
+                :to="`/users/${encodeURIComponent(f.username)}`"
+                class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+              >
+                <span class="w-4 h-4 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
+                  <img v-if="f.has_avatar" :src="`/api/users/${encodeURIComponent(f.username)}/avatar`" class="w-full h-full object-cover" alt="" />
+                  <span v-else class="text-[8px] font-semibold uppercase">{{ f.username.charAt(0) }}</span>
+                </span>
+                {{ f.username }}
+              </NuxtLink>
+            </li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">
+            Following <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
+          </h2>
+          <p v-if="!data.follow.following?.length" class="text-xs text-zinc-600">Not following anyone yet.</p>
+          <ul v-else class="flex flex-wrap gap-1.5">
+            <li v-for="f in data.follow.following" :key="f.name">
+              <NuxtLink
+                :to="f.username ? `/users/${encodeURIComponent(f.username)}` : `/users/by-player/${encodeURIComponent(f.name)}`"
+                class="inline-block px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+              >{{ f.name }}</NuxtLink>
+            </li>
+          </ul>
+        </div>
+      </section>
+
       <ProfileLevelLists
         :completed="data.completedLevels"
         :created="data.createdLevels"
@@ -163,7 +225,7 @@ const youtubeHandle = computed(() => {
         @refresh="refresh()"
       />
 
-      <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments</h2>
         <CommentSection kind="profile" :target-id="data.account.id" />
       </section>

@@ -10,6 +10,7 @@ type LevelRow = {
   gddl_tier: string | null
   gd_id?: number | null
   gddl_tier_frac?: number | null
+  sheet_placement?: number | null
   displayRank?: number
   aredl_position?: number | null
   pointercrate_position?: number | null
@@ -166,7 +167,10 @@ function displayNum(lvl: LevelRow): string {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return `#${lvl.aredl_position}`
   if (listVariant.value === 'GDL' && lvl.gdl_position != null) return `#${lvl.gdl_position}`
   if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return `#${lvl.challenge_list_position}`
-  return `#${lvl.displayRank ?? lvl.position}`
+  // `displayRank` only exists when "rank by filter" is on, and is a rank
+  // within the filtered set — it must win over the sheet's own numbering.
+  if (lvl.displayRank != null) return `#${lvl.displayRank}`
+  return `#${lvl.sheet_placement ?? lvl.position}`
 }
 
 const activeFilterCount = computed(() => {
@@ -333,17 +337,33 @@ async function maybeJumpToTier(): Promise<boolean> {
   return false
 }
 
+/**
+ * "#N" is the placement the sheet prints, which is what the list displays —
+ * not the internal position URLs use. Resolve it server-side, then jump to
+ * whatever position that level actually sits at.
+ */
 async function maybeJumpToPosition(): Promise<boolean> {
   const q = search.value.trim()
   const m = q.match(/^#(\d+)$/)
   if (!m) return false
-  const pos = Number(m[1])
-  if (!Number.isInteger(pos) || pos <= 0) return false
-  if (pos === lastPositionLookup) return false
-  lastPositionLookup = pos
-  await jumpToPosition(pos)
-  lastPositionLookup = 0
-  return true
+  const placement = Number(m[1])
+  if (!Number.isInteger(placement) || placement <= 0) return false
+  if (placement === lastPositionLookup) return false
+  lastPositionLookup = placement
+  try {
+    const res = await $fetch<{ position: number; name: string }>(
+      `/api/levels/by-placement/${placement}`,
+    )
+    if (res?.position) {
+      await jumpToPosition(res.position)
+      return true
+    }
+  } catch {
+    // No level at or below that placement — fall through to a normal search.
+  } finally {
+    lastPositionLookup = 0
+  }
+  return false
 }
 
 async function maybeJumpToGdId(): Promise<boolean> {

@@ -8,7 +8,12 @@ import {
 /** Create a list. Items are optional — the builder saves title + rows at once. */
 export default defineEventHandler(async (event) => {
   const account = requireAccount(event)
-  const body = await readBody<{ title?: string; description?: string; items?: CustomListItemInput[] }>(event)
+  const body = await readBody<{
+    title?: string
+    description?: string
+    items?: CustomListItemInput[]
+    is_public?: boolean
+  }>(event)
 
   const db = getDb()
   const count = (db.prepare(
@@ -24,8 +29,9 @@ export default defineEventHandler(async (event) => {
   db.exec('BEGIN')
   try {
     const info = db.prepare(
-      `INSERT INTO custom_lists (public_id, owner_account_id, title, description) VALUES (?,?,?,?)`,
-    ).run(newPublicId(), account.id, title, description)
+      `INSERT INTO custom_lists (public_id, owner_account_id, title, description, is_public)
+       VALUES (?,?,?,?,?)`,
+    ).run(newPublicId(), account.id, title, description, body?.is_public ? 1 : 0)
     const listId = Number(info.lastInsertRowid)
     replaceItems(db, listId, Array.isArray(body?.items) ? body.items : [])
     db.exec('COMMIT')

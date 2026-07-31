@@ -1,6 +1,6 @@
 import { getDb } from '~/server/db'
 
-const VALID_KINDS = new Set(['profile', 'progress', 'open_verification'])
+const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 
 export default defineEventHandler((event) => {
   const q = getQuery(event)

@@ -7,12 +7,35 @@ An AREDL-style ranking site for the **All Levels List** — tens of thousands of
 - **Stack:** Nuxt 3 (Vue 3, server routes) · SQLite via Node's built-in `node:sqlite` (requires Node ≥ 22.5) · Tailwind CSS
 - **Data source:** the published-to-the-web All Levels List Google Sheet, fetched as CSV per tab
 - **Pages:**
-  - `/` — the list builder: drag levels out of the ALL list (or type your own) into a personal list, then save and share it
-  - `/lists/:public_id` — a saved custom list, publicly viewable by share link
-  - `/levels/:position` — AREDL-style 3-panel layout (list nav · level details · records)
+  - `/` — the list (redirects to `/levels/1`)
+  - `/levels/:position` — AREDL-style 3-panel layout (list nav · level details · records · discussion)
+  - `/levels/find` — search Geometry Dash itself and submit a level / record straight from a result
+  - `/builder` — the list builder: drag levels out of the ALL list (or type your own), then save and share
+  - `/lists` — gallery of published lists; `/lists/:public_id` — one list
+  - `/community` — activity from people you follow, newly ranked levels, latest records, fresh lists
   - `/changelog` — placements and movements, filterable by source (native vs imported AREDL history)
   - `/leaderboard` — players from the sheet's leaderboard tab
   - `/about` — intro, FAQ, stats, and the demonlists used
+
+## Placements: sheet vs. position
+
+Two numbers describe where a level sits, and they are deliberately different:
+
+- **`levels.position`** — internal ordering, `1..N` with no gaps. It's the sort
+  key, the URL key (`/levels/:position`), and what the admin move endpoints
+  operate on. Never shown to readers.
+- **`levels.sheet_placement`** — the placement printed in the source sheet.
+  The sheet numbers levels continuously across its tabs (Main `1…13050`, then
+  Tier 4 picks up at `13051`, and so on), so it is a genuine global ranking —
+  but it drifts from `position` because levels appearing on several tabs
+  collapse into one row. **This is the number the UI shows as "#N"**, and what
+  the search box's `#N` shortcut resolves against, via
+  `/api/levels/by-placement/:n`.
+
+Keeping URLs on `position` means links survive a re-import even when the
+curators renumber the sheet. `server/utils/changes.ts` maps historical
+positions through to placements so the changelog speaks the same numbering as
+the rest of the site.
 
 ## Level thumbnails
 
@@ -27,10 +50,33 @@ the level-page hero requests `high`.
 ## Custom lists
 
 `custom_lists` / `custom_list_items` back the builder. An item either points at
-an ALL level (`level_id` set — its name and current placement are resolved at
-read time, so a saved list follows the level when it moves) or is fully
-hand-entered (`level_id` NULL). Guests build against `localStorage`; saving
-requires an account and mints a random `public_id` used for share URLs.
+an ALL level (`level_id` set — its display fields and current placement are
+resolved from `levels` at read time, so a saved list can never disagree with
+the list about a level it points at) or is fully hand-entered (`level_id`
+NULL, client values kept). Guests build against `localStorage`; saving requires
+an account and mints a random `public_id` used for share URLs.
+
+Setting `is_public` publishes a list to the `/lists` gallery, where others can
+like it (`custom_list_likes`, with the count denormalised onto
+`custom_lists.likes`) or fork it into their own (`copied_from_id` credits the
+original).
+
+## Submitting from a Geometry Dash search
+
+`/levels/find` searches GD by name or ID through `GET /api/gd/search`, which
+proxies gdbrowser's search endpoint — the same source `server/utils/gd-fetch.ts`
+uses for per-level info. Results are annotated with whether the level is
+already ranked, so the page offers "submit a record" for levels on the list and
+"submit to the list" for levels that aren't, prefilling `/levels/submit` with
+the ID and name.
+
+## Moving levels
+
+Moderators can move a level numerically, or open **Actions → Drag to place**
+for a drag-and-drop editor (`components/PlacementEditor.vue`). It loads a
+window of the list around the level via `/api/levels?fromPosition=…`, reorders
+a local copy as you drag, and only writes when you hit Apply — which issues the
+same single `POST /api/admin/levels/:position/move` the numeric control uses.
 
 ## Setup
 

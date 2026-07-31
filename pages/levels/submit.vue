@@ -30,8 +30,13 @@ const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed', 'unnerfed', 'easy', 'shitty
 
 const RATING_OPTIONS = ['', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
 
-const gdId = ref('')
-const name = ref('')
+// Prefilled when arriving from /levels/find, so a level picked out of the GD
+// search lands here with its ID and name already filled in.
+const submitRoute = useRoute()
+const gdId = ref(typeof submitRoute.query.gd_id === 'string' && /^\d+$/.test(submitRoute.query.gd_id)
+  ? submitRoute.query.gd_id
+  : '')
+const name = ref(typeof submitRoute.query.name === 'string' ? submitRoute.query.name.slice(0, 200) : '')
 const verification = ref('')
 const verificationUrl = ref('')
 const verifier = ref('')

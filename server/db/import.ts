@@ -271,9 +271,12 @@ async function importLevels() {
     INSERT INTO levels
       (position, name, gd_id, gddl_tier, difficulty, placement_source,
        main_skillset, verify_date, verification, verification_url, pov_placement,
-       year_verified, category, source_tab, rated)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?)
+       year_verified, category, source_tab, rated, sheet_placement)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?)
   `)
+  // Refreshed on every run for rows that already exist, so a curator
+  // renumbering the sheet shows up without needing a wipe.
+  const updSheetPlacement = db.prepare(`UPDATE levels SET sheet_placement = ? WHERE id = ?`)
 
   // Levels that have a permanent counterpart are owned by the website, not the
   // sheet — skip any incoming row matching one of these gd_ids.
@@ -344,7 +347,11 @@ async function importLevels() {
         const sheetRated = ratedRaw?.toLowerCase() === 'challenge' ? 'Challenge' : null
         sheetOrder.push({ key, gdId, name, rated: sheetRated })
 
-        if (existingByKey.has(key)) continue
+        const known = existingByKey.get(key)
+        if (known !== undefined) {
+          updSheetPlacement.run(placement, known)
+          continue
+        }
 
         tempPos++
         const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
@@ -367,6 +374,7 @@ async function importLevels() {
           num(r[c['year verified']!]),
           tab.label,
           sheetRated,
+          placement,
         )
         existingByKey.set(key, Number(result.lastInsertRowid))
         imported++

@@ -8,7 +8,11 @@ type Community = {
   distribution: Record<string, number> | null
 }
 type Level = {
+  /** levels.id — stable across renumbering; used as the comment target. */
+  id?: number
   position: number
+  /** Placement as printed in the source sheet — what the UI shows as "#N". */
+  sheet_placement?: number | null
   name: string
   gd_id: number | null
   gddl_tier: string | null
@@ -219,6 +223,15 @@ function copyGdId() {
     gdIdCopyTimer = setTimeout(() => { gdIdCopied.value = false }, 1500)
   }).catch(() => {})
 }
+
+/**
+ * The number the site shows for a placement. `position` stays the internal
+ * ordering + URL key; the sheet's own placement is what readers recognise.
+ */
+const shownPlacement = computed(() => props.level.sheet_placement ?? props.level.position)
+
+/** Drag-to-place dialog (admins only). */
+const placementEditorOpen = ref(false)
 
 function formatPoints(n: number | null | undefined) {
   if (n == null) return '—'
@@ -989,7 +1002,7 @@ const chartAredlSeries = computed(() =>
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline gap-3 flex-wrap">
-          <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ level.position }}</span>
+          <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ shownPlacement }}</span>
           <h1 class="text-3xl sm:text-4xl font-bold tracking-tight drop-shadow-lg">{{ level.name }}</h1>
         </div>
         <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
@@ -1047,7 +1060,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="actionsOpen"
             role="menu"
-            class="absolute right-0 top-full mt-1 min-w-[11rem] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-20"
+            class="absolute right-0 top-full mt-1 min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-20"
           >
             <NuxtLink
               v-if="canSubmitRecord"
@@ -1071,6 +1084,13 @@ const chartAredlSeries = computed(() =>
                 class="w-full text-left px-3 py-1.5 text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
                 @click="actionsOpen = false; startMoveBelow()"
               >Suggest move…</button>
+              <button
+                v-if="isAdminLevel"
+                type="button"
+                role="menuitem"
+                class="w-full text-left px-3 py-1.5 text-sm text-accent hover:bg-accent/10 transition-colors"
+                @click="actionsOpen = false; placementEditorOpen = true"
+              >Drag to place…</button>
               <button
                 v-if="isAdminLevel"
                 type="button"
@@ -1111,7 +1131,7 @@ const chartAredlSeries = computed(() =>
           rows="2"
           maxlength="2000"
           placeholder="Optional notes (why this level should move…)"
-          class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
         <p v-if="pendingMoveError" class="text-xs text-red-400">{{ pendingMoveError }}</p>
         <button
@@ -1234,12 +1254,12 @@ const chartAredlSeries = computed(() =>
         <!-- Always-visible: name, position, level ID -->
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
           <div class="mt-1 flex items-center gap-2">
-            <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             <button
               v-if="!moveBelowActive"
               type="button"
@@ -1258,7 +1278,7 @@ const chartAredlSeries = computed(() =>
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
 
         <!-- Gameplay section -->
@@ -1277,23 +1297,23 @@ const chartAredlSeries = computed(() =>
           <div v-if="gameplayOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-              <input v-model="draft.gddl_tier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.gddl_tier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-              <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.difficulty" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-              <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.main_skillset" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-              <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>
-              <input v-model="draft.year_verified" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.year_verified" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
           </div>
         </div>
@@ -1314,11 +1334,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="creditsOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Creator(s) <span class="text-zinc-600 normal-case">— comma-separated</span></span>
-              <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
-              <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verifier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
           </div>
         </div>
@@ -1339,11 +1359,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="verificationOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
-              <input v-model="draft.verification" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verification" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-              <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verification_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
           </div>
         </div>
@@ -1490,11 +1510,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="apiOverridesOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Publisher</span>
-              <input v-model="draft.publisher" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.publisher" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
-              <input v-model="draft.rated" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.rated" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
             </label>
             <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">
@@ -1504,7 +1524,7 @@ const chartAredlSeries = computed(() =>
                 v-model="draft.description_override"
                 rows="3"
                 placeholder="Leave blank to use the description pulled from GD."
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
           </div>
@@ -1546,7 +1566,7 @@ const chartAredlSeries = computed(() =>
 
     <template v-else>
       <!-- Verification: real embed if YouTube; link card otherwise -->
-      <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
+      <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
         <iframe
           :src="`https://www.youtube.com/embed/${ytId}`"
           class="w-full h-full"
@@ -1562,7 +1582,7 @@ const chartAredlSeries = computed(() =>
         :href="(level.verification_url ?? fallbackSearch)!"
         target="_blank"
         rel="noopener"
-        class="block aspect-video rounded-md border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
+        class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
       >
         <div class="absolute inset-0 flex items-center justify-center">
           <div class="text-center px-6">
@@ -1618,7 +1638,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="infoOpen"
             ref="infoPanel"
-            class="absolute left-0 top-full mt-2 z-20 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+            class="absolute left-0 top-full mt-2 z-20 w-72 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
           >
             <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GD Info</span>
@@ -1766,7 +1786,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="distOpen && hasDistribution"
             ref="distPanel"
-            class="absolute right-0 top-full mt-2 z-20 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+            class="absolute right-0 top-full mt-2 z-20 w-72 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
           >
             <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Rating distribution</span>
@@ -1786,7 +1806,7 @@ const chartAredlSeries = computed(() =>
       </div>
 
       <!-- Credits -->
-      <details v-if="creditRows.length" open class="group rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+      <details v-if="creditRows.length" open class="group rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Credits</h2>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
@@ -1800,7 +1820,7 @@ const chartAredlSeries = computed(() =>
       </details>
 
       <!-- Metadata block -->
-      <details v-if="infoRows.length" open class="group rounded-md border border-zinc-800 bg-zinc-950/60 mb-6">
+      <details v-if="infoRows.length" open class="group rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Information</h2>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
@@ -1823,7 +1843,7 @@ const chartAredlSeries = computed(() =>
         />
 
         <div v-if="historyByDay.length" class="space-y-4">
-          <div v-for="day in historyByDay" :key="day.date" class="rounded-md border border-zinc-800 bg-zinc-950/60">
+          <div v-for="day in historyByDay" :key="day.date" class="rounded-xl border border-zinc-800 bg-zinc-950/60">
             <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-medium text-zinc-100">{{ day.label }}</h3>
               <span class="text-[11px] text-zinc-500 tabular-nums">
@@ -1882,13 +1902,13 @@ const chartAredlSeries = computed(() =>
           </div>
         </div>
         <div v-else class="text-xs text-zinc-600">
-          No placement changes recorded. Current placement: <span class="text-zinc-300 tabular-nums">#{{ level.position }}</span>.
+          No placement changes recorded. Current placement: <span class="text-zinc-300 tabular-nums">#{{ shownPlacement }}</span>.
         </div>
       </section>
     </template>
 
     <!-- Rankings on other lists -->
-    <section class="mt-6 rounded-md border border-zinc-900 bg-zinc-950">
+    <section class="mt-6 rounded-xl border border-zinc-800/70 bg-zinc-950">
       <details :open="otherListsOpen" class="group" @toggle="onOtherListsToggle">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
@@ -2004,6 +2024,18 @@ const chartAredlSeries = computed(() =>
         </div>
       </details>
     </section>
+
+    <!-- Discussion -->
+    <section v-if="level.id" class="mt-6">
+      <CommentSection kind="level" :target-id="level.id" />
+    </section>
+
+    <PlacementEditor
+      v-model:open="placementEditorOpen"
+      :position="level.position"
+      :name="level.name"
+      @moved="emit('refresh')"
+    />
 
     <LevelComparisonDrawer
       v-model:open="editDuplicatePickerOpen"

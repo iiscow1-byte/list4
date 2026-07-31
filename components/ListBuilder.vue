@@ -24,6 +24,7 @@ type PaletteLevel = {
   gddl_tier: string | null
   difficulty: string | null
   creator?: string | null
+  sheet_placement?: number | null
 }
 const search = ref('')
 const palette = ref<PaletteLevel[]>([])
@@ -72,6 +73,7 @@ function toItem(l: PaletteLevel): BuilderItem {
     verification_url: null,
     notes: null,
     position: l.position,
+    sheet_placement: l.sheet_placement ?? null,
   }
 }
 
@@ -185,6 +187,7 @@ async function save() {
     const payload = {
       title: draft.value.title,
       description: draft.value.description,
+      is_public: draft.value.isPublic,
       items: draft.value.items.map((i) => ({
         level_id: i.level_id,
         name: i.name,
@@ -287,7 +290,7 @@ function copyShare() {
             <span
               class="relative text-[10px] tabular-nums px-1 py-0.5 w-12 shrink-0 text-center font-semibold rounded"
               :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
-            >#{{ l.position }}</span>
+            >#{{ l.sheet_placement ?? l.position }}</span>
             <span class="relative truncate flex-1 text-sm text-zinc-200 font-medium">{{ l.name }}</span>
             <button
               type="button"
@@ -337,6 +340,10 @@ function copyShare() {
           placeholder="Optional description…"
           class="flex-1 min-w-[12rem] bg-transparent text-xs text-zinc-400 placeholder:text-zinc-600 focus:outline-none"
         />
+        <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none shrink-0" title="Show this list in the public gallery">
+          <input v-model="draft.isPublic" type="checkbox" class="accent-accent" />
+          Public
+        </label>
         <span v-if="saveOk" class="text-[11px] text-emerald-400">Saved ✓</span>
         <span v-if="saveError" class="text-[11px] text-red-400">{{ saveError }}</span>
         <button
@@ -389,7 +396,7 @@ function copyShare() {
                 <template v-if="item.notes">{{ item.notes }}</template>
               </span>
             </div>
-            <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.position }}</span>
+            <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
             <span v-else class="relative shrink-0 text-[10px] text-zinc-600 uppercase tracking-wider">custom</span>
             <div class="relative shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move up" @click="move(i, -1)">↑</button>

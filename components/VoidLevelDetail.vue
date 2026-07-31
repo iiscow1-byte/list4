@@ -230,39 +230,39 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
-          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
-          <input v-model="draft.verify_date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verify_date" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Days</span>
-          <input v-model="draft.days" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.days" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon ranking</span>
-          <input v-model="draft.demon_ranking" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.demon_ranking" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
-          <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.placement_source" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
-          <input v-model="draft.verification" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verification" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-          <input v-model="draft.verification_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verification_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
       </div>
 
@@ -291,7 +291,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
     </section>
 
     <!-- Verification -->
-    <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
+    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
       <iframe
         :src="`https://www.youtube.com/embed/${ytId}`"
         class="w-full h-full"
@@ -307,7 +307,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
       :href="(level.verification_url ?? fallbackSearch)!"
       target="_blank"
       rel="noopener"
-      class="block aspect-video rounded-md border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
+      class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
     >
       <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center px-6">
@@ -381,7 +381,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
               <input
                 v-model="pendingVerifier"
                 placeholder="Player name"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
             <label class="block">
@@ -389,7 +389,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
               <input
                 v-model="pendingVerifyDate"
                 type="date"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
             </label>
           </div>
@@ -400,7 +400,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
               v-model="pendingVideoUrl"
               type="url"
               placeholder="https://www.youtube.com/watch?v=…"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
 
@@ -409,7 +409,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
             <input
               v-model="pendingEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
 
@@ -419,7 +419,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
               v-model="pendingNote"
               rows="2"
               maxlength="4000"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </label>
 
@@ -475,7 +475,7 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
     </div>
 
     <!-- Source / verification metadata -->
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Source</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>

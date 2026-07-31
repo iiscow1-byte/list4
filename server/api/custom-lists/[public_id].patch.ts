@@ -6,7 +6,12 @@ import { loadList, replaceItems, type CustomListItemInput } from '~/server/utils
 export default defineEventHandler(async (event) => {
   const account = requireAccount(event)
   const publicId = String(getRouterParam(event, 'public_id') ?? '')
-  const body = await readBody<{ title?: string; description?: string; items?: CustomListItemInput[] }>(event)
+  const body = await readBody<{
+    title?: string
+    description?: string
+    items?: CustomListItemInput[]
+    is_public?: boolean
+  }>(event)
 
   const db = getDb()
   const row = db.prepare(
@@ -26,6 +31,10 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.description === 'string') {
       db.prepare(`UPDATE custom_lists SET description = ? WHERE id = ?`)
         .run(body.description.trim().slice(0, 2000) || null, row.id)
+    }
+    if (typeof body?.is_public === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET is_public = ? WHERE id = ?`)
+        .run(body.is_public ? 1 : 0, row.id)
     }
     if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items)
     db.prepare(`UPDATE custom_lists SET updated_at = datetime('now') WHERE id = ?`).run(row.id)

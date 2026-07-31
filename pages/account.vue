@@ -571,7 +571,7 @@ function fmt(n: number | null | undefined) {
         </header>
 
         <!-- About: always-visible display + collapsible edit dropdown below -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">About</h2>
 
           <!-- Read-only display — always visible -->
@@ -727,7 +727,7 @@ function fmt(n: number | null | undefined) {
           </details>
         </section>
 
-        <section v-if="profileData?.player" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section v-if="profileData?.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
@@ -758,7 +758,7 @@ function fmt(n: number | null | undefined) {
         />
 
         <!-- Open-verification submission -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
               <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Submit open verification</h2>
@@ -818,7 +818,7 @@ function fmt(n: number | null | undefined) {
             </div>
 
             <!-- Showcase (replaces verification) -->
-            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
 
               <label class="block">
@@ -833,7 +833,7 @@ function fmt(n: number | null | undefined) {
                 />
               </label>
 
-              <div v-if="ovShowcaseYt" class="aspect-video rounded-md border border-zinc-800 bg-black overflow-hidden">
+              <div v-if="ovShowcaseYt" class="aspect-video rounded-xl border border-zinc-800 bg-black overflow-hidden">
                 <iframe
                   :src="`https://www.youtube.com/embed/${ovShowcaseYt}`"
                   class="w-full h-full"
@@ -856,7 +856,7 @@ function fmt(n: number | null | undefined) {
             </fieldset>
 
             <!-- Difficulty opinion -->
-            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
@@ -881,7 +881,7 @@ function fmt(n: number | null | undefined) {
             </fieldset>
 
             <!-- Optional metadata -->
-            <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
@@ -950,7 +950,7 @@ function fmt(n: number | null | undefined) {
           @refresh="loadProfileData()"
         />
 
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments on your profile</h2>
           <CommentSection kind="profile" :target-id="me.id" />
         </section>
@@ -958,7 +958,7 @@ function fmt(n: number | null | undefined) {
 
       <!-- Right panel: actions -->
       <aside class="space-y-3 lg:sticky lg:top-20 lg:self-start">
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Actions</h2>
           <div class="flex flex-col gap-1.5">
             <button
@@ -1115,7 +1115,7 @@ function fmt(n: number | null | undefined) {
           </form>
         </div>
 
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Profile picture</h2>
           <div class="flex items-center gap-2 flex-wrap">
             <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium px-2.5 py-1 cursor-pointer transition-colors">
@@ -1133,7 +1133,7 @@ function fmt(n: number | null | undefined) {
           <p v-if="avatarError" class="text-xs text-red-400 mt-1">{{ avatarError }}</p>
         </div>
 
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 text-xs space-y-1">
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-xs space-y-1">
           <NuxtLink :to="`/users/${me.username}`" class="block text-zinc-400 hover:text-accent transition-colors">View public profile ↗</NuxtLink>
           <template v-if="me.role !== 'user'">
             <NuxtLink to="/admin" class="block text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'moderator' ? 'Mod' : 'Admin' }} panel →</NuxtLink>
@@ -1145,7 +1145,7 @@ function fmt(n: number | null | undefined) {
           >Log out</button>
         </div>
 
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Preferences</h2>
           <label class="flex items-center gap-2 cursor-pointer select-none px-1">
             <input

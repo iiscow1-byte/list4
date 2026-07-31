@@ -1,0 +1,173 @@
+<script setup lang="ts">
+/** Gallery of lists their owners published. */
+type PublicList = {
+  public_id: string
+  title: string
+  description: string | null
+  likes: number
+  updated_at: string
+  owner_username: string | null
+  item_count: number
+  liked_by_me: boolean
+  cover_gd_ids: number[]
+}
+
+const sort = ref<'top' | 'new'>('top')
+const search = ref('')
+
+const { data, refresh } = await useFetch<{ lists: PublicList[] }>('/api/custom-lists/public', {
+  query: computed(() => ({ sort: sort.value, search: search.value.trim() || undefined, limit: 60 })),
+})
+
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
+
+const busy = ref<string | null>(null)
+const error = ref<string | null>(null)
+
+async function toggleLike(l: PublicList) {
+  if (!me.value) { error.value = 'Log in to like lists.'; return }
+  if (busy.value) return
+  busy.value = l.public_id
+  try {
+    const res = await $fetch<{ liked: boolean; likes: number }>(
+      `/api/custom-lists/${l.public_id}/like`, { method: 'POST' },
+    )
+    l.liked_by_me = res.liked
+    l.likes = res.likes
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Failed.'
+  } finally {
+    busy.value = null
+  }
+}
+
+const router = useRouter()
+const { loadFrom } = useListBuilder()
+
+async function copyList(l: PublicList) {
+  if (!me.value) { error.value = 'Log in to copy a list.'; return }
+  if (busy.value) return
+  busy.value = l.public_id
+  try {
+    const res = await $fetch<{ list: any }>(`/api/custom-lists/${l.public_id}/copy`, { method: 'POST' })
+    loadFrom(res.list)
+    await router.push('/builder')
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Failed to copy.'
+  } finally {
+    busy.value = null
+  }
+}
+
+let debounce: ReturnType<typeof setTimeout> | null = null
+watch(search, () => {
+  if (debounce) clearTimeout(debounce)
+  debounce = setTimeout(() => refresh(), 300)
+})
+
+useHead({ title: 'Public lists — All Levels List' })
+</script>
+
+<template>
+  <div class="container-wide py-8 space-y-5">
+    <header class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Public lists</h1>
+        <p class="text-sm text-zinc-500 mt-1">Rankings built and shared by the community.</p>
+      </div>
+      <NuxtLink
+        to="/builder"
+        class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
+      >Build your own →</NuxtLink>
+    </header>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+        <button
+          type="button"
+          class="px-3 py-1 text-[11px] font-medium transition-colors"
+          :class="sort === 'top' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          @click="sort = 'top'"
+        >Most liked</button>
+        <button
+          type="button"
+          class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800"
+          :class="sort === 'new' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          @click="sort = 'new'"
+        >Newest</button>
+      </div>
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Search lists…"
+        class="ml-auto rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+      />
+    </div>
+
+    <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+
+    <p v-if="(data?.lists.length ?? 0) === 0" class="text-sm text-zinc-500 py-12 text-center">
+      No public lists yet. <NuxtLink to="/builder" class="text-accent hover:underline">Be the first →</NuxtLink>
+    </p>
+
+    <ul v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <li
+        v-for="l in data!.lists"
+        :key="l.public_id"
+        class="card overflow-hidden flex flex-col group"
+      >
+        <NuxtLink :to="`/lists/${l.public_id}`" class="relative block h-24 overflow-hidden bg-zinc-900">
+          <div class="absolute inset-0 flex">
+            <div
+              v-for="(gd, i) in (l.cover_gd_ids.length ? l.cover_gd_ids : [null])"
+              :key="`${gd}-${i}`"
+              class="relative flex-1 overflow-hidden"
+            >
+              <LevelThumbBg :gd-id="gd" res="small" img-class="opacity-50 group-hover:opacity-70" />
+            </div>
+          </div>
+          <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
+          <h2 class="absolute bottom-2 left-3 right-3 font-semibold text-zinc-50 truncate drop-shadow">{{ l.title }}</h2>
+        </NuxtLink>
+
+        <div class="p-3 flex-1 flex flex-col gap-2">
+          <p v-if="l.description" class="text-xs text-zinc-500 line-clamp-2">{{ l.description }}</p>
+          <div class="flex items-center gap-2 text-[11px] text-zinc-600 mt-auto">
+            <NuxtLink
+              v-if="l.owner_username"
+              :to="`/users/${encodeURIComponent(l.owner_username)}`"
+              class="hover:text-accent transition-colors truncate"
+            >{{ l.owner_username }}</NuxtLink>
+            <span class="tabular-nums">· {{ l.item_count }} levels</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              :disabled="busy === l.public_id"
+              class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-50"
+              :class="l.liked_by_me
+                ? 'border-accent/60 text-accent bg-accent/10'
+                : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
+              @click="toggleLike(l)"
+            >
+              <span aria-hidden="true">{{ l.liked_by_me ? '★' : '☆' }}</span>
+              <span class="tabular-nums">{{ l.likes }}</span>
+            </button>
+            <button
+              type="button"
+              :disabled="busy === l.public_id"
+              class="rounded-lg border border-zinc-800 text-zinc-400 px-2 py-1 text-[11px] font-medium hover:text-zinc-200 hover:border-zinc-700 transition-colors disabled:opacity-50"
+              title="Copy this list into your own"
+              @click="copyList(l)"
+            >Copy</button>
+            <NuxtLink
+              :to="`/lists/${l.public_id}`"
+              class="ml-auto text-[11px] text-zinc-500 hover:text-accent transition-colors"
+            >Open →</NuxtLink>
+          </div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</template>

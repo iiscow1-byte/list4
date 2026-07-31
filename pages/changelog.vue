@@ -12,6 +12,8 @@ type Change = {
   from_challenge_rank: number | null
   from_position: number | null
   to_position: number
+  from_placement: number | null
+  to_placement: number | null
   changed_at: string
   changed_by: string | null
   source: string
@@ -228,11 +230,11 @@ useHead({ title: 'Changelog — All Levels List' })
                   </template>
                 </template>
                 <template v-else>
-                  <template v-if="c.kind === 'add'">#{{ c.to_position }}</template>
+                  <template v-if="c.kind === 'add'">#{{ c.to_placement }}</template>
                   <template v-else>
-                    <span class="text-zinc-500">#{{ c.from_position }}</span>
+                    <span class="text-zinc-500">#{{ c.from_placement }}</span>
                     <span class="text-zinc-600 mx-1">→</span>
-                    <span class="text-accent">#{{ c.to_position }}</span>
+                    <span class="text-accent">#{{ c.to_placement }}</span>
                   </template>
                 </template>
               </span>

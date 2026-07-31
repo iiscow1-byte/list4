@@ -171,55 +171,55 @@ const tagList = computed(() => {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
-          <input v-model="draft.verifier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verifier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
-          <input v-model="draft.fps" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.fps" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
-          <input v-model="draft.game_version" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.game_version" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-          <input v-model="draft.gddl_tier" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gddl_tier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-          <input v-model="draft.difficulty" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.difficulty" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-          <input v-model="draft.main_skillset" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.main_skillset" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
-          <input v-model="draft.placement_source" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.placement_source" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Showcase URL</span>
-          <input v-model="draft.showcase_url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.showcase_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
-          <input v-model="draft.tags" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.tags" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes</span>
-          <textarea v-model="draft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <textarea v-model="draft.notes" rows="3" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
       </div>
 
@@ -248,7 +248,7 @@ const tagList = computed(() => {
     </section>
 
     <!-- Showcase (replaces verification) -->
-    <div v-if="ytId" class="aspect-video rounded-md border border-zinc-800 bg-black mb-6 overflow-hidden">
+    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
       <iframe
         :src="`https://www.youtube.com/embed/${ytId}`"
         class="w-full h-full"
@@ -264,7 +264,7 @@ const tagList = computed(() => {
       :href="level.showcase_url"
       target="_blank"
       rel="noopener"
-      class="block aspect-video rounded-md border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
+      class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
     >
       <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center px-6">
@@ -278,7 +278,7 @@ const tagList = computed(() => {
         </div>
       </div>
     </a>
-    <div v-else class="rounded-md border border-zinc-800 bg-zinc-950/60 mb-6 px-6 py-12 text-center">
+    <div v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6 px-6 py-12 text-center">
       <p class="text-sm text-zinc-400">Not verified — no showcase video provided.</p>
     </div>
 
@@ -336,12 +336,12 @@ const tagList = computed(() => {
       </div>
     </div>
 
-    <section v-if="level.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3 mb-6">
+    <section v-if="level.notes" class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 mb-6">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>
 
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
       <CommentSection kind="open_verification" :target-id="level.id" />
     </section>
   </div>

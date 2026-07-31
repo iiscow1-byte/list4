@@ -1,9 +1,4 @@
 <script setup lang="ts">
-const links = [
-  { to: '/leaderboard', label: 'Leaderboard' },
-  { to: '/changelog', label: 'Changelog' },
-]
-
 const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
@@ -47,129 +42,53 @@ let adminCountTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => { adminCountTimer = setInterval(loadAdminCounts, 30_000) })
 onBeforeUnmount(() => { if (adminCountTimer) clearInterval(adminCountTimer) })
 
-const listMenuOpen = ref(false)
-const listMenuRef = ref<HTMLElement | null>(null)
+const startsWith = (...prefixes: string[]) =>
+  prefixes.some((p) => route.path === p || route.path.startsWith(`${p}/`))
 
-const listActive = computed(() =>
-  route.path.startsWith('/levels')
-  || route.path.startsWith('/awaiting')
-  || route.path.startsWith('/void')
-  || route.path.startsWith('/open-verifications'),
-)
-
-function onDocClick(e: MouseEvent) {
-  if (!listMenuOpen.value) return
-  if (listMenuRef.value && !listMenuRef.value.contains(e.target as Node)) {
-    listMenuOpen.value = false
-  }
-}
-function onEsc(e: KeyboardEvent) {
-  if (e.key === 'Escape') listMenuOpen.value = false
-}
-onMounted(() => {
-  document.addEventListener('click', onDocClick)
-  document.addEventListener('keydown', onEsc)
-})
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocClick)
-  document.removeEventListener('keydown', onEsc)
-})
-
-watch(() => route.fullPath, () => { listMenuOpen.value = false })
+const buildActive = computed(() => startsWith('/builder', '/lists'))
+const listActive = computed(() => startsWith('/levels', '/awaiting', '/void', '/open-verifications'))
+const communityActive = computed(() => startsWith('/community', '/leaderboard', '/changelog', '/users', '/about'))
+const submitActive = computed(() => startsWith('/records', '/opinions') || route.path === '/levels/submit')
 </script>
 
 <template>
   <header class="border-b border-zinc-800/80 bg-zinc-950/75 backdrop-blur-md sticky top-0 z-30">
-    <div class="container-wide flex h-14 items-center justify-between gap-4">
+    <div class="container-wide flex h-14 items-center justify-between gap-3">
       <NuxtLink to="/" class="flex items-center gap-2 group shrink-0">
         <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-accent text-zinc-950 text-xs font-black tracking-tight">ALL</span>
-        <span class="hidden sm:inline text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
+        <span class="hidden lg:inline text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
       </NuxtLink>
+
       <nav class="flex items-center gap-1">
-        <!-- List + dropdown for void / awaiting -->
-        <div ref="listMenuRef" class="relative flex items-stretch">
-          <NuxtLink
-            to="/levels/1"
-            class="pl-3 pr-2 py-1.5 rounded-l-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            :class="{ 'text-zinc-100 bg-zinc-900': listActive }"
-          >List</NuxtLink>
-          <button
-            type="button"
-            class="px-1.5 py-1.5 rounded-r-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            :class="{ 'text-zinc-100 bg-zinc-900': listMenuOpen || listActive }"
-            :aria-expanded="listMenuOpen"
-            aria-haspopup="menu"
-            aria-label="Other lists"
-            @click="listMenuOpen = !listMenuOpen"
-          >
-            <svg
-              viewBox="0 0 20 20" fill="currentColor"
-              class="w-3.5 h-3.5 transition-transform"
-              :class="{ 'rotate-180': listMenuOpen }"
-              aria-hidden="true"
-            >
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
-            </svg>
-          </button>
-          <div
-            v-if="listMenuOpen"
-            role="menu"
-            class="absolute left-0 top-full mt-1.5 min-w-[13rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 p-1 z-40"
-          >
-            <NuxtLink
-              to="/levels/1"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            >Main list</NuxtLink>
-            <NuxtLink
-              to="/awaiting"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            >Awaiting placement</NuxtLink>
-            <NuxtLink
-              to="/void/1"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            >Void list</NuxtLink>
-            <NuxtLink
-              to="/open-verifications"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            >Open verifications</NuxtLink>
-            <div class="my-1 border-t border-zinc-800" />
-            <NuxtLink
-              to="/"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-accent hover:bg-accent/10 transition-colors"
-            >Build your own list</NuxtLink>
-            <NuxtLink
-              to="/about"
-              role="menuitem"
-              class="block px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            >About &amp; stats</NuxtLink>
-          </div>
-        </div>
+        <!-- Build your own list — the first menu -->
+        <NavMenu label="Build" to="/builder" :active="buildActive">
+          <NavMenuItem to="/builder" accent hint="Drag levels in and rank them yourself">Build your own list</NavMenuItem>
+          <NavMenuItem to="/lists" hint="Lists shared by the community">Public lists</NavMenuItem>
+        </NavMenu>
 
-        <NuxtLink
-          v-for="l in links"
-          :key="l.to"
-          :to="l.to"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-          active-class="text-zinc-100 bg-zinc-900"
-        >
-          {{ l.label }}
-        </NuxtLink>
+        <!-- The list -->
+        <NavMenu label="List" to="/levels/1" :active="listActive">
+          <NavMenuItem to="/levels/1" hint="Every ranked level">Main list</NavMenuItem>
+          <NavMenuItem to="/awaiting" hint="Approved, not yet placed">Awaiting placement</NavMenuItem>
+          <NavMenuItem to="/void" hint="No difficulty opinion yet">Void list</NavMenuItem>
+          <NavMenuItem to="/open-verifications" hint="Unverified levels looking for a verifier">Open verifications</NavMenuItem>
+        </NavMenu>
 
-        <NuxtLink
-          to="/records/submit"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
-          active-class="bg-zinc-700 text-zinc-100"
-        >Submit Record</NuxtLink>
-        <NuxtLink
-          to="/levels/submit"
-          class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap bg-zinc-800/80 text-zinc-200 hover:bg-zinc-700 hover:text-zinc-100 transition-colors"
-          active-class="bg-zinc-700 text-zinc-100"
-        >Submit Level</NuxtLink>
+        <!-- Community -->
+        <NavMenu label="Community" to="/community" :active="communityActive">
+          <NavMenuItem to="/community" hint="Activity from people you follow">Community hub</NavMenuItem>
+          <NavMenuItem to="/leaderboard" hint="Ranked players">Leaderboard</NavMenuItem>
+          <NavMenuItem to="/changelog" hint="Placements and movements">Changelog</NavMenuItem>
+          <NavMenuItem to="/about" hint="How the list works, and stats">About &amp; stats</NavMenuItem>
+        </NavMenu>
+
+        <!-- Submit -->
+        <NavMenu label="Submit" :active="submitActive">
+          <NavMenuItem to="/levels/find" accent hint="Search Geometry Dash and submit from results">Find a level</NavMenuItem>
+          <NavMenuItem to="/levels/submit" hint="Add a level to the list">Submit a level</NavMenuItem>
+          <NavMenuItem to="/records/submit" hint="Claim a completion">Submit a record</NavMenuItem>
+          <NavMenuItem to="/opinions/submit" hint="Rate difficulty and enjoyment">Submit an opinion</NavMenuItem>
+        </NavMenu>
 
         <NuxtLink
           v-if="me?.role && me.role !== 'user'"
@@ -201,14 +120,14 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
           </NuxtLink>
           <NuxtLink
             to="/account"
-            class="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors flex items-center gap-2"
+            class="px-2 py-1.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors flex items-center gap-2"
             active-class="text-zinc-100 bg-zinc-900"
           >
             <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
               <img v-if="me.has_avatar" :src="`/api/users/${encodeURIComponent(me.username)}/avatar`" class="w-full h-full object-cover" alt="" />
               <span v-else class="text-[10px] font-semibold text-zinc-200 leading-none uppercase">{{ me.username.charAt(0) }}</span>
             </span>
-            <span>{{ me.username }}</span>
+            <span class="hidden sm:inline">{{ me.username }}</span>
           </NuxtLink>
         </template>
         <template v-else>
@@ -216,51 +135,48 @@ watch(() => route.fullPath, () => { listMenuOpen.value = false })
           <NuxtLink to="/signup" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-accent text-zinc-950 hover:bg-accent/90 transition-colors">Sign up</NuxtLink>
         </template>
 
-        <span class="w-px h-5 bg-zinc-800 mx-1" />
-        <a
-          href="https://discord.gg/KfZvUpS3PB"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Discord"
-          class="inline-flex items-center justify-center p-1.5 rounded-lg text-zinc-400 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36" fill="currentColor" class="w-5 h-5 block" aria-hidden="true">
-            <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
-          </svg>
-        </a>
-        <a
-          href="https://www.youtube.com/@AllLevelsList"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="YouTube"
-          class="inline-flex items-center justify-center p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-zinc-900 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" class="w-5 h-5 block" aria-hidden="true">
-            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-          </svg>
-        </a>
-        <a
-          href="https://x.com/alllevelslist"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Twitter / X"
-          class="inline-flex items-center justify-center p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 block" aria-hidden="true">
-            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
-          </svg>
-        </a>
-        <a
-          href="https://tiktok.com/@alllevelslist"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="TikTok"
-          class="inline-flex items-center justify-center p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 block" aria-hidden="true">
-            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.21 8.21 0 0 0 4.81 1.54V6.79a4.85 4.85 0 0 1-1.04-.1z"/>
-          </svg>
-        </a>
+        <!-- Socials, collapsed into one menu instead of four loose icons -->
+        <NavMenu icon-only aria-label="Social links" align="right" width="min-w-[11rem]">
+          <template #trigger>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]" aria-hidden="true">
+              <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+              <path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" />
+            </svg>
+          </template>
+          <NavMenuItem href="https://discord.gg/KfZvUpS3PB">
+            <template #icon>
+              <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-4 h-4 shrink-0 text-[#5865F2]" aria-hidden="true">
+                <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
+              </svg>
+            </template>
+            Discord
+          </NavMenuItem>
+          <NavMenuItem href="https://www.youtube.com/@AllLevelsList">
+            <template #icon>
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 shrink-0 text-red-500" aria-hidden="true">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+            </template>
+            YouTube
+          </NavMenuItem>
+          <NavMenuItem href="https://x.com/alllevelslist">
+            <template #icon>
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 shrink-0 text-zinc-200" aria-hidden="true">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
+              </svg>
+            </template>
+            Twitter / X
+          </NavMenuItem>
+          <NavMenuItem href="https://tiktok.com/@alllevelslist">
+            <template #icon>
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 shrink-0 text-zinc-200" aria-hidden="true">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.21 8.21 0 0 0 4.81 1.54V6.79a4.85 4.85 0 0 1-1.04-.1z"/>
+              </svg>
+            </template>
+            TikTok
+          </NavMenuItem>
+        </NavMenu>
+
         <ThemeMenu />
       </nav>
     </div>

@@ -2,7 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 
-const VALID_KINDS = new Set(['profile', 'progress', 'open_verification'])
+const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 const MAX_BODY = 1000
 
 function ownerOf(
@@ -22,6 +22,13 @@ function ownerOf(
     const row = db.prepare(`SELECT submitted_by FROM open_verifications WHERE id = ?`).get(targetId) as { submitted_by: number | null } | undefined
     if (!row?.submitted_by) return null
     return { account_id: row.submitted_by, label: 'your open verification' }
+  }
+  if (kind === 'level') {
+    // Levels have no owner to notify unless a user submitted them; sheet
+    // imports have submitted_by = NULL and simply produce no inbox message.
+    const row = db.prepare(`SELECT submitted_by FROM levels WHERE id = ?`).get(targetId) as { submitted_by: number | null } | undefined
+    if (!row?.submitted_by) return null
+    return { account_id: row.submitted_by, label: 'a level you submitted' }
   }
   return null
 }
