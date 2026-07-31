@@ -34,8 +34,8 @@ type Row = {
  * that most moves land without leaving the window; "Show more" extends it in
  * the same increment when they don't.
  */
-const WINDOW = 75
-const EXTEND_BY = 75
+const WINDOW = 40
+const EXTEND_BY = 60
 
 const rows = ref<Row[]>([])
 const loading = ref(false)
@@ -100,6 +100,7 @@ const dropIndex = ref<number | null>(null)
 
 function onDragStart(e: DragEvent, i: number) {
   dragIndex.value = i
+  dragBox = scrollEl.value?.getBoundingClientRect() ?? null
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
   e.dataTransfer?.setData('text/plain', String(i))
 }
@@ -119,11 +120,15 @@ const EDGE_PX = 56
 const MAX_STEP = 18
 let scrollTimer: ReturnType<typeof setInterval> | null = null
 let scrollStep = 0
+// dragover fires continuously; reading the container's rect each time forces a
+// layout on every event and is what made dragging feel like it was chugging.
+// The container can't move during a drag, so measure once per drag instead.
+let dragBox: DOMRect | null = null
 
 function autoScroll(clientY: number) {
   const el = scrollEl.value
   if (!el) return
-  const box = el.getBoundingClientRect()
+  const box = dragBox ?? (dragBox = el.getBoundingClientRect())
   const fromTop = clientY - box.top
   const fromBottom = box.bottom - clientY
 
@@ -149,6 +154,7 @@ function stopAutoScroll() {
 function endDrag() {
   dragIndex.value = null
   dropIndex.value = null
+  dragBox = null
   stopAutoScroll()
 }
 onBeforeUnmount(stopAutoScroll)
@@ -277,11 +283,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
                 @dragstart="onDragStart($event, i)"
                 @dragend="endDrag"
               >
+                <!-- Only the dragged row gets a thumbnail. Every row loading a
+                     remote image turned opening this dialog into ~80 parallel
+                     requests, and the surrounding rows are context, not the
+                     subject. -->
                 <LevelThumbBg
+                  v-if="r.position === position"
                   :gd-id="r.gd_id"
                   :video-url="r.verification_url"
                   res="small"
-                  :img-class="r.position === position ? 'opacity-45' : 'opacity-15'"
+                  img-class="opacity-45"
                   overlay-class="bg-gradient-to-r from-zinc-950/92 via-zinc-950/70 to-zinc-950/35"
                 />
                 <span

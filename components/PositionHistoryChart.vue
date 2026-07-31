@@ -4,8 +4,11 @@
  * top) so a line falling visually means the level fell down the list.
  *
  * Two optional series:
- *   - `allSeries`   — ALL placements (native moves + converted AREDL history)
- *   - `aredlSeries` — raw AREDL placements (toggleable overlay)
+ *   - `allSeries`   — moves recorded on this site (real ALL placements)
+ *   - `aredlSeries` — AREDL's own placements over time
+ *
+ * Both are real observations. Historical ALL placements converted from AREDL
+ * ranks are deliberately excluded — see the note in LevelDetail.
  */
 type Point = { at: string; position: number }
 const props = defineProps<{
@@ -13,7 +16,7 @@ const props = defineProps<{
   aredlSeries?: Point[]
 }>()
 
-const showAredl = ref(false)
+const showAredl = ref(true)
 
 const W = 640
 const H = 230
@@ -168,8 +171,8 @@ function onMove(e: MouseEvent) {
       <div class="flex items-center gap-3 text-[10px]">
         <!-- Legend doubles as the AREDL toggle, so clicks inside it must not
              collapse the chart. -->
-        <span class="hidden group-open:inline-flex items-center gap-1.5 text-zinc-400">
-          <span class="w-2.5 h-0.5 rounded bg-accent inline-block" /> ALL
+        <span v-if="props.allSeries.length" class="hidden group-open:inline-flex items-center gap-1.5 text-zinc-400">
+          <span class="w-2.5 h-0.5 rounded bg-accent inline-block" /> ALL moves
         </span>
         <button
           v-if="props.aredlSeries?.length"
@@ -179,7 +182,7 @@ function onMove(e: MouseEvent) {
           @click.prevent.stop="showAredl = !showAredl"
         >
           <span class="w-2.5 h-0.5 rounded inline-block" :class="showAredl ? 'bg-sky-400' : 'bg-zinc-700'" />
-          AREDL raw
+          AREDL placement
         </button>
         <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
       </div>
@@ -210,7 +213,7 @@ function onMove(e: MouseEvent) {
         class="fill-zinc-500" font-size="10"
       >{{ t.label }}</text>
 
-      <!-- AREDL raw overlay -->
+      <!-- AREDL placement over time -->
       <path v-if="showAredl && aredlPath" :d="aredlPath" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.75" />
       <!-- ALL placements -->
       <path v-if="allPath" :d="allPath" fill="none" stroke="rgb(var(--c-accent))" stroke-width="2" stroke-linejoin="round" />

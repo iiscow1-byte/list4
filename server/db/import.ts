@@ -276,8 +276,13 @@ async function importLevels() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?)
   `)
   // Refreshed on every run for rows that already exist, so a curator
-  // renumbering the sheet shows up without needing a wipe.
-  const updSheetPlacement = db.prepare(`UPDATE levels SET sheet_placement = ? WHERE id = ?`)
+  // renumbering, renaming, or filling in the Level ID shows up without a wipe.
+  const updSheetRow = db.prepare(
+    `UPDATE levels SET sheet_placement = ?, name = ?, gd_id = COALESCE(?, gd_id) WHERE id = ?`,
+  )
+  // A level that has fallen off the sheet keeps its position but must not keep
+  // advertising a stale placement — that's what put a "#5" between #19 and #20.
+  const clearSheetPlacement = db.prepare(`UPDATE levels SET sheet_placement = NULL WHERE id = ?`)
 
   // Levels that have a permanent counterpart are owned by the website, not the
   // sheet — skip any incoming row matching one of these gd_ids.
@@ -288,11 +293,60 @@ async function importLevels() {
 
   // Pre-load existing rows so we can decide insert vs. reuse-and-reposition.
   // Lowercased name matches the COLLATE NOCASE index on levels.name.
-  const existingByKey = new Map<string, number>()  // key -> id
-  for (const row of db
+  //
+  // Matching on (gd_id, name) alone is too strict: a curator renaming a level,
+  // or filling in a Level ID that was previously blank, changes the key and the
+  // old row survives as a second copy of the same level. Two fallback indexes
+  // catch those, both restricted to values that are *unambiguous* so they can
+  // never merge genuinely distinct entries — Solo/2P variants share a gd_id and
+  // Old/Unnerfed re-releases share nothing but a similar name, so both stay
+  // separate rows.
+  const existingRows = db
     .prepare(`SELECT id, gd_id, name FROM levels WHERE permanent = 0 OR permanent IS NULL`)
-    .all() as { id: number; gd_id: number | null; name: string }[]) {
+    .all() as { id: number; gd_id: number | null; name: string }[]
+
+  const existingByKey = new Map<string, number>()   // "gd_id|name" -> id
+  const nameCounts = new Map<string, number>()
+  const gdCounts = new Map<number, number>()
+  for (const row of existingRows) {
     existingByKey.set(dupKey(row.gd_id, row.name), row.id)
+    const n = row.name.toLowerCase()
+    nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1)
+    if (row.gd_id != null) gdCounts.set(row.gd_id, (gdCounts.get(row.gd_id) ?? 0) + 1)
+  }
+  const existingByName = new Map<string, number>()  // unique lowercase name -> id
+  const existingByGd = new Map<number, number>()    // unique gd_id -> id
+  for (const row of existingRows) {
+    const n = row.name.toLowerCase()
+    if (nameCounts.get(n) === 1) existingByName.set(n, row.id)
+    if (row.gd_id != null && gdCounts.get(row.gd_id) === 1) existingByGd.set(row.gd_id, row.id)
+  }
+
+  /** Ids already claimed by a sheet row this run, so two rows can't share one. */
+  const claimed = new Set<number>()
+
+  /**
+   * Resolve a sheet row to an existing level. Exact key first, then the
+   * unambiguous fallbacks. `sheetGdCounts` guards the gd_id fallback: if the
+   * sheet itself lists that id twice (a Solo/2P pair), matching on it would
+   * collapse the pair into one row.
+   */
+  function findExistingLevel(
+    gdId: number | null,
+    name: string,
+    sheetGdCounts: Map<number, number>,
+  ): number | undefined {
+    const exact = existingByKey.get(dupKey(gdId, name))
+    if (exact !== undefined && !claimed.has(exact)) return exact
+
+    const byName = existingByName.get(name.toLowerCase())
+    if (byName !== undefined && !claimed.has(byName)) return byName
+
+    if (gdId != null && (sheetGdCounts.get(gdId) ?? 0) === 1) {
+      const byGd = existingByGd.get(gdId)
+      if (byGd !== undefined && !claimed.has(byGd)) return byGd
+    }
+    return undefined
   }
 
   // Sheet placement numbers are not authoritative — the row order *within* each
@@ -314,9 +368,24 @@ async function importLevels() {
   const hadLevelsBefore = tempPos > 0
 
   const sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[] = []
+  const seenKeys = new Set<string>()
   let total = 0
   let skipped = 0
   let permSkipped = 0
+
+  // --- Phase 1: fetch every tab, then count how often each Level ID appears
+  // across the whole sheet. The gd_id fallback in findExistingLevel is only
+  // safe for ids the sheet lists once; a Solo/2P pair shares an id, and
+  // matching on it would collapse the pair into a single row.
+  type FetchedTab = {
+    tab: (typeof TABS)[number]
+    text: string[][]
+    html: string[][]
+    cols: Record<string, number>
+    headerIdx: number
+  }
+  const fetched: FetchedTab[] = []
+  const sheetGdCounts = new Map<number, number>()
 
   for (const tab of TABS) {
     process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
@@ -331,6 +400,20 @@ async function importLevels() {
     if (c['placement on verification'] != null) {
       c['placement on verification'] = c['placement on verification'] + 1
     }
+    console.log(`${text.length - found.headerIdx - 1} rows`)
+    fetched.push({ tab, text, html, cols: c, headerIdx: found.headerIdx })
+
+    for (let i = found.headerIdx + 1; i < text.length; i++) {
+      const r = text[i]!
+      if (!txt(r[c['level name']!]) || num(r[c['placement']!]) === null) continue
+      const gd = num(r[c['level id']!])
+      if (gd != null) sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
+    }
+  }
+
+  // --- Phase 2: reconcile the sheet against the database.
+  for (const { tab, text, html, cols: c, headerIdx } of fetched) {
+    const found = { headerIdx }
     const sourceCol = c['source'] ?? c['primary source']
     const verCol = c['verification link']
     let imported = 0
@@ -347,16 +430,22 @@ async function importLevels() {
         const gdId = num(r[c['level id']!])
         if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
         const key = dupKey(gdId, name)
-        // Already encountered earlier in the sheet (or already in the DB) —
-        // record sheet rank but don't re-insert.
-        if (sheetOrder.some((s) => s.key === key)) continue
+        // Already encountered earlier in the sheet — record nothing twice.
+        // A Set lookup, not a scan: the old `sheetOrder.some(...)` was O(n²)
+        // over 54k rows.
+        if (seenKeys.has(key)) continue
+        seenKeys.add(key)
         const ratedRaw = txt(r[c['rated']!])
         const sheetRated = ratedRaw?.toLowerCase() === 'challenge' ? 'Challenge' : null
         sheetOrder.push({ key, gdId, name, rated: sheetRated })
 
-        const known = existingByKey.get(key)
+        const known = findExistingLevel(gdId, name, sheetGdCounts)
         if (known !== undefined) {
-          updSheetPlacement.run(placement, known)
+          claimed.add(known)
+          // The row may have been found by a fallback because the sheet
+          // renamed it or filled in its Level ID — write both back so the
+          // next run matches on the exact key again.
+          updSheetRow.run(placement, name, gdId, known)
           continue
         }
 
@@ -401,6 +490,21 @@ async function importLevels() {
   // sheet entries flow around them. Rows still in the DB but no longer on the
   // sheet (e.g. a level the curators removed) drift to the end of the list,
   // ordered by their previous position; nothing is deleted automatically.
+  // Levels no longer on the sheet: drop their placement so the list never
+  // shows a number the sheet doesn't back, and name them so a curator can see
+  // what a rename or deletion left behind.
+  const strays = existingRows.filter((r) => !claimed.has(r.id) && !newIds.has(r.id))
+  if (strays.length) {
+    db.exec('BEGIN')
+    try {
+      for (const s of strays) clearSheetPlacement.run(s.id)
+      db.exec('COMMIT')
+    } catch (e) { db.exec('ROLLBACK'); throw e }
+    console.log(`${strays.length} level(s) no longer on the sheet — placement cleared:`)
+    for (const s of strays.slice(0, 20)) console.log(`  · ${s.name}${s.gd_id ? ` (${s.gd_id})` : ''}`)
+    if (strays.length > 20) console.log(`  … and ${strays.length - 20} more`)
+  }
+
   const orphans = applySheetOrder(db, sheetOrder, { newIds, recordHistory: hadLevelsBefore })
   applyRatedFromSheet(db, sheetOrder)
 

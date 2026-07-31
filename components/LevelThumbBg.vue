@@ -40,10 +40,36 @@ function initialStage(): Stage {
   return 'primary'
 }
 
+const imgEl = ref<HTMLImageElement | null>(null)
+
+/**
+ * A server-rendered <img> often finishes loading (or fails) before hydration
+ * attaches these handlers — from cache that's essentially always. The events
+ * are gone by then, so `loaded` would stay false and the image would sit at
+ * opacity-0 forever: the "thumbnails sometimes don't show after a refresh"
+ * bug. Reconcile against the element's own state on mount instead of waiting
+ * for an event that has already fired.
+ */
+function syncFromDom() {
+  const el = imgEl.value
+  if (!el) return
+  if (el.complete) {
+    if (el.naturalWidth > 0) loaded.value = true
+    else onError()
+  }
+}
+
 // `isKnownThumbMiss` reads localStorage, so the server has no idea which
 // levels are misses. Starting at 'primary' on both sides keeps the markup
 // identical during hydration; the cache is consulted once mounted.
-onMounted(() => { stage.value = initialStage() })
+onMounted(() => {
+  const next = initialStage()
+  if (next === stage.value) syncFromDom()
+  else stage.value = next
+})
+
+// Each stage swaps the src, so re-check once the new <img> is in the DOM.
+watch(stage, () => nextTick(syncFromDom))
 
 const url = computed(() => {
   if (stage.value === 'primary') return levelThumbUrl(props.gdId, res.value)
@@ -74,6 +100,7 @@ watch(
   >
     <img
       :key="url"
+      ref="imgEl"
       :src="url"
       alt=""
       loading="lazy"

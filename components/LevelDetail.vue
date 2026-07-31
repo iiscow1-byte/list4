@@ -964,21 +964,27 @@ const historyByDay = computed(() => {
 })
 
 // --- Placement graph series ---
-// ALL line: the converted AREDL trace (fine-grained, includes passive shifts)
-// plus native moves. AREDL self-moves in position_history are skipped here —
-// they're already part of the trace. Ends at the current placement.
+//
+// Historical ALL placements are deliberately *not* plotted. The only long-run
+// history we have is AREDL's, and converting an old AREDL rank into an ALL
+// placement uses today's anchor mapping — a level at AREDL #50 in 2019 sat at a
+// completely different ALL placement than AREDL #50 does now, so those
+// converted numbers described a list that never existed and made the line
+// wander in ways the level never did. What's left is two series of real
+// observations: moves this site actually recorded, and AREDL's own ranks.
+
+/** Moves recorded on this site — genuine ALL placements, dated when they happened. */
 const chartAllSeries = computed(() => {
-  const pts: { at: string; position: number }[] = []
-  for (const e of props.level.aredl_history ?? []) {
-    if (e.all_position != null) pts.push({ at: e.action_at, position: e.all_position })
-  }
-  for (const h of props.level.position_history ?? []) {
-    if ((h.source ?? 'all') !== 'aredl') pts.push({ at: h.changed_at, position: h.to_position })
-  }
+  const pts = (props.level.position_history ?? [])
+    .filter((h) => (h.source ?? 'all') !== 'aredl')
+    .map((h) => ({ at: h.changed_at, position: h.to_position }))
   pts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
-  pts.push({ at: new Date().toISOString(), position: props.level.position })
+  // Only extend to "now" when there's real history to extend.
+  if (pts.length) pts.push({ at: new Date().toISOString(), position: props.level.position })
   return pts
 })
+
+/** AREDL's own placement over time — untranslated, so it reflects real movement. */
 const chartAredlSeries = computed(() =>
   (props.level.aredl_history ?? [])
     .filter((e) => e.aredl_position != null)
