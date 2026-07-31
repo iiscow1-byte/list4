@@ -82,6 +82,13 @@ function stepPath(pts: { t: number; pos: number }[], extendToNow: boolean): stri
   return dStr
 }
 
+// Set the first time the <details> is expanded and never cleared, so
+// collapsing and reopening doesn't rebuild the SVG.
+const opened = ref(false)
+function onToggle(e: Event) {
+  if ((e.target as HTMLDetailsElement).open) opened.value = true
+}
+
 const allPath = computed(() => (domain.value ? stepPath(series.value.all, true) : ''))
 const aredlPath = computed(() => (domain.value ? stepPath(series.value.aredl, true) : ''))
 
@@ -151,25 +158,36 @@ function onMove(e: MouseEvent) {
 </script>
 
 <template>
-  <section v-if="hasData" class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
-    <div class="px-4 py-3 border-b border-zinc-800/80 flex items-center justify-between gap-3">
+  <details
+    v-if="hasData"
+    class="group rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden"
+    @toggle="onToggle"
+  >
+    <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 list-none hover:bg-zinc-900/40 transition-colors">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement over time</h3>
       <div class="flex items-center gap-3 text-[10px]">
-        <span class="inline-flex items-center gap-1.5 text-zinc-400">
+        <!-- Legend doubles as the AREDL toggle, so clicks inside it must not
+             collapse the chart. -->
+        <span class="hidden group-open:inline-flex items-center gap-1.5 text-zinc-400">
           <span class="w-2.5 h-0.5 rounded bg-accent inline-block" /> ALL
         </span>
         <button
           v-if="props.aredlSeries?.length"
           type="button"
-          class="inline-flex items-center gap-1.5 transition-colors"
+          class="hidden group-open:inline-flex items-center gap-1.5 transition-colors"
           :class="showAredl ? 'text-sky-300' : 'text-zinc-600 hover:text-zinc-400'"
-          @click="showAredl = !showAredl"
+          @click.prevent.stop="showAredl = !showAredl"
         >
           <span class="w-2.5 h-0.5 rounded inline-block" :class="showAredl ? 'bg-sky-400' : 'bg-zinc-700'" />
           AREDL raw
         </button>
+        <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
       </div>
-    </div>
+    </summary>
+    <div class="border-t border-zinc-800/80">
+      <!-- Mounted only once opened: a level with hundreds of history points
+           shouldn't pay for an SVG nobody expanded. -->
+      <template v-if="opened">
     <svg
       ref="svgEl"
       :viewBox="`0 0 ${W} ${H}`"
@@ -218,5 +236,7 @@ function onMove(e: MouseEvent) {
         </g>
       </template>
     </svg>
-  </section>
+      </template>
+    </div>
+  </details>
 </template>

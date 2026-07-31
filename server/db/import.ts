@@ -1,5 +1,6 @@
 import { getDb } from './index.ts'
 import { recomputePoints } from '../utils/points.ts'
+import { repairSandwichedTiers } from '../utils/tier-repair.ts'
 
 const SHEET_BASE_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
@@ -306,6 +307,12 @@ async function importLevels() {
   // sheet's current ordering.
   let tempPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
 
+  // Ids inserted by this run, and whether the list existed beforehand. The
+  // first seed of an empty database isn't news — writing 54,000 "added"
+  // entries for it would bury every real change under the initial import.
+  const newIds = new Set<number>()
+  const hadLevelsBefore = tempPos > 0
+
   const sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[] = []
   let total = 0
   let skipped = 0
@@ -376,6 +383,7 @@ async function importLevels() {
           sheetRated,
           placement,
         )
+        newIds.add(Number(result.lastInsertRowid))
         existingByKey.set(key, Number(result.lastInsertRowid))
         imported++
       }
@@ -393,8 +401,15 @@ async function importLevels() {
   // sheet entries flow around them. Rows still in the DB but no longer on the
   // sheet (e.g. a level the curators removed) drift to the end of the list,
   // ordered by their previous position; nothing is deleted automatically.
-  const orphans = applySheetOrder(db, sheetOrder)
+  const orphans = applySheetOrder(db, sheetOrder, { newIds, recordHistory: hadLevelsBefore })
   applyRatedFromSheet(db, sheetOrder)
+
+  // A level whose tier disagrees with both neighbours (Tier 31, 30, 31) is a
+  // sheet typo — correct it before points are derived from those tiers.
+  const tierFixes = repairSandwichedTiers(db)
+  for (const f of tierFixes) {
+    console.log(`  tier fix: #${f.position} ${f.name}: ${f.from} → ${f.to}`)
+  }
 
   // Points are derived from tier + position; recompute against the freshly
   // settled list ordering so every level (including imports just renumbered)
@@ -410,7 +425,8 @@ async function importLevels() {
     `\nImported ${total} new levels; renumbered all non-permanent rows by sheet order ` +
     `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
     `${permSkipped} skipped — owned by permanent records. Points recomputed. ` +
-    `${flagged} level(s) auto-flagged "same as above".`,
+    `${flagged} level(s) auto-flagged "same as above". ` +
+    `${tierFixes.length} sandwiched tier(s) corrected.`,
   )
 }
 
@@ -521,6 +537,7 @@ function applyRatedFromSheet(
 function applySheetOrder(
   db: ReturnType<typeof getDb>,
   sheetOrder: { key: string; gdId: number | null; name: string }[],
+  opts: { newIds?: Set<number>; recordHistory?: boolean } = {},
 ): number {
   const sheetRank = new Map<string, number>()
   sheetOrder.forEach((s, i) => sheetRank.set(s.key, i))
@@ -528,6 +545,10 @@ function applySheetOrder(
   const allNonPerm = db
     .prepare(`SELECT id, gd_id, name, position FROM levels WHERE permanent = 0 OR permanent IS NULL`)
     .all() as { id: number; gd_id: number | null; name: string; position: number }[]
+
+  // Positions before the renumber, so real movements can be told apart from
+  // the passive shifting every level does when rows are inserted above it.
+  const oldPositions = new Map<number, number>(allNonPerm.map((r) => [r.id, r.position]))
 
   const ranked = allNonPerm.map((r) => ({
     id: r.id,
@@ -561,7 +582,82 @@ function applySheetOrder(
     throw e
   }
 
+  if (opts.recordHistory) {
+    recordSheetMovements(db, {
+      oldPositions,
+      newPositions: new Map(ranked.map((r, i) => [r.id, targets[i]!])),
+      newIds: opts.newIds ?? new Set(),
+    })
+  }
+
   return ranked.filter((r) => !Number.isFinite(r.rank)).length
+}
+
+/**
+ * Write changelog entries for a sheet refresh.
+ *
+ * Every level's absolute position moves whenever rows are inserted above it,
+ * so absolute position is useless as a "did this move?" signal — a single new
+ * level at the top would otherwise generate 54,000 changelog entries. What
+ * matters is a level's rank *among the levels that were already on the list*:
+ * insertions and removals leave that untouched, so a change to it means the
+ * curators genuinely re-ranked the level against its peers.
+ *
+ * Newly imported levels get an "added" entry (from_position NULL), which is
+ * what the changelog renders as "Added".
+ */
+function recordSheetMovements(
+  db: ReturnType<typeof getDb>,
+  args: {
+    oldPositions: Map<number, number>
+    newPositions: Map<number, number>
+    newIds: Set<number>
+  },
+): void {
+  const { oldPositions, newPositions, newIds } = args
+
+  // Survivors: on the list before this run and still on it now.
+  const survivors = [...newPositions.keys()].filter((id) => !newIds.has(id) && oldPositions.has(id))
+
+  const oldRank = new Map<number, number>()
+  survivors
+    .slice()
+    .sort((a, b) => oldPositions.get(a)! - oldPositions.get(b)!)
+    .forEach((id, i) => oldRank.set(id, i))
+
+  const newRank = new Map<number, number>()
+  survivors
+    .slice()
+    .sort((a, b) => newPositions.get(a)! - newPositions.get(b)!)
+    .forEach((id, i) => newRank.set(id, i))
+
+  const ins = db.prepare(
+    `INSERT INTO position_history (level_id, from_position, to_position, changed_by, source)
+     VALUES (?, ?, ?, NULL, 'all')`,
+  )
+
+  let moves = 0
+  let adds = 0
+  db.exec('BEGIN')
+  try {
+    for (const id of survivors) {
+      if (oldRank.get(id) === newRank.get(id)) continue
+      ins.run(id, oldPositions.get(id)!, newPositions.get(id)!)
+      moves++
+    }
+    for (const id of newIds) {
+      const pos = newPositions.get(id)
+      if (pos == null) continue
+      ins.run(id, null, pos)
+      adds++
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+
+  console.log(`Changelog: ${adds} level(s) added, ${moves} genuinely re-ranked.`)
 }
 
 async function importLeaderboard() {

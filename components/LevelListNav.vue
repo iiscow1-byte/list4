@@ -9,6 +9,7 @@ type LevelRow = {
   points: number | null
   gddl_tier: string | null
   gd_id?: number | null
+  verification_url?: string | null
   gddl_tier_frac?: number | null
   sheet_placement?: number | null
   displayRank?: number
@@ -877,6 +878,7 @@ watch(
           >
             <LevelThumbBg
               :gd-id="lvl.gd_id"
+              :video-url="lvl.verification_url"
               res="small"
               :img-class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position) ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
               overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
@@ -899,6 +901,7 @@ watch(
           >
             <LevelThumbBg
               :gd-id="lvl.gd_id"
+              :video-url="lvl.verification_url"
               res="small"
               :img-class="lvl.position === activePosition ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
               overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"

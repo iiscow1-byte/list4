@@ -992,6 +992,7 @@ const chartAredlSeries = computed(() =>
     <div class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
       <LevelThumbBg
         :gd-id="level.gd_id"
+        :video-url="level.verification_url"
         res="high"
         img-class="opacity-45 scale-105"
         overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"

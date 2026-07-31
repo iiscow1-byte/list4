@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
-import { requireAccount, isAdminRole } from '~/server/utils/auth'
+import { requireAccount } from '~/server/utils/auth'
+import { canEditList } from '~/server/utils/custom-list-perms'
 
 /** Remove a record from a custom list — owner, site admin, or its submitter. */
 export default defineEventHandler((event) => {
@@ -18,9 +19,7 @@ export default defineEventHandler((event) => {
   ).get(recordId, list.id) as { id: number; submitted_by: number | null } | undefined
   if (!record) throw createError({ statusCode: 404, statusMessage: 'Record not found' })
 
-  const allowed = list.owner_account_id === account.id
-    || isAdminRole(account.role)
-    || record.submitted_by === account.id
+  const allowed = canEditList(db, list, account) || record.submitted_by === account.id
   if (!allowed) throw createError({ statusCode: 403, statusMessage: 'Not allowed.' })
 
   db.prepare(`DELETE FROM custom_list_records WHERE id = ?`).run(recordId)

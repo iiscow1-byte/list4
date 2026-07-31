@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { canEditList } from '~/server/utils/custom-list-perms'
 import { loadList, replaceItems, MAX_ITEMS, type CustomListItemInput } from '~/server/utils/custom-lists'
 
 /** Owner-only update. Any provided field replaces the stored one wholesale. */
@@ -23,7 +24,7 @@ export default defineEventHandler(async (event) => {
     `SELECT id, owner_account_id FROM custom_lists WHERE public_id = ?`,
   ).get(publicId) as { id: number; owner_account_id: number } | undefined
   if (!row) throw createError({ statusCode: 404, statusMessage: 'List not found' })
-  if (row.owner_account_id !== account.id) {
+  if (!canEditList(db, row, account)) {
     throw createError({ statusCode: 403, statusMessage: 'Not your list' })
   }
 

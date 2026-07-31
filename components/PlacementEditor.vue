@@ -26,38 +26,71 @@ type Row = {
   name: string
   gd_id: number | null
   gddl_tier: string | null
+  verification_url?: string | null
 }
 
-/** How many levels to show on each side of the level being moved. */
-const WINDOW = 25
+/**
+ * How many levels to show on each side of the level being moved. Wide enough
+ * that most moves land without leaving the window; "Show more" extends it in
+ * the same increment when they don't.
+ */
+const WINDOW = 75
+const EXTEND_BY = 75
 
 const rows = ref<Row[]>([])
 const loading = ref(false)
+const extending = ref(false)
 const error = ref<string | null>(null)
 const applying = ref(false)
 // Position of the window's first row, so a local index maps back to a real
 // list position.
 const windowStart = ref(1)
+/** Half-width of the currently loaded window; grows via "Show more". */
+const span = ref(WINDOW)
+const scrollEl = ref<HTMLElement | null>(null)
 
-async function load() {
-  loading.value = true
+async function load(opts: { keepScroll?: boolean } = {}) {
+  const setBusy = opts.keepScroll ? extending : loading
+  setBusy.value = true
   error.value = null
+  const prevHeight = scrollEl.value?.scrollHeight ?? 0
+  const prevTop = scrollEl.value?.scrollTop ?? 0
   try {
-    const start = Math.max(1, props.position - WINDOW)
+    const start = Math.max(1, props.position - span.value)
     const res = await $fetch<{ items: Row[] }>('/api/levels', {
-      query: { page: 1, pageSize: WINDOW * 2 + 1, fromPosition: start },
+      query: { page: 1, pageSize: span.value * 2 + 1, fromPosition: start },
     })
     rows.value = res.items
     windowStart.value = res.items[0]?.position ?? start
+    await nextTick()
+    if (opts.keepScroll && scrollEl.value) {
+      // Rows were prepended above; hold the viewport where the user left it.
+      scrollEl.value.scrollTop = prevTop + (scrollEl.value.scrollHeight - prevHeight)
+    } else {
+      scrollToMoving()
+    }
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? 'Could not load the surrounding levels.'
   } finally {
-    loading.value = false
+    setBusy.value = false
   }
 }
 
-watch(() => props.open, (open) => { if (open) load() }, { immediate: true })
-watch(() => props.position, () => { if (props.open) load() })
+async function showMore() {
+  if (extending.value) return
+  span.value += EXTEND_BY
+  await load({ keepScroll: true })
+}
+
+/** Centre the dragged row so it's always in view when the dialog opens. */
+async function scrollToMoving() {
+  await nextTick()
+  scrollEl.value?.querySelector<HTMLElement>('[data-moving="1"]')
+    ?.scrollIntoView({ block: 'center' })
+}
+
+watch(() => props.open, (open) => { if (open) { span.value = WINDOW; load() } }, { immediate: true })
+watch(() => props.position, () => { if (props.open) { span.value = WINDOW; load() } })
 
 const movingIndex = computed(() => rows.value.findIndex((r) => r.position === props.position))
 
@@ -74,7 +107,51 @@ function onDragOver(e: DragEvent, i: number) {
   if (dragIndex.value == null) return
   e.preventDefault()
   dropIndex.value = i
+  autoScroll(e.clientY)
 }
+
+/**
+ * Scroll the list while a drag hovers near its top or bottom edge. HTML5 drag
+ * and drop suppresses normal scrolling, so without this a window taller than
+ * the dialog can only be reordered as far as the visible rows.
+ */
+const EDGE_PX = 56
+const MAX_STEP = 18
+let scrollTimer: ReturnType<typeof setInterval> | null = null
+let scrollStep = 0
+
+function autoScroll(clientY: number) {
+  const el = scrollEl.value
+  if (!el) return
+  const box = el.getBoundingClientRect()
+  const fromTop = clientY - box.top
+  const fromBottom = box.bottom - clientY
+
+  if (fromTop < EDGE_PX) scrollStep = -Math.ceil(((EDGE_PX - fromTop) / EDGE_PX) * MAX_STEP)
+  else if (fromBottom < EDGE_PX) scrollStep = Math.ceil(((EDGE_PX - fromBottom) / EDGE_PX) * MAX_STEP)
+  else scrollStep = 0
+
+  if (scrollStep !== 0 && !scrollTimer) {
+    scrollTimer = setInterval(() => {
+      if (!scrollEl.value || scrollStep === 0) return
+      scrollEl.value.scrollTop += scrollStep
+    }, 16)
+  } else if (scrollStep === 0) {
+    stopAutoScroll()
+  }
+}
+
+function stopAutoScroll() {
+  if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null }
+  scrollStep = 0
+}
+
+function endDrag() {
+  dragIndex.value = null
+  dropIndex.value = null
+  stopAutoScroll()
+}
+onBeforeUnmount(stopAutoScroll)
 function onDrop(e: DragEvent, i: number) {
   e.preventDefault()
   const from = dragIndex.value
@@ -85,8 +162,7 @@ function onDrop(e: DragEvent, i: number) {
     if (moved) next.splice(to, 0, moved)
     rows.value = next
   }
-  dragIndex.value = null
-  dropIndex.value = null
+  endDrag()
 }
 function nudge(delta: number) {
   const i = movingIndex.value
@@ -140,12 +216,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
         role="dialog"
         aria-modal="true"
         aria-label="Drag to place level"
-        class="relative w-full max-w-2xl max-h-[88vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
+        class="relative w-full max-w-3xl h-[92vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
       >
         <div class="px-4 py-3 border-b border-zinc-800 flex items-center gap-3">
           <div class="min-w-0">
             <h2 class="text-sm font-semibold text-zinc-100 truncate">Place “{{ name }}”</h2>
-            <p class="text-[11px] text-zinc-500">Drag the highlighted row, or use ↑ ↓, then apply.</p>
+            <p class="text-[11px] text-zinc-500">Drag the highlighted row — the list scrolls at the edges — or use ↑ ↓.</p>
           </div>
           <div class="ml-auto flex items-center gap-1.5 shrink-0">
             <button
@@ -173,9 +249,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
           </div>
         </div>
 
-        <div class="flex-1 min-h-0 overflow-y-auto p-2">
+        <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto p-2">
           <p v-if="loading" class="py-10 text-center text-xs text-zinc-500">Loading…</p>
           <ul v-else class="space-y-0.5">
+            <li v-if="windowStart > 1" class="pb-1">
+              <button
+                type="button"
+                :disabled="extending"
+                class="w-full rounded-lg border border-dashed border-zinc-800 text-[11px] text-zinc-500 py-1.5 hover:border-zinc-600 hover:text-zinc-300 disabled:opacity-50 transition-colors"
+                @click="showMore"
+              >{{ extending ? 'Loading…' : `Show ${EXTEND_BY} more above and below` }}</button>
+            </li>
             <template v-for="(r, i) in rows" :key="r.position">
               <li
                 class="rounded transition-all"
@@ -185,15 +269,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
               />
               <li
                 :draggable="r.position === position"
+                :data-moving="r.position === position ? '1' : undefined"
                 class="relative overflow-hidden flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-lg text-sm group transition-all"
                 :class="r.position === position
                   ? 'ring-2 ring-inset ring-accent bg-accent/10 cursor-grab active:cursor-grabbing text-zinc-50'
                   : 'text-zinc-400 ring-1 ring-inset ring-transparent'"
                 @dragstart="onDragStart($event, i)"
-                @dragend="dragIndex = null; dropIndex = null"
+                @dragend="endDrag"
               >
                 <LevelThumbBg
                   :gd-id="r.gd_id"
+                  :video-url="r.verification_url"
                   res="small"
                   :img-class="r.position === position ? 'opacity-45' : 'opacity-15'"
                   overlay-class="bg-gradient-to-r from-zinc-950/92 via-zinc-950/70 to-zinc-950/35"

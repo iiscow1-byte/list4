@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { getCurrentAccount } from '~/server/utils/auth'
+import { canEditList, canAdministerList, loadEditors } from '~/server/utils/custom-list-perms'
 import { loadList } from '~/server/utils/custom-lists'
 
 /** Public read by share token. `can_edit` tells the client to show controls. */
@@ -15,5 +16,11 @@ export default defineEventHandler((event) => {
     ? !!db.prepare(`SELECT 1 FROM custom_list_likes WHERE list_id = ? AND account_id = ?`)
         .get(row.id, me.id)
     : false
-  return { list, can_edit: !!me && me.id === list.owner_account_id, liked_by_me }
+  return {
+    list,
+    can_edit: canEditList(db, list, me),
+    can_manage: canAdministerList(list, me),
+    editors: loadEditors(db, row.id),
+    liked_by_me,
+  }
 })

@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
-import { getCurrentAccount, isAdminRole } from '~/server/utils/auth'
+import { getCurrentAccount } from '~/server/utils/auth'
+import { canEditList } from '~/server/utils/custom-list-perms'
 
 /**
  * Records on a list. Approved ones are public; pending and rejected ones are
@@ -16,7 +17,7 @@ export default defineEventHandler((event) => {
   if (!list) throw createError({ statusCode: 404, statusMessage: 'List not found' })
 
   const me = getCurrentAccount(event)
-  const canModerate = !!me && (me.id === list.owner_account_id || isAdminRole(me.role))
+  const canModerate = canEditList(db, list, me)
   if (!list.is_public && !canModerate) {
     throw createError({ statusCode: 403, statusMessage: 'This list is private.' })
   }

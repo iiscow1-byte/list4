@@ -41,11 +41,21 @@ the rest of the site.
 
 Level rows and the level-page hero use community thumbnails from the
 [Level Thumbnails API](https://levelthumbs.prevter.me/swagger/), keyed on the
-level's GD ID: `GET /thumbnail/{gd_id}/{high|medium|small}`. `components/LevelThumbBg.vue`
-renders one as an absolutely-positioned backdrop and stays invisible until the
-image actually loads, so the ~30% of levels with no thumbnail (the API 404s)
-fall back to the plain background with no flash. List rows request `small`,
-the level-page hero requests `high`.
+level's GD ID: `GET /thumbnail/{gd_id}/{high|medium|small}`. List rows request
+`small`, heroes request `high`.
+
+Roughly a third of levels have no entry there. Those fall back to the thumbnail
+of the level's verification video, which YouTube serves at a predictable URL.
+`components/LevelThumbBg.vue` renders whichever succeeds as an
+absolutely-positioned backdrop and stays invisible until an image actually
+loads, so a level with neither keeps the plain background instead of flashing a
+broken image.
+
+Both sources are plain `<img>` loads straight from a CDN — the server never
+proxies an image, so none of this costs request time. Misses are memoised in
+memory and in `localStorage` (7-day TTL, capped at 4,000 ids, written behind a
+1s debounce), so a level known to have no community thumbnail skips straight to
+the video fallback on later renders instead of re-requesting a 404.
 
 ## Custom lists
 
@@ -60,6 +70,34 @@ Setting `is_public` publishes a list to the `/lists` gallery, where others can
 like it (`custom_list_likes`, with the count denormalised onto
 `custom_lists.likes`) or fork it into their own (`copied_from_id` credits the
 original).
+
+### Scheduled sheet refresh
+
+`server/plugins/sheet-refresh.ts` re-runs the sheet importer every
+`LIST_SHEET_REFRESH_HOURS` hours (default 6), so placements follow the
+curators' edits without anyone running a command. Set
+`LIST_SKIP_SHEET_REFRESH=1` to disable it — worth doing in development, where a
+~90s import competing for the SQLite write lock is just noise.
+
+Re-imports never duplicate levels: sheet rows are matched to existing levels on
+`(gd_id, lower(name))`, so a re-run repositions rows rather than inserting new
+ones, and `cleanupDuplicateLevels` sweeps up anything earlier imports left
+behind (it reports `0 duplicated` on a clean database).
+
+Refreshes write to the changelog through `recordSheetMovements`. Every level's
+*absolute* position shifts whenever rows are inserted above it, so absolute
+position is useless as a "did this move?" signal — one new level at the top
+would otherwise generate 54,000 entries. What gets logged instead is a change
+to a level's rank **among the levels already on the list**, which insertions and
+removals leave untouched. A re-import of an unchanged sheet logs nothing.
+
+### Sandwiched tier repair
+
+`server/utils/tier-repair.ts` corrects tiers that disagree with both
+neighbours — Tier 31, **Tier 30**, Tier 31 becomes three Tier 31s. It runs on
+every import, before points are derived from those tiers. It only fires when
+both neighbours carry the *same* tier and are position-adjacent, so genuine
+difficulty bands and rows either side of a gap are left alone.
 
 ### Custom lists are full list sites
 
@@ -86,7 +124,21 @@ level ID, percent to qualify, FPS and game version), **Leaderboard**,
   immediately reshuffles standings.
 - **Packs** (`custom_list_packs`) group levels under a name and colour.
 
-Owners configure all of this from the builder's **List settings** row, and
+A custom list is laid out like the main list rather than as a single scrolling
+page: `/lists/:public_id/:rank` is a full-viewport three-panel view — searchable
+level nav with thumbnails on the left, the selected level in the middle, its
+records on the right — with the list's own tab bar for Leaderboard, Packs,
+Submit, Queue and Settings. `/lists/:public_id` opens it at rank 1.
+
+- **Editors.** Owners can appoint collaborators from **Settings → Editors**.
+  Editors change the list's levels and settings and moderate its records;
+  deleting the list and changing the editor roster stay with the owner.
+  `server/utils/custom-list-perms.ts` is the single source of truth for this —
+  scattering `owner_account_id === account.id` checks is how a collaborator
+  ends up able to accept records but not reorder the list they're accepting
+  them for.
+
+Owners configure the rest from the builder's **List settings** row, and
 per-level fields from the `⋯` button on each row.
 
 Because records hang off `custom_list_items.id` with `ON DELETE CASCADE`,

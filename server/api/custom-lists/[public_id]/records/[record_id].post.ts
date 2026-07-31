@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
-import { requireAccount, isAdminRole } from '~/server/utils/auth'
+import { requireAccount } from '~/server/utils/auth'
+import { canEditList } from '~/server/utils/custom-list-perms'
 import { sendInboxMessage } from '~/server/utils/inbox'
 
 /**
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
     `SELECT id, owner_account_id, title FROM custom_lists WHERE public_id = ?`,
   ).get(publicId) as { id: number; owner_account_id: number; title: string } | undefined
   if (!list) throw createError({ statusCode: 404, statusMessage: 'List not found' })
-  if (list.owner_account_id !== account.id && !isAdminRole(account.role)) {
+  if (!canEditList(db, list, account)) {
     throw createError({ statusCode: 403, statusMessage: 'Not your list.' })
   }
 

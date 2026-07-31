@@ -1287,6 +1287,18 @@ function initSchema(db: DatabaseSync) {
       item_id INTEGER NOT NULL REFERENCES custom_list_items(id) ON DELETE CASCADE,
       PRIMARY KEY (pack_id, item_id)
     );
+
+    -- Collaborators an owner has invited to help run their list. Editors can
+    -- change the list and moderate its records, but not delete the list or
+    -- manage the editor roster — those stay with the owner.
+    CREATE TABLE IF NOT EXISTS custom_list_editors (
+      list_id    INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES accounts(id)     ON DELETE CASCADE,
+      added_by   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (list_id, account_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cle_account ON custom_list_editors(account_id);
   `)
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts

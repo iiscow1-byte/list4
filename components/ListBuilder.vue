@@ -298,6 +298,7 @@ function copyShare() {
           >
             <LevelThumbBg
               :gd-id="l.gd_id"
+              :video-url="l.verification_url"
               res="small"
               img-class="opacity-25 group-hover:opacity-50"
               overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-zinc-950/20"
@@ -416,6 +417,7 @@ function copyShare() {
           >
             <LevelThumbBg
               :gd-id="item.gd_id"
+              :video-url="item.verification_url"
               res="small"
               img-class="opacity-25 group-hover:opacity-45"
               overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-zinc-950/25"
