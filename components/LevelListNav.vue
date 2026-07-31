@@ -166,7 +166,6 @@ function displayNum(lvl: LevelRow): string {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return `#${lvl.aredl_position}`
   if (listVariant.value === 'GDL' && lvl.gdl_position != null) return `#${lvl.gdl_position}`
   if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return `#${lvl.challenge_list_position}`
-  if (lvl.is_challenge && lvl.challenge_rank != null) return `Ch. ${lvl.challenge_rank}`
   return `#${lvl.displayRank ?? lvl.position}`
 }
 
