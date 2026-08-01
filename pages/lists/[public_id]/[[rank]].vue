@@ -52,7 +52,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     </div>
   </div>
 
-  <div v-else-if="list" class="h-full flex flex-col min-h-0">
+  <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950">
     <CustomListBar
       :list="list"
       :can-edit="canEdit"

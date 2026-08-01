@@ -298,22 +298,29 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="divide-y divide-zinc-900/60">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.id" :data-id="lvl.id">
           <NuxtLink
             :to="{ path: `/open-verifications/${lvl.id}`, query: search ? { q: search } : {} }"
-            class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
             :class="lvl.id === activeId
-              ? 'bg-violet-900/40 text-violet-100'
-              : 'text-zinc-300 hover:bg-zinc-900/70'"
+              ? 'ring-2 ring-inset ring-violet-400 text-zinc-50 bg-zinc-900'
+              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
           >
+            <LevelThumbBg
+              :gd-id="lvl.gd_id"
+              :video-url="lvl.showcase_url ?? lvl.verification_url"
+              res="small"
+              img-class="opacity-30 group-hover:opacity-55"
+              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
+            />
             <span
-              class="text-[10px] tabular-nums px-2 py-1 w-20 shrink-0 text-center font-medium whitespace-nowrap"
+              class="relative text-[10px] tabular-nums px-1 py-1 w-20 shrink-0 text-center font-semibold whitespace-nowrap rounded-md shadow-sm"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >
               {{ lvl.gddl_tier ?? lvl.difficulty ?? '—' }}
             </span>
-            <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
+            <span class="relative truncate flex-1 min-w-0 font-medium drop-shadow-sm">{{ lvl.name }}</span>
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">

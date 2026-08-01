@@ -346,7 +346,10 @@ function startEdit() {
   draft.tentative_placement = !!props.level.tentative_placement
   draftDuplicateOf.value = props.level.duplicate_of ?? null
   draftAlternateOf.value = props.level.alternate_of ?? null
-  draftPosition.value = props.level.position
+  // The field holds a *sheet placement* — the number shown everywhere on
+  // screen — not the internal position, so what an admin types matches what
+  // they read off the list.
+  draftPosition.value = props.level.sheet_placement ?? props.level.position
   saveError.value = null
   deleteError.value = null
   apiOverridesOpen.value = false
@@ -608,11 +611,15 @@ async function saveEdit() {
     await $fetch(`/api/admin/levels/${props.level.position}`, { method: 'PATCH', body: payload })
     // If position changed, do the structural move after the metadata save —
     // it shifts neighboring rows so it's a separate atomic op.
-    const newPos = Number(draftPosition.value)
-    if (Number.isInteger(newPos) && newPos > 0 && newPos !== props.level.position) {
-      await $fetch(`/api/admin/levels/${props.level.position}/move`, { method: 'POST', body: { to: newPos } })
-      // The current URL still references the old position; navigate to the new one.
-      await navigateTo(`/levels/${newPos}`)
+    const newPlacement = Number(draftPosition.value)
+    const curPlacement = props.level.sheet_placement ?? props.level.position
+    if (Number.isInteger(newPlacement) && newPlacement > 0 && newPlacement !== curPlacement) {
+      const res = await $fetch<{ to: number }>(
+        `/api/admin/levels/${props.level.position}/move`,
+        { method: 'POST', body: { to_placement: newPlacement } },
+      )
+      // Only the server knows which position that placement resolved to.
+      await navigateTo(`/levels/${res.to}`)
       return
     }
     emit('refresh')
@@ -740,7 +747,10 @@ watch(() => props.moveBelowPick, (picked) => {
   if (picked.position === cur) return
   // Direction-aware: place this level right below the picked one.
   const target = picked.position < cur ? picked.position + 1 : picked.position
-  draftPosition.value = target
+  // Convert the picked row's position into the placement the field expects.
+  const pickedPlacement = picked.sheet_placement ?? picked.position
+  draftPosition.value = picked.position < cur ? pickedPlacement + 1 : pickedPlacement
+  void target
   if (picked.gddl_tier) draft.gddl_tier = picked.gddl_tier
   if (picked.difficulty) draft.difficulty = picked.difficulty
   pendingMoveReady.value = true
@@ -751,11 +761,19 @@ watch(() => props.moveBelowPick, (picked) => {
 
 async function submitPendingMove() {
   if (pendingMoveSubmitting.value) return
-  const toPos = Number(draftPosition.value)
-  if (!Number.isInteger(toPos) || toPos <= 0 || toPos === props.level.position) return
+  // `draftPosition` is a sheet placement; the movements queue stores internal
+  // positions, so resolve it the same way the admin move endpoint does.
+  const placement = Number(draftPosition.value)
+  if (!Number.isInteger(placement) || placement <= 0) return
   pendingMoveSubmitting.value = true
   pendingMoveError.value = null
   try {
+    const resolved = await $fetch<{ position: number }>(`/api/levels/by-placement/${placement}`)
+    const toPos = resolved.position
+    if (toPos === props.level.position) {
+      pendingMoveSubmitting.value = false
+      return
+    }
     await $fetch('/api/movements', {
       method: 'POST',
       body: {
@@ -1131,7 +1149,7 @@ const chartAredlSeries = computed(() =>
       <template v-else>
         <p class="text-[11px] text-sky-400 uppercase tracking-widest font-medium">Submit as pending move</p>
         <p class="text-[11px] text-zinc-500">
-          Propose moving <span class="text-zinc-300">{{ level.name }}</span> from #{{ level.position }} to #{{ draftPosition }} for mod review.
+          Propose moving <span class="text-zinc-300">{{ level.name }}</span> from #{{ shownPlacement }} to #{{ draftPosition }} for mod review.
         </p>
         <textarea
           v-model="pendingMoveNotes"

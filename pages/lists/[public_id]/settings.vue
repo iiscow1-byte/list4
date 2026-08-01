@@ -169,6 +169,51 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
             >Open in builder →</button>
           </section>
 
+          <!-- Appearance -->
+          <section class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Appearance</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                An icon and colour so the list reads as yours. Paste a direct image link.
+              </p>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+              <label class="block">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Icon URL</span>
+                <input
+                  type="url"
+                  :value="l.icon_url ?? ''"
+                  :disabled="busy"
+                  placeholder="https://…/icon.png"
+                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  @change="patch({ icon_url: ($event.target as HTMLInputElement).value }, 'Icon updated.')"
+                />
+              </label>
+              <label class="block">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Accent colour</span>
+                <div class="mt-1 flex items-center gap-2">
+                  <input
+                    type="color"
+                    :value="l.accent_color || '#f4c430'"
+                    :disabled="busy"
+                    class="h-8 w-12 rounded border border-zinc-800 bg-zinc-900 cursor-pointer"
+                    @change="patch({ accent_color: ($event.target as HTMLInputElement).value }, 'Accent colour updated.')"
+                  />
+                  <button
+                    type="button"
+                    class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                    :disabled="busy"
+                    @click="patch({ accent_color: '' }, 'Accent colour cleared.')"
+                  >Reset</button>
+                </div>
+              </label>
+            </div>
+            <div v-if="l.icon_url" class="flex items-center gap-2 pt-1">
+              <img :src="l.icon_url" alt="" referrerpolicy="no-referrer" class="w-8 h-8 rounded-lg object-cover border border-zinc-800 bg-zinc-900" />
+              <span class="text-[11px] text-zinc-600">Preview</span>
+            </div>
+          </section>
+
           <!-- Visibility -->
           <section class="card p-4 space-y-3">
             <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Visibility</h2>

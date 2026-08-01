@@ -85,7 +85,7 @@ export default defineEventHandler((event) => {
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM awaiting_levels ${where}`).get(...params) as { n: number }).n
   const items = db
     .prepare(
-      `SELECT id, name, gd_id, gddl_tier, difficulty, main_skillset, approved_at
+      `SELECT id, name, gd_id, gddl_tier, difficulty, main_skillset, approved_at, verification_url
        FROM awaiting_levels ${where}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,

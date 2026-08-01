@@ -92,20 +92,27 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="divide-y divide-zinc-900/60">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
           <NuxtLink
             :to="{ path: `/void/${lvl.position}`, query: search ? { q: search } : {} }"
-            class="flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors group"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
             :class="lvl.position === activePosition
-              ? 'bg-fuchsia-900/40 text-fuchsia-100'
-              : 'text-zinc-300 hover:bg-zinc-900/70'"
+              ? 'ring-2 ring-inset ring-fuchsia-400 text-zinc-50 bg-zinc-900'
+              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
           >
-            <span class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium bg-zinc-900 text-zinc-400">
+            <LevelThumbBg
+              :gd-id="lvl.gd_id"
+              :video-url="lvl.verification_url"
+              res="small"
+              :img-class="lvl.position === activePosition ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
+              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
+            />
+            <span class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm bg-zinc-900 text-fuchsia-300">
               #{{ lvl.position }}
             </span>
-            <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
-            <span v-if="lvl.days != null" class="shrink-0 text-[10px] tabular-nums text-zinc-500">
+            <span class="relative truncate flex-1 min-w-0 font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span v-if="lvl.days != null" class="relative shrink-0 text-[10px] tabular-nums text-zinc-500">
               {{ lvl.days.toLocaleString() }}d
             </span>
           </NuxtLink>

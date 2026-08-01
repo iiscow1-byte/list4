@@ -491,7 +491,39 @@ async function importLevels() {
   // the sheet doesn't back) and pin them where they are. Previously they were
   // swept to the bottom on every import, which is why a level added through
   // the site kept ending up at the end of the list.
-  const strays = existingRows.filter((r) => !claimed.has(r.id) && !newIds.has(r.id))
+  const unmatched = existingRows.filter((r) => !claimed.has(r.id) && !newIds.has(r.id))
+
+  // Split the unmatched rows. One that originally came from a sheet tab and
+  // was never touched through the site is a level the sheet has since renamed
+  // or removed — the leftover copy is the duplicate that kept piling up at the
+  // bottom of the list, so delete it. Anything a person put here (a site
+  // submission, or a row carrying records) is kept and pinned in place.
+  const detail = db.prepare(
+    `SELECT id, source_tab, submitted_by, permanent,
+            (SELECT COUNT(*) FROM records WHERE records.level_id = levels.id) AS record_count
+       FROM levels WHERE id = ?`,
+  )
+  const prunable: typeof unmatched = []
+  const strays: typeof unmatched = []
+  for (const r of unmatched) {
+    const d = detail.get(r.id) as
+      { source_tab: string | null; submitted_by: number | null; permanent: number; record_count: number }
+    const sheetBorn = !!d.source_tab && !d.submitted_by && !d.permanent && d.record_count === 0
+    ;(sheetBorn ? prunable : strays).push(r)
+  }
+
+  if (prunable.length) {
+    const del = db.prepare(`DELETE FROM levels WHERE id = ?`)
+    db.exec('BEGIN')
+    try {
+      for (const r of prunable) del.run(r.id)
+      db.exec('COMMIT')
+    } catch (e) { db.exec('ROLLBACK'); throw e }
+    console.log(`${prunable.length} sheet level(s) no longer in the sheet — removed:`)
+    for (const r of prunable.slice(0, 20)) console.log(`  · ${r.name}${r.gd_id ? ` (${r.gd_id})` : ''}`)
+    if (prunable.length > 20) console.log(`  … and ${prunable.length - 20} more`)
+  }
+
   if (strays.length) {
     db.exec('BEGIN')
     try {

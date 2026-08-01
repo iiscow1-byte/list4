@@ -13,6 +13,9 @@ export default defineEventHandler(async (event) => {
     items?: CustomListItemInput[]
     is_public?: boolean
     accepts_records?: boolean
+    icon_url?: string
+    accent_color?: string
+    banner_url?: string
     accepts_submissions?: boolean
     discord_url?: string
     youtube_url?: string
@@ -44,6 +47,26 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.is_public === 'boolean') {
       db.prepare(`UPDATE custom_lists SET is_public = ? WHERE id = ?`)
         .run(body.is_public ? 1 : 0, row.id)
+    }
+    // Presentation images. Rendered as an <img src> on a public page, so the
+    // same http(s)-only rule as the social links applies — a javascript: value
+    // stored here would be a stored XSS. Empty string clears.
+    for (const key of ['icon_url', 'banner_url'] as const) {
+      const v = (body as any)?.[key]
+      if (typeof v !== 'string') continue
+      const url = v.trim().slice(0, 500)
+      if (url && !/^https?:\/\//i.test(url)) {
+        throw createError({ statusCode: 400, statusMessage: 'Image links must start with http:// or https://' })
+      }
+      db.prepare(`UPDATE custom_lists SET ${key} = ? WHERE id = ?`).run(url || null, row.id)
+    }
+    if (typeof body?.accent_color === 'string') {
+      // Only accept a hex colour, so the value can be interpolated into a
+      // style attribute without becoming an injection vector.
+      const hex = body.accent_color.trim()
+      const ok = /^#[0-9a-fA-F]{6}$/.test(hex)
+      db.prepare(`UPDATE custom_lists SET accent_color = ? WHERE id = ?`)
+        .run(ok ? hex : null, row.id)
     }
     if (typeof body?.accepts_records === 'boolean') {
       db.prepare(`UPDATE custom_lists SET accepts_records = ? WHERE id = ?`)

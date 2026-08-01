@@ -13,6 +13,8 @@ const props = defineProps<{
     likes: number
     accepts_records: number
     accepts_submissions?: number
+    icon_url?: string | null
+    accent_color?: string | null
     discord_url?: string | null
     youtube_url?: string | null
     items: any[]
@@ -47,11 +49,16 @@ const tabs = computed(() => [
 ])
 
 /**
- * Fullscreen the list. Uses the Fullscreen API on the whole document so the
- * list fills the screen without the browser chrome — the closest thing to a
- * dedicated list site while still living inside this one.
+ * Fullscreen just the list, not the browser tab.
+ *
+ * The target is the list's own root (`[data-list-root]`), so everything
+ * outside it — the site header above all — is excluded by the Fullscreen API
+ * itself rather than by hiding things one at a time. The list's own bar stays,
+ * since you still need its tabs while reading.
  */
+const barRoot = ref<HTMLElement | null>(null)
 const isFullscreen = ref(false)
+
 function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement
 }
@@ -60,8 +67,12 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', onFullscr
 
 async function toggleFullscreen() {
   try {
-    if (document.fullscreenElement) await document.exitFullscreen()
-    else await document.documentElement.requestFullscreen()
+    if (document.fullscreenElement) {
+      await document.exitFullscreen()
+      return
+    }
+    const target = barRoot.value?.closest('[data-list-root]') as HTMLElement | null
+    await (target ?? document.documentElement).requestFullscreen()
   } catch { /* denied or unsupported — the button just does nothing */ }
 }
 
@@ -73,12 +84,22 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
 </script>
 
 <template>
-  <div class="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-sm shrink-0">
+  <div ref="barRoot" class="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-sm shrink-0">
     <div class="px-4 sm:px-6 py-2.5 flex items-center gap-x-4 gap-y-2 flex-wrap">
       <!-- Identity -->
       <NuxtLink :to="base" class="min-w-0 flex items-center gap-2.5 group shrink-0">
+        <img
+          v-if="list.icon_url"
+          :src="list.icon_url"
+          alt=""
+          class="w-8 h-8 rounded-lg object-cover border border-zinc-800 shrink-0 bg-zinc-900"
+          referrerpolicy="no-referrer"
+        />
         <span
-          class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[11px] font-black text-accent shrink-0"
+          v-else
+          class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[11px] font-black shrink-0"
+          :style="list.accent_color ? { color: list.accent_color } : undefined"
+          :class="list.accent_color ? '' : 'text-accent'"
           aria-hidden="true"
         >{{ list.title.slice(0, 2).toUpperCase() }}</span>
         <span class="min-w-0">

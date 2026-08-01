@@ -232,6 +232,7 @@ export function loadList(db: DatabaseSync, listId: number) {
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.created_at, cl.updated_at,
             cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
+            cl.icon_url, cl.accent_color, cl.banner_url,
             cl.accepts_submissions, cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title

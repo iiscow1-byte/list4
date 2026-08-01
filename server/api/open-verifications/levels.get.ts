@@ -79,7 +79,7 @@ export default defineEventHandler((event) => {
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM open_verifications ${where}`).get(...params) as { n: number }).n
   const items = db
     .prepare(
-      `SELECT id, name, gd_id, gddl_tier, difficulty, main_skillset, submitted_at
+      `SELECT id, name, gd_id, gddl_tier, difficulty, main_skillset, submitted_at, showcase_url
        FROM open_verifications ${where}
        ORDER BY ${orderBy}
        LIMIT ? OFFSET ?`,

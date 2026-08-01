@@ -25,7 +25,7 @@ export default defineEventHandler((event) => {
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM void_levels ${where}`).get(...params) as { n: number }).n
   const items = db
     .prepare(
-      `SELECT position, name, demon_ranking,
+      `SELECT position, name, demon_ranking, gd_id, verification_url,
               COALESCE(CAST(JULIANDAY('now') - JULIANDAY(added_on) AS INTEGER), days) AS days
        FROM void_levels ${where}
        ORDER BY position ASC

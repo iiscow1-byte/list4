@@ -42,6 +42,10 @@ let adminCountTimer: ReturnType<typeof setInterval> | null = null
 onMounted(() => { adminCountTimer = setInterval(loadAdminCounts, 30_000) })
 onBeforeUnmount(() => { if (adminCountTimer) clearInterval(adminCountTimer) })
 
+// Credits dialog, opened from the socials menu.
+const creditsOpen = ref(false)
+watch(() => route.fullPath, () => { creditsOpen.value = false })
+
 const startsWith = (...prefixes: string[]) =>
   prefixes.some((p) => route.path === p || route.path.startsWith(`${p}/`))
 
@@ -175,7 +179,64 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
             </template>
             TikTok
           </NavMenuItem>
+
+          <div class="my-1 border-t border-zinc-800" />
+          <button
+            type="button"
+            role="menuitem"
+            class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-left text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            @click="creditsOpen = true"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-accent" aria-hidden="true">
+              <path d="M12 21s-7-4.35-9-8.5A5 5 0 0 1 12 6a5 5 0 0 1 9 6.5C19 16.65 12 21 12 21z" />
+            </svg>
+            Credits
+          </button>
         </NavMenu>
+
+        <!-- Credits -->
+        <Teleport to="body">
+          <div
+            v-if="creditsOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            @click.self="creditsOpen = false"
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="credits-title"
+              class="relative w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl p-5"
+            >
+              <button
+                type="button"
+                class="absolute top-3 right-3 rounded-lg p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                aria-label="Close"
+                @click="creditsOpen = false"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+
+              <h2 id="credits-title" class="text-[10px] uppercase tracking-widest text-accent font-semibold">Credits</h2>
+
+              <dl class="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Website</dt>
+                  <dd class="text-zinc-200">GERG, cinnamings, Silk, Farm</dd>
+                </div>
+                <div>
+                  <dt class="text-[10px] uppercase tracking-wider text-zinc-500">ALL data</dt>
+                  <dd class="text-zinc-200">Cinder</dd>
+                </div>
+              </dl>
+
+              <p class="mt-4 text-[11px] text-zinc-600 leading-relaxed">
+                Thanks to everyone who submits records, levels and opinions to keep the list current.
+              </p>
+            </div>
+          </div>
+        </Teleport>
 
         <ThemeMenu />
       </nav>

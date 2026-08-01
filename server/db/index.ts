@@ -1397,6 +1397,17 @@ function initSchema(db: DatabaseSync) {
   if (!clCols2.some((c) => c.name === 'accepts_submissions')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN accepts_submissions INTEGER NOT NULL DEFAULT 0`)
   }
+  // Presentation: a list's own icon and accent colour, so a community's list
+  // reads as theirs rather than as a generic entry in the gallery.
+  if (!clCols2.some((c) => c.name === 'icon_url')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN icon_url TEXT`)
+  }
+  if (!clCols2.some((c) => c.name === 'accent_color')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN accent_color TEXT`)
+  }
+  if (!clCols2.some((c) => c.name === 'banner_url')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN banner_url TEXT`)
+  }
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts
   // caused by other levels being placed/removed). Powers the position-over-time
