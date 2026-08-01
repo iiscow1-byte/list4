@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { resolveAllLevel } from './custom-lists'
 
 /**
  * Place an approved suggestion onto the list.
@@ -33,11 +34,16 @@ export function appendApprovedLevel(
       WHERE list_id = ? AND sort_order >= ?`,
   ).run(listId, target)
 
+  // A suggestion usually names a level the ALL list already has; adopt it so
+  // the approved row follows the main list rather than freezing whatever the
+  // submitter typed.
+  const levelId = p.level_id ?? resolveAllLevel(db, { gdId: p.gd_id, name: p.name })
+
   const info = db.prepare(
     `INSERT INTO custom_list_items
        (list_id, sort_order, level_id, name, gd_id, creator, verifier, verification_url)
      VALUES (?,?,?,?,?,?,?,?)`,
-  ).run(listId, target, p.level_id, p.name, p.gd_id, p.creator, p.verifier, p.verification_url)
+  ).run(listId, target, levelId, p.name, p.gd_id, p.creator, p.verifier, p.verification_url)
 
   db.prepare(
     `INSERT INTO custom_list_changes

@@ -115,6 +115,50 @@ async function remove() {
   }
 }
 
+/**
+ * Adopt the matching ALL level, so this row follows the main list instead of
+ * drifting. Linking happens automatically on save when the match is
+ * unambiguous; this is the manual path for rows the resolver wouldn't guess at
+ * (a gd_id shared by Solo/2P variants, say).
+ */
+const linkNote = ref<string | null>(null)
+async function linkToAll(unlink = false) {
+  if (!props.apiBase || !props.item || busy.value) return
+  busy.value = true
+  error.value = null
+  linkNote.value = null
+  try {
+    const res = await $fetch<{ linked: boolean }>(
+      `${props.apiBase}/items/${props.item.id}/link`,
+      { method: 'POST', body: { unlink } },
+    )
+    linkNote.value = res.linked ? 'Linked to the ALL list.' : 'Unlinked — this row is hand-entered again.'
+    emit('changed')
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Could not change the link.'
+  } finally {
+    busy.value = false
+  }
+}
+
+/**
+ * Hand this level to the ALL list's submit form with everything already known
+ * about it filled in. Only fields that form actually has are passed.
+ */
+const submitToAllHref = computed(() => {
+  const i = props.item
+  if (!i) return '/levels/submit'
+  const params = new URLSearchParams()
+  if (i.name) params.set('name', String(i.name))
+  if (i.gd_id) params.set('gd_id', String(i.gd_id))
+  if (i.verifier) params.set('verifier', String(i.verifier))
+  if (i.verification_url) params.set('verification_url', String(i.verification_url))
+  if (i.gddl_tier) params.set('gddl_tier', String(i.gddl_tier))
+  if (i.difficulty) params.set('difficulty', String(i.difficulty))
+  if (props.listTitle) params.set('placement_source', props.listTitle.slice(0, 60))
+  return `/levels/submit?${params.toString()}`
+})
+
 const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50'
 const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 </script>
@@ -142,13 +186,23 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             class="text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
             :style="{ backgroundColor: tierColor(item.gddl_tier), color: textOn(tierColor(item.gddl_tier)) }"
           >{{ item.gddl_tier }}</span>
+          <!-- A level the ALL list doesn't have yet is the interesting case:
+               offer to submit it, prefilled, rather than making someone retype
+               what this list already knows. -->
+          <NuxtLink
+            v-if="canEdit && !linked"
+            :to="submitToAllHref"
+            class="ml-auto rounded-lg border border-accent/60 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+            title="Open the ALL list's submit form with this level's details filled in"
+          >Submit to the ALL →</NuxtLink>
           <button
             v-if="canEdit && apiBase"
             type="button"
-            class="ml-auto rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
-            :class="open
-              ? 'border-accent/60 text-accent bg-accent/10'
-              : 'border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent'"
+            class="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
+            :class="[
+              open ? 'border-accent/60 text-accent bg-accent/10' : 'border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent',
+              linked ? 'ml-auto' : '',
+            ]"
             :aria-expanded="open"
             @click="open = !open"
           >{{ open ? 'Close editor' : 'Edit level' }}</button>
@@ -223,11 +277,42 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <textarea v-model="draft.notes" rows="2" :class="field" />
         </label>
 
-        <p v-if="linked" class="sm:col-span-2 text-[11px] text-zinc-600">
-          This level is linked to
-          <NuxtLink :to="`/levels/${item.position}`" class="text-zinc-400 hover:text-accent">the ALL list</NuxtLink>,
-          so its name, creator, ID and video follow the list itself.
-        </p>
+        <!-- Link status: whether this row follows the ALL list or stands alone -->
+        <div class="sm:col-span-2 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+          <template v-if="linked">
+            <p class="text-[11px] text-zinc-400">
+              Linked to
+              <NuxtLink :to="`/levels/${item.position}`" class="text-accent hover:underline tabular-nums">
+                #{{ item.sheet_placement ?? item.position }} on the ALL list
+              </NuxtLink>
+              — its name, creator, ID and video follow the main list, so those fields are read-only here.
+            </p>
+            <button
+              type="button"
+              :disabled="busy"
+              class="mt-1.5 text-[11px] text-zinc-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+              @click="linkToAll(true)"
+            >Unlink and edit by hand</button>
+          </template>
+          <template v-else>
+            <p class="text-[11px] text-zinc-400">
+              Not linked to the ALL list — this row is hand-entered and won't follow the main list.
+            </p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                :disabled="busy"
+                class="text-[11px] text-accent hover:underline disabled:opacity-50"
+                @click="linkToAll(false)"
+              >Link to the matching ALL level</button>
+              <NuxtLink
+                :to="submitToAllHref"
+                class="text-[11px] text-zinc-400 hover:text-accent transition-colors"
+              >Not on the ALL yet? Submit it →</NuxtLink>
+            </div>
+          </template>
+          <p v-if="linkNote" class="mt-1.5 text-[11px] text-emerald-400">{{ linkNote }}</p>
+        </div>
 
         <div class="sm:col-span-2 flex flex-wrap items-center gap-2 pt-0.5">
           <button

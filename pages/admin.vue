@@ -331,6 +331,33 @@ async function runImport(source: ImportSourceKey) {
   }
 }
 
+/**
+ * Re-derive every level's displayed placement from its list order. Reports the
+ * inversion count on both sides so "it did nothing" and "it fixed nothing" are
+ * distinguishable.
+ */
+const repairingPlacements = ref(false)
+const repairResult = ref<string | null>(null)
+
+async function repairPlacements() {
+  if (repairingPlacements.value) return
+  repairingPlacements.value = true
+  repairResult.value = null
+  try {
+    const res = await $fetch<{ changed: number; inversions_before: number; inversions_after: number }>(
+      '/api/admin/repair-placements', { method: 'POST' },
+    )
+    repairResult.value = res.changed === 0
+      ? 'Placements were already in order — nothing to fix.'
+      : `Rewrote ${res.changed.toLocaleString()} placement${res.changed === 1 ? '' : 's'} `
+        + `(${res.inversions_before} out-of-order → ${res.inversions_after}).`
+  } catch (e: any) {
+    repairResult.value = `Failed: ${e?.data?.statusMessage ?? e?.statusMessage ?? 'unknown error'}`
+  } finally {
+    repairingPlacements.value = false
+  }
+}
+
 async function clearPending(source: PendingKey) {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
@@ -624,6 +651,29 @@ async function setClaim(u: AdminUser) {
          out unaccepted pending rows from each source. -->
     <div v-else-if="tab === 'imports'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-3xl space-y-6">
+
+        <!-- Placement repair -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-100">Repair placements</h2>
+              <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
+                Re-attaches every placement number to the slot it belongs to, so the numbers
+                the list prints climb in list order. Runs automatically at boot and after every
+                move; this is here for lists that drifted before that. Safe to run any time.
+              </p>
+            </div>
+            <button
+              type="button"
+              :disabled="repairingPlacements"
+              class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              @click="repairPlacements"
+            >{{ repairingPlacements ? 'Repairing…' : 'Repair now' }}</button>
+          </div>
+          <p v-if="repairResult" class="mt-2 text-xs" :class="repairResult.startsWith('Failed') ? 'text-red-400' : 'text-emerald-400'">
+            {{ repairResult }}
+          </p>
+        </section>
 
         <!-- Header + global clear -->
         <div class="flex items-center justify-between gap-4">

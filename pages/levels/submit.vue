@@ -30,18 +30,24 @@ const ALL_TAGS = ['old', 'uldm', 'buffed', 'nerfed', 'unnerfed', 'easy', 'shitty
 
 const RATING_OPTIONS = ['', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
 
-// Prefilled when arriving from /levels/find, so a level picked out of the GD
-// search lands here with its ID and name already filled in.
+// Prefilled when arriving from /levels/find (a level picked out of the GD
+// search) or from a custom list's "Submit to the ALL" button, so the level
+// lands here with everything the other page already knew about it.
 const submitRoute = useRoute()
-const gdId = ref(typeof submitRoute.query.gd_id === 'string' && /^\d+$/.test(submitRoute.query.gd_id)
-  ? submitRoute.query.gd_id
-  : '')
-const name = ref(typeof submitRoute.query.name === 'string' ? submitRoute.query.name.slice(0, 200) : '')
+
+/** Read one query param as a trimmed, length-capped string. */
+function q(key: string, max = 200): string {
+  const v = submitRoute.query[key]
+  return typeof v === 'string' ? v.trim().slice(0, max) : ''
+}
+
+const gdId = ref(/^\d+$/.test(q('gd_id')) ? q('gd_id') : '')
+const name = ref(q('name'))
 const verification = ref('')
-const verificationUrl = ref('')
-const verifier = ref('')
+const verificationUrl = ref(/^https?:\/\//i.test(q('verification_url', 500)) ? q('verification_url', 500) : '')
+const verifier = ref(q('verifier'))
 const verifyDate = ref('')
-const placementSource = ref<string>('')
+const placementSource = ref<string>(q('placement_source', 60))
 const ratingOpinion = ref('')
 
 // Existing curated source list (Demon List, Pemonlist, GDDP, …) so submitters
@@ -56,8 +62,10 @@ const sourceOptions = computed(() =>
     .map((s) => s.source)
     .filter((s) => s && s.toLowerCase() !== 'all levels list'),
 )
-const gddlTier = ref('')
-const difficulty = ref('')
+// Only accept a prefilled tier / difficulty the form actually offers, so a
+// stale or hand-edited link can't seed a value the select can't display.
+const gddlTier = ref(TIER_OPTIONS.includes(q('gddl_tier', 40)) ? q('gddl_tier', 40) : '')
+const difficulty = ref(DIFFICULTY_OPTIONS.includes(q('difficulty', 40)) ? q('difficulty', 40) : '')
 const enjoyment = ref('')
 const skillset = ref('')
 const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false, unnerfed: false, easy: false, shitty: false })

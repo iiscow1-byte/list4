@@ -22,6 +22,21 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.1.1',
+    date: '2026-08-01',
+    title: 'Placements that actually move',
+    tags: ['Fixes', 'Custom lists', 'Profiles'],
+    changes: [
+      'Fixed: moving a level left it printing its old placement, and shifted every level it displaced by one. Placement numbers now belong to the slot, not the level.',
+      'Lists already damaged by that bug are repaired automatically on the next start — there is also a "Repair placements" button in the admin Imports tab.',
+      'Custom-list rows now link themselves to the matching ALL level when it can be identified without guessing, so they follow the main list instead of going stale. Editors can link or unlink by hand when a level ID is shared by several variants.',
+      'New "Submit to the ALL" button on custom-list levels that the main list doesn\'t have yet — it opens the submit form with everything already filled in.',
+      'Rebuilt the profile-picture cropper: bigger stage, pinch and drag on touch, zoom that follows your cursor, live previews, and arrow-key nudging.',
+      'Fixed: cropped avatars had black corners wherever they were shown as a square.',
+      'Roomier typography in the community Following feed.',
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-07-31',
     title: 'Profiles, custom lists and a version number',

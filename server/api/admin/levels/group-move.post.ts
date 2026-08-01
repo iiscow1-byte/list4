@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { recomputePoints } from '~/server/utils/points'
+import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
 
 const STASH = -1_000_000_000
 
@@ -60,6 +61,9 @@ export default defineEventHandler(async (event) => {
           .run(row.id, fromPos, toPos, account.id)
       }
       moved++
+      // Placement numbers stay with the slot, not the level — see
+      // `server/utils/placement-sync.ts`.
+      resyncPlacementsForMove(db, fromPos, toPos)
     }
     db.exec('COMMIT')
   } catch (e) {

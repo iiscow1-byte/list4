@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { recomputePoints } from '~/server/utils/points'
+import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
 
 const STASH = -1_000_000_000
 
@@ -67,6 +68,10 @@ export default defineEventHandler(async (event) => {
     }
     db.prepare(`UPDATE levels SET position = -position WHERE position < 0 AND position != ?`).run(STASH)
     db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(toPos, STASH)
+
+    // Placement numbers belong to slots, not to levels — without this an
+    // approved movement leaves the level printing its old number.
+    resyncPlacementsForMove(db, fromPos, toPos)
 
     const existingToday = db.prepare(
       `SELECT id FROM position_history

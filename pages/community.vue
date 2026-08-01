@@ -140,9 +140,9 @@ useHead({ title: 'Community — All Levels List' })
               img-class="opacity-[0.12] group-hover/row:opacity-25"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/85 to-zinc-950/50"
             />
-            <div class="relative px-4 py-2.5 flex items-start gap-3">
+            <div class="relative px-4 py-4 flex items-start gap-3.5">
               <NuxtLink :to="profileLink(i)" class="shrink-0 mt-0.5">
-                <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 flex items-center justify-center">
+                <span class="w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 flex items-center justify-center">
                   <img
                     v-if="i.actor_has_avatar && i.actor_username"
                     :src="`/api/users/${encodeURIComponent(i.actor_username)}/avatar`"
@@ -154,7 +154,7 @@ useHead({ title: 'Community — All Levels List' })
               </NuxtLink>
 
               <div class="min-w-0 flex-1">
-                <p class="text-sm leading-snug">
+                <p class="text-sm leading-relaxed tracking-[0.01em]">
                   <NuxtLink :to="profileLink(i)" class="font-semibold text-zinc-100 hover:text-accent transition-colors">{{ i.actor }}</NuxtLink>
                   <span class="text-zinc-500"> {{ KINDS[i.kind].verb }} </span>
                   <NuxtLink
@@ -166,15 +166,15 @@ useHead({ title: 'Community — All Levels List' })
                   <span v-if="i.kind === 'record' && i.percent != null && i.percent < 100" class="text-zinc-500 tabular-nums"> ({{ i.percent }}%)</span>
                   <span v-if="i.kind === 'progress'" class="text-amber-300/90 tabular-nums"> {{ i.start_percent }}% → {{ i.end_percent }}%</span>
                 </p>
-                <div class="mt-1 flex items-center gap-2 text-[10px]">
-                  <span class="rounded px-1.5 py-px border uppercase tracking-widest" :class="KINDS[i.kind].tone">{{ KINDS[i.kind].chip }}</span>
-                  <span class="text-zinc-600 tabular-nums">{{ relative(i.at) }}</span>
+                <div class="mt-2 flex items-center gap-2.5 text-[10px]">
+                  <span class="rounded px-1.5 py-0.5 border uppercase tracking-[0.14em]" :class="KINDS[i.kind].tone">{{ KINDS[i.kind].chip }}</span>
+                  <span class="text-zinc-600 tabular-nums tracking-wide">{{ relative(i.at) }}</span>
                   <a
                     v-if="i.video_url"
                     :href="i.video_url"
                     target="_blank"
                     rel="noopener"
-                    class="text-zinc-600 hover:text-accent transition-colors"
+                    class="text-zinc-600 hover:text-accent transition-colors tracking-wide"
                   >watch ↗</a>
                 </div>
               </div>

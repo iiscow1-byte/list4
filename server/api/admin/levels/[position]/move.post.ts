@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { recomputePoints } from '~/server/utils/points'
+import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
 
 /**
  * Move a level from `position` to `body.to`. Other affected rows in the range
@@ -74,6 +75,12 @@ export default defineEventHandler(async (event) => {
     // 3. Place the moved row at its new position and clear the tentative flag —
     //    a deliberate position change means placement is no longer uncertain.
     db.prepare(`UPDATE levels SET position = ?, tentative_placement = 0 WHERE position = ?`).run(target, STASH)
+
+    // 4. Placement numbers belong to slots, not to levels. Without this the
+    //    moved row keeps printing the number it arrived with — which is the
+    //    "the placement is still the same after I move a level" bug — and every
+    //    row it displaced prints its neighbour's.
+    resyncPlacementsForMove(db, fromPos, target)
 
     // If this level was already moved today (UTC), update the original entry's
     // to_position so the changelog shows one condensed #X → #Y, not N hops.

@@ -27,6 +27,49 @@ export function newPublicId(): string {
   return randomBytes(8).toString('base64url')
 }
 
+/**
+ * Find the ALL level a hand-entered custom-list row is really about, so the row
+ * can follow the main list instead of drifting from it.
+ *
+ * Deliberately conservative: a wrong link silently replaces the row's name,
+ * creator and video with another level's, which is worse than no link at all.
+ * A `gd_id` is *not* unique in `levels` — Solo/2P and Old/Unnerfed variants
+ * legitimately share one — so a match only counts when it resolves to exactly
+ * one row, or when the name breaks the tie.
+ *
+ * @returns the `levels.id` to link to, or null to leave the row hand-entered.
+ */
+export function resolveAllLevel(
+  db: DatabaseSync,
+  opts: { gdId?: number | null; name?: string | null },
+): number | null {
+  const gdId = Number(opts.gdId)
+  const name = (opts.name ?? '').trim()
+
+  if (Number.isInteger(gdId) && gdId > 0) {
+    const byGd = db.prepare(`SELECT id, name FROM levels WHERE gd_id = ?`)
+      .all(gdId) as { id: number; name: string }[]
+    if (byGd.length === 1) return byGd[0]!.id
+    if (byGd.length > 1 && name) {
+      // Several variants share this id — let the name pick one, but only if it
+      // picks exactly one.
+      const exact = byGd.filter((r) => r.name.toLowerCase() === name.toLowerCase())
+      if (exact.length === 1) return exact[0]!.id
+    }
+    // An ambiguous id with no tie-breaker: better hand-entered than wrong.
+    if (byGd.length > 1) return null
+  }
+
+  if (name) {
+    const byName = db.prepare(
+      `SELECT id FROM levels WHERE name = ? COLLATE NOCASE LIMIT 2`,
+    ).all(name) as { id: number }[]
+    if (byName.length === 1) return byName[0]!.id
+  }
+
+  return null
+}
+
 function clean(v: unknown, max = 200): string | null {
   if (typeof v !== 'string') return null
   const s = v.trim()
@@ -100,22 +143,24 @@ export function replaceItems(
 
   for (const raw of items.slice(0, MAX_ITEMS)) {
     const levelId = Number(raw?.level_id)
-    const linked = Number.isInteger(levelId) && levelId > 0
+    let linked = Number.isInteger(levelId) && levelId > 0
       ? (getLevel.get(levelId) as any | undefined)
       : undefined
 
-    // A linked level takes every display field from `levels` — including its
-    // NULLs — so a saved list can never disagree with the ALL list about a
-    // level it points at. Only hand-entered items use the client's values.
-    // `notes` is always the user's; that's what it's for.
-    const fields = linked
+    /**
+     * A linked level takes every display field from `levels` — including its
+     * NULLs — so a saved list can never disagree with the ALL list about a
+     * level it points at. Only hand-entered items use the client's values.
+     * `notes` is always the user's; that's what it's for.
+     */
+    const fieldsFor = (lv: any | undefined) => lv
       ? {
-          name: linked.name as string,
-          gd_id: linked.gd_id as number | null,
-          creator: linked.creator as string | null,
-          difficulty: linked.difficulty as string | null,
-          gddl_tier: linked.gddl_tier as string | null,
-          verification_url: linked.verification_url as string | null,
+          name: lv.name as string,
+          gd_id: lv.gd_id as number | null,
+          creator: lv.creator as string | null,
+          difficulty: lv.difficulty as string | null,
+          gddl_tier: lv.gddl_tier as string | null,
+          verification_url: lv.verification_url as string | null,
         }
       : {
           name: clean(raw?.name),
@@ -126,6 +171,7 @@ export function replaceItems(
           verification_url: clean(raw?.verification_url, 500),
         }
 
+    let fields = fieldsFor(linked)
     if (!fields.name) continue // an item with no name at all is not renderable
 
     const ptq = Number(raw?.percent_to_qualify)
@@ -147,6 +193,22 @@ export function replaceItems(
       const k = `${fields.gd_id ?? ''}|${fields.name.toLowerCase()}`
       const candidate = byNameGd.get(k)
       if (candidate != null && !keptIds.has(candidate)) matchId = candidate
+    }
+
+    // A brand-new row the client didn't link — typed in by hand, or copied from
+    // a mirror — still usually *is* a level on the ALL list. Adopt it when it
+    // can be identified unambiguously, so it follows the main list for its
+    // name, creator and video instead of going stale on its own.
+    //
+    // Only new rows: an existing row that someone deliberately unlinked would
+    // otherwise be re-adopted by the very next save, making "unlink" impossible
+    // to keep.
+    if (!linked && matchId == null) {
+      const guess = resolveAllLevel(db, { gdId: fields.gd_id, name: fields.name })
+      if (guess != null) {
+        linked = getLevel.get(guess) as any | undefined
+        if (linked) fields = fieldsFor(linked)
+      }
     }
 
     if (matchId != null) {

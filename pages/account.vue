@@ -102,7 +102,22 @@ const avatarError = ref<string | null>(null)
 const avatarUploading = ref(false)
 const avatarHoverFileInput = ref<HTMLInputElement | null>(null)
 
-// Crop modal state
+/**
+ * Avatar cropper.
+ *
+ * The stage is a square: avatars appear as circles in the header and feed but
+ * as a rounded square on the profile, so a square is the only output that
+ * looks right in both. The circle drawn over the stage is a *guide* — nothing
+ * is clipped when saving. (Clipping to a circle and encoding as JPEG, which has
+ * no alpha, is what used to bake black corners into every avatar.)
+ *
+ * Offsets are the image's top-left corner relative to the stage's top-left,
+ * in display pixels. `cropScale` multiplies the natural size.
+ */
+const CROP_SIZE = 320   // px — stage edge on screen
+const CROP_OUT = 512    // px — saved image edge
+const CROP_MAX_ZOOM = 6
+
 const cropOpen = ref(false)
 const cropSrc = ref<string | null>(null)
 const cropImgEl = ref<HTMLImageElement | null>(null)
@@ -112,34 +127,12 @@ const cropScale = ref(1)
 const cropOffsetX = ref(0)
 const cropOffsetY = ref(0)
 const cropIsDragging = ref(false)
-const cropDragStart = ref({ x: 0, y: 0, ox: 0, oy: 0 })
-const CROP_SIZE = 192 // px — displayed circle diameter
 
-function initCropPositions() {
-  const scale = cropScale.value
-  const w = cropNaturalW.value * scale
-  const h = cropNaturalH.value * scale
-  cropOffsetX.value = (CROP_SIZE - w) / 2
-  cropOffsetY.value = (CROP_SIZE - h) / 2
-}
-
-function onCropImgLoad(e: Event) {
-  const img = e.target as HTMLImageElement
-  cropNaturalW.value = img.naturalWidth
-  cropNaturalH.value = img.naturalHeight
-  // Fit the image so its shortest side covers the crop circle.
-  const minDim = Math.min(img.naturalWidth, img.naturalHeight)
-  cropScale.value = CROP_SIZE / minDim
-  initCropPositions()
-}
-
-function onCropWheel(e: WheelEvent) {
-  e.preventDefault()
-  const delta = e.deltaY < 0 ? 0.05 : -0.05
-  const minScale = CROP_SIZE / Math.min(cropNaturalW.value, cropNaturalH.value)
-  cropScale.value = Math.max(minScale, Math.min(4, cropScale.value + delta))
-  clampCropOffset()
-}
+/** Smallest zoom that still covers the stage — never allow empty corners. */
+const cropMinScale = computed(() => {
+  const min = Math.min(cropNaturalW.value || 1, cropNaturalH.value || 1)
+  return CROP_SIZE / min
+})
 
 function clampCropOffset() {
   const w = cropNaturalW.value * cropScale.value
@@ -148,28 +141,157 @@ function clampCropOffset() {
   cropOffsetY.value = Math.min(0, Math.max(CROP_SIZE - h, cropOffsetY.value))
 }
 
-function onCropMouseDown(e: MouseEvent) {
-  cropIsDragging.value = true
-  cropDragStart.value = { x: e.clientX, y: e.clientY, ox: cropOffsetX.value, oy: cropOffsetY.value }
-}
-function onCropMouseMove(e: MouseEvent) {
-  if (!cropIsDragging.value) return
-  cropOffsetX.value = cropDragStart.value.ox + (e.clientX - cropDragStart.value.x)
-  cropOffsetY.value = cropDragStart.value.oy + (e.clientY - cropDragStart.value.y)
+/** Centre the image at the current zoom. */
+function centreCrop() {
+  cropOffsetX.value = (CROP_SIZE - cropNaturalW.value * cropScale.value) / 2
+  cropOffsetY.value = (CROP_SIZE - cropNaturalH.value * cropScale.value) / 2
   clampCropOffset()
 }
-function onCropMouseUp() { cropIsDragging.value = false }
+
+function resetCrop() {
+  cropScale.value = cropMinScale.value
+  centreCrop()
+}
+
+function onCropImgLoad(e: Event) {
+  const img = e.target as HTMLImageElement
+  cropNaturalW.value = img.naturalWidth
+  cropNaturalH.value = img.naturalHeight
+  resetCrop()
+}
+
+/**
+ * Zoom about a point on the stage, so whatever is under the cursor (or between
+ * two fingers) stays there. Zooming from the corner instead — which is what it
+ * used to do — walks your subject out of frame every time you scroll.
+ */
+function zoomAt(nextScale: number, stageX: number, stageY: number) {
+  const from = cropScale.value
+  const to = Math.max(cropMinScale.value, Math.min(CROP_MAX_ZOOM, nextScale))
+  if (to === from) return
+  cropOffsetX.value = stageX - (stageX - cropOffsetX.value) * (to / from)
+  cropOffsetY.value = stageY - (stageY - cropOffsetY.value) * (to / from)
+  cropScale.value = to
+  clampCropOffset()
+}
+
+function stagePoint(e: { clientX: number; clientY: number }, el: HTMLElement) {
+  const r = el.getBoundingClientRect()
+  return { x: e.clientX - r.left, y: e.clientY - r.top }
+}
+
+function onCropWheel(e: WheelEvent) {
+  const el = e.currentTarget as HTMLElement
+  const p = stagePoint(e, el)
+  // Proportional steps, so zooming feels the same whether you're at 1× or 5×.
+  zoomAt(cropScale.value * (e.deltaY < 0 ? 1.12 : 1 / 1.12), p.x, p.y)
+}
+
+// Pointer events cover mouse, pen and touch in one path — the old mouse-only
+// handlers made this unusable on a phone.
+const cropPointers = new Map<number, { x: number; y: number }>()
+let cropPinchDist = 0
+let cropDragStart = { x: 0, y: 0, ox: 0, oy: 0 }
+
+function onCropPointerDown(e: PointerEvent) {
+  const el = e.currentTarget as HTMLElement
+  el.setPointerCapture?.(e.pointerId)
+  cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  if (cropPointers.size === 1) {
+    cropIsDragging.value = true
+    cropDragStart = { x: e.clientX, y: e.clientY, ox: cropOffsetX.value, oy: cropOffsetY.value }
+  } else if (cropPointers.size === 2) {
+    const [a, b] = [...cropPointers.values()]
+    cropPinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
+    cropIsDragging.value = false
+  }
+}
+
+function onCropPointerMove(e: PointerEvent) {
+  if (!cropPointers.has(e.pointerId)) return
+  cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+  const el = e.currentTarget as HTMLElement
+
+  if (cropPointers.size >= 2) {
+    const [a, b] = [...cropPointers.values()]
+    const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
+    if (cropPinchDist > 0 && dist > 0) {
+      const mid = stagePoint({ clientX: (a!.x + b!.x) / 2, clientY: (a!.y + b!.y) / 2 }, el)
+      zoomAt(cropScale.value * (dist / cropPinchDist), mid.x, mid.y)
+    }
+    cropPinchDist = dist
+    return
+  }
+
+  if (!cropIsDragging.value) return
+  cropOffsetX.value = cropDragStart.ox + (e.clientX - cropDragStart.x)
+  cropOffsetY.value = cropDragStart.oy + (e.clientY - cropDragStart.y)
+  clampCropOffset()
+}
+
+function onCropPointerUp(e: PointerEvent) {
+  cropPointers.delete(e.pointerId)
+  if (cropPointers.size < 2) cropPinchDist = 0
+  if (cropPointers.size === 0) cropIsDragging.value = false
+}
+
+/** Arrow keys nudge; shift moves ten at a time. */
+function onCropKeydown(e: KeyboardEvent) {
+  const step = e.shiftKey ? 10 : 1
+  const moves: Record<string, [number, number]> = {
+    ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step],
+  }
+  const m = moves[e.key]
+  if (m) {
+    e.preventDefault()
+    cropOffsetX.value += m[0]
+    cropOffsetY.value += m[1]
+    clampCropOffset()
+    return
+  }
+  if (e.key === '+' || e.key === '=') {
+    e.preventDefault()
+    zoomAt(cropScale.value * 1.12, CROP_SIZE / 2, CROP_SIZE / 2)
+  } else if (e.key === '-' || e.key === '_') {
+    e.preventDefault()
+    zoomAt(cropScale.value / 1.12, CROP_SIZE / 2, CROP_SIZE / 2)
+  }
+}
+
+/**
+ * Live preview: the same transform scaled down to a preview box, so you can see
+ * what the avatar will look like at the sizes it's actually used.
+ */
+function cropPreviewStyle(size: number) {
+  const r = size / CROP_SIZE
+  return {
+    position: 'absolute' as const,
+    left: cropOffsetX.value * r + 'px',
+    top: cropOffsetY.value * r + 'px',
+    width: cropNaturalW.value * cropScale.value * r + 'px',
+    height: cropNaturalH.value * cropScale.value * r + 'px',
+    pointerEvents: 'none' as const,
+  }
+}
 
 function openCropForFile(file: File) {
   const reader = new FileReader()
   reader.onload = (ev) => {
     cropSrc.value = ev.target?.result as string
+    // Real values land in onCropImgLoad once the natural size is known.
     cropScale.value = 1
     cropOffsetX.value = 0
     cropOffsetY.value = 0
     cropOpen.value = true
   }
   reader.readAsDataURL(file)
+}
+
+function closeCrop() {
+  cropOpen.value = false
+  cropSrc.value = null
+  cropPointers.clear()
+  cropIsDragging.value = false
 }
 
 function onHoverAvatarChange(e: Event) {
@@ -183,17 +305,21 @@ async function confirmCrop() {
   if (!cropImgEl.value) return
   avatarError.value = null
   avatarUploading.value = true
+  const wasOpen = cropOpen.value
   cropOpen.value = false
   try {
-    const OUT = 256
-    const ratio = OUT / CROP_SIZE
+    const ratio = CROP_OUT / CROP_SIZE
     const canvas = document.createElement('canvas')
-    canvas.width = OUT
-    canvas.height = OUT
+    canvas.width = CROP_OUT
+    canvas.height = CROP_OUT
     const ctx = canvas.getContext('2d')!
-    ctx.beginPath()
-    ctx.arc(OUT / 2, OUT / 2, OUT / 2, 0, Math.PI * 2)
-    ctx.clip()
+    // Better downscaling than the default nearest-ish resampling — avatars are
+    // almost always a large photo squeezed into 512px.
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    // JPEG has no alpha; without this, any gap would encode as black.
+    ctx.fillStyle = '#18181b'
+    ctx.fillRect(0, 0, CROP_OUT, CROP_OUT)
     ctx.drawImage(
       cropImgEl.value,
       cropOffsetX.value * ratio,
@@ -201,18 +327,20 @@ async function confirmCrop() {
       cropNaturalW.value * cropScale.value * ratio,
       cropNaturalH.value * cropScale.value * ratio,
     )
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.92))
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9))
     if (!blob) throw new Error('Crop failed.')
     const fd = new FormData()
     fd.append('avatar', blob, 'avatar.jpg')
     await $fetch('/api/account/avatar', { method: 'POST', body: fd })
     await refreshMe()
     avatarVersion.value++
+    cropSrc.value = null
   } catch (err: any) {
     avatarError.value = err?.data?.statusMessage ?? err?.statusMessage ?? 'Upload failed.'
+    // Keep the crop up so the chosen framing isn't lost to a failed upload.
+    if (wasOpen) cropOpen.value = true
   } finally {
     avatarUploading.value = false
-    cropSrc.value = null
   }
 }
 
@@ -1252,20 +1380,33 @@ function fmt(n: number | null | undefined) {
   <Teleport to="body">
     <div
       v-if="cropOpen"
-      class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
-      @mousemove="onCropMouseMove"
-      @mouseup="onCropMouseUp"
-      @mouseleave="onCropMouseUp"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      @click.self="closeCrop"
+      @keydown.esc="closeCrop"
     >
-      <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-5 w-full max-w-sm space-y-4 shadow-2xl" @click.stop>
-        <h2 class="text-sm font-semibold text-zinc-100">Crop profile picture</h2>
-        <p class="text-[11px] text-zinc-500">Drag to reposition · Scroll to zoom</p>
+      <div class="bg-zinc-900 rounded-2xl border border-zinc-800 p-5 w-full max-w-md space-y-4 shadow-2xl" @click.stop>
+        <div>
+          <h2 class="text-sm font-semibold text-zinc-100">Crop profile picture</h2>
+          <p class="text-[11px] text-zinc-500 mt-0.5">
+            Drag to reposition · scroll or pinch to zoom · arrow keys to nudge
+          </p>
+        </div>
 
+        <!-- Stage. Square, because avatars render as a rounded square on
+             profiles and a circle everywhere else; the ring is only a guide. -->
         <div
-          class="relative mx-auto bg-black overflow-hidden cursor-move select-none"
-          :style="{ width: CROP_SIZE + 'px', height: CROP_SIZE + 'px', borderRadius: '50%', border: '2px solid rgb(var(--color-accent) / 0.6)' }"
-          @mousedown="onCropMouseDown"
+          class="relative mx-auto bg-black overflow-hidden select-none touch-none rounded-2xl ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-accent"
+          :style="{ width: CROP_SIZE + 'px', height: CROP_SIZE + 'px', maxWidth: '100%' }"
+          :class="cropIsDragging ? 'cursor-grabbing' : 'cursor-grab'"
+          tabindex="0"
+          role="application"
+          aria-label="Crop area — drag to reposition, arrow keys to nudge"
+          @pointerdown="onCropPointerDown"
+          @pointermove="onCropPointerMove"
+          @pointerup="onCropPointerUp"
+          @pointercancel="onCropPointerUp"
           @wheel.prevent="onCropWheel"
+          @keydown="onCropKeydown"
         >
           <img
             v-if="cropSrc"
@@ -1284,32 +1425,81 @@ function fmt(n: number | null | undefined) {
             }"
             @load="onCropImgLoad"
           />
+
+          <!-- Circle guide: shows what the round contexts will keep, without
+               removing the corners the square contexts still show. A circular
+               element with a large *outward* shadow dims everything outside it;
+               the stage's own overflow-hidden clips the shadow to the square. -->
+          <div
+            class="absolute inset-0 rounded-full ring-2 ring-accent/70 pointer-events-none"
+            style="box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45)"
+            aria-hidden="true"
+          />
+          <!-- Rule-of-thirds guides, faint, only while dragging -->
+          <div v-if="cropIsDragging" class="absolute inset-0 pointer-events-none" aria-hidden="true">
+            <div class="absolute inset-y-0 left-1/3 w-px bg-white/20" />
+            <div class="absolute inset-y-0 left-2/3 w-px bg-white/20" />
+            <div class="absolute inset-x-0 top-1/3 h-px bg-white/20" />
+            <div class="absolute inset-x-0 top-2/3 h-px bg-white/20" />
+          </div>
         </div>
 
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Zoom</span>
-          <input
-            type="range"
-            :min="CROP_SIZE / Math.max(1, Math.min(cropNaturalW, cropNaturalH))"
-            max="4"
-            step="0.01"
-            :value="cropScale"
-            class="w-full mt-1 accent-accent"
-            @input="(e) => { cropScale = Number((e.target as HTMLInputElement).value); clampCropOffset() }"
-          />
-        </label>
+        <!-- Live previews at the sizes avatars are actually used -->
+        <div class="flex items-center justify-center gap-4">
+          <div class="flex flex-col items-center gap-1">
+            <div class="relative w-16 h-16 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
+              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(64)" draggable="false" />
+            </div>
+            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Feed</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-black ring-1 ring-zinc-700">
+              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(64)" draggable="false" />
+            </div>
+            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Profile</span>
+          </div>
+          <div class="flex flex-col items-center gap-1">
+            <div class="relative w-7 h-7 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
+              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(28)" draggable="false" />
+            </div>
+            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Header</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <label class="flex-1">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Zoom</span>
+            <input
+              type="range"
+              :min="cropMinScale"
+              :max="CROP_MAX_ZOOM"
+              step="0.01"
+              :value="cropScale"
+              class="w-full mt-1 accent-accent"
+              @input="(e) => zoomAt(Number((e.target as HTMLInputElement).value), CROP_SIZE / 2, CROP_SIZE / 2)"
+            />
+          </label>
+          <button
+            type="button"
+            class="mt-4 shrink-0 rounded-lg border border-zinc-700 text-zinc-300 text-xs px-2.5 py-1.5 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+            title="Fit the whole picture and centre it"
+            @click="resetCrop"
+          >Reset</button>
+        </div>
+
+        <p v-if="avatarError" class="text-xs text-red-400">{{ avatarError }}</p>
 
         <div class="flex gap-2 pt-1">
           <button
             type="button"
             :disabled="avatarUploading"
-            class="flex-1 rounded bg-accent text-zinc-950 font-medium text-sm py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+            class="flex-1 rounded-lg bg-accent text-zinc-950 font-semibold text-sm py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
             @click="confirmCrop"
-          >{{ avatarUploading ? 'Saving…' : 'Save' }}</button>
+          >{{ avatarUploading ? 'Saving…' : 'Save picture' }}</button>
           <button
             type="button"
-            class="px-4 rounded border border-zinc-700 text-sm py-1.5 hover:bg-zinc-800 transition-colors"
-            @click="cropOpen = false; cropSrc = null"
+            class="px-4 rounded-lg border border-zinc-700 text-sm py-2 hover:bg-zinc-800 transition-colors"
+            @click="closeCrop"
           >Cancel</button>
         </div>
       </div>
