@@ -200,8 +200,11 @@ export default defineEventHandler((event) => {
 
   if (tentativePlacements === 'hide') filterConds.push(`COALESCE(tentative_placement, 0) = 0`)
   else if (tentativePlacements === 'only') filterConds.push(`COALESCE(tentative_placement, 0) = 1`)
-  if (siteOnly === 'hide') filterConds.push(`sheet_placement IS NOT NULL`)
-  else if (siteOnly === 'only') filterConds.push(`sheet_placement IS NULL`)
+  // Site-only means "the sheet has no level with this ID" — a stored flag the
+  // sheet import recomputes, not `sheet_placement IS NULL`, which also catches
+  // levels the sheet renamed and still carries.
+  if (siteOnly === 'hide') filterConds.push(`COALESCE(site_only, 0) = 0`)
+  else if (siteOnly === 'only') filterConds.push(`COALESCE(site_only, 0) = 1`)
 
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }

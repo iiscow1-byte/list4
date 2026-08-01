@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
     items?: CustomListItemInput[]
     is_public?: boolean
     accepts_records?: boolean
+    follow_all_order?: boolean
     icon_url?: string
     accent_color?: string
     banner_url?: string
@@ -67,6 +68,10 @@ export default defineEventHandler(async (event) => {
       const ok = /^#[0-9a-fA-F]{6}$/.test(hex)
       db.prepare(`UPDATE custom_lists SET accent_color = ? WHERE id = ?`)
         .run(ok ? hex : null, row.id)
+    }
+    if (typeof body?.follow_all_order === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET follow_all_order = ? WHERE id = ?`)
+        .run(body.follow_all_order ? 1 : 0, row.id)
     }
     if (typeof body?.accepts_records === 'boolean') {
       db.prepare(`UPDATE custom_lists SET accepts_records = ? WHERE id = ?`)

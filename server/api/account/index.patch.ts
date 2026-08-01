@@ -61,16 +61,36 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const BANNERS = new Set(['hardest', 'favorite', 'none'])
-  const banner_choice = 'banner_choice' in body && BANNERS.has(String(body.banner_choice))
+  // Any level may back the header — unlike the two picks above it claims
+  // nothing about the account, so it only has to exist.
+  let banner_level_id: number | null = (me as any).banner_level_id ?? null
+  if ('banner_level_id' in body) {
+    const raw = body.banner_level_id
+    if (raw === null || raw === '' || raw === undefined) {
+      banner_level_id = null
+    } else {
+      const n = Number(raw)
+      if (!Number.isFinite(n) || n <= 0) throw createError({ statusCode: 400, statusMessage: 'Invalid banner_level_id' })
+      const exists = getDb().prepare(`SELECT id FROM levels WHERE id = ?`).get(n)
+      if (!exists) throw createError({ statusCode: 404, statusMessage: 'Level not found' })
+      banner_level_id = n
+    }
+  }
+
+  const BANNERS = new Set(['hardest', 'favorite', 'level', 'none'])
+  let banner_choice = 'banner_choice' in body && BANNERS.has(String(body.banner_choice))
     ? String(body.banner_choice)
     : ((me as any).banner_choice ?? 'hardest')
+  // Asking for a level banner without a level would render a plain header while
+  // the setting claimed otherwise, so keep the two honest with each other.
+  if (banner_choice === 'level' && banner_level_id == null) banner_choice = 'none'
 
   getDb().prepare(
     `UPDATE accounts SET bio = ?, country = ?, subdivision = ?, pronouns = ?, discord_handle = ?, youtube_url = ?,
-     favorite_level_id = ?, favorite_level_note = ?, hardest_record_id = ?, banner_choice = ? WHERE id = ?`,
+     favorite_level_id = ?, favorite_level_note = ?, hardest_record_id = ?, banner_choice = ?,
+     banner_level_id = ? WHERE id = ?`,
   ).run(next.bio, next.country, next.subdivision, next.pronouns, next.discord_handle, next.youtube_url,
-    favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, me.id)
+    favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, banner_level_id, me.id)
 
-  return { ok: true, ...next, favorite_level_id, hardest_record_id, banner_choice }
+  return { ok: true, ...next, favorite_level_id, hardest_record_id, banner_choice, banner_level_id }
 })

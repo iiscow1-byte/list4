@@ -105,17 +105,60 @@ export default defineEventHandler((event) => {
     .map((name) => ({ name, count: ratingMap.get(name) ?? 0 }))
     .filter((r) => r.count > 0)
 
+  // Main skillset, most-used first. Grouped case-insensitively because the
+  // sheet spells the same skillset a few different ways across tabs.
+  const skillsets = db
+    .prepare(
+      `SELECT MIN(main_skillset) AS name, COUNT(*) AS count
+         FROM levels
+        WHERE main_skillset IS NOT NULL AND TRIM(main_skillset) <> ''
+        GROUP BY LOWER(TRIM(main_skillset))
+        ORDER BY count DESC`,
+    )
+    .all() as { name: string; count: number }[]
+
   const totalLevels = (db.prepare(`SELECT COUNT(*) AS n FROM levels`).get() as { n: number }).n
   const totalListPoints = (db.prepare(`SELECT COALESCE(SUM(points), 0) AS s FROM levels`).get() as { s: number }).s
+  const siteOnlyLevels = (db.prepare(
+    `SELECT COUNT(*) AS n FROM levels WHERE COALESCE(site_only, 0) = 1`,
+  ).get() as { n: number }).n
+  // Approved records only — `permanent = 1` is what marks a record as accepted.
+  const totalRecords = (db.prepare(
+    `SELECT COUNT(*) AS n FROM records WHERE permanent = 1`,
+  ).get() as { n: number }).n
+  const totalPlayers = (db.prepare(
+    `SELECT COUNT(DISTINCT player_name COLLATE NOCASE) AS n FROM records WHERE permanent = 1`,
+  ).get() as { n: number }).n
+  const levelsWithRecords = (db.prepare(
+    `SELECT COUNT(DISTINCT level_id) AS n FROM records WHERE permanent = 1`,
+  ).get() as { n: number }).n
+
+  // The hardest thing on the list, for the headline. Ordered by tier rather
+  // than position so it stays right if the two ever disagree.
+  const hardest = db
+    .prepare(
+      `SELECT position, sheet_placement, name, gddl_tier, gd_id
+         FROM levels
+        WHERE gddl_tier IS NOT NULL
+        ORDER BY ${TIER_ORD_SQL} DESC, position ASC
+        LIMIT 1`,
+    )
+    .get() as { position: number; sheet_placement: number | null; name: string; gddl_tier: string; gd_id: number | null } | undefined
 
   setHeader(event, 'cache-control', 'public, max-age=60')
   return {
     totalLevels,
     totalListPoints,
+    siteOnlyLevels,
+    totalRecords,
+    totalPlayers,
+    levelsWithRecords,
+    hardest: hardest ?? null,
     tiers,
     subtiers,
     years,
     difficulties,
     ratings,
+    skillsets,
   }
 })

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { youtubeIdFrom } from '~/utils/level-thumbs'
+import { estimateFromNeighbours, findAllNeighbours } from '~/utils/tier-ordinal'
 
 /** Centre panel of a custom list: the selected level in full. */
 const props = defineProps<{
@@ -12,6 +13,10 @@ const props = defineProps<{
   canEdit?: boolean
   /** `/api/custom-lists/:public_id` — enables the inline editor. */
   apiBase?: string
+  /** The whole list, so a level's ALL placement can be guessed from neighbours. */
+  items?: any[]
+  /** The list derives its order from ALL placements — rank isn't editable. */
+  followAllOrder?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
@@ -80,8 +85,10 @@ async function save() {
     await $fetch(`${props.apiBase}/items/${props.item.id}`, { method: 'PATCH', body })
 
     // Rank travels through the move endpoint, which renumbers the whole list.
+    // Skipped entirely when the list takes its order from the ALL — the server
+    // would refuse, and the field is disabled anyway.
     const wanted = Math.round(Number(draft.rank))
-    if (Number.isFinite(wanted) && wanted !== props.item.rank) {
+    if (!props.followAllOrder && Number.isFinite(wanted) && wanted !== props.item.rank) {
       await $fetch(`${props.apiBase}/move`, {
         method: 'POST',
         body: { item_id: props.item.id, to_rank: wanted },
@@ -142,6 +149,20 @@ async function linkToAll(unlink = false) {
 }
 
 /**
+ * Where this level would sit on the ALL, guessed from its neighbours on *this*
+ * list that the ALL already has. A custom list is an opinion about ordering, so
+ * "it's between these two" is real information — far better than making the
+ * submitter guess a placement out of 54,000 from scratch.
+ */
+const estimate = computed(() => {
+  const items = props.items ?? []
+  const idx = items.findIndex((x: any) => x.id === props.item?.id)
+  if (idx === -1) return { placement: null, tier: null, basis: null }
+  const { above, below } = findAllNeighbours(items as any[], idx)
+  return estimateFromNeighbours(above, below)
+})
+
+/**
  * Hand this level to the ALL list's submit form with everything already known
  * about it filled in. Only fields that form actually has are passed.
  */
@@ -153,8 +174,11 @@ const submitToAllHref = computed(() => {
   if (i.gd_id) params.set('gd_id', String(i.gd_id))
   if (i.verifier) params.set('verifier', String(i.verifier))
   if (i.verification_url) params.set('verification_url', String(i.verification_url))
-  if (i.gddl_tier) params.set('gddl_tier', String(i.gddl_tier))
+  // The level's own tier wins when it has one; otherwise use the neighbours'.
+  const tier = i.gddl_tier || estimate.value.tier
+  if (tier) params.set('gddl_tier', String(tier))
   if (i.difficulty) params.set('difficulty', String(i.difficulty))
+  if (estimate.value.placement) params.set('placement_estimate', String(estimate.value.placement))
   if (props.listTitle) params.set('placement_source', props.listTitle.slice(0, 60))
   return `/levels/submit?${params.toString()}`
 })
@@ -236,7 +260,8 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       >
         <label class="block">
           <span :class="label">Rank on this list</span>
-          <input v-model="draft.rank" inputmode="numeric" :class="field" />
+          <input v-model="draft.rank" inputmode="numeric" :class="field" :disabled="followAllOrder" />
+          <span v-if="followAllOrder" class="text-[10px] text-zinc-600">Set by ALL placement</span>
         </label>
         <label class="block">
           <span :class="label">% to qualify</span>
@@ -309,7 +334,18 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
                 :to="submitToAllHref"
                 class="text-[11px] text-zinc-400 hover:text-accent transition-colors"
               >Not on the ALL yet? Submit it →</NuxtLink>
+              <NuxtLink
+                :to="`${listPath}/to-all`"
+                class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
+              >Submit several at once →</NuxtLink>
             </div>
+            <p v-if="estimate.placement || estimate.tier" class="mt-1.5 text-[11px] text-zinc-500">
+              Estimated from its neighbours on this list:
+              <span v-if="estimate.placement" class="text-zinc-300 tabular-nums">#{{ estimate.placement }}</span>
+              <span v-if="estimate.placement && estimate.tier"> · </span>
+              <span v-if="estimate.tier" class="text-zinc-300">{{ estimate.tier }}</span>
+              <span v-if="estimate.basis" class="text-zinc-600"> ({{ estimate.basis }})</span>
+            </p>
           </template>
           <p v-if="linkNote" class="mt-1.5 text-[11px] text-emerald-400">{{ linkNote }}</p>
         </div>

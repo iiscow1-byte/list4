@@ -30,19 +30,68 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
 ]
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
-// "Pending" dropdown — groups the submission-queue tabs
+// "Pending" dropdown — groups the submission-queue tabs.
+//
+// The panel is teleported to <body> and positioned with fixed coordinates
+// rather than living inside the tab bar. Two things in the bar made an
+// absolutely-positioned panel unusable: the row scrolls horizontally
+// (`overflow-x-auto`, which clips the panel vertically as well), and the nav
+// has a `backdrop-blur`, which opens a stacking context the panel's z-index
+// can't escape — so it rendered *behind* the tab content below it.
 const PENDING_TABS: TabId[] = ['levels', 'imported-levels', 'awaiting', 'movements', 'records', 'opinions']
 const pendingDropdownOpen = ref(false)
 const isPendingTab = computed(() => PENDING_TABS.includes(tab.value))
 
 const pendingMenuRef = ref<HTMLElement | null>(null)
+const pendingPanelRef = ref<HTMLElement | null>(null)
+const pendingMenuPos = ref({ top: 0, left: 0 })
+
+/** Anchor the panel under the trigger, keeping it inside the viewport. */
+function positionPendingMenu() {
+  const el = pendingMenuRef.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  const width = 176 // min-w-[11rem]
+  pendingMenuPos.value = {
+    top: r.bottom + 4,
+    left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
+  }
+}
+
+async function togglePendingDropdown() {
+  pendingDropdownOpen.value = !pendingDropdownOpen.value
+  if (!pendingDropdownOpen.value) return
+  positionPendingMenu()
+  await nextTick()
+  pendingPanelRef.value?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true })
+}
+
 function onPendingDocClick(e: MouseEvent) {
   if (!pendingDropdownOpen.value) return
-  if (pendingMenuRef.value?.contains(e.target as Node)) return
+  const t = e.target as Node
+  if (pendingMenuRef.value?.contains(t) || pendingPanelRef.value?.contains(t)) return
   pendingDropdownOpen.value = false
 }
-onMounted(() => document.addEventListener('click', onPendingDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onPendingDocClick))
+function onPendingEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') pendingDropdownOpen.value = false
+}
+function onPendingReflow() {
+  if (pendingDropdownOpen.value) positionPendingMenu()
+}
+onMounted(() => {
+  document.addEventListener('click', onPendingDocClick)
+  document.addEventListener('keydown', onPendingEsc)
+  window.addEventListener('resize', onPendingReflow)
+  // Capture phase: the tab row is itself a scroller, and a scroll there moves
+  // the trigger without ever bubbling a scroll event to the window.
+  window.addEventListener('scroll', onPendingReflow, true)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onPendingDocClick)
+  document.removeEventListener('keydown', onPendingEsc)
+  window.removeEventListener('resize', onPendingReflow)
+  window.removeEventListener('scroll', onPendingReflow, true)
+})
 
 const initial = (typeof route.query.tab === 'string' && allTabs.some((t) => t.id === route.query.tab))
   ? (route.query.tab as TabId)
@@ -358,6 +407,62 @@ async function repairPlacements() {
   }
 }
 
+/**
+ * Sheet-vs-site reconciliation download.
+ *
+ * Fetched rather than linked so the admin session cookie and the endpoint's
+ * error handling both apply — a plain <a href> to an admin route would render
+ * a 403 page into the tab instead of reporting it here.
+ */
+type ReportKind = 'json' | 'csv' | 'full'
+const reportBusy = ref<ReportKind | null>(null)
+const reportError = ref<string | null>(null)
+const reportSummary = ref<string | null>(null)
+
+async function downloadSheetReport(kind: ReportKind) {
+  if (reportBusy.value) return
+  reportBusy.value = kind
+  reportError.value = null
+  try {
+    const blob = await $fetch<Blob>('/api/admin/sheet-report', {
+      query: kind === 'csv'
+        ? { format: 'csv' }
+        : kind === 'full'
+          ? { full: '1' }
+          : {},
+      responseType: 'blob',
+    })
+    const stamp = new Date().toISOString().slice(0, 10)
+    if (kind !== 'csv') {
+      // Summarise while we have it in hand, so the admin knows whether the
+      // file is worth opening.
+      try {
+        const t = JSON.parse(await blob.text()).totals ?? {}
+        reportSummary.value =
+          `${(t.drift_points ?? 0).toLocaleString()} drift point(s) across `
+          + `${(t.offset_runs ?? 0).toLocaleString()} offset run(s); `
+          + `${(t.placement_mismatches ?? 0).toLocaleString()} level(s) numbered differently. `
+          + `${(t.site_only ?? 0).toLocaleString()} site-only, `
+          + `${(t.sheet_exclusive ?? 0).toLocaleString()} sheet-exclusive.`
+      } catch { reportSummary.value = null }
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = kind === 'csv'
+      ? `all-placement-drift-${stamp}.csv`
+      : `all-sheet-report-${stamp}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    reportError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Could not build the report.'
+  } finally {
+    reportBusy.value = null
+  }
+}
+
 async function clearPending(source: PendingKey) {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
@@ -548,7 +653,7 @@ async function setClaim(u: AdminUser) {
             :class="isPendingTab && !pendingDropdownOpen
               ? 'bg-accent/10 text-accent ring-1 ring-inset ring-accent/25'
               : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
-            @click="pendingDropdownOpen = !pendingDropdownOpen"
+            @click="togglePendingDropdown"
           >
             {{ isPendingTab ? allTabs.find(t => t.id === tab)?.label : 'Pending' }}
             <!-- Badge sum for all pending tabs -->
@@ -564,35 +669,41 @@ async function setClaim(u: AdminUser) {
             :aria-expanded="pendingDropdownOpen"
             aria-haspopup="menu"
             aria-label="Pending tabs"
-            @click="pendingDropdownOpen = !pendingDropdownOpen"
+            @click="togglePendingDropdown"
           >
             <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 transition-transform" :class="{ 'rotate-180': pendingDropdownOpen }" aria-hidden="true">
               <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
             </svg>
           </button>
-          <div
-            v-if="pendingDropdownOpen"
-            role="menu"
-            class="absolute left-0 top-full mt-1 min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 p-1 z-40"
-          >
-            <button
-              v-for="id in PENDING_TABS"
-              :key="id"
-              type="button"
-              role="menuitem"
-              class="relative w-full text-left px-3 py-1.5 text-sm transition-colors"
-              :class="tab === id
-                ? 'text-zinc-100 bg-zinc-900'
-                : 'text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900'"
-              @click="tab = id; pendingDropdownOpen = false"
+          <!-- Teleported so neither the tab row's horizontal scroll nor the
+               nav's backdrop-blur can clip or bury it. -->
+          <Teleport to="body">
+            <div
+              v-if="pendingDropdownOpen"
+              ref="pendingPanelRef"
+              role="menu"
+              class="fixed z-[60] min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 ring-1 ring-black/40 p-1"
+              :style="{ top: `${pendingMenuPos.top}px`, left: `${pendingMenuPos.left}px` }"
             >
-              {{ allTabs.find(t => t.id === id)?.label }}
-              <span
-                v-if="tabBadge(id) > 0"
-                class="absolute top-1.5 right-2 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
-              >{{ tabBadge(id) }}</span>
-            </button>
-          </div>
+              <button
+                v-for="id in PENDING_TABS"
+                :key="id"
+                type="button"
+                role="menuitem"
+                class="relative w-full text-left pl-3 pr-9 py-1.5 rounded-lg text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                :class="tab === id
+                  ? 'text-accent bg-accent/10'
+                  : 'text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900'"
+                @click="tab = id; pendingDropdownOpen = false"
+              >
+                {{ allTabs.find(t => t.id === id)?.label }}
+                <span
+                  v-if="tabBadge(id) > 0"
+                  class="absolute top-1.5 right-2 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
+                >{{ tabBadge(id) }}</span>
+              </button>
+            </div>
+          </Teleport>
         </div>
 
         <span class="w-px h-5 bg-zinc-800 mx-0.5" />
@@ -673,6 +784,57 @@ async function setClaim(u: AdminUser) {
           <p v-if="repairResult" class="mt-2 text-xs" :class="repairResult.startsWith('Failed') ? 'text-red-400' : 'text-emerald-400'">
             {{ repairResult }}
           </p>
+        </section>
+
+        <!-- Sheet vs. site reconciliation -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-sm font-semibold text-zinc-100">Sheet vs. site report</h2>
+          <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
+            Everywhere the ALL sheet and this site disagree, as a downloadable file.
+          </p>
+          <ul class="mt-3 space-y-1.5 text-xs text-zinc-400">
+            <li class="flex gap-2">
+              <span class="text-zinc-600 shrink-0">1.</span>
+              <span><span class="text-zinc-200">Drift points</span> — the levels where the sheet's numbering and this site's row order move apart, and by how much.</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-zinc-600 shrink-0">2.</span>
+              <span><span class="text-zinc-200">Site-only levels</span> — nothing on the sheet carries this level's ID.</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-zinc-600 shrink-0">3.</span>
+              <span><span class="text-zinc-200">Sheet-exclusive rows</span> — the last import read the row and no level here represents it, with the sheet's own data. Recorded during the ALL sheet import.</span>
+            </li>
+          </ul>
+          <p class="mt-2 text-[11px] text-zinc-600 max-w-lg">
+            An offset introduced near the top makes every level below it differ by the same amount, so the
+            per-level list is tens of thousands of rows all saying one thing. The drift points are that list,
+            compressed to the places it actually changes.
+          </p>
+          <div class="mt-3 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              :disabled="!!reportBusy"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="downloadSheetReport('json')"
+            >{{ reportBusy === 'json' ? 'Building…' : 'Download report (JSON)' }}</button>
+            <button
+              type="button"
+              :disabled="!!reportBusy"
+              class="rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              title="Drift points as a spreadsheet"
+              @click="downloadSheetReport('csv')"
+            >{{ reportBusy === 'csv' ? 'Building…' : 'Drift points (CSV)' }}</button>
+            <button
+              type="button"
+              :disabled="!!reportBusy"
+              class="rounded border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              title="Every level whose sheet number differs — large file"
+              @click="downloadSheetReport('full')"
+            >{{ reportBusy === 'full' ? 'Building…' : 'Every level (large)' }}</button>
+          </div>
+          <p v-if="reportSummary" class="mt-2 text-xs text-emerald-400">{{ reportSummary }}</p>
+          <p v-if="reportError" class="mt-2 text-xs text-red-400">{{ reportError }}</p>
         </section>
 
         <!-- Header + global clear -->

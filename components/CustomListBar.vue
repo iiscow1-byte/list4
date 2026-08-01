@@ -35,6 +35,11 @@ const onListTab = computed(
   () => route.path === base.value || /^\/lists\/[^/]+\/\d+$/.test(route.path),
 )
 
+/** Levels on this list that aren't linked to an ALL level. */
+const unlinkedCount = computed(
+  () => (props.list.items ?? []).filter((i: any) => i.level_id == null).length,
+)
+
 const tabs = computed(() => [
   { to: base.value, label: 'List', active: onListTab.value },
   { to: `${base.value}/leaderboard`, label: 'Leaderboard' },
@@ -44,6 +49,10 @@ const tabs = computed(() => [
     ? [{ to: `${base.value}/suggest`, label: 'Suggest', badge: props.suggestionCount }]
     : []),
   ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit' }] : []),
+  // Only worth showing when there's actually something the ALL doesn't have.
+  ...(props.canEdit && unlinkedCount.value > 0
+    ? [{ to: `${base.value}/to-all`, label: 'To the ALL', badge: unlinkedCount.value }]
+    : []),
   ...(props.canEdit ? [{ to: `${base.value}/queue`, label: 'Queue', badge: props.pendingCount }] : []),
   ...(props.canEdit ? [{ to: `${base.value}/settings`, label: 'Settings' }] : []),
 ])

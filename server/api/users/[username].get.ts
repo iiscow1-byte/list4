@@ -14,17 +14,24 @@ export default defineEventHandler((event) => {
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
             pronouns, discord_handle, youtube_url,
             favorite_level_id, favorite_level_note,
-            hardest_record_id, banner_choice
+            hardest_record_id, banner_choice, banner_level_id
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })
   acc.has_avatar = !!acc.has_avatar
 
+  const levelCard = db.prepare(
+    `SELECT id, position, sheet_placement, name, gddl_tier, gd_id, creator, verification_url
+       FROM levels WHERE id = ?`,
+  )
+
   const favorite_level = acc.favorite_level_id
-    ? (db.prepare(
-        `SELECT id, position, sheet_placement, name, gddl_tier, gd_id, creator, verification_url
-           FROM levels WHERE id = ?`,
-      ).get(acc.favorite_level_id) as any | null)
+    ? (levelCard.get(acc.favorite_level_id) as any | null)
+    : null
+
+  // A free-choice header level, unrelated to either showcase pick.
+  const banner_level = acc.banner_level_id
+    ? (levelCard.get(acc.banner_level_id) as any | null)
     : null
 
   // The pinned completion. Joined through `records` so the percent and the
@@ -139,5 +146,6 @@ export default defineEventHandler((event) => {
         ? hardest_completion
         : null,
     banner_choice: acc.banner_choice ?? 'hardest',
+    banner_level,
   }
 })

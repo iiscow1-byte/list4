@@ -2,7 +2,19 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 
-type ListLevel = { id?: number; position: number; sheet_placement?: number | null; name: string; gddl_tier: string | null; difficulty: string | null }
+// `gd_id` and `verification_url` come back from /api/levels along with the
+// rest; they were simply missing from this type, so callers that wanted to
+// render the picked level's art had nothing to render it from.
+type ListLevel = {
+  id?: number
+  position: number
+  sheet_placement?: number | null
+  name: string
+  gddl_tier: string | null
+  difficulty: string | null
+  gd_id?: number | null
+  verification_url?: string | null
+}
 
 const props = defineProps<{
   open: boolean

@@ -44,7 +44,8 @@ const { data, error, refresh } = await useFetch<{
   favorite_level: ShowcaseLevel | null
   favorite_level_note: string | null
   hardest_completion: ShowcaseLevel | null
-  banner_choice: 'hardest' | 'favorite' | 'none'
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  banner_level: ShowcaseLevel | null
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
 
 const { data: meRes } = useCurrentUser()
@@ -67,14 +68,17 @@ const avatarUrl = computed(() =>
  * The level painted behind the profile header.
  *
  * `banner_choice` decides which pick wins. 'none' is honoured exactly — that's
- * someone asking for a plain header — but the default 'hardest' falls back to
- * the favourite, since every account starts on that default and most will have
- * set a favourite long before they pin a completion.
+ * someone asking for a plain header — and so is 'level', which is a backdrop
+ * chosen for its own sake and shouldn't quietly fall back to a showcase pick.
+ * The default 'hardest' does fall back to the favourite, since every account
+ * starts on that default and most set a favourite long before they pin a
+ * completion.
  */
 const bannerLevel = computed<ShowcaseLevel | null>(() => {
   const d = data.value
   if (!d) return null
   if (d.banner_choice === 'none') return null
+  if (d.banner_choice === 'level') return d.banner_level
   if (d.banner_choice === 'favorite') return d.favorite_level
   return d.hardest_completion ?? d.favorite_level
 })
@@ -153,7 +157,11 @@ const stats = computed(() => {
 
       <div class="container-tight max-w-5xl">
         <div class="relative -mt-14 sm:-mt-16 flex items-end gap-4 flex-wrap">
-          <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-zinc-900 ring-4 ring-zinc-950 overflow-hidden shrink-0 shadow-xl shadow-black/50">
+          <!-- Circular like every other avatar on the site. Also the only
+               shape that hides the black corners baked into avatars cropped
+               before the cropper stopped clipping to a circle and saving as
+               JPEG — those are real pixels in the stored image. -->
+          <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-zinc-900 ring-4 ring-zinc-950 overflow-hidden shrink-0 shadow-xl shadow-black/50">
             <img v-if="avatarUrl" :src="avatarUrl" alt="" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full flex items-center justify-center text-3xl text-zinc-600 font-black">
               {{ data.account.username.charAt(0).toUpperCase() }}

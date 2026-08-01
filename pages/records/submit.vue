@@ -256,40 +256,61 @@ async function submit() {
 
 <template>
   <div class="container-tight py-8" :class="multi ? 'max-w-3xl' : 'max-w-xl'">
-    <div class="flex items-start justify-between gap-3 mb-6">
-      <div>
-        <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit a record</h1>
-        <p class="text-sm text-zinc-400">
-          A moderator will review your submission before it appears on the level page.
-        </p>
+    <header class="mb-6">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div class="min-w-0">
+          <h1 class="text-3xl font-bold tracking-tight">Submit a record</h1>
+          <p class="text-sm text-zinc-400 mt-1">
+            A moderator reviews every submission before it appears on the level page.
+          </p>
+        </div>
+        <div class="shrink-0 flex flex-col items-end gap-1">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Multiple records</span>
+            <button
+              type="button"
+              role="switch"
+              :aria-checked="multi"
+              class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+              :class="multi ? 'bg-accent' : 'bg-zinc-800'"
+              @click="toggleMulti"
+            >
+              <span
+                class="inline-block h-4 w-4 rounded-full bg-zinc-50 transition-transform"
+                :class="multi ? 'translate-x-4' : 'translate-x-0.5'"
+              />
+            </button>
+          </label>
+          <span class="text-[10px] text-zinc-600">{{ multi ? 'One row per level' : 'One record at a time' }}</span>
+        </div>
       </div>
-      <div class="shrink-0 flex flex-col items-end gap-1 mt-1">
-        <label class="flex items-center gap-2 cursor-pointer select-none">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Submit multiple records</span>
-          <button
-            type="button"
-            role="switch"
-            :aria-checked="multi"
-            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-            :class="multi ? 'bg-accent' : 'bg-zinc-800'"
-            @click="toggleMulti"
-          >
-            <span
-              class="inline-block h-4 w-4 rounded-full bg-zinc-50 transition-transform"
-              :class="multi ? 'translate-x-4' : 'translate-x-0.5'"
-            />
-          </button>
-        </label>
-        <span v-if="!multi" class="text-[10px] text-zinc-600">Fill in a row and the next appears</span>
-      </div>
-    </div>
+
+      <!-- What actually happens after you press Submit — this used to be a
+           single line above the form that read as decoration. -->
+      <ol class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-600">
+        <li class="inline-flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-accent/15 text-accent text-[9px] font-bold flex items-center justify-center">1</span>
+          Pick the level and link your proof
+        </li>
+        <li aria-hidden="true" class="text-zinc-800">→</li>
+        <li class="inline-flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-bold flex items-center justify-center">2</span>
+          A moderator reviews it
+        </li>
+        <li aria-hidden="true" class="text-zinc-800">→</li>
+        <li class="inline-flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-bold flex items-center justify-center">3</span>
+          It counts toward your points
+        </li>
+      </ol>
+    </header>
 
     <form class="space-y-4" @submit.prevent="submit">
       <!-- Multi-row grid: level on the left, video URL on the right -->
-      <div v-if="multi">
-        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1">
-          <span>Level</span>
-          <span>Video URL</span>
+      <div v-if="multi" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">
+          <span>Level <span class="text-red-400">*</span></span>
+          <span>Video URL <span class="text-red-400">*</span></span>
         </div>
         <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-1.5">
           <RecordSubmitRow
@@ -299,10 +320,14 @@ async function submit() {
             @update:model-value="(v) => Object.assign(row, v)"
           />
         </div>
-        <p class="text-[11px] text-zinc-500 mt-2">A new row appears as soon as you start filling the last one.</p>
+        <p class="text-[11px] text-zinc-500 mt-2.5">A new row appears as soon as you start filling the last one.</p>
       </div>
 
-      <div v-else class="relative">
+      <!-- Single mode: the level and the proof belong together, so they share
+           one card. The picker needs its own relative wrapper — anchoring it to
+           the card would make the dropdown wider than the input it belongs to. -->
+      <div v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+        <div class="relative">
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
           <input
@@ -334,64 +359,67 @@ async function submit() {
           </li>
           <li v-if="levelPicker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
         </ul>
-      </div>
+        </div>
 
-      <div class="relative">
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
           <input
-            v-model="holderName"
-            placeholder="Player name"
-            autocomplete="off"
+            v-model="video"
+            type="url"
+            required
+            placeholder="https://www.youtube.com/watch?v=…"
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            @focus="holderOpen = holderMatches.length > 0"
-            @blur="setTimeout(() => holderOpen = false, 150)"
           />
-          <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting on someone else's behalf.</span>
         </label>
-        <ul
-          v-if="holderOpen && holderMatches.length"
-          class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
-        >
-          <li v-for="m in holderMatches" :key="`${m.source}:${m.name}`">
-            <button
-              type="button"
-              class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
-              @mousedown.prevent="pickHolder(m)"
-            >
-              <span class="truncate flex-1">{{ m.name }}</span>
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500">{{ m.source }}</span>
-            </button>
-          </li>
-        </ul>
+
+        <label v-if="canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+          <input
+            v-model="isVerificationClaim"
+            type="checkbox"
+            class="mt-0.5 accent-accent"
+          />
+          <span class="text-sm text-zinc-200">
+            This is the level's verification
+            <span class="block text-[11px] text-zinc-500 mt-0.5">
+              If approved, {{ holderName.trim() || 'the record holder' }} will be credited as the verifier of this level.
+            </span>
+          </span>
+        </label>
       </div>
 
-      <label v-if="!multi" class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
-        <input
-          v-model="video"
-          type="url"
-          required
-          placeholder="https://www.youtube.com/watch?v=…"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-      </label>
+      <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <div class="relative">
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
+            <input
+              v-model="holderName"
+              placeholder="Player name"
+              autocomplete="off"
+              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              @focus="holderOpen = holderMatches.length > 0"
+              @blur="setTimeout(() => holderOpen = false, 150)"
+            />
+            <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting on someone else's behalf.</span>
+          </label>
+          <ul
+            v-if="holderOpen && holderMatches.length"
+            class="absolute z-10 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+          >
+            <li v-for="m in holderMatches" :key="`${m.source}:${m.name}`">
+              <button
+                type="button"
+                class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
+                @mousedown.prevent="pickHolder(m)"
+              >
+                <span class="truncate flex-1">{{ m.name }}</span>
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500">{{ m.source }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
 
-      <label v-if="!multi && canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none">
-        <input
-          v-model="isVerificationClaim"
-          type="checkbox"
-          class="mt-0.5 accent-accent"
-        />
-        <span class="text-sm text-zinc-200">
-          This is the level's verification
-          <span class="block text-[11px] text-zinc-500 mt-0.5">
-            If approved, {{ holderName.trim() || 'the record holder' }} will be credited as the verifier of this level.
-          </span>
-        </span>
-      </label>
-
-      <fieldset v-if="!multi" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+      <fieldset v-if="!multi" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
           <button type="button" class="hover:text-zinc-300" @click="ratingOpen = !ratingOpen">
             Rate this level <span class="text-zinc-600 normal-case">applied if the record is approved</span>
@@ -430,28 +458,45 @@ async function submit() {
         </div>
       </fieldset>
 
-      <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
-        <textarea
-          v-model="note"
-          rows="3"
-          maxlength="2000"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-      </label>
+      <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">optional</span></span>
+          <textarea
+            v-model="note"
+            rows="3"
+            maxlength="2000"
+            placeholder="Anything the reviewer should know — device, framerate, a timestamp…"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+      </div>
 
-      <div class="flex items-center gap-3 pt-2">
+      <!-- Outcomes as panels rather than a line of small text next to the
+           button — a submission that half-failed deserves more than 11px. -->
+      <p v-if="success" class="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-300">
+        Submitted — pending review. You'll get an inbox message when a moderator decides.
+      </p>
+      <p
+        v-if="successMulti"
+        class="rounded-lg border px-3 py-2.5 text-sm"
+        :class="successMulti.failed
+          ? 'border-amber-900/60 bg-amber-950/30 text-amber-300'
+          : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-300'"
+      >
+        Submitted {{ successMulti.submitted }} record{{ successMulti.submitted === 1 ? '' : 's' }} — pending review.
+        <template v-if="successMulti.failed">{{ successMulti.failed }} could not be submitted; see the error below.</template>
+      </p>
+      <p v-if="error" class="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2.5 text-sm text-red-300">{{ error }}</p>
+
+      <div class="sticky bottom-0 -mx-4 px-4 py-3 bg-zinc-950/90 backdrop-blur border-t border-zinc-800/80 flex items-center gap-3">
         <button
           type="submit"
           :disabled="submitting"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
-        >{{ submitting ? 'Submitting…' : 'Submit' }}</button>
-        <span v-if="success" class="text-xs text-emerald-400">Submitted — pending review.</span>
-        <span v-if="successMulti" class="text-xs text-emerald-400">
-          Submitted {{ successMulti.submitted }} record{{ successMulti.submitted === 1 ? '' : 's' }} — pending review.<span v-if="successMulti.failed">
-            {{ successMulti.failed }} failed.</span>
+          class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-5 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+        >{{ submitting ? 'Submitting…' : multi ? 'Submit records' : 'Submit record' }}</button>
+        <span class="text-[11px] text-zinc-600">
+          <span class="text-red-400">*</span> required
         </span>
-        <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
       </div>
     </form>
   </div>

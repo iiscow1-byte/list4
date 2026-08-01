@@ -260,6 +260,90 @@ function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): void {
 
 const dupKey = (gd: number | null, n: string) => `${gd ?? ''}|${n.toLowerCase()}`
 
+/** A sheet row the import read but never represented as a level on the site. */
+type SheetExclusiveRow = {
+  gd_id: number | null
+  name: string
+  sheet_placement: number | null
+  gddl_tier: string | null
+  difficulty: string | null
+  verifier: string | null
+  verify_date: string | null
+  verification_url: string | null
+  source_tab: string | null
+  placement_source: string | null
+  reason: string
+}
+
+/**
+ * Recompute `levels.site_only` from the sheet's full set of level IDs.
+ *
+ * A level is the site's own when the sheet lists nothing with its ID — that is
+ * the whole rule. Levels with no ID at all fall back to a name match, since an
+ * ID that doesn't exist can't fail to match one.
+ *
+ * Deliberately *not* derived from `sheet_placement`: that column answers "did a
+ * sheet row claim this row on this run", which a rename or a shared Solo/2P ID
+ * can answer "no" for a level the sheet very much still carries.
+ */
+export function markSiteOnly(
+  db: ReturnType<typeof getDb>,
+  sheetGdIds: Set<number>,
+  sheetNames: Set<string>,
+): { siteOnly: number; changed: number } {
+  const rows = db
+    .prepare(`SELECT id, gd_id, name, site_only FROM levels`)
+    .all() as { id: number; gd_id: number | null; name: string; site_only: number }[]
+  const upd = db.prepare(`UPDATE levels SET site_only = ? WHERE id = ?`)
+  let siteOnly = 0
+  let changed = 0
+
+  db.exec('BEGIN')
+  try {
+    for (const r of rows) {
+      const onSheet = r.gd_id != null
+        ? sheetGdIds.has(r.gd_id)
+        : sheetNames.has(r.name.toLowerCase())
+      const want = onSheet ? 0 : 1
+      if (want) siteOnly++
+      if (r.site_only !== want) { upd.run(want, r.id); changed++ }
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  return { siteOnly, changed }
+}
+
+/**
+ * Replace the sheet-exclusive table with this run's findings. Wholesale rather
+ * than incremental: the question is "what did the newest import leave behind",
+ * and a row that has since been reconciled should stop being reported.
+ */
+function recordSheetExclusives(db: ReturnType<typeof getDb>, rows: SheetExclusiveRow[]): void {
+  const ins = db.prepare(
+    `INSERT INTO sheet_exclusive_levels
+       (gd_id, name, sheet_placement, gddl_tier, difficulty, verifier, verify_date,
+        verification_url, source_tab, placement_source, reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+  db.exec('BEGIN')
+  try {
+    db.exec(`DELETE FROM sheet_exclusive_levels`)
+    for (const r of rows) {
+      ins.run(
+        r.gd_id, r.name, r.sheet_placement, r.gddl_tier, r.difficulty, r.verifier,
+        r.verify_date, r.verification_url, r.source_tab, r.placement_source, r.reason,
+      )
+    }
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+}
+
 async function importLevels() {
   const db = getDb()
 
@@ -386,6 +470,13 @@ async function importLevels() {
   }
   const fetched: FetchedTab[] = []
   const sheetGdCounts = new Map<number, number>()
+  // Every level ID and every level name the sheet lists anywhere. These decide
+  // `site_only` at the end of the run: a level here whose ID the sheet doesn't
+  // carry is the site's own, whatever happened to it during reconciliation.
+  const sheetGdIds = new Set<number>()
+  const sheetNames = new Set<string>()
+  // Sheet rows that never became a level on the site (see recordSheetExclusives).
+  const sheetExclusives: SheetExclusiveRow[] = []
 
   for (const tab of TABS) {
     process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
@@ -405,9 +496,14 @@ async function importLevels() {
 
     for (let i = found.headerIdx + 1; i < text.length; i++) {
       const r = text[i]!
-      if (!txt(r[c['level name']!]) || num(r[c['placement']!]) === null) continue
+      const rowName = txt(r[c['level name']!])
+      if (!rowName || num(r[c['placement']!]) === null) continue
       const gd = num(r[c['level id']!])
-      if (gd != null) sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
+      if (gd != null) {
+        sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
+        sheetGdIds.add(gd)
+      }
+      sheetNames.add(rowName.toLowerCase())
     }
   }
 
@@ -428,7 +524,27 @@ async function importLevels() {
         // Filter, don't assign — placement === null means decoration row.
         if (!name || placement === null) { skipped++; continue }
         const gdId = num(r[c['level id']!])
-        if (gdId !== null && permGdIds.has(gdId)) { permSkipped++; continue }
+        if (gdId !== null && permGdIds.has(gdId)) {
+          permSkipped++
+          // The sheet's version of this level never lands here — a permanent
+          // site row owns the ID and the importer leaves it alone. That makes
+          // the sheet's data for this row unrepresented on the site, which is
+          // exactly what the sheet-exclusive report is for.
+          sheetExclusives.push({
+            gd_id: gdId,
+            name,
+            sheet_placement: placement,
+            gddl_tier: txt(r[c['gddl tier']!]),
+            difficulty: txt(r[c['difficulty']!]),
+            verifier: null,
+            verify_date: txt(r[c['verify date']!]),
+            verification_url: verCol != null ? extractLinkHref(rh[verCol] ?? '') : null,
+            source_tab: tab.label,
+            placement_source: sourceCol != null ? txt(r[sourceCol]) : null,
+            reason: 'owned by a permanent level on the site',
+          })
+          continue
+        }
         const key = dupKey(gdId, name)
         // Already encountered earlier in the sheet — record nothing twice.
         // A Set lookup, not a scan: the old `sheetOrder.some(...)` was O(n²)
@@ -534,6 +650,16 @@ async function importLevels() {
     for (const s of strays.slice(0, 20)) console.log(`  · ${s.name}${s.gd_id ? ` (${s.gd_id})` : ''}`)
     if (strays.length > 20) console.log(`  … and ${strays.length - 20} more`)
   }
+
+  // Which levels here the sheet has no ID for, and which sheet rows never
+  // became a level here. Both are recomputed from scratch each run, so they
+  // always describe the sheet as it is now rather than as it once was.
+  const siteOnlyStats = markSiteOnly(db, sheetGdIds, sheetNames)
+  recordSheetExclusives(db, sheetExclusives)
+  console.log(
+    `${siteOnlyStats.siteOnly} level(s) have no matching ID on the sheet ` +
+    `(${siteOnlyStats.changed} reclassified). ${sheetExclusives.length} sheet row(s) not represented here.`,
+  )
 
   const orphans = applySheetOrder(db, sheetOrder, {
     newIds,

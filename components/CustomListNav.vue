@@ -31,6 +31,8 @@ const props = defineProps<{
   canEdit?: boolean
   /** `/api/custom-lists/:public_id` */
   apiBase?: string
+  /** The list derives its order from ALL placements — manual moves are off. */
+  followAllOrder?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
@@ -64,8 +66,12 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 
 // Dragging is disabled while a filter is applied: the visible order isn't the
-// list order then, so a drop index would mean nothing.
-const canReorder = computed(() => editing.value && !search.value.trim())
+// list order then, so a drop index would mean nothing. It's also off when the
+// list takes its order from the ALL, where a manual move would be recomputed
+// away on the next read.
+const canReorder = computed(
+  () => editing.value && !search.value.trim() && !props.followAllOrder,
+)
 
 const dragId = ref<number | null>(null)
 /** Rank the dragged row would land on, for the drop indicator. */
@@ -172,6 +178,9 @@ async function remove(item: CustomItem) {
 
       <p v-if="editing" class="mt-2 text-[10px] leading-snug" :class="error ? 'text-red-400' : 'text-zinc-500'">
         <template v-if="error">{{ error }}</template>
+        <template v-else-if="followAllOrder">
+          This list is ordered by ALL placements — turn that off in settings to reorder by hand.
+        </template>
         <template v-else-if="search.trim()">Clear the search to drag rows.</template>
         <template v-else>Drag a row to move it, or type a rank into the number.</template>
       </p>
@@ -232,10 +241,10 @@ async function remove(item: CustomItem) {
             <span
               v-else
               class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
-              :class="editing ? 'cursor-text ring-1 ring-inset ring-white/20' : ''"
+              :class="editing && !followAllOrder ? 'cursor-text ring-1 ring-inset ring-white/20' : ''"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-              :title="editing ? 'Click to type a rank' : undefined"
-              @click.prevent.stop="editing && startRankEdit(lvl)"
+              :title="editing && !followAllOrder ? 'Click to type a rank' : undefined"
+              @click.prevent.stop="editing && !followAllOrder && startRankEdit(lvl)"
             >{{ lvl.rank }}</span>
 
             <span class="relative flex-1 min-w-0">

@@ -22,11 +22,20 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
   const list = db.prepare(
-    `SELECT id, owner_account_id FROM custom_lists WHERE public_id = ?`,
-  ).get(publicId) as { id: number; owner_account_id: number } | undefined
+    `SELECT id, owner_account_id, follow_all_order FROM custom_lists WHERE public_id = ?`,
+  ).get(publicId) as { id: number; owner_account_id: number; follow_all_order: number } | undefined
   if (!list) throw createError({ statusCode: 404, statusMessage: 'List not found' })
   if (!canEditList(db, list, account)) {
     throw createError({ statusCode: 403, statusMessage: 'Not your list' })
+  }
+  // Ordering is derived from ALL placements at read time, so a manual move
+  // would be overwritten the moment the list is read again. Refusing is
+  // honest; silently accepting and discarding it is not.
+  if (list.follow_all_order) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: 'This list orders itself by ALL placements. Turn that off in settings to reorder by hand.',
+    })
   }
 
   const itemId = Number(body.item_id)

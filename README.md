@@ -37,6 +37,24 @@ curators renumber the sheet. `server/utils/changes.ts` maps historical
 positions through to placements so the changelog speaks the same numbering as
 the rest of the site.
 
+- **`levels.site_only`** — 1 when the sheet carries no level with this level's
+  ID. Recomputed from the sheet's full ID set on every ALL import
+  (`markSiteOnly` in `server/db/import.ts`), and it is what the list's
+  "Site-only levels" filter reads.
+
+  This used to be inferred from `sheet_placement IS NULL`, which answers a
+  different question: that column is cleared for any row no sheet row claimed on
+  a given run, which includes levels the sheet merely renamed and Solo/2P pairs
+  whose shared ID stops the importer matching them. Both are still on the sheet,
+  so both were mislabelled.
+
+**Admin → Imports → Sheet vs. site report** (`/api/admin/sheet-report`) dumps
+the disagreements. The useful section is `offset_runs` / `drift_points`: because
+the two numberings diverge cumulatively, one extra sheet row near the top makes
+every level below it "mismatch" by the same amount — 53,000 rows all saying one
+thing. Collapsing equal offsets into runs turns that into the handful of levels
+where the numbering actually moved. `?full=1` returns the per-level list anyway.
+
 ## Level thumbnails
 
 Level rows and the level-page hero use community thumbnails from the

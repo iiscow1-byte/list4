@@ -48,7 +48,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   <div v-if="error" class="h-full flex items-center justify-center">
     <div class="text-center">
       <p class="text-sm text-zinc-500">This list doesn't exist.</p>
-      <NuxtLink to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse public lists →</NuxtLink>
+      <NuxtLink to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse custom lists →</NuxtLink>
     </div>
   </div>
 
@@ -68,16 +68,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :list-path="base"
         :can-edit="canEdit"
         :api-base="`/api/custom-lists/${publicId}`"
+        :follow-all-order="!!list.follow_all_order"
         class="hidden md:flex"
         @changed="refresh"
       />
       <CustomListLevelDetail
         :item="activeItem"
+        :items="list.items"
         :list-title="list.title"
         :total-items="list.items.length"
         :list-path="base"
         :can-edit="canEdit"
         :api-base="`/api/custom-lists/${publicId}`"
+        :follow-all-order="!!list.follow_all_order"
         @changed="refresh"
       />
       <CustomListRecords

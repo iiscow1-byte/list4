@@ -459,7 +459,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
                 progressed on
                 <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
                 <span v-else class="text-zinc-200">{{ item.level_name }}</span>
-                <span class="text-zinc-500"> {{ item.start_percent }}% → {{ item.end_percent }}%</span>
+                <span class="text-zinc-500">{{ ` ${item.start_percent}% → ${item.end_percent}%` }}</span>
                 <a v-if="item.video_url" :href="item.video_url" target="_blank" rel="noopener" class="ml-1 text-accent hover:underline">[video]</a>
               </template>
             </div>

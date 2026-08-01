@@ -38,8 +38,10 @@ export default defineEventHandler(async (event) => {
           (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
            verification, verification_url, year_verified, category, source_tab,
            creator, permanent, enjoyment, pov_placement, placement_source, submitted_by,
-           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated,
+           site_only)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                 1)`,
       ).run(
         insertPos, sub.name, sub.gd_id,
         sub.gddl_tier, sub.difficulty, sub.main_skillset, sub.verify_date,

@@ -58,8 +58,8 @@ export default defineEventHandler(async (event) => {
         (position, name, gd_id, gddl_tier, category, source_tab, creator, verifier,
          publisher, permanent, enjoyment, edel_enjoyment, pov_placement,
          placement_source, verification_url, year_verified,
-         aredl_position, aredl_tags)
-       VALUES (?, ?, ?, ?, 'classic', 'AREDL', ?, ?, ?, 1, NULL, ?, ?, 'AREDL', ?, ?, ?, ?)`,
+         aredl_position, aredl_tags, site_only)
+       VALUES (?, ?, ?, ?, 'classic', 'AREDL', ?, ?, ?, 1, NULL, ?, ?, 'AREDL', ?, ?, ?, ?, 1)`,
     ).run(
       actualPlacement,
       src.name,

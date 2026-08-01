@@ -143,6 +143,27 @@ function initSchema(db: DatabaseSync) {
   if (!has('tentative_placement')) {
     db.exec(`ALTER TABLE levels ADD COLUMN tentative_placement INTEGER NOT NULL DEFAULT 0`)
   }
+  // Sheet rows the ALL import read but did not turn into a level here —
+  // levels that exist on the sheet and nowhere else. Rewritten wholesale by
+  // each sheet import (see `recordSheetExclusives`), so it always describes the
+  // most recent run rather than accumulating history.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sheet_exclusive_levels (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      gd_id           INTEGER,
+      name            TEXT    NOT NULL,
+      sheet_placement INTEGER,
+      gddl_tier       TEXT,
+      difficulty      TEXT,
+      verifier        TEXT,
+      verify_date     TEXT,
+      verification_url TEXT,
+      source_tab      TEXT,
+      placement_source TEXT,
+      reason          TEXT    NOT NULL,
+      imported_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
 
   // One-time rename: legacy "hand placed" source (case-insensitive) → the
   // new canonical "All Levels List" tag used for site-originated submissions.
@@ -179,11 +200,17 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'hardest_record_id')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN hardest_record_id INTEGER REFERENCES records(id) ON DELETE SET NULL`)
   }
-  // Which of the two picks paints the profile header: 'hardest' | 'favorite' |
+  // Which pick paints the profile header: 'hardest' | 'favorite' | 'level' |
   // 'none'. Stored rather than inferred so clearing a pick doesn't silently
   // switch the banner to the other one.
   if (!accCols.some((c) => c.name === 'banner_choice')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN banner_choice TEXT NOT NULL DEFAULT 'hardest'`)
+  }
+  // Any level at all as the header art, independent of the hardest/favourite
+  // picks — those two carry meaning on the profile, and people want a backdrop
+  // without claiming a completion or declaring a favourite to get one.
+  if (!accCols.some((c) => c.name === 'banner_level_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN banner_level_id INTEGER REFERENCES levels(id) ON DELETE SET NULL`)
   }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
@@ -1141,6 +1168,24 @@ function initSchema(db: DatabaseSync) {
   if (!has('sheet_placement')) db.exec(`ALTER TABLE levels ADD COLUMN sheet_placement INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_sheet_placement ON levels(sheet_placement)`)
 
+  // `site_only`: 1 when the ALL sheet has no level with this level's ID.
+  //
+  // This used to be inferred from `sheet_placement IS NULL`, which is a
+  // different question — that column is cleared for any row a sheet row didn't
+  // claim this run, including levels the sheet merely *renamed* and Solo/2P
+  // pairs whose shared ID stops the importer matching them. Those are still on
+  // the sheet, so calling them site-only was wrong. Recomputed from the sheet's
+  // full ID set on every ALL import; the backfill reproduces the old behaviour
+  // until that first import runs.
+  //
+  // Sits below `sheet_placement` on purpose: the backfill reads that column, so
+  // it has to run after the migration that adds it.
+  if (!has('site_only')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN site_only INTEGER NOT NULL DEFAULT 0`)
+    db.exec(`UPDATE levels SET site_only = 1 WHERE sheet_placement IS NULL`)
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_site_only ON levels(site_only)`)
+
   // Level comments reuse the existing `comments` table via a new target_kind.
   // SQLite can't widen a CHECK in place, so rebuild when 'level' is missing.
   const commentsSql = (db.prepare(
@@ -1426,6 +1471,13 @@ function initSchema(db: DatabaseSync) {
   }
   if (!clCols2.some((c) => c.name === 'banner_url')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN banner_url TEXT`)
+  }
+  // When set, the list orders itself by its levels' ALL placements instead of
+  // the order they were dragged into. Applied when the list is read, so it
+  // tracks the ALL list continuously rather than snapshotting it. Off by
+  // default: a custom list is normally somebody's own opinion about ordering.
+  if (!clCols2.some((c) => c.name === 'follow_all_order')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN follow_all_order INTEGER NOT NULL DEFAULT 0`)
   }
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts

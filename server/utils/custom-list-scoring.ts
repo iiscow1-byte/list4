@@ -71,18 +71,40 @@ export type LeaderboardRow = {
  */
 export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardRow[] {
   const settings = db.prepare(
-    `SELECT max_points, min_points, scored_count FROM custom_lists WHERE id = ?`,
-  ).get(listId) as ListScoreSettings | undefined
+    `SELECT max_points, min_points, scored_count, follow_all_order FROM custom_lists WHERE id = ?`,
+  ).get(listId) as (ListScoreSettings & { follow_all_order: number }) | undefined
   if (!settings) return []
 
-  const totalItems = (db.prepare(
-    `SELECT COUNT(*) AS n FROM custom_list_items WHERE list_id = ?`,
-  ).get(listId) as { n: number }).n
-  if (totalItems === 0) return []
+  /**
+   * Rank per item, in whatever order the list actually presents.
+   *
+   * A list set to follow the ALL's placements is ordered by those rather than
+   * by `sort_order`, and points come from rank — deriving rank from
+   * `sort_order` here would quietly score everyone against a different list
+   * from the one they can see.
+   */
+  const ordered = db.prepare(
+    `SELECT i.id, i.sort_order, l.position
+       FROM custom_list_items i
+       LEFT JOIN levels l ON l.id = i.level_id
+      WHERE i.list_id = ?`,
+  ).all(listId) as { id: number; sort_order: number; position: number | null }[]
+  if (ordered.length === 0) return []
 
-  // sort_order is 0-based; rank is 1-based.
+  ordered.sort((a, b) => {
+    if (settings.follow_all_order) {
+      if (a.position == null && b.position == null) return a.sort_order - b.sort_order
+      if (a.position == null) return 1
+      if (b.position == null) return -1
+      return a.position - b.position
+    }
+    return a.sort_order - b.sort_order
+  })
+  const rankOf = new Map(ordered.map((r, i) => [r.id, i + 1]))
+  const totalItems = ordered.length
+
   const rows = db.prepare(
-    `SELECT r.player_name, r.percent, i.sort_order, i.name AS level_name, i.gd_id AS level_gd_id,
+    `SELECT r.player_name, r.percent, i.id AS item_id, i.name AS level_name, i.gd_id AS level_gd_id,
             a.username AS account_username, (a.avatar_blob IS NOT NULL) AS has_avatar
        FROM custom_list_records r
        JOIN custom_list_items i ON i.id = r.item_id
@@ -91,7 +113,7 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
   ).all(listId) as {
     player_name: string
     percent: number
-    sort_order: number
+    item_id: number
     level_name: string
     level_gd_id: number | null
     account_username: string | null
@@ -102,7 +124,8 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
   const byPlayer = new Map<string, Acc>()
 
   for (const r of rows) {
-    const rank = r.sort_order + 1
+    const rank = rankOf.get(r.item_id)
+    if (rank == null) continue // record whose level left the list mid-read
     const levelPoints = pointsForRank(rank, totalItems, settings)
     const earned = pointsForRecord(levelPoints, r.percent)
     const key = r.player_name.toLowerCase()

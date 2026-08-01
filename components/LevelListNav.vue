@@ -815,7 +815,7 @@ watch(
                     {{ opt }}
                   </label>
                 </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Levels added here that aren't in the source sheet.</p>
+                <p class="text-[10px] text-zinc-600 mt-1">Levels whose ID appears nowhere on the ALL sheet.</p>
               </div>
 
               <div>

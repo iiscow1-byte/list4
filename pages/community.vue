@@ -89,7 +89,7 @@ useHead({ title: 'Community — All Levels List' })
           { l: 'Levels', v: community.totals.levels },
           { l: 'Records', v: community.totals.records },
           { l: 'Members', v: community.totals.members },
-          { l: 'Public lists', v: community.totals.public_lists },
+          { l: 'Custom lists', v: community.totals.public_lists },
         ]" :key="s.l" class="bg-zinc-950 px-3 py-1.5 min-w-[5.5rem]">
           <dt class="text-[9px] uppercase tracking-widest text-zinc-600">{{ s.l }}</dt>
           <dd class="text-sm font-semibold tabular-nums text-zinc-200">{{ s.v.toLocaleString() }}</dd>
@@ -156,7 +156,11 @@ useHead({ title: 'Community — All Levels List' })
               <div class="min-w-0 flex-1">
                 <p class="text-sm leading-relaxed tracking-[0.01em]">
                   <NuxtLink :to="profileLink(i)" class="font-semibold text-zinc-100 hover:text-accent transition-colors">{{ i.actor }}</NuxtLink>
-                  <span class="text-zinc-500"> {{ KINDS[i.kind].verb }} </span>
+                  <!-- The spaces are inside the interpolation on purpose. A
+                       whitespace-only text node that is an element's first or
+                       last child is dropped by the template compiler, which is
+                       what glued "GERGcompletedLevel" together. -->
+                  <span class="text-zinc-500">{{ ` ${KINDS[i.kind].verb} ` }}</span>
                   <NuxtLink
                     v-if="i.level_position"
                     :to="`/levels/${i.level_position}`"
@@ -164,7 +168,7 @@ useHead({ title: 'Community — All Levels List' })
                   >{{ i.level_name }}</NuxtLink>
                   <span v-else class="font-medium text-zinc-200">{{ i.level_name }}</span>
                   <span v-if="i.kind === 'record' && i.percent != null && i.percent < 100" class="text-zinc-500 tabular-nums"> ({{ i.percent }}%)</span>
-                  <span v-if="i.kind === 'progress'" class="text-amber-300/90 tabular-nums"> {{ i.start_percent }}% → {{ i.end_percent }}%</span>
+                  <span v-if="i.kind === 'progress'" class="text-amber-300/90 tabular-nums">{{ ` ${i.start_percent}% → ${i.end_percent}%` }}</span>
                 </p>
                 <div class="mt-2 flex items-center gap-2.5 text-[10px]">
                   <span class="rounded px-1.5 py-0.5 border uppercase tracking-[0.14em]" :class="KINDS[i.kind].tone">{{ KINDS[i.kind].chip }}</span>

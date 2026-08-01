@@ -47,6 +47,8 @@ function startEdit() {
   favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
   hardestRecordId.value = me.value.hardest_record_id ?? null
   bannerChoice.value = me.value.banner_choice ?? 'hardest'
+  bannerLevelId.value = me.value.banner_level_id ?? null
+  bannerLevelDisplay.value = profileData.value?.banner_level ?? null
   profileError.value = null
   profileSaved.value = false
   editing.value = true
@@ -64,6 +66,8 @@ function cancelEdit() {
     favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
     hardestRecordId.value = me.value.hardest_record_id ?? null
     bannerChoice.value = me.value.banner_choice ?? 'hardest'
+    bannerLevelId.value = me.value.banner_level_id ?? null
+    bannerLevelDisplay.value = profileData.value?.banner_level ?? null
   }
   profileError.value = null
   editing.value = false
@@ -80,6 +84,7 @@ async function saveProfile() {
       favorite_level_note: favoriteLevelNote.value.trim() || null,
       hardest_record_id: hardestRecordId.value ?? null,
       banner_choice: bannerChoice.value,
+      banner_level_id: bannerLevelId.value ?? null,
     } })
     await refreshMe()
     await loadProfileData()
@@ -617,9 +622,8 @@ async function submitOpenVerification() {
 }
 
 // --- Favorite level ---
-type FavLevel = { id: number; position: number; name: string; gddl_tier: string | null }
 const favoriteLevelId = ref<number | null>(null)
-const favoriteLevelDisplay = ref<FavLevel | null>(null)
+const favoriteLevelDisplay = ref<ShowcaseLevel | null>(null)
 const favoriteLevelNote = ref('')
 const favoriteLevelPickerOpen = ref(false)
 
@@ -627,7 +631,14 @@ const favoriteLevelPickerOpen = ref(false)
 // Chosen from the account's own approved records, so the options are exactly
 // what the server will accept — no free-text level id to get wrong.
 const hardestRecordId = ref<number | null>(null)
-const bannerChoice = ref<'hardest' | 'favorite' | 'none'>('hardest')
+const bannerChoice = ref<'hardest' | 'favorite' | 'level' | 'none'>('hardest')
+
+// A free-choice header level. Separate from the favourite and the hardest
+// completion because those two say something about the account — a backdrop
+// shouldn't require claiming a completion or declaring a favourite.
+const bannerLevelId = ref<number | null>(null)
+const bannerLevelDisplay = ref<ShowcaseLevel | null>(null)
+const bannerLevelPickerOpen = ref(false)
 
 /** Own completions, hardest (lowest list position) first. */
 const completionOptions = computed(() => {
@@ -642,11 +653,27 @@ const hardestPick = computed(() =>
 )
 
 // --- Profile data (stats, completed, created, progress) ---
+/** Any level shown as a card or a header backdrop. */
+type ShowcaseLevel = {
+  id?: number
+  record_id?: number
+  position: number
+  sheet_placement?: number | null
+  name: string
+  gd_id?: number | null
+  gddl_tier: string | null
+  creator?: string | null
+  points?: number | null
+  percent?: number | null
+  video?: string | null
+  verification_url?: string | null
+}
 type ProfileData = {
   account: {
+    id: number
     username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
-    claimed_player: string | null; has_avatar: boolean
+    claimed_player: string | null; has_avatar: boolean; created_at: string
     pronouns: string | null; discord_handle: string | null; youtube_url: string | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
@@ -654,21 +681,78 @@ type ProfileData = {
   createdLevels: any[]
   verifiedLevels: any[]
   progressPosts: any[]
-  follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
-  favorite_level: FavLevel | null
+  follow: {
+    target: string; followed: boolean; followerCount: number; followingCount: number
+    isSelf: boolean; canFollow: boolean
+  }
+  publicLists?: { public_id: string; title: string; likes: number; is_public: number; item_count: number }[]
+  favorite_level: ShowcaseLevel | null
   favorite_level_note: string | null
-  hardest_completion: { record_id: number; position: number; name: string; percent: number | null } | null
-  banner_choice: 'hardest' | 'favorite' | 'none'
+  hardest_completion: ShowcaseLevel | null
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  banner_level: ShowcaseLevel | null
 }
-const profileData = ref<ProfileData | null>(null)
+/**
+ * Fetched during SSR, not in `onMounted`. This page renders the same cover
+ * header as the public profile, and the banner art comes out of this payload —
+ * loading it client-side only meant the header painted plain and then popped.
+ */
+const { data: profileData, refresh: refreshProfileData } = await useAsyncData<ProfileData | null>(
+  'account-profile',
+  () => me.value
+    ? $fetch<ProfileData>(`/api/users/${encodeURIComponent(me.value.username)}`)
+    : Promise.resolve(null),
+  { watch: [() => me.value?.username] },
+)
 
 async function loadProfileData() {
-  if (!me.value) return
-  profileData.value = await $fetch<ProfileData>(`/api/users/${encodeURIComponent(me.value.username)}`)
+  await refreshProfileData()
 }
-onMounted(loadProfileData)
 watch(() => me.value?.claimed_player, loadProfileData)
 watch(() => me.value?.bio, loadProfileData)
+
+/**
+ * The header backdrop, resolved exactly the way `/users/:name` resolves it —
+ * this page is a preview of that one, so a difference here would be a lie.
+ * While the edit form is open it follows the draft, so picking a banner shows
+ * you the result before you save.
+ */
+const bannerLevel = computed<ShowcaseLevel | null>(() => {
+  const d = profileData.value
+  if (!d) return null
+  const choice = editing.value ? bannerChoice.value : d.banner_choice
+  if (choice === 'none') return null
+  if (choice === 'level') {
+    return editing.value
+      ? (bannerLevelDisplay.value as ShowcaseLevel | null)
+      : d.banner_level
+  }
+  if (choice === 'favorite') {
+    return editing.value ? (favoriteLevelDisplay.value as ShowcaseLevel | null) : d.favorite_level
+  }
+  return d.hardest_completion ?? d.favorite_level
+})
+
+const joined = computed(() => {
+  const at = profileData.value?.account.created_at
+  if (!at) return null
+  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+})
+
+/** Same four headline numbers the public profile prints. */
+const headlineStats = computed(() => {
+  const d = profileData.value
+  if (!d) return []
+  return [
+    { label: 'Points', value: d.player ? fmt(d.player.total_points) : '—', tone: 'text-amber-300' },
+    { label: 'Completions', value: d.completedLevels.length.toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Following', value: (d.follow.followingCount ?? 0).toLocaleString(), tone: 'text-zinc-100' },
+  ]
+})
 
 // --- Progress post composer (inline) ---
 const showProgress = ref(false)
@@ -692,38 +776,177 @@ function fmt(n: number | null | undefined) {
 </script>
 
 <template>
-  <div v-if="me" class="container-tight py-8 max-w-5xl">
-    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-6">
-      <!-- Main column: same shape as the public profile -->
-      <main class="space-y-6 min-w-0">
-        <header class="flex items-start gap-4 flex-wrap">
-          <label class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0 relative cursor-pointer group" title="Change profile picture">
-            <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
-            <div v-else class="w-full h-full flex items-center justify-center text-2xl text-zinc-600 font-bold">
+  <div v-if="me">
+    <!-- Cover header. Deliberately the same construction as /users/:name — this
+         page is where you build that profile, so it should show you the thing
+         you're editing rather than a different-looking settings screen. The
+         backdrop follows the edit form live. -->
+    <header class="relative">
+      <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
+        <LevelThumbBg
+          v-if="bannerLevel"
+          :key="bannerLevel.gd_id ?? bannerLevel.name"
+          :gd-id="bannerLevel.gd_id"
+          :video-url="bannerLevel.video ?? bannerLevel.verification_url"
+          res="high"
+          img-class="opacity-60 scale-105"
+          overlay-class="bg-gradient-to-b from-zinc-950/40 via-zinc-950/70 to-zinc-950"
+        />
+        <div
+          v-else
+          class="absolute inset-0 bg-[radial-gradient(80%_140%_at_50%_0%,theme(colors.zinc.800),theme(colors.zinc.950))]"
+          aria-hidden="true"
+        />
+        <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent" aria-hidden="true" />
+
+        <NuxtLink
+          v-if="bannerLevel?.position"
+          :to="`/levels/${bannerLevel.position}`"
+          class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors"
+        >
+          <span class="tabular-nums text-zinc-400">#{{ bannerLevel.sheet_placement ?? bannerLevel.position }}</span>
+          <span class="truncate max-w-[10rem]">{{ bannerLevel.name }}</span>
+        </NuxtLink>
+      </div>
+
+      <div class="container-tight max-w-5xl">
+        <div class="relative -mt-14 sm:-mt-16 flex items-end gap-4 flex-wrap">
+          <label
+            class="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-zinc-900 ring-4 ring-zinc-950 overflow-hidden shrink-0 shadow-xl shadow-black/50 cursor-pointer group"
+            title="Change profile picture"
+          >
+            <img v-if="avatarUrl" :src="avatarUrl" alt="" class="w-full h-full object-cover" />
+            <div v-else class="w-full h-full flex items-center justify-center text-3xl text-zinc-600 font-black">
               {{ me.username.charAt(0).toUpperCase() }}
             </div>
-            <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-white">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                 <circle cx="12" cy="13" r="4"/>
               </svg>
+              <span class="text-[9px] uppercase tracking-widest text-white/80">Change</span>
             </div>
             <input ref="avatarHoverFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onHoverAvatarChange" />
           </label>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2 flex-wrap">
-              <h1 class="text-3xl font-semibold tracking-tight">{{ me.username }}</h1>
-              <span v-if="me.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded" :class="roleBadgeClass(me.role)">{{ me.role }}</span>
+
+          <div class="flex-1 min-w-0 pb-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ me.username }}</h1>
+              <span
+                v-if="me.role !== 'user'"
+                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                :class="roleBadgeClass(me.role)"
+              >{{ me.role }}</span>
+              <span v-if="me.pronouns" class="text-xs text-zinc-500">{{ me.pronouns }}</span>
             </div>
-            <p v-if="me.claimed_player" class="text-xs text-zinc-500 mt-1">
-              Claimed as <span class="text-zinc-300">{{ me.claimed_player }}</span>
-            </p>
-            <p v-if="me.country || me.subdivision" class="text-xs text-zinc-500 mt-0.5">
-              <span v-if="me.subdivision">{{ me.subdivision }}, </span>
-              <span v-if="me.country">{{ me.country }}</span>
+            <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span v-if="me.claimed_player">
+                playing as <span class="text-zinc-300">{{ me.claimed_player }}</span>
+              </span>
+              <span v-if="me.subdivision || me.country">
+                <span v-if="me.subdivision">{{ me.subdivision }}, </span>{{ me.country }}
+              </span>
+              <span v-if="joined">joined {{ joined }}</span>
             </p>
           </div>
-        </header>
+
+          <div class="pb-1 flex items-center gap-2 shrink-0">
+            <span v-if="me.discord_handle" class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400">
+              <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-3.5 h-3.5 shrink-0 text-[#5865F2]" aria-hidden="true">
+                <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
+              </svg>
+              {{ me.discord_handle }}
+            </span>
+            <a
+              v-if="me.youtube_url"
+              :href="me.youtube_url"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-red-400 hover:border-red-900/60 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+              YouTube
+            </a>
+            <button
+              type="button"
+              class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+              :class="editing
+                ? 'border-accent/60 text-accent bg-accent/10'
+                : 'border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent'"
+              @click="editing ? cancelEdit() : startEdit()"
+            >{{ editing ? 'Editing…' : 'Edit profile' }}</button>
+            <NuxtLink
+              :to="`/users/${me.username}`"
+              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+            >View public ↗</NuxtLink>
+          </div>
+        </div>
+
+        <dl v-if="profileData" class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
+          <div v-for="s in headlineStats" :key="s.label" class="bg-zinc-950 px-3 py-2.5">
+            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ s.label }}</dt>
+            <dd class="tabular-nums text-lg font-semibold" :class="s.tone">{{ s.value }}</dd>
+          </div>
+        </dl>
+      </div>
+    </header>
+
+    <div class="container-tight max-w-5xl py-6">
+    <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
+      <!-- Main column: same shape as the public profile -->
+      <main class="space-y-6 min-w-0">
+        <!-- Showcase cards, exactly as they appear to visitors -->
+        <section v-if="profileData?.hardest_completion || profileData?.favorite_level" class="grid gap-3 sm:grid-cols-2">
+          <article
+            v-if="profileData?.hardest_completion"
+            class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
+          >
+            <LevelThumbBg
+              :gd-id="profileData.hardest_completion.gd_id"
+              :video-url="profileData.hardest_completion.video ?? profileData.hardest_completion.verification_url"
+              res="high"
+              img-class="opacity-25 group-hover:opacity-40"
+              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+            />
+            <div class="relative p-4">
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Hardest completion</h2>
+              <NuxtLink :to="`/levels/${profileData.hardest_completion.position}`" class="mt-1.5 block">
+                <span class="text-lg font-bold text-zinc-50 hover:text-accent transition-colors">{{ profileData.hardest_completion.name }}</span>
+              </NuxtLink>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span class="tabular-nums rounded px-1.5 py-0.5 bg-zinc-900 text-zinc-300 border border-zinc-800">
+                  #{{ profileData.hardest_completion.sheet_placement ?? profileData.hardest_completion.position }}
+                </span>
+                <span
+                  v-if="profileData.hardest_completion.percent != null && profileData.hardest_completion.percent < 100"
+                  class="tabular-nums text-zinc-400"
+                >{{ profileData.hardest_completion.percent }}%</span>
+              </div>
+            </div>
+          </article>
+
+          <article
+            v-if="profileData?.favorite_level"
+            class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
+          >
+            <LevelThumbBg
+              :gd-id="profileData.favorite_level.gd_id"
+              :video-url="profileData.favorite_level.verification_url"
+              res="high"
+              img-class="opacity-25 group-hover:opacity-40"
+              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+            />
+            <div class="relative p-4">
+              <h2 class="text-[10px] uppercase tracking-widest text-pink-400 font-semibold">Favourite level</h2>
+              <NuxtLink :to="`/levels/${profileData.favorite_level.position}`" class="mt-1.5 block">
+                <span class="text-lg font-bold text-zinc-50 hover:text-accent transition-colors">{{ profileData.favorite_level.name }}</span>
+              </NuxtLink>
+              <p v-if="profileData.favorite_level_note" class="mt-2 text-xs text-zinc-400 whitespace-pre-wrap">{{ profileData.favorite_level_note }}</p>
+            </div>
+          </article>
+        </section>
 
         <!-- About: always-visible display + collapsible edit dropdown below -->
         <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
@@ -755,23 +978,8 @@ function fmt(n: number | null | undefined) {
                 <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
               </div>
             </dl>
-            <div v-if="profileData?.hardest_completion" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-              <p class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Hardest completion</p>
-              <NuxtLink :to="`/levels/${profileData.hardest_completion.position}`" class="text-sm text-accent hover:underline font-medium">
-                {{ profileData.hardest_completion.name }}
-              </NuxtLink>
-              <span
-                v-if="profileData.hardest_completion.percent != null && profileData.hardest_completion.percent < 100"
-                class="text-xs text-zinc-500 ml-1 tabular-nums"
-              >{{ profileData.hardest_completion.percent }}%</span>
-            </div>
-            <div v-if="profileData?.favorite_level" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-              <p class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Favorite Level</p>
-              <NuxtLink :to="`/levels/${profileData.favorite_level.position}`" class="text-sm text-accent hover:underline font-medium">
-                #{{ profileData.favorite_level.position }} {{ profileData.favorite_level.name }}
-              </NuxtLink>
-              <p v-if="profileData.favorite_level_note" class="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">{{ profileData.favorite_level_note }}</p>
-            </div>
+            <!-- The hardest completion and the favourite live in the showcase
+                 cards above now, the same way visitors see them. -->
             <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
           </div>
 
@@ -900,12 +1108,15 @@ function fmt(n: number | null | undefined) {
 
                 <div class="block sm:col-span-2">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Profile banner</span>
-                  <p class="text-[11px] text-zinc-600 mt-0.5">Which level's art sits behind your name.</p>
-                  <div class="mt-1.5 inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+                  <p class="text-[11px] text-zinc-600 mt-0.5">
+                    Which level's art sits behind your name. The header above updates as you choose.
+                  </p>
+                  <div class="mt-1.5 inline-flex rounded-lg border border-zinc-800 overflow-hidden flex-wrap">
                     <button
                       v-for="opt in [
                         { v: 'hardest', l: 'Hardest completion' },
-                        { v: 'favorite', l: 'Favorite level' },
+                        { v: 'favorite', l: 'Favourite level' },
+                        { v: 'level', l: 'Any level' },
                         { v: 'none', l: 'Plain' },
                       ]"
                       :key="opt.v"
@@ -914,6 +1125,31 @@ function fmt(n: number | null | undefined) {
                       :class="bannerChoice === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
                       @click="bannerChoice = opt.v as any"
                     >{{ opt.l }}</button>
+                  </div>
+
+                  <!-- "Any level" is the one option that needs a level of its
+                       own, so its picker sits directly under the choices. -->
+                  <div v-if="bannerChoice === 'level'" class="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                        @click="bannerLevelPickerOpen = true"
+                      >{{ bannerLevelDisplay ? 'Change…' : 'Pick a level…' }}</button>
+                      <span v-if="bannerLevelDisplay" class="text-xs text-zinc-200 truncate">
+                        #{{ bannerLevelDisplay.position }} {{ bannerLevelDisplay.name }}
+                      </span>
+                      <span v-else class="text-[11px] text-amber-300/90">Pick one, or the header stays plain.</span>
+                      <button
+                        v-if="bannerLevelDisplay"
+                        type="button"
+                        class="text-[11px] text-zinc-500 hover:text-red-400"
+                        @click="bannerLevelId = null; bannerLevelDisplay = null"
+                      >clear</button>
+                    </div>
+                    <p class="text-[11px] text-zinc-600 mt-1.5">
+                      Any level on the list — you don't need a record on it.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1366,6 +1602,7 @@ function fmt(n: number | null | undefined) {
         </div>
       </aside>
     </div>
+    </div>
   </div>
 
   <LevelComparisonDrawer
@@ -1373,7 +1610,25 @@ function fmt(n: number | null | undefined) {
     :confirm-on-pick="true"
     title="Pick favorite level"
     hint="Click a level to set it as your favorite."
-    @confirm="(lvl) => { favoriteLevelId = lvl.id ?? null; favoriteLevelDisplay = lvl.id ? { id: lvl.id, position: lvl.position, name: lvl.name, gddl_tier: lvl.gddl_tier } : null }"
+    @confirm="(lvl) => {
+      favoriteLevelId = lvl.id ?? null
+      favoriteLevelDisplay = lvl.id
+        ? { id: lvl.id, position: lvl.position, sheet_placement: lvl.sheet_placement ?? null, name: lvl.name, gddl_tier: lvl.gddl_tier, gd_id: lvl.gd_id ?? null, verification_url: lvl.verification_url ?? null }
+        : null
+    }"
+  />
+
+  <LevelComparisonDrawer
+    v-model:open="bannerLevelPickerOpen"
+    :confirm-on-pick="true"
+    title="Pick a banner level"
+    hint="Click a level to paint your profile header with its art."
+    @confirm="(lvl) => {
+      bannerLevelId = lvl.id ?? null
+      bannerLevelDisplay = lvl.id
+        ? { id: lvl.id, position: lvl.position, sheet_placement: lvl.sheet_placement ?? null, name: lvl.name, gddl_tier: lvl.gddl_tier, gd_id: lvl.gd_id ?? null, verification_url: lvl.verification_url ?? null }
+        : null
+    }"
   />
 
   <!-- Avatar crop modal -->
@@ -1453,7 +1708,7 @@ function fmt(n: number | null | undefined) {
             <span class="text-[9px] uppercase tracking-widest text-zinc-600">Feed</span>
           </div>
           <div class="flex flex-col items-center gap-1">
-            <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-black ring-1 ring-zinc-700">
+            <div class="relative w-16 h-16 rounded-full overflow-hidden bg-black ring-2 ring-zinc-950 outline outline-1 outline-zinc-700">
               <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(64)" draggable="false" />
             </div>
             <span class="text-[9px] uppercase tracking-widest text-zinc-600">Profile</span>

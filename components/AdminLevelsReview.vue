@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { parseTierShortcut } from '~/utils/tier-shortcut'
+import { tierColor, textOn } from '~/utils/tier-colors'
 
 type PendingLevel = {
   id: number
@@ -634,13 +635,16 @@ watch(preview, (p) => {
 </script>
 
 <template>
-  <div class="grid grid-cols-[20%_55%_25%] grid-rows-[minmax(0,1fr)] h-full">
+  <!-- Percentage columns squeezed the review panel to nothing on a laptop and
+       let the queue sprawl on a wide monitor. Both side panels now have a
+       floor and a ceiling; the middle takes whatever is left. -->
+  <div class="grid grid-cols-[minmax(15rem,20%)_minmax(0,1fr)_minmax(17rem,25%)] grid-rows-[minmax(0,1fr)] h-full">
     <!-- Left: pending list -->
     <aside class="flex flex-col min-h-0 overflow-hidden border-r border-zinc-800 bg-zinc-950">
       <div class="p-3 border-b border-zinc-800 shrink-0">
-        <div class="flex items-baseline justify-between mb-2">
-          <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
-          <p class="text-[11px] text-zinc-600">
+        <div class="flex items-baseline justify-between gap-2 mb-2">
+          <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
+          <p class="text-[11px] text-zinc-600 tabular-nums">
             {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> waiting
           </p>
         </div>
@@ -667,9 +671,16 @@ watch(preview, (p) => {
             </svg>
             <span v-if="activeFilterCount" class="tabular-nums">{{ activeFilterCount }}</span>
           </button>
+          <button
+            v-if="activeFilterCount && !filtersOpen"
+            type="button"
+            class="shrink-0 px-2 rounded border border-zinc-800 text-zinc-500 hover:text-red-400 hover:border-red-900/60 text-xs transition-colors"
+            title="Clear all filters"
+            @click="resetFilters"
+          >✕</button>
         </div>
 
-        <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
+        <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs rounded-lg border border-zinc-800/80 bg-zinc-900/30 p-3">
           <!-- Import source — only on the imported-levels queue, which mixes
                GDL / GDTPL / sheet-pending rows. -->
           <div v-if="isImported">
@@ -803,59 +814,77 @@ watch(preview, (p) => {
         </div>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
-        <ul v-if="filteredItems.length" class="divide-y divide-zinc-900/60">
+        <ul v-if="filteredItems.length" class="p-1.5 space-y-1">
           <li v-for="r in filteredItems" :key="r.id">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 text-sm transition-colors"
-              :class="selectedId === r.id ? 'bg-accent/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
+              class="relative w-full overflow-hidden text-left px-2.5 py-2 text-sm rounded-lg transition-all group"
+              :class="selectedId === r.id
+                ? 'ring-2 ring-inset ring-accent bg-zinc-900 text-zinc-50'
+                : 'ring-1 ring-inset ring-transparent text-zinc-300 hover:ring-zinc-700/60 hover:bg-zinc-900/60'"
               @click="selectedId = r.id"
             >
-              <div class="font-medium truncate flex items-center gap-1.5">
-                <span class="truncate">{{ r.name ?? `Level ${r.gd_id}` }}</span>
+              <!-- Same level art the public list navs use, so a queue row and a
+                   list row read as the same thing. -->
+              <LevelThumbBg
+                :gd-id="r.gd_id"
+                :video-url="r.verification_url"
+                res="small"
+                :img-class="selectedId === r.id ? 'opacity-40' : 'opacity-[0.18] group-hover:opacity-35'"
+                overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+              />
+
+              <div class="relative font-medium truncate flex items-center gap-1.5">
+                <span class="truncate drop-shadow-sm">{{ r.name ?? `Level ${r.gd_id}` }}</span>
                 <span
                   v-if="r.from_open_verification_id"
-                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-violet-900/40 text-violet-300 border border-violet-800/60"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-violet-900/60 text-violet-300 border border-violet-800/60"
                   title="Verification submitted for an open-verification level"
                 >Verif</span>
                 <span
                   v-if="r.from_void_level_id"
-                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-fuchsia-900/60 text-fuchsia-300 border border-fuchsia-800/60"
                   title="Submitted from the void list with a difficulty opinion"
                 >Void</span>
                 <span
                   v-if="r.potential_duplicate_position"
-                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/60 text-amber-300 border border-amber-800/60"
                   :title="`Same name as ALL #${r.potential_duplicate_position} ${r.potential_duplicate_name}`"
-                >Potential Duplicate</span>
+                >Dupe?</span>
               </div>
-              <div class="text-[11px] text-zinc-500 truncate">
-                #{{ r.gd_id ?? '?' }} ·
-                <template v-if="r.from_gdl_id">GDL import</template>
-                <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
-                <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
-                <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
-              </div>
-              <div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600 truncate">
+
+              <div class="relative mt-1 flex items-center gap-1.5 text-[10px] flex-wrap">
                 <span
                   v-if="r.gddl_tier"
-                  class="shrink-0 px-1.5 py-px rounded border tabular-nums"
-                  :class="r.gddl_tier_estimated
-                    ? 'border-sky-900/60 bg-sky-950/30 text-sky-300'
-                    : 'border-zinc-800 bg-zinc-900 text-zinc-300'"
-                  :title="r.gddl_tier_estimated ? 'Estimated from neighbouring shared levels' : ''"
-                >{{ r.gddl_tier }}<span v-if="r.gddl_tier_estimated" class="ml-1 text-[9px] uppercase tracking-widest opacity-80">est</span></span>
+                  class="shrink-0 px-1.5 py-px rounded font-semibold tabular-nums"
+                  :style="{ backgroundColor: tierColor(r.gddl_tier), color: textOn(tierColor(r.gddl_tier)) }"
+                  :title="r.gddl_tier_estimated ? 'Estimated from neighbouring shared levels' : r.gddl_tier"
+                >{{ r.gddl_tier }}<span v-if="r.gddl_tier_estimated" class="ml-1 text-[8px] uppercase tracking-widest opacity-70">est</span></span>
                 <span
                   v-if="r.difficulty === 'Extreme Demon'"
-                  class="shrink-0 px-1.5 py-px rounded border border-red-900/60 bg-red-950/30 text-red-300"
+                  class="shrink-0 px-1.5 py-px rounded border border-red-900/60 bg-red-950/50 text-red-300"
                   title="Extreme Demon"
                 >Extreme</span>
                 <span
                   v-if="r.rated === 'Challenge'"
-                  class="shrink-0 px-1.5 py-px rounded border border-yellow-800/60 bg-yellow-950/30 text-yellow-300"
+                  class="shrink-0 px-1.5 py-px rounded border border-yellow-800/60 bg-yellow-950/50 text-yellow-300"
                   title="Challenge"
                 >Challenge</span>
-                <span class="truncate">{{ r.submitted_at }}</span>
+                <span
+                  v-if="r.placement_estimate != null"
+                  class="shrink-0 px-1.5 py-px rounded border border-zinc-700 bg-zinc-900/80 text-zinc-400 tabular-nums"
+                  title="Placement the submitter estimated"
+                >~#{{ r.placement_estimate }}</span>
+              </div>
+
+              <div class="relative mt-1 text-[10px] text-zinc-500 truncate">
+                <span class="tabular-nums">#{{ r.gd_id ?? '?' }}</span>
+                <span class="text-zinc-700" aria-hidden="true"> · </span>
+                <template v-if="r.from_gdl_id">GDL import</template>
+                <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
+                <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
+                <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
+                <span class="text-zinc-700" aria-hidden="true"> · </span>{{ r.submitted_at }}
               </div>
             </button>
           </li>
@@ -871,33 +900,62 @@ watch(preview, (p) => {
         {{ items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
-        <header class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h2 class="text-2xl font-semibold tracking-tight truncate">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
-            <p class="text-xs text-zinc-500 mt-1">
-              <template v-if="selected.from_gdl_id">
-                Imported from GDL · {{ selected.submitted_at }}
-              </template>
-              <template v-else-if="selected.from_gdtpl_id">
-                Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
-              </template>
-              <template v-else-if="selected.from_sheet_pending">
-                Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
-              </template>
-              <template v-else>
-                Submitted by
-                <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
-                <span v-else>unknown</span>
-                · {{ selected.submitted_at }}
-              </template>
-            </p>
+        <!-- Cover header: the level's own art, so a reviewer recognises what
+             they're looking at before reading a single field. -->
+        <header class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+          <LevelThumbBg
+            :gd-id="selected.gd_id"
+            :video-url="selected.verification_url"
+            res="high"
+            img-class="opacity-30"
+            overlay-class="bg-gradient-to-r from-zinc-950 via-zinc-950/85 to-zinc-950/45"
+          />
+          <div class="relative p-4 flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-2xl font-bold tracking-tight truncate text-zinc-50 drop-shadow">{{ selected.name ?? `Level ${selected.gd_id}` }}</h2>
+              <p class="text-xs text-zinc-400 mt-1">
+                <template v-if="selected.from_gdl_id">
+                  Imported from GDL · {{ selected.submitted_at }}
+                </template>
+                <template v-else-if="selected.from_gdtpl_id">
+                  Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
+                </template>
+                <template v-else-if="selected.from_sheet_pending">
+                  Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}
+                </template>
+                <template v-else>
+                  Submitted by
+                  <NuxtLink v-if="selected.submitter" :to="`/users/${selected.submitter}`" class="hover:text-accent">{{ selected.submitter }}</NuxtLink>
+                  <span v-else>unknown</span>
+                  · {{ selected.submitted_at }}
+                </template>
+              </p>
+              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span
+                  v-if="selected.gddl_tier || tierOverride"
+                  class="rounded px-1.5 py-0.5 font-semibold tabular-nums"
+                  :style="{
+                    backgroundColor: tierColor(selected.gddl_tier || tierOverride),
+                    color: textOn(tierColor(selected.gddl_tier || tierOverride)),
+                  }"
+                >{{ selected.gddl_tier || tierOverride }}</span>
+                <span v-if="selected.difficulty" class="rounded px-1.5 py-0.5 bg-zinc-900/80 text-zinc-300 border border-zinc-800">{{ selected.difficulty }}</span>
+                <a
+                  v-if="gdBrowserLink(selected.gd_id)"
+                  :href="gdBrowserLink(selected.gd_id)!"
+                  target="_blank"
+                  rel="noopener"
+                  class="rounded px-1.5 py-0.5 bg-zinc-900/80 text-zinc-400 border border-zinc-800 hover:text-accent hover:border-accent/40 transition-colors tabular-nums"
+                >ID {{ selected.gd_id }} ↗</a>
+              </div>
+            </div>
+            <button
+              v-if="!editing"
+              type="button"
+              class="shrink-0 rounded-lg border border-zinc-700 bg-zinc-950/70 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
+              @click="startEdit"
+            >Edit</button>
           </div>
-          <button
-            v-if="!editing"
-            type="button"
-            class="shrink-0 rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
-            @click="startEdit"
-          >Edit</button>
         </header>
 
         <!-- Inline edit form: same role as the Edit panel on the main-list
@@ -1303,25 +1361,26 @@ watch(preview, (p) => {
       </div>
       <!-- Sticky action footer: kept lean (just the buttons) so it fits in
            the column even on short viewports. -->
-      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-2 flex flex-col gap-1.5">
+      <div v-if="selected" class="shrink-0 border-t border-zinc-800 bg-zinc-950 px-3 py-2.5 flex flex-col gap-1.5">
         <button
           type="button"
           :disabled="decideLoading || !placement"
-          class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          class="w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-semibold text-xs py-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          :title="placement ? undefined : 'Enter a position above first'"
           @click="decide('approve')"
-        >Approve at #{{ placement || '—' }}</button>
+        >{{ decideLoading ? 'Working…' : placement ? `Approve at #${placement}` : 'Approve — needs a position' }}</button>
         <div class="flex gap-1.5">
           <button
             type="button"
             :disabled="decideLoading"
-            class="flex-1 rounded bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+            class="flex-1 rounded-lg bg-sky-700 hover:bg-sky-600 text-zinc-50 font-medium text-xs py-2 transition-colors disabled:opacity-60"
             @click="decide('await')"
             title="Approve without a position. Goes to the public awaiting-placement list."
           >Awaiting</button>
           <button
             type="button"
             :disabled="decideLoading"
-            class="flex-1 rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs py-1.5 transition-colors disabled:opacity-60"
+            class="flex-1 rounded-lg border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs py-2 transition-colors disabled:opacity-60"
             @click="decide('reject')"
           >Reject</button>
         </div>

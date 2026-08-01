@@ -294,7 +294,7 @@ export function loadList(db: DatabaseSync, listId: number) {
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.created_at, cl.updated_at,
             cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
-            cl.icon_url, cl.accent_color, cl.banner_url,
+            cl.icon_url, cl.accent_color, cl.banner_url, cl.follow_all_order,
             cl.accepts_submissions, cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
@@ -317,6 +317,27 @@ export function loadList(db: DatabaseSync, listId: number) {
       ORDER BY i.sort_order ASC, i.id ASC`,
   ).all(listId) as any[]
 
+  /**
+   * "Follow the ALL's order": rank by each level's current ALL placement rather
+   * than by the stored order. Done here rather than by rewriting `sort_order`
+   * so the list keeps tracking the ALL as it changes, and so turning the option
+   * off restores the hand-made order untouched.
+   *
+   * Levels the ALL doesn't have can't be placed by it, so they keep their
+   * relative order and sit at the bottom — the alternative is inventing a
+   * position for them, which would be a guess presented as fact.
+   */
+  if (list.follow_all_order) {
+    items.sort((a, b) => {
+      const ap = a.position ?? null
+      const bp = b.position ?? null
+      if (ap == null && bp == null) return a.sort_order - b.sort_order
+      if (ap == null) return 1
+      if (bp == null) return -1
+      return ap - bp
+    })
+  }
+
   const recordsByItem = db.prepare(
     `SELECT r.id, r.item_id, r.player_name, r.percent, r.hz, r.video, r.mobile,
             a.username AS account_username
@@ -338,10 +359,13 @@ export function loadList(db: DatabaseSync, listId: number) {
     min_points: list.min_points,
     scored_count: list.scored_count,
   }
-  const withExtras = items.map((i) => ({
+  // Rank comes from the array's own order, not from `sort_order` — under
+  // "follow the ALL's order" those disagree, and rank is what everything else
+  // (points, the leaderboard, the /lists/:id/:rank URLs) is built on.
+  const withExtras = items.map((i, idx) => ({
     ...i,
-    rank: i.sort_order + 1,
-    points: pointsForRank(i.sort_order + 1, items.length, settings),
+    rank: idx + 1,
+    points: pointsForRank(idx + 1, items.length, settings),
     records: byItem.get(i.id) ?? [],
   }))
 

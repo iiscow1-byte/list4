@@ -22,6 +22,37 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.3.0',
+    date: '2026-08-01',
+    title: 'About, profiles and the admin panel',
+    tags: ['Profiles', 'Admin', 'UI', 'Fixes'],
+    changes: [
+      'About & stats rebuilt: three tabs, real charts instead of a grid of coloured boxes, and new numbers — records, players, record coverage, skillsets and the hardest level on the list.',
+      'Your account page is now the profile you are editing: the same cover art, avatar and headline stats visitors see, updating live as you change them.',
+      'New profile banner option — pick any level on the list as your header art, no record or favourite required.',
+      'Fixed: words ran together in the community Following feed ("GERGcompletedSociety"). They are separate words again.',
+      'Fixed: the account settings form forgot your banner and pinned completion every time it opened, and saving could clear them.',
+      'Fixed: the admin Pending menu opened behind the page and could not be clicked.',
+      'Public lists are called Custom lists, and the gallery has a My lists view that includes the ones you have not published.',
+      'Admin: download a report of everywhere the ALL sheet and this site disagree — where the numbering drifts apart, which levels the sheet has never heard of, and which sheet rows never landed here.',
+      '"Site only" now means what it says: the sheet has no level with that ID. Renamed levels and Solo/2P pairs are no longer mislabelled.',
+      'Admin level queues got level art, tier colours and a readable layout; the submit forms show what is still missing before you press Submit.',
+      'The footer credits everyone who built the site, and says plainly that the list is in alpha.',
+    ],
+  },
+  {
+    version: '1.2.0',
+    date: '2026-08-01',
+    title: 'Custom lists feed the ALL',
+    tags: ['Custom lists', 'Submissions', 'Fixes'],
+    changes: [
+      'New "To the ALL" tab on custom lists: pick as many levels as you like and submit them all at once, with each row reporting exactly what it still needs.',
+      'Submissions from a custom list now arrive with a tier and placement estimated from the neighbours that are already on the ALL — the ordering a curated list encodes is the estimate.',
+      'New list setting: order a list by ALL placements and it keeps up as the ALL changes. Your hand-made order is kept and restored if you turn it back off.',
+      'Fixed: avatars showed black corners on profiles. Older pictures had the corners baked in by the previous cropper; profile avatars are round again, which is how they render everywhere else.',
+    ],
+  },
+  {
     version: '1.1.1',
     date: '2026-08-01',
     title: 'Placements that actually move',

@@ -395,6 +395,22 @@ watch(ytId, async (id) => {
   }
 })
 
+/**
+ * What the form still needs, in the order `submit()` checks it.
+ *
+ * Derived from the same conditions rather than restated, so the checklist and
+ * the validation can't drift apart. Shown live so a missing verifier is
+ * visible before pressing Submit rather than as a one-line error after.
+ */
+const requirements = computed(() => [
+  { label: 'Level ID',          ok: /^\d+$/.test(gdId.value.trim()) },
+  { label: 'Level name',        ok: !!name.value.trim() },
+  { label: 'Verifier',          ok: !!verifier.value.trim() },
+  { label: 'Verification date', ok: !!verifyDate.value },
+  { label: 'Verification link', ok: isAdmin.value || !!verificationUrl.value.trim() },
+])
+const missingCount = computed(() => requirements.value.filter((r) => !r.ok).length)
+
 async function submit() {
   if (submitting.value) return
   error.value = null
@@ -470,10 +486,28 @@ async function submit() {
 
 <template>
   <div class="container-tight py-8 max-w-2xl">
-    <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit a level</h1>
-    <p class="text-sm text-zinc-400 mb-6">
-      Suggest a new level for the list. A moderator reviews each submission and picks its placement.
-    </p>
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold tracking-tight">Submit a level</h1>
+      <p class="text-sm text-zinc-400 mt-1">
+        Suggest a new level for the list. A moderator reviews each submission and picks its placement.
+      </p>
+
+      <!-- Live requirements, so "what's missing" is answerable without pressing
+           Submit and reading a single-line error. -->
+      <ul class="mt-4 flex flex-wrap gap-1.5">
+        <li
+          v-for="r in requirements"
+          :key="r.label"
+          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors"
+          :class="r.ok
+            ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
+            : 'border-zinc-800 bg-zinc-900/60 text-zinc-500'"
+        >
+          <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
+          {{ r.label }}
+        </li>
+      </ul>
+    </header>
 
     <form class="space-y-5" @submit.prevent="submit">
       <!-- Level ID + name -->
@@ -503,6 +537,9 @@ async function submit() {
       <details open class="group rounded-md border border-zinc-800 bg-zinc-950/60">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification</span>
+          <span class="ml-auto text-[10px] tabular-nums" :class="verifier.trim() && verifyDate && (isAdmin || verificationUrl.trim()) ? 'text-emerald-400' : 'text-amber-300/90'">
+            {{ verifier.trim() && verifyDate && (isAdmin || verificationUrl.trim()) ? 'complete' : 'needs details' }}
+          </span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
@@ -573,6 +610,15 @@ async function submit() {
       <details class="group rounded-md border border-zinc-800 bg-zinc-950/60">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+          <span class="ml-auto flex items-center gap-1.5 text-[10px]">
+            <span
+              v-if="gddlTier"
+              class="rounded px-1.5 py-0.5 font-semibold tabular-nums"
+              :style="{ backgroundColor: tierColor(gddlTier), color: textOn(tierColor(gddlTier)) }"
+            >{{ gddlTier }}</span>
+            <span v-if="difficulty" class="rounded px-1.5 py-0.5 bg-zinc-900 text-zinc-400 border border-zinc-800">{{ difficulty }}</span>
+            <span v-if="noOpinion" class="text-fuchsia-300/80">no tier — goes to void</span>
+          </span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
         <div class="px-4 pb-4 space-y-3">
@@ -750,25 +796,36 @@ async function submit() {
       </details>
 
       <!-- Notes -->
-      <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods</span>
-        <textarea
-          v-model="notes"
-          rows="4"
-          maxlength="4000"
-          placeholder="Anything the moderator should know — context, comparisons, sources…"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-      </label>
+      <div class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3.5">
+        <label class="block">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods <span class="text-zinc-600 normal-case">optional</span></span>
+          <textarea
+            v-model="notes"
+            rows="4"
+            maxlength="4000"
+            placeholder="Anything the moderator should know — context, comparisons, sources…"
+            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </label>
+      </div>
 
-      <div class="flex items-center gap-3 pt-2">
+      <p v-if="success" class="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-300">
+        Submitted — pending review. You'll get an inbox message when a moderator decides.
+      </p>
+      <p v-if="error" class="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2.5 text-sm text-red-300">{{ error }}</p>
+
+      <div class="sticky bottom-0 -mx-4 px-4 py-3 bg-zinc-950/90 backdrop-blur border-t border-zinc-800/80 flex items-center gap-3 flex-wrap">
         <button
           type="submit"
           :disabled="submitting"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-5 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
         >{{ submitting ? 'Submitting…' : 'Submit for review' }}</button>
-        <span v-if="success" class="text-xs text-emerald-400">Submitted — pending review.</span>
-        <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
+        <span class="text-[11px]" :class="missingCount ? 'text-amber-300/90' : 'text-zinc-600'">
+          <template v-if="missingCount">
+            {{ missingCount }} required field{{ missingCount === 1 ? '' : 's' }} still empty
+          </template>
+          <template v-else>Everything required is filled in.</template>
+        </span>
       </div>
     </form>
 

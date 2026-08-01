@@ -247,6 +247,23 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               />
               Let anyone suggest levels for this list
             </label>
+            <label class="flex items-start gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                class="accent-accent mt-1"
+                :checked="!!l.follow_all_order"
+                :disabled="busy"
+                @change="patch({ follow_all_order: ($event.target as HTMLInputElement).checked }, 'Ordering updated.')"
+              />
+              <span>
+                Order this list by ALL placements
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">
+                  Levels sort themselves by where they sit on the ALL list, and keep up as it
+                  changes. Levels the ALL doesn't have stay in your order at the bottom. Turn it
+                  off to go back to arranging the list by hand — your order is kept either way.
+                </span>
+              </span>
+            </label>
           </section>
 
           <!-- Community links -->

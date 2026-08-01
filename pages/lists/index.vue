@@ -1,6 +1,13 @@
 <script setup lang="ts">
-/** Gallery of lists their owners published. */
-type PublicList = {
+/**
+ * Gallery of custom lists.
+ *
+ * Two views over the same card: "Discover", which is every list its owner
+ * published, and "My lists", which is everything you own — including the ones
+ * you haven't published, since those are invisible in Discover by definition
+ * and were previously only reachable from the builder.
+ */
+type CustomList = {
   public_id: string
   title: string
   description: string | null
@@ -10,22 +17,61 @@ type PublicList = {
   item_count: number
   liked_by_me: boolean
   cover_gd_ids: number[]
+  /** Only present in the "mine" view. */
+  is_public?: number
 }
 
+type View = 'discover' | 'mine'
+
+// `?view=mine` so the header's "My lists" item can link straight here, and so
+// the view survives a reload or a shared link.
+const route = useRoute()
+const view = ref<View>(route.query.view === 'mine' ? 'mine' : 'discover')
 const sort = ref<'top' | 'new'>('top')
 const search = ref('')
-
-const { data, refresh } = await useFetch<{ lists: PublicList[] }>('/api/custom-lists/public', {
-  query: computed(() => ({ sort: sort.value, search: search.value.trim() || undefined, limit: 60 })),
-})
 
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
+const { data, refresh } = await useFetch<{ lists: CustomList[] }>('/api/custom-lists/public', {
+  query: computed(() => ({ sort: sort.value, search: search.value.trim() || undefined, limit: 60 })),
+})
+
+// Own lists are fetched separately and client-side: the endpoint needs the
+// session, and the gallery has to work signed-out.
+const myLists = ref<CustomList[] | null>(null)
+const myListsError = ref<string | null>(null)
+
+async function loadMyLists() {
+  if (!me.value) { myLists.value = null; return }
+  try {
+    const res = await $fetch<{ lists: CustomList[] }>('/api/custom-lists')
+    myLists.value = res.lists
+    myListsError.value = null
+  } catch (e: any) {
+    myLists.value = []
+    myListsError.value = e?.data?.statusMessage ?? 'Could not load your lists.'
+  }
+}
+watch(me, loadMyLists, { immediate: true })
+
+// Searching and sorting "My lists" happens here — the set is small, and the
+// endpoint deliberately returns all of it so nothing you own can be hidden.
+const shown = computed<CustomList[]>(() => {
+  if (view.value === 'discover') return data.value?.lists ?? []
+  const q = search.value.trim().toLowerCase()
+  const rows = (myLists.value ?? []).filter(
+    (l) => !q || l.title.toLowerCase().includes(q) || (l.description ?? '').toLowerCase().includes(q),
+  )
+  return sort.value === 'top'
+    ? [...rows].sort((a, b) => b.likes - a.likes || b.updated_at.localeCompare(a.updated_at))
+    : rows
+})
+
 const busy = ref<string | null>(null)
 const error = ref<string | null>(null)
 
-async function toggleLike(l: PublicList) {
+async function toggleLike(l: CustomList) {
   if (!me.value) { error.value = 'Log in to like lists.'; return }
   if (busy.value) return
   busy.value = l.public_id
@@ -45,7 +91,7 @@ async function toggleLike(l: PublicList) {
 const router = useRouter()
 const { loadFrom } = useListBuilder()
 
-async function copyList(l: PublicList) {
+async function copyList(l: CustomList) {
   if (!me.value) { error.value = 'Log in to copy a list.'; return }
   if (busy.value) return
   busy.value = l.public_id
@@ -62,18 +108,28 @@ async function copyList(l: PublicList) {
 
 let debounce: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
+  if (view.value !== 'discover') return
   if (debounce) clearTimeout(debounce)
   debounce = setTimeout(() => refresh(), 300)
 })
 
-useHead({ title: 'Public lists — All Levels List' })
+watch(view, (v) => {
+  router.replace({ query: v === 'mine' ? { ...route.query, view: 'mine' } : { ...route.query, view: undefined } })
+})
+// Back/forward through the two views.
+watch(() => route.query.view, (v) => {
+  const next: View = v === 'mine' ? 'mine' : 'discover'
+  if (next !== view.value) view.value = next
+})
+
+useHead({ title: 'Custom lists — All Levels List' })
 </script>
 
 <template>
   <div class="container-wide py-8 space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Public lists</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Custom lists</h1>
         <p class="text-sm text-zinc-500 mt-1">Rankings built and shared by the community.</p>
       </div>
       <NuxtLink
@@ -87,6 +143,24 @@ useHead({ title: 'Public lists — All Levels List' })
         <button
           type="button"
           class="px-3 py-1 text-[11px] font-medium transition-colors"
+          :class="view === 'discover' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          @click="view = 'discover'"
+        >Discover</button>
+        <button
+          type="button"
+          class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 flex items-center gap-1.5"
+          :class="view === 'mine' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          @click="view = 'mine'"
+        >
+          My lists
+          <span v-if="myLists?.length" class="tabular-nums text-[10px] text-zinc-500">{{ myLists.length }}</span>
+        </button>
+      </div>
+
+      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+        <button
+          type="button"
+          class="px-3 py-1 text-[11px] font-medium transition-colors"
           :class="sort === 'top' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           @click="sort = 'top'"
         >Most liked</button>
@@ -95,25 +169,39 @@ useHead({ title: 'Public lists — All Levels List' })
           class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800"
           :class="sort === 'new' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           @click="sort = 'new'"
-        >Newest</button>
+        >{{ view === 'mine' ? 'Recently edited' : 'Newest' }}</button>
       </div>
+
       <input
         v-model="search"
         type="search"
-        placeholder="Search lists…"
+        :placeholder="view === 'mine' ? 'Search your lists…' : 'Search lists…'"
         class="ml-auto rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
       />
     </div>
 
     <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
+    <p v-if="view === 'mine' && myListsError" class="text-sm text-red-400">{{ myListsError }}</p>
 
-    <p v-if="(data?.lists.length ?? 0) === 0" class="text-sm text-zinc-500 py-12 text-center">
-      No public lists yet. <NuxtLink to="/builder" class="text-accent hover:underline">Be the first →</NuxtLink>
+    <p v-if="view === 'mine' && !me" class="text-sm text-zinc-500 py-12 text-center">
+      <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink>
+      to see the lists you've built.
+    </p>
+
+    <p v-else-if="shown.length === 0" class="text-sm text-zinc-500 py-12 text-center">
+      <template v-if="view === 'mine'">
+        You haven't built a list yet.
+        <NuxtLink to="/builder" class="text-accent hover:underline">Start one →</NuxtLink>
+      </template>
+      <template v-else-if="search.trim()">No lists match “{{ search.trim() }}”.</template>
+      <template v-else>
+        No custom lists yet. <NuxtLink to="/builder" class="text-accent hover:underline">Be the first →</NuxtLink>
+      </template>
     </p>
 
     <ul v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <li
-        v-for="l in data!.lists"
+        v-for="l in shown"
         :key="l.public_id"
         class="card overflow-hidden flex flex-col group"
       >
@@ -128,6 +216,10 @@ useHead({ title: 'Public lists — All Levels List' })
             </div>
           </div>
           <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
+          <span
+            v-if="l.is_public === 0"
+            class="absolute top-2 right-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-400"
+          >Private</span>
           <h2 class="absolute bottom-2 left-3 right-3 font-semibold text-zinc-50 truncate drop-shadow">{{ l.title }}</h2>
         </NuxtLink>
 
@@ -135,11 +227,11 @@ useHead({ title: 'Public lists — All Levels List' })
           <p v-if="l.description" class="text-xs text-zinc-500 line-clamp-2">{{ l.description }}</p>
           <div class="flex items-center gap-2 text-[11px] text-zinc-600 mt-auto">
             <NuxtLink
-              v-if="l.owner_username"
+              v-if="l.owner_username && view === 'discover'"
               :to="`/users/${encodeURIComponent(l.owner_username)}`"
               class="hover:text-accent transition-colors truncate"
             >{{ l.owner_username }}</NuxtLink>
-            <span class="tabular-nums">· {{ l.item_count }} levels</span>
+            <span class="tabular-nums">{{ view === 'discover' ? '· ' : '' }}{{ l.item_count }} levels</span>
           </div>
           <div class="flex items-center gap-2">
             <button
@@ -154,7 +246,13 @@ useHead({ title: 'Public lists — All Levels List' })
               <span aria-hidden="true">{{ l.liked_by_me ? '★' : '☆' }}</span>
               <span class="tabular-nums">{{ l.likes }}</span>
             </button>
+            <NuxtLink
+              v-if="view === 'mine'"
+              :to="`/lists/${l.public_id}/settings`"
+              class="rounded-lg border border-zinc-800 text-zinc-400 px-2 py-1 text-[11px] font-medium hover:text-zinc-200 hover:border-zinc-700 transition-colors"
+            >Settings</NuxtLink>
             <button
+              v-else
               type="button"
               :disabled="busy === l.public_id"
               class="rounded-lg border border-zinc-800 text-zinc-400 px-2 py-1 text-[11px] font-medium hover:text-zinc-200 hover:border-zinc-700 transition-colors disabled:opacity-50"

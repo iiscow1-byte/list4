@@ -89,7 +89,11 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
           <NavMenuSection label="Discover" />
           <NavMenuItem to="/lists" hint="Lists shared by the community">
             <template #icon><NavIcon name="gallery" /></template>
-            Public lists
+            Custom lists
+          </NavMenuItem>
+          <NavMenuItem v-if="me" to="/lists?view=mine" hint="Everything you've built, published or not">
+            <template #icon><NavIcon name="list" /></template>
+            My lists
           </NavMenuItem>
         </NavMenu>
 

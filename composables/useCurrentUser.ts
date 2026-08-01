@@ -18,7 +18,9 @@ export type CurrentUser = {
   /** The record pinned to the profile as this player's hardest completion. */
   hardest_record_id: number | null
   /** Which pick paints the profile header. */
-  banner_choice: 'hardest' | 'favorite' | 'none'
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  /** Free-choice header level, used when `banner_choice` is 'level'. */
+  banner_level_id: number | null
 }
 
 /**
