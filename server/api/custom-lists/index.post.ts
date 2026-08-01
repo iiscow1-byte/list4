@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
     description?: string
     items?: CustomListItemInput[]
     is_public?: boolean
+    accepts_submissions?: boolean
   }>(event)
 
   const db = getDb()
@@ -29,9 +30,13 @@ export default defineEventHandler(async (event) => {
   db.exec('BEGIN')
   try {
     const info = db.prepare(
-      `INSERT INTO custom_lists (public_id, owner_account_id, title, description, is_public)
-       VALUES (?,?,?,?,?)`,
-    ).run(newPublicId(), account.id, title, description, body?.is_public ? 1 : 0)
+      `INSERT INTO custom_lists
+         (public_id, owner_account_id, title, description, is_public, accepts_submissions)
+       VALUES (?,?,?,?,?,?)`,
+    ).run(
+      newPublicId(), account.id, title, description,
+      body?.is_public ? 1 : 0, body?.accepts_submissions ? 1 : 0,
+    )
     const listId = Number(info.lastInsertRowid)
     replaceItems(db, listId, Array.isArray(body?.items) ? body.items : [], account.id)
     db.exec('COMMIT')

@@ -26,6 +26,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'claims',             label: 'Claims',          adminOnly: true },
   { id: 'accounts',           label: 'Accounts',        adminOnly: true },
   { id: 'discord',            label: 'Discord',         adminOnly: true },
+  { id: 'custom-lists',       label: 'Custom lists',    adminOnly: true },
 ]
 const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
 
@@ -510,15 +511,15 @@ async function setClaim(u: AdminUser) {
 
 <template>
   <div class="h-full flex flex-col">
-    <nav class="border-b border-zinc-800 bg-zinc-950 shrink-0">
-      <div class="container-tight flex gap-1 py-2 items-center">
+    <nav class="border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-sm shrink-0">
+      <div class="container-wide flex gap-1 py-2 items-center overflow-x-auto">
         <!-- Pending dropdown: groups submission-queue tabs -->
         <div ref="pendingMenuRef" class="relative flex items-stretch">
           <button
             type="button"
-            class="pl-3 pr-2 py-1.5 rounded-l text-sm font-medium transition-colors relative"
+            class="pl-3 pr-2 py-1.5 rounded-l-lg text-sm font-medium transition-colors relative"
             :class="isPendingTab && !pendingDropdownOpen
-              ? 'bg-zinc-900 text-zinc-100'
+              ? 'bg-accent/10 text-accent ring-1 ring-inset ring-accent/25'
               : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
             @click="pendingDropdownOpen = !pendingDropdownOpen"
           >
@@ -531,7 +532,7 @@ async function setClaim(u: AdminUser) {
           </button>
           <button
             type="button"
-            class="px-1.5 py-1.5 rounded-r text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            class="px-1.5 py-1.5 rounded-r-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
             :class="{ 'text-zinc-100 bg-zinc-900': pendingDropdownOpen || isPendingTab }"
             :aria-expanded="pendingDropdownOpen"
             aria-haspopup="menu"
@@ -545,7 +546,7 @@ async function setClaim(u: AdminUser) {
           <div
             v-if="pendingDropdownOpen"
             role="menu"
-            class="absolute left-0 top-full mt-1 min-w-[11rem] rounded-md border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-40"
+            class="absolute left-0 top-full mt-1 min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 p-1 z-40"
           >
             <button
               v-for="id in PENDING_TABS"
@@ -574,9 +575,9 @@ async function setClaim(u: AdminUser) {
           v-for="t in tabs.filter(t => !PENDING_TABS.includes(t.id))"
           :key="t.id"
           type="button"
-          class="relative px-3 py-1.5 rounded text-sm font-medium transition-colors"
+          class="relative whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
           :class="tab === t.id
-            ? 'bg-zinc-900 text-zinc-100'
+            ? 'bg-accent/10 text-accent ring-1 ring-inset ring-accent/25'
             : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
           @click="tab = t.id"
         >
@@ -823,6 +824,12 @@ async function setClaim(u: AdminUser) {
     </div>
 
     <!-- Discord tab -->
+    <div v-else-if="tab === 'custom-lists'" class="flex-1 overflow-y-auto">
+      <div class="max-w-3xl mx-auto px-4 sm:px-6 py-5">
+        <AdminCustomLists />
+      </div>
+    </div>
+
     <div v-else-if="tab === 'discord'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-3xl space-y-6">
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60">

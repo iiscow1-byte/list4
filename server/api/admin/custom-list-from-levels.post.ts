@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { loadList, newPublicId, MAX_ITEMS } from '~/server/utils/custom-lists'
+import { buildLevelSliceWhere } from '~/server/utils/level-slice'
 
 /**
  * Snapshot a slice of the main list into a custom list the admin owns.
@@ -25,20 +26,14 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
 
-  const conds: string[] = []
-  const params: any[] = []
   const from = Number(body?.from_position)
-  const to = Number(body?.to_position)
-  if (Number.isInteger(from) && from > 0) { conds.push('position >= ?'); params.push(from) }
-  if (Number.isInteger(to) && to > 0) { conds.push('position <= ?'); params.push(to) }
-  if (body?.tier) { conds.push('gddl_tier = ?'); params.push(String(body.tier)) }
-  if (body?.rated) { conds.push('rated = ?'); params.push(String(body.rated)) }
+  const { where, params } = buildLevelSliceWhere(body ?? {})
 
   const limit = Math.max(1, Math.min(Number(body?.limit) || MAX_ITEMS, MAX_ITEMS))
   const rows = db.prepare(
     `SELECT id, name, gd_id, creator, difficulty, gddl_tier, verification_url
        FROM levels
-      ${conds.length ? `WHERE ${conds.join(' AND ')}` : ''}
+      ${where}
       ORDER BY position ASC
       LIMIT ?`,
   ).all(...params, limit) as any[]
@@ -71,7 +66,7 @@ export default defineEventHandler(async (event) => {
       ins.run(listId, i, r.id, r.name, r.gd_id, r.creator, r.difficulty, r.gddl_tier, r.verification_url)
     })
     db.exec('COMMIT')
-    return { ok: true, list: loadList(db, listId) }
+    return { ok: true, count: rows.length, list: loadList(db, listId) }
   } catch (err) {
     db.exec('ROLLBACK')
     throw err

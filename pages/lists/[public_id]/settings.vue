@@ -192,6 +192,16 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               />
               Accept record submissions and run a leaderboard
             </label>
+            <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                class="accent-accent"
+                :checked="!!l.accepts_submissions"
+                :disabled="busy"
+                @change="patch({ accepts_submissions: ($event.target as HTMLInputElement).checked }, 'Suggestion settings updated.')"
+              />
+              Let anyone suggest levels for this list
+            </label>
           </section>
 
           <!-- Community links -->
