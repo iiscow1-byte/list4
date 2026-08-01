@@ -10,9 +10,113 @@ const props = defineProps<{
   /** `/lists/:public_id` — for the prev/next links. */
   listPath: string
   canEdit?: boolean
+  /** `/api/custom-lists/:public_id` — enables the inline editor. */
+  apiBase?: string
 }>()
+const emit = defineEmits<{ (e: 'changed'): void }>()
 
 const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
+
+// ---------- inline editor ----------
+const open = ref(false)
+const busy = ref(false)
+const error = ref<string | null>(null)
+const saved = ref(false)
+
+/** Linked rows take their level fields from the ALL list on every full save. */
+const linked = computed(() => props.item?.level_id != null)
+
+const draft = reactive({
+  rank: '',
+  name: '',
+  creator: '',
+  gd_id: '',
+  verification_url: '',
+  verifier: '',
+  percent_to_qualify: '',
+  fps: '',
+  game_version: '',
+  notes: '',
+})
+
+function seed() {
+  const i = props.item
+  if (!i) return
+  draft.rank = String(i.rank ?? '')
+  draft.name = i.name ?? ''
+  draft.creator = i.creator ?? ''
+  draft.gd_id = i.gd_id != null ? String(i.gd_id) : ''
+  draft.verification_url = i.verification_url ?? ''
+  draft.verifier = i.verifier ?? ''
+  draft.percent_to_qualify = String(i.percent_to_qualify ?? 100)
+  draft.fps = i.fps ?? ''
+  draft.game_version = i.game_version ?? ''
+  draft.notes = i.notes ?? ''
+  error.value = null
+  saved.value = false
+}
+watch(() => props.item?.id, seed, { immediate: true })
+watch(open, (v) => { if (v) seed() })
+
+async function save() {
+  if (!props.apiBase || !props.item || busy.value) return
+  busy.value = true
+  error.value = null
+  saved.value = false
+  try {
+    const body: Record<string, unknown> = {
+      verifier: draft.verifier,
+      percent_to_qualify: Number(draft.percent_to_qualify),
+      fps: draft.fps,
+      game_version: draft.game_version,
+      notes: draft.notes,
+    }
+    if (!linked.value) {
+      body.name = draft.name
+      body.creator = draft.creator
+      body.gd_id = draft.gd_id
+      body.verification_url = draft.verification_url
+    }
+    await $fetch(`${props.apiBase}/items/${props.item.id}`, { method: 'PATCH', body })
+
+    // Rank travels through the move endpoint, which renumbers the whole list.
+    const wanted = Math.round(Number(draft.rank))
+    if (Number.isFinite(wanted) && wanted !== props.item.rank) {
+      await $fetch(`${props.apiBase}/move`, {
+        method: 'POST',
+        body: { item_id: props.item.id, to_rank: wanted },
+      })
+      emit('changed')
+      await navigateTo(`${props.listPath}/${Math.max(1, Math.min(props.totalItems, wanted))}`)
+      return
+    }
+    saved.value = true
+    emit('changed')
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Could not save.'
+  } finally {
+    busy.value = false
+  }
+}
+
+async function remove() {
+  if (!props.apiBase || !props.item || busy.value) return
+  if (!confirm(`Remove "${props.item.name}" from this list?`)) return
+  busy.value = true
+  error.value = null
+  try {
+    await $fetch(`${props.apiBase}/items/${props.item.id}`, { method: 'DELETE' })
+    emit('changed')
+    await navigateTo(props.listPath)
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'Could not remove that level.'
+  } finally {
+    busy.value = false
+  }
+}
+
+const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50'
+const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 </script>
 
 <template>
@@ -38,6 +142,16 @@ const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
             class="text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
             :style="{ backgroundColor: tierColor(item.gddl_tier), color: textOn(tierColor(item.gddl_tier)) }"
           >{{ item.gddl_tier }}</span>
+          <button
+            v-if="canEdit && apiBase"
+            type="button"
+            class="ml-auto rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
+            :class="open
+              ? 'border-accent/60 text-accent bg-accent/10'
+              : 'border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent'"
+            :aria-expanded="open"
+            @click="open = !open"
+          >{{ open ? 'Close editor' : 'Edit level' }}</button>
         </div>
         <h1 class="text-2xl sm:text-4xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ item.name }}</h1>
         <p class="text-sm text-zinc-300">
@@ -59,6 +173,84 @@ const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
           >Easier →</NuxtLink>
         </nav>
       </header>
+
+      <!-- Inline editor -->
+      <form
+        v-if="open && canEdit && apiBase"
+        class="rounded-xl border border-accent/30 bg-zinc-950/80 p-4 grid gap-3 sm:grid-cols-2"
+        @submit.prevent="save"
+      >
+        <label class="block">
+          <span :class="label">Rank on this list</span>
+          <input v-model="draft.rank" inputmode="numeric" :class="field" />
+        </label>
+        <label class="block">
+          <span :class="label">% to qualify</span>
+          <input v-model="draft.percent_to_qualify" inputmode="numeric" :class="field" />
+        </label>
+
+        <label class="block">
+          <span :class="label">Name</span>
+          <input v-model="draft.name" :class="field" :disabled="linked" />
+        </label>
+        <label class="block">
+          <span :class="label">Creator</span>
+          <input v-model="draft.creator" :class="field" :disabled="linked" />
+        </label>
+        <label class="block">
+          <span :class="label">Level ID</span>
+          <input v-model="draft.gd_id" inputmode="numeric" :class="field" :disabled="linked" />
+        </label>
+        <label class="block">
+          <span :class="label">Verification video</span>
+          <input v-model="draft.verification_url" :class="field" :disabled="linked" />
+        </label>
+
+        <label class="block">
+          <span :class="label">Verifier</span>
+          <input v-model="draft.verifier" :class="field" />
+        </label>
+        <label class="block">
+          <span :class="label">FPS</span>
+          <input v-model="draft.fps" :class="field" />
+        </label>
+        <label class="block">
+          <span :class="label">Game version</span>
+          <input v-model="draft.game_version" :class="field" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span :class="label">Notes</span>
+          <textarea v-model="draft.notes" rows="2" :class="field" />
+        </label>
+
+        <p v-if="linked" class="sm:col-span-2 text-[11px] text-zinc-600">
+          This level is linked to
+          <NuxtLink :to="`/levels/${item.position}`" class="text-zinc-400 hover:text-accent">the ALL list</NuxtLink>,
+          so its name, creator, ID and video follow the list itself.
+        </p>
+
+        <div class="sm:col-span-2 flex flex-wrap items-center gap-2 pt-0.5">
+          <button
+            type="submit"
+            :disabled="busy"
+            class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+          >{{ busy ? 'Saving…' : 'Save' }}</button>
+          <button
+            type="button"
+            :disabled="busy"
+            class="rounded-lg border border-zinc-700 text-zinc-300 text-xs px-3 py-1.5 hover:border-zinc-500 disabled:opacity-50 transition-colors"
+            @click="seed()"
+          >Reset</button>
+          <button
+            type="button"
+            :disabled="busy"
+            class="ml-auto rounded-lg border border-red-900/60 text-red-400 text-xs px-3 py-1.5 hover:bg-red-950/40 disabled:opacity-50 transition-colors"
+            @click="remove"
+          >Remove from list</button>
+          <span v-if="error" class="sm:col-span-2 text-xs text-red-400">{{ error }}</span>
+          <span v-else-if="saved" class="text-xs text-emerald-400">Saved.</span>
+        </div>
+      </form>
 
       <!-- Verification video -->
       <div v-if="videoId" class="aspect-video rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-xl shadow-black/40">

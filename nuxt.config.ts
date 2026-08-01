@@ -16,18 +16,45 @@ export default defineNuxtConfig({
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
+          // One variable font covering 400–900 rather than four static cuts:
+          // fewer requests, and `font-black` (900) finally has a real weight to
+          // use — `font-synthesis-weight: none` in main.css means a missing
+          // weight silently renders lighter instead of being faked.
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap',
         },
       ],
     },
+  },
+  // Server sourcemaps are a large slice of Nitro's build time and are only
+  // useful when debugging the production bundle itself.
+  sourcemap: { server: false, client: false },
+  vite: {
+    build: {
+      // Every browser this site targets handles modern syntax; transpiling
+      // down to an older baseline is pure build cost.
+      target: 'esnext',
+    },
+  },
+  routeRules: {
+    // These three are identical for every visitor and each reads several
+    // tables to build one response. A minute of staleness is invisible, and
+    // it takes the work off the hot path for the pages that open first.
+    '/api/community': { cache: { maxAge: 60 } },
+    '/api/stats': { cache: { maxAge: 60 } },
+    '/api/landing': { cache: { maxAge: 60 } },
   },
   nitro: {
     experimental: {
       tasks: true,
     },
+    // Serve pre-compressed static assets instead of compressing per request.
+    compressPublicAssets: { gzip: true, brotli: true },
     rollupConfig: {
       external: ['node:sqlite'],
+    },
+    esbuild: {
+      options: { target: 'esnext' },
     },
   },
 })

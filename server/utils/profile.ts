@@ -14,6 +14,9 @@ export type LevelRow = {
   name: string
   points: number | null
   gddl_tier: string | null
+  /** Carried so profile rows can render the level's thumbnail. */
+  gd_id?: number | null
+  sheet_placement?: number | null
 }
 
 export type CompletedLevel = LevelRow & { percent: number; main_skillset: string | null; record_id: number }
@@ -30,7 +33,8 @@ export function getCompletedLevels(db: DatabaseSync, playerName: string): Comple
   // user submissions are also permanent = 1, so a single filter covers both.
   // Pending user submissions (permanent = 0) stay hidden.
   return db.prepare(
-    `SELECT l.position, l.name, l.points, l.gddl_tier, l.main_skillset, r.percent, r.id AS record_id
+    `SELECT l.position, l.sheet_placement, l.name, l.points, l.gddl_tier, l.gd_id,
+            l.main_skillset, r.percent, r.id AS record_id, r.video
        FROM records r
        JOIN levels l ON l.id = r.level_id
       WHERE r.player_name = ? COLLATE NOCASE AND r.permanent = 1
@@ -43,7 +47,7 @@ export function getCreatedLevels(db: DatabaseSync, creatorName: string): LevelRo
   // stored value and the search term with ", " delimiters so the LIKE only
   // matches whole tokens, not substrings.
   return db.prepare(
-    `SELECT position, name, points, gddl_tier
+    `SELECT position, sheet_placement, name, points, gddl_tier, gd_id
        FROM levels
       WHERE creator IS NOT NULL
         AND (', ' || creator || ', ') LIKE ('%, ' || ? || ', %') COLLATE NOCASE
@@ -53,7 +57,7 @@ export function getCreatedLevels(db: DatabaseSync, creatorName: string): LevelRo
 
 export function getVerifiedLevels(db: DatabaseSync, verifierName: string): LevelRow[] {
   return db.prepare(
-    `SELECT position, name, points, gddl_tier
+    `SELECT position, sheet_placement, name, points, gddl_tier, gd_id
        FROM levels
       WHERE verifier = ? COLLATE NOCASE
       ORDER BY position ASC`,

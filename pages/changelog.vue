@@ -8,6 +8,7 @@ type Change = {
   level_name: string
   level_gddl_tier: string | null
   level_rated: string | null
+  level_gd_id?: number | null
   challenge_rank: number | null
   from_challenge_rank: number | null
   from_position: number | null
@@ -34,14 +35,14 @@ const isMod = computed(() => {
 const sourceFilter = ref<'' | 'all' | 'aredl'>('')
 const range = ref(30)
 const RANGES = [
-  { value: 14,   label: '14 days' },
-  { value: 30,   label: '30 days' },
-  { value: 180,  label: '6 months' },
-  { value: 365,  label: '1 year' },
-  { value: 3650, label: 'All time' },
+  { value: 14,   label: '14d' },
+  { value: 30,   label: '30d' },
+  { value: 180,  label: '6mo' },
+  { value: 365,  label: '1y' },
+  { value: 3650, label: 'All' },
 ]
 
-const { data: changes, refresh: refreshChanges } = await useFetch<Changes>('/api/changes/recent', {
+const { data: changes, pending, refresh: refreshChanges } = await useFetch<Changes>('/api/changes/recent', {
   query: computed(() => ({
     days: range.value,
     limit: 2000,
@@ -51,11 +52,18 @@ const { data: changes, refresh: refreshChanges } = await useFetch<Changes>('/api
 
 const changelogView = ref<'all' | 'challenge'>('all')
 const changelogOrder = ref<'placement' | 'recent'>('recent')
+/** Only additions, only movements, or both. */
+const kindFilter = ref<'' | 'add' | 'move'>('')
+const search = ref('')
+const dense = ref(false)
 
 function filteredChanges(list: Change[]) {
-  const base = changelogView.value === 'challenge'
+  let base = changelogView.value === 'challenge'
     ? list.filter((c) => c.level_rated === 'Challenge')
     : list
+  if (kindFilter.value) base = base.filter((c) => c.kind === kindFilter.value)
+  const q = search.value.trim().toLowerCase()
+  if (q) base = base.filter((c) => c.level_name.toLowerCase().includes(q))
   if (changelogOrder.value === 'recent') return base
   if (changelogView.value === 'challenge') {
     return [...base].sort((a, b) => (a.challenge_rank ?? 9999) - (b.challenge_rank ?? 9999))
@@ -63,9 +71,36 @@ function filteredChanges(list: Change[]) {
   return [...base].sort((a, b) => a.to_position - b.to_position)
 }
 
-const totalShown = computed(() =>
-  (changes.value?.days ?? []).reduce((n, d) => n + filteredChanges(d.changes).length, 0),
+/** How far a level moved, in placements — the number people actually want. */
+function delta(c: Change): number | null {
+  if (c.kind === 'add') return null
+  const from = c.from_placement ?? c.from_position
+  const to = c.to_placement ?? c.to_position
+  if (from == null || to == null) return null
+  return from - to // positive = moved up the list
+}
+
+/**
+ * Filter and tally in one pass, cached per fetch/filter change. The per-day
+ * summary chips are read three times each in the template — recomputing them
+ * there would rescan a 2000-row log on every render.
+ */
+const days = computed(() =>
+  (changes.value?.days ?? [])
+    .map((d) => {
+      const rows = filteredChanges(d.changes)
+      let added = 0, up = 0, down = 0
+      for (const c of rows) {
+        if (c.kind === 'add') added++
+        else if ((delta(c) ?? 0) > 0) up++
+        else down++
+      }
+      return { date: d.date, changes: rows, added, up, down }
+    })
+    .filter((d) => d.changes.length),
 )
+
+const totalShown = computed(() => days.value.reduce((n, d) => n + d.changes.length, 0))
 
 async function deleteChange(c: Change) {
   const date = c.changed_at.slice(0, 10)
@@ -90,117 +125,175 @@ function shortTier(tier: string | null): string | null {
 function formatDay(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
   if (!y || !m || !d) return ymd
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
+  const date = new Date(Date.UTC(y, m - 1, d))
+  const today = new Date()
+  const isToday = date.toISOString().slice(0, 10) === today.toISOString().slice(0, 10)
+  if (isToday) return 'Today'
+  return date.toLocaleDateString(undefined, {
     year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
   })
 }
+
+const segBtn = 'px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0'
+const segOn = 'bg-zinc-800 text-zinc-100'
+const segOff = 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
 
 useHead({ title: 'Changelog — All Levels List' })
 </script>
 
 <template>
-  <div class="container-wide py-8 space-y-5">
-    <header class="flex flex-wrap items-end justify-between gap-3">
+  <div class="container-wide py-8">
+    <header class="flex flex-wrap items-end justify-between gap-3 mb-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Changelog</h1>
-        <p class="text-sm text-zinc-500 mt-1">
-          Placements and movements on the ALL list, including history imported from AREDL
-          and converted to ALL placements.
+        <p class="text-sm text-zinc-500 mt-1 max-w-2xl">
+          Every placement and movement on the ALL list, including history imported from
+          AREDL and converted to ALL placements. Website changes live on
+          <NuxtLink to="/updates" class="text-accent hover:underline">List updates</NuxtLink>.
         </p>
       </div>
-      <span class="text-[11px] text-zinc-600 tabular-nums">{{ totalShown.toLocaleString() }} entries</span>
+      <span class="text-[11px] text-zinc-600 tabular-nums">
+        {{ totalShown.toLocaleString() }} entr{{ totalShown === 1 ? 'y' : 'ies' }}
+        <template v-if="pending"> · loading…</template>
+      </span>
     </header>
 
-    <!-- Controls -->
-    <div class="flex flex-wrap items-center gap-2">
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          v-for="opt in [{ v: '', l: 'All sources' }, { v: 'all', l: 'ALL native' }, { v: 'aredl', l: 'AREDL history' }]"
-          :key="opt.v"
-          type="button"
-          class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-          :class="sourceFilter === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="sourceFilter = opt.v as any"
-        >{{ opt.l }}</button>
-      </div>
+    <!-- Controls: sticky so filtering stays reachable while reading a long log -->
+    <div class="sticky top-14 z-20 -mx-2 px-2 py-2 mb-4 bg-zinc-950/85 backdrop-blur-md border-b border-zinc-800/70">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="relative min-w-[10rem] flex-1 max-w-xs">
+          <input
+            v-model="search"
+            type="search"
+            placeholder="Filter by level name…"
+            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-[12px] placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
 
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          v-for="r in RANGES"
-          :key="r.value"
-          type="button"
-          class="px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-          :class="range === r.value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="range = r.value"
-        >{{ r.label }}</button>
-      </div>
+        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+          <button
+            v-for="opt in [{ v: '', l: 'Everything' }, { v: 'add', l: 'Added' }, { v: 'move', l: 'Moved' }]"
+            :key="opt.v"
+            type="button"
+            :class="[segBtn, kindFilter === opt.v ? segOn : segOff]"
+            @click="kindFilter = opt.v as any"
+          >{{ opt.l }}</button>
+        </div>
 
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          type="button"
-          class="px-2.5 py-1 text-[11px] font-medium transition-colors"
-          :class="changelogView === 'all' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="changelogView = 'all'"
-        >All levels</button>
-        <button
-          type="button"
-          class="px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800"
-          :class="changelogView === 'challenge' ? 'bg-amber-900/60 text-amber-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="changelogView = 'challenge'"
-        >Challenges</button>
-      </div>
+        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+          <button
+            v-for="opt in [{ v: '', l: 'All sources' }, { v: 'all', l: 'ALL native' }, { v: 'aredl', l: 'AREDL' }]"
+            :key="opt.v"
+            type="button"
+            :class="[segBtn, sourceFilter === opt.v ? segOn : segOff]"
+            @click="sourceFilter = opt.v as any"
+          >{{ opt.l }}</button>
+        </div>
 
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden ml-auto">
+        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+          <button
+            v-for="r in RANGES"
+            :key="r.value"
+            type="button"
+            :class="[segBtn, range === r.value ? segOn : segOff]"
+            @click="range = r.value"
+          >{{ r.label }}</button>
+        </div>
+
+        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+          <button
+            type="button"
+            :class="[segBtn, changelogView === 'all' ? segOn : segOff]"
+            @click="changelogView = 'all'"
+          >All levels</button>
+          <button
+            type="button"
+            :class="[segBtn, changelogView === 'challenge' ? 'bg-amber-900/60 text-amber-200' : segOff]"
+            @click="changelogView = 'challenge'"
+          >Challenges</button>
+        </div>
+
+        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden ml-auto">
+          <button
+            type="button"
+            :class="[segBtn, changelogOrder === 'recent' ? segOn : segOff]"
+            @click="changelogOrder = 'recent'"
+          >Recent</button>
+          <button
+            type="button"
+            :class="[segBtn, changelogOrder === 'placement' ? segOn : segOff]"
+            @click="changelogOrder = 'placement'"
+          >Placement</button>
+        </div>
+
         <button
           type="button"
-          class="px-2.5 py-1 text-[11px] font-medium transition-colors"
-          :class="changelogOrder === 'recent' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="changelogOrder = 'recent'"
-        >Recent</button>
-        <button
-          type="button"
-          class="px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800"
-          :class="changelogOrder === 'placement' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="changelogOrder = 'placement'"
-        >Placement</button>
+          class="rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] font-medium transition-colors"
+          :class="dense ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          :aria-pressed="dense"
+          title="Tighter rows, no level art"
+          @click="dense = !dense"
+        >Compact</button>
       </div>
     </div>
 
     <!-- Days -->
     <div class="space-y-4">
-      <template v-for="day in changes?.days ?? []" :key="day.date">
-        <div v-if="filteredChanges(day.changes).length" class="card overflow-hidden">
-          <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-baseline justify-between gap-3">
-            <h2 class="text-sm font-semibold text-zinc-100">{{ formatDay(day.date) }}</h2>
-            <span class="text-[11px] text-zinc-500 tabular-nums">
-              {{ filteredChanges(day.changes).length }} change{{ filteredChanges(day.changes).length === 1 ? '' : 's' }}
-            </span>
+      <section v-for="day in days" :key="day.date" class="card overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap">
+          <h2 class="text-sm font-semibold text-zinc-100">{{ formatDay(day.date) }}</h2>
+          <div class="flex items-center gap-1.5 text-[10px] tabular-nums">
+            <span
+              v-if="day.added"
+              class="rounded px-1.5 py-0.5 bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
+            >+{{ day.added }} added</span>
+            <span
+              v-if="day.up"
+              class="rounded px-1.5 py-0.5 bg-sky-950/60 text-sky-300 border border-sky-900/60"
+            >▲ {{ day.up }}</span>
+            <span
+              v-if="day.down"
+              class="rounded px-1.5 py-0.5 bg-amber-950/60 text-amber-300 border border-amber-900/60"
+            >▼ {{ day.down }}</span>
           </div>
-          <ul class="divide-y divide-zinc-900/60">
-            <li
-              v-for="(c, i) in filteredChanges(day.changes)"
-              :key="`${day.date}-${i}`"
-              class="px-4 py-2 text-sm flex items-center gap-2 group/row hover:bg-zinc-900/40 transition-colors"
+        </div>
+
+        <ul class="divide-y divide-zinc-900/60">
+          <li
+            v-for="(c, i) in day.changes"
+            :key="`${day.date}-${i}`"
+            class="relative overflow-hidden group/row hover:bg-zinc-900/40 transition-colors"
+          >
+            <LevelThumbBg
+              v-if="!dense"
+              :gd-id="c.level_gd_id ?? null"
+              res="small"
+              img-class="opacity-[0.13] group-hover/row:opacity-25"
+              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+            />
+            <div
+              class="relative px-4 flex items-center gap-2.5 text-sm"
+              :class="dense ? 'py-1' : 'py-2'"
             >
               <span
                 v-if="c.kind === 'add'"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
+                class="shrink-0 w-[4.6rem] text-center text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
                 title="Added to the list"
               >Added</span>
               <span
-                v-else-if="c.from_position != null && c.to_position < c.from_position"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
-                title="Moved up"
-              >▲ Moved</span>
+                v-else-if="(delta(c) ?? 0) > 0"
+                class="shrink-0 w-[4.6rem] text-center text-[10px] tabular-nums px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
+                title="Moved up the list"
+              >▲ {{ delta(c) }}</span>
               <span
                 v-else
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
-                title="Moved down"
-              >▼ Moved</span>
+                class="shrink-0 w-[4.6rem] text-center text-[10px] tabular-nums px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
+                title="Moved down the list"
+              >▼ {{ Math.abs(delta(c) ?? 0) }}</span>
 
               <NuxtLink
                 :to="`/levels/${c.level_position}`"
-                class="truncate text-zinc-200 hover:text-accent transition-colors"
+                class="truncate font-medium text-zinc-200 hover:text-accent transition-colors"
               >{{ c.level_name }}</NuxtLink>
 
               <span
@@ -218,22 +311,22 @@ useHead({ title: 'Changelog — All Levels List' })
                   : 'Imported from AREDL history, converted to ALL placements'"
               >AREDL</span>
 
-              <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
+              <span class="shrink-0 font-semibold tabular-nums text-zinc-300 ml-auto" :class="dense ? 'text-sm' : 'text-base'">
                 <template v-if="changelogView === 'challenge'">
                   <template v-if="c.kind === 'add'">
                     <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
                   </template>
                   <template v-else>
-                    <span class="text-zinc-500">Ch. #{{ c.from_challenge_rank }}</span>
-                    <span class="text-zinc-600 mx-1">→</span>
+                    <span class="text-zinc-600">Ch. #{{ c.from_challenge_rank }}</span>
+                    <span class="text-zinc-700 mx-1">→</span>
                     <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
                   </template>
                 </template>
                 <template v-else>
                   <template v-if="c.kind === 'add'">#{{ c.to_placement }}</template>
                   <template v-else>
-                    <span class="text-zinc-500">#{{ c.from_placement }}</span>
-                    <span class="text-zinc-600 mx-1">→</span>
+                    <span class="text-zinc-600">#{{ c.from_placement }}</span>
+                    <span class="text-zinc-700 mx-1">→</span>
                     <span class="text-accent">#{{ c.to_placement }}</span>
                   </template>
                 </template>
@@ -246,13 +339,13 @@ useHead({ title: 'Changelog — All Levels List' })
                 title="Remove changelog entry"
                 @click="deleteChange(c)"
               >✕</button>
-            </li>
-          </ul>
-        </div>
-      </template>
+            </div>
+          </li>
+        </ul>
+      </section>
 
-      <p v-if="totalShown === 0" class="text-sm text-zinc-500 py-6 text-center">
-        No changes in this range.
+      <p v-if="!pending && totalShown === 0" class="text-sm text-zinc-500 py-16 text-center">
+        No changes match these filters.
       </p>
     </div>
   </div>

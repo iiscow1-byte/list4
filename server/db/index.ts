@@ -173,9 +173,28 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'favorite_level_note')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN favorite_level_note TEXT`)
   }
+  // The one completion a player wants their profile judged on. Points at a
+  // record rather than a level so the percent and the proof video come with
+  // it; ON DELETE SET NULL so retracting the record just clears the pick.
+  if (!accCols.some((c) => c.name === 'hardest_record_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN hardest_record_id INTEGER REFERENCES records(id) ON DELETE SET NULL`)
+  }
+  // Which of the two picks paints the profile header: 'hardest' | 'favorite' |
+  // 'none'. Stored rather than inferred so clearing a pick doesn't silently
+  // switch the banner to the other one.
+  if (!accCols.some((c) => c.name === 'banner_choice')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN banner_choice TEXT NOT NULL DEFAULT 'hardest'`)
+  }
 
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
+  // gd_id is how every mirror (AREDL, GDL, CCL, …) is matched back to a level
+  // here — the feed, the leaderboard and "create a list from CCL" all join on
+  // it, and without this each of those is a full scan of `levels`.
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gd_id     ON levels(gd_id)`)
+  // Resolving a leaderboard/feed name to the account behind it looks at both
+  // `username` and `claimed_player`; only the former was indexed.
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_accounts_claimed ON accounts(claimed_player COLLATE NOCASE)`)
 
   // Pending level submissions — user-submitted new levels awaiting admin review.
   db.exec(`

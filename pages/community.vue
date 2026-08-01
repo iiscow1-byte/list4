@@ -4,17 +4,20 @@ import { tierColor, textOn } from '~/utils/tier-colors'
 /** The social home: what your follows are doing, plus site-wide activity. */
 type Community = {
   newLevels: { position: number; sheet_placement: number | null; name: string; gd_id: number | null; gddl_tier: string | null; changed_at: string }[]
-  recentRecords: { player_name: string; percent: number; video: string | null; position: number; sheet_placement: number | null; level_name: string; gd_id: number | null }[]
-  newLists: { public_id: string; title: string; likes: number; owner_username: string | null; item_count: number }[]
-  newMembers: { username: string; created_at: string; claimed_player: string | null }[]
+  recentRecords: { player_name: string; player_username: string | null; percent: number; video: string | null; position: number; sheet_placement: number | null; level_name: string; gd_id: number | null; gddl_tier: string | null }[]
+  newLists: { public_id: string; title: string; likes: number; owner_username: string | null; item_count: number; icon_url: string | null; accent_color: string | null }[]
+  newMembers: { username: string; created_at: string; claimed_player: string | null; has_avatar: number }[]
   totals: { levels: number; members: number; public_lists: number; records: number }
 }
 type FeedItem = {
   kind: 'record' | 'verify' | 'level' | 'progress'
   at: string
   actor: string
+  actor_username: string | null
+  actor_has_avatar: boolean
   level_position: number | null
   level_name: string
+  level_gd_id: number | null
   percent?: number | null
   start_percent?: number | null
   end_percent?: number | null
@@ -32,29 +35,43 @@ const feedLoaded = ref(false)
 async function loadFeed() {
   if (!me.value) { feed.value = []; feedLoaded.value = true; return }
   try {
-    const res = await $fetch<{ items: FeedItem[] }>('/api/feed/followed', { query: { limit: 25 } })
+    const res = await $fetch<{ items: FeedItem[] }>('/api/feed/followed', { query: { limit: 30 } })
     feed.value = res.items
   } catch { feed.value = [] } finally { feedLoaded.value = true }
 }
 watch(me, loadFeed, { immediate: true })
+
+/** Show everything, or only one kind of activity. */
+const kind = ref<'' | 'record' | 'progress' | 'verify' | 'level'>('')
+const shownFeed = computed(() =>
+  kind.value ? feed.value.filter((i) => i.kind === kind.value) : feed.value,
+)
 
 function relative(at: string): string {
   const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return ''
   const secs = Math.max(0, (Date.now() - t) / 1000)
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+  if (secs < 60) return 'just now'
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`
   const days = Math.floor(secs / 86400)
-  if (days < 30) return `${days}d ago`
+  if (days < 30) return `${days}d`
   return new Date(t).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
 }
 
-function feedLine(i: FeedItem): string {
-  if (i.kind === 'record') return `completed ${i.level_name}${i.percent != null && i.percent < 100 ? ` (${i.percent}%)` : ''}`
-  if (i.kind === 'verify') return `verified ${i.level_name}`
-  if (i.kind === 'level') return `had ${i.level_name} added to the list`
-  return `progressed on ${i.level_name} — ${i.start_percent}% → ${i.end_percent}%`
+/** Verb + tone per activity kind — the bit that makes the feed scannable. */
+const KINDS: Record<FeedItem['kind'], { verb: string; chip: string; tone: string }> = {
+  record:   { verb: 'completed',    chip: 'Completion', tone: 'bg-emerald-950/60 text-emerald-300 border-emerald-900/60' },
+  verify:   { verb: 'verified',     chip: 'Verified',   tone: 'bg-sky-950/60 text-sky-300 border-sky-900/60' },
+  level:    { verb: 'added',        chip: 'New level',  tone: 'bg-accent/10 text-accent border-accent/25' },
+  progress: { verb: 'progressed on', chip: 'Progress',  tone: 'bg-amber-950/60 text-amber-300 border-amber-900/60' },
+}
+
+function profileLink(i: FeedItem): string {
+  return i.actor_username
+    ? `/users/${encodeURIComponent(i.actor_username)}`
+    : `/users/by-player/${encodeURIComponent(i.actor)}`
 }
 
 useHead({ title: 'Community — All Levels List' })
@@ -62,48 +79,106 @@ useHead({ title: 'Community — All Levels List' })
 
 <template>
   <div class="container-wide py-8 space-y-6">
-    <header class="flex flex-wrap items-end justify-between gap-3">
+    <header class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Community</h1>
         <p class="text-sm text-zinc-500 mt-1">What the list and its players have been up to.</p>
       </div>
-      <div v-if="community" class="flex flex-wrap gap-4 text-[11px] text-zinc-500 tabular-nums">
-        <span><span class="text-zinc-200 font-semibold">{{ community.totals.levels.toLocaleString() }}</span> levels</span>
-        <span><span class="text-zinc-200 font-semibold">{{ community.totals.records.toLocaleString() }}</span> records</span>
-        <span><span class="text-zinc-200 font-semibold">{{ community.totals.members.toLocaleString() }}</span> members</span>
-        <span><span class="text-zinc-200 font-semibold">{{ community.totals.public_lists.toLocaleString() }}</span> public lists</span>
-      </div>
+      <dl v-if="community" class="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+        <div v-for="s in [
+          { l: 'Levels', v: community.totals.levels },
+          { l: 'Records', v: community.totals.records },
+          { l: 'Members', v: community.totals.members },
+          { l: 'Public lists', v: community.totals.public_lists },
+        ]" :key="s.l" class="bg-zinc-950 px-3 py-1.5 min-w-[5.5rem]">
+          <dt class="text-[9px] uppercase tracking-widest text-zinc-600">{{ s.l }}</dt>
+          <dd class="text-sm font-semibold tabular-nums text-zinc-200">{{ s.v.toLocaleString() }}</dd>
+        </div>
+      </dl>
     </header>
 
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] items-start">
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start">
       <!-- Following feed -->
       <section class="card overflow-hidden">
-        <div class="px-4 py-3 border-b border-zinc-800/80 flex items-center justify-between gap-2">
+        <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-center justify-between gap-2 flex-wrap">
           <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Following</h2>
-          <NuxtLink v-if="me" to="/leaderboard" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">Find players →</NuxtLink>
+          <div v-if="me && feed.length" class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+            <button
+              v-for="opt in [
+                { v: '', l: 'All' },
+                { v: 'record', l: 'Completions' },
+                { v: 'progress', l: 'Progress' },
+                { v: 'verify', l: 'Verifs' },
+              ]"
+              :key="opt.v"
+              type="button"
+              class="px-2 py-0.5 text-[10px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
+              :class="kind === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+              @click="kind = opt.v as any"
+            >{{ opt.l }}</button>
+          </div>
+          <NuxtLink v-else-if="me" to="/leaderboard" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">Find players →</NuxtLink>
         </div>
 
-        <p v-if="!me" class="px-4 py-10 text-sm text-zinc-500 text-center">
+        <p v-if="!me" class="px-4 py-16 text-sm text-zinc-500 text-center">
           <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink>
           and follow players to see their completions here.
         </p>
-        <p v-else-if="feedLoaded && feed.length === 0" class="px-4 py-10 text-sm text-zinc-500 text-center">
+        <p v-else-if="feedLoaded && shownFeed.length === 0" class="px-4 py-16 text-sm text-zinc-500 text-center">
           Nothing yet — follow some players from the
           <NuxtLink to="/leaderboard" class="text-accent hover:underline">leaderboard</NuxtLink>.
         </p>
         <ul v-else class="divide-y divide-zinc-900/60">
-          <li v-for="(i, idx) in feed" :key="idx" class="px-4 py-2.5 text-sm flex items-baseline gap-2 hover:bg-zinc-900/40 transition-colors">
-            <NuxtLink :to="`/users/by-player/${encodeURIComponent(i.actor)}`" class="font-medium text-zinc-200 hover:text-accent transition-colors shrink-0">
-              {{ i.actor }}
-            </NuxtLink>
-            <span class="text-zinc-400 truncate flex-1">
-              <template v-if="i.level_position">
-                {{ feedLine(i).split(i.level_name)[0] }}<NuxtLink :to="`/levels/${i.level_position}`" class="text-zinc-300 hover:text-accent transition-colors">{{ i.level_name }}</NuxtLink>{{ feedLine(i).split(i.level_name)[1] }}
-              </template>
-              <template v-else>{{ feedLine(i) }}</template>
-            </span>
-            <a v-if="i.video_url" :href="i.video_url" target="_blank" rel="noopener" class="text-[11px] text-zinc-600 hover:text-accent shrink-0">video ↗</a>
-            <span class="text-[11px] text-zinc-600 shrink-0">{{ relative(i.at) }}</span>
+          <li
+            v-for="(i, idx) in shownFeed"
+            :key="`${i.kind}-${idx}-${i.at}`"
+            class="relative overflow-hidden group/row"
+          >
+            <LevelThumbBg
+              :gd-id="i.level_gd_id"
+              res="small"
+              img-class="opacity-[0.12] group-hover/row:opacity-25"
+              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/85 to-zinc-950/50"
+            />
+            <div class="relative px-4 py-2.5 flex items-start gap-3">
+              <NuxtLink :to="profileLink(i)" class="shrink-0 mt-0.5">
+                <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 flex items-center justify-center">
+                  <img
+                    v-if="i.actor_has_avatar && i.actor_username"
+                    :src="`/api/users/${encodeURIComponent(i.actor_username)}/avatar`"
+                    class="w-full h-full object-cover"
+                    alt=""
+                  />
+                  <span v-else class="text-[11px] font-bold uppercase text-zinc-400">{{ i.actor.charAt(0) }}</span>
+                </span>
+              </NuxtLink>
+
+              <div class="min-w-0 flex-1">
+                <p class="text-sm leading-snug">
+                  <NuxtLink :to="profileLink(i)" class="font-semibold text-zinc-100 hover:text-accent transition-colors">{{ i.actor }}</NuxtLink>
+                  <span class="text-zinc-500"> {{ KINDS[i.kind].verb }} </span>
+                  <NuxtLink
+                    v-if="i.level_position"
+                    :to="`/levels/${i.level_position}`"
+                    class="font-medium text-zinc-200 hover:text-accent transition-colors"
+                  >{{ i.level_name }}</NuxtLink>
+                  <span v-else class="font-medium text-zinc-200">{{ i.level_name }}</span>
+                  <span v-if="i.kind === 'record' && i.percent != null && i.percent < 100" class="text-zinc-500 tabular-nums"> ({{ i.percent }}%)</span>
+                  <span v-if="i.kind === 'progress'" class="text-amber-300/90 tabular-nums"> {{ i.start_percent }}% → {{ i.end_percent }}%</span>
+                </p>
+                <div class="mt-1 flex items-center gap-2 text-[10px]">
+                  <span class="rounded px-1.5 py-px border uppercase tracking-widest" :class="KINDS[i.kind].tone">{{ KINDS[i.kind].chip }}</span>
+                  <span class="text-zinc-600 tabular-nums">{{ relative(i.at) }}</span>
+                  <a
+                    v-if="i.video_url"
+                    :href="i.video_url"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-zinc-600 hover:text-accent transition-colors"
+                  >watch ↗</a>
+                </div>
+              </div>
+            </div>
           </li>
         </ul>
       </section>
@@ -111,7 +186,7 @@ useHead({ title: 'Community — All Levels List' })
       <div class="space-y-4">
         <!-- Newly ranked -->
         <section v-if="community?.newLevels.length" class="card overflow-hidden">
-          <h2 class="px-4 py-3 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">Newly ranked</h2>
+          <h2 class="px-4 py-2.5 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">Newly ranked</h2>
           <ul class="divide-y divide-zinc-900/60">
             <li v-for="l in community.newLevels" :key="l.position" class="relative overflow-hidden group">
               <NuxtLink :to="`/levels/${l.position}`" class="relative flex items-center gap-2 px-3 py-2 text-sm">
@@ -120,8 +195,8 @@ useHead({ title: 'Community — All Levels List' })
                   class="relative shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
                   :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
                 >#{{ l.sheet_placement ?? l.position }}</span>
-                <span class="relative truncate flex-1 text-zinc-200">{{ l.name }}</span>
-                <span class="relative text-[11px] text-zinc-600 shrink-0">{{ relative(l.changed_at) }}</span>
+                <span class="relative truncate flex-1 text-zinc-200 group-hover:text-accent transition-colors">{{ l.name }}</span>
+                <span class="relative text-[11px] text-zinc-600 shrink-0 tabular-nums">{{ relative(l.changed_at) }}</span>
               </NuxtLink>
             </li>
           </ul>
@@ -129,42 +204,73 @@ useHead({ title: 'Community — All Levels List' })
 
         <!-- Latest records -->
         <section v-if="community?.recentRecords.length" class="card overflow-hidden">
-          <h2 class="px-4 py-3 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">Latest records</h2>
+          <h2 class="px-4 py-2.5 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">Latest records</h2>
           <ul class="divide-y divide-zinc-900/60">
-            <li v-for="(r, i) in community.recentRecords" :key="i" class="px-3 py-2 text-sm flex items-center gap-2">
-              <NuxtLink :to="`/users/by-player/${encodeURIComponent(r.player_name)}`" class="font-medium text-zinc-200 hover:text-accent transition-colors truncate max-w-[8rem]">
-                {{ r.player_name }}
-              </NuxtLink>
-              <NuxtLink :to="`/levels/${r.position}`" class="truncate flex-1 text-zinc-400 hover:text-accent transition-colors">{{ r.level_name }}</NuxtLink>
-              <span class="text-[11px] tabular-nums text-amber-300 shrink-0">{{ r.percent }}%</span>
+            <li v-for="(r, i) in community.recentRecords" :key="i" class="relative overflow-hidden group">
+              <LevelThumbBg :gd-id="r.gd_id" res="small" img-class="opacity-[0.12] group-hover:opacity-25" overlay-class="bg-gradient-to-r from-zinc-950/95 to-zinc-950/60" />
+              <div class="relative px-3 py-2 text-sm flex items-center gap-2">
+                <NuxtLink
+                  :to="r.player_username ? `/users/${encodeURIComponent(r.player_username)}` : `/users/by-player/${encodeURIComponent(r.player_name)}`"
+                  class="font-semibold text-zinc-100 hover:text-accent transition-colors truncate max-w-[7.5rem]"
+                >{{ r.player_name }}</NuxtLink>
+                <NuxtLink :to="`/levels/${r.position}`" class="truncate flex-1 text-zinc-400 hover:text-accent transition-colors">{{ r.level_name }}</NuxtLink>
+                <span class="text-[11px] tabular-nums shrink-0" :class="r.percent >= 100 ? 'text-emerald-300' : 'text-amber-300'">{{ r.percent }}%</span>
+                <a v-if="r.video" :href="r.video" target="_blank" rel="noopener" class="text-[10px] text-zinc-600 hover:text-accent shrink-0">↗</a>
+              </div>
             </li>
           </ul>
         </section>
 
         <!-- Fresh lists -->
         <section v-if="community?.newLists.length" class="card overflow-hidden">
-          <div class="px-4 py-3 border-b border-zinc-800/80 flex items-center justify-between gap-2">
+          <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-center justify-between gap-2">
             <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Fresh lists</h2>
             <NuxtLink to="/lists" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">All →</NuxtLink>
           </div>
           <ul class="divide-y divide-zinc-900/60">
-            <li v-for="l in community.newLists" :key="l.public_id" class="px-3 py-2 text-sm flex items-center gap-2">
-              <NuxtLink :to="`/lists/${l.public_id}`" class="truncate flex-1 text-zinc-200 hover:text-accent transition-colors">{{ l.title }}</NuxtLink>
-              <span v-if="l.owner_username" class="text-[11px] text-zinc-600 shrink-0 truncate max-w-[6rem]">{{ l.owner_username }}</span>
-              <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">★ {{ l.likes }}</span>
+            <li v-for="l in community.newLists" :key="l.public_id">
+              <NuxtLink :to="`/lists/${l.public_id}`" class="px-3 py-2 text-sm flex items-center gap-2.5 hover:bg-zinc-900/40 transition-colors">
+                <img
+                  v-if="l.icon_url"
+                  :src="l.icon_url"
+                  alt=""
+                  referrerpolicy="no-referrer"
+                  class="w-7 h-7 rounded-lg object-cover border border-zinc-800 shrink-0 bg-zinc-900"
+                />
+                <span
+                  v-else
+                  class="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[10px] font-black shrink-0"
+                  :style="l.accent_color ? { color: l.accent_color } : undefined"
+                  :class="l.accent_color ? '' : 'text-accent'"
+                  aria-hidden="true"
+                >{{ l.title.slice(0, 2).toUpperCase() }}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-zinc-200">{{ l.title }}</span>
+                  <span class="block truncate text-[10px] text-zinc-600">
+                    <template v-if="l.owner_username">by {{ l.owner_username }} · </template>{{ l.item_count }} levels
+                  </span>
+                </span>
+                <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">★ {{ l.likes }}</span>
+              </NuxtLink>
             </li>
           </ul>
         </section>
 
         <!-- New members -->
         <section v-if="community?.newMembers.length" class="card overflow-hidden">
-          <h2 class="px-4 py-3 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">New members</h2>
+          <h2 class="px-4 py-2.5 border-b border-zinc-800/80 text-[10px] uppercase tracking-widest text-accent font-semibold">New members</h2>
           <ul class="p-3 flex flex-wrap gap-1.5">
             <li v-for="m in community.newMembers" :key="m.username">
               <NuxtLink
                 :to="`/users/${encodeURIComponent(m.username)}`"
-                class="inline-block px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
-              >{{ m.username }}</NuxtLink>
+                class="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+              >
+                <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center">
+                  <img v-if="m.has_avatar" :src="`/api/users/${encodeURIComponent(m.username)}/avatar`" class="w-full h-full object-cover" alt="" />
+                  <span v-else class="text-[9px] font-bold uppercase text-zinc-400">{{ m.username.charAt(0) }}</span>
+                </span>
+                {{ m.username }}
+              </NuxtLink>
             </li>
           </ul>
         </section>

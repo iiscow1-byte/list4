@@ -36,6 +36,10 @@ export type Account = {
   youtube_url: string | null
   favorite_level_id: number | null
   favorite_level_note: string | null
+  /** The record a player pins to their profile as their hardest completion. */
+  hardest_record_id: number | null
+  /** Which pick paints the profile header: 'hardest' | 'favorite' | 'none'. */
+  banner_choice: 'hardest' | 'favorite' | 'none'
 }
 
 export function hashPassword(password: string): { hash: string; salt: string } {
@@ -87,7 +91,8 @@ export function getCurrentAccount(event: H3Event): Account | null {
             a.claimed_aredl_uuid, a.claimed_pointercrate_id, a.claimed_gdl_id,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
             a.pronouns, a.discord_handle, a.youtube_url,
-            a.favorite_level_id, a.favorite_level_note
+            a.favorite_level_id, a.favorite_level_note,
+            a.hardest_record_id, a.banner_choice
        FROM sessions s
        JOIN accounts a ON a.id = s.account_id
       WHERE s.token = ?`,

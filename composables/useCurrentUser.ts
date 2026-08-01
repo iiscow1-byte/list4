@@ -15,6 +15,10 @@ export type CurrentUser = {
   youtube_url: string | null
   favorite_level_id: number | null
   favorite_level_note: string | null
+  /** The record pinned to the profile as this player's hardest completion. */
+  hardest_record_id: number | null
+  /** Which pick paints the profile header. */
+  banner_choice: 'hardest' | 'favorite' | 'none'
 }
 
 /**

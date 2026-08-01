@@ -13,6 +13,22 @@ type Row = {
   badge: string | null
 }
 
+/**
+ * The ranked player set, cached briefly.
+ *
+ * Building it scans `players`, every accepted record, and every account — tens
+ * of thousands of rows — and the result depends on nothing about the caller.
+ * Paging through the leaderboard used to redo all of that per page. The window
+ * is short enough that a newly approved record shows up almost immediately.
+ */
+const BASE_TTL_MS = 30_000
+let baseCache: { at: number; rows: Row[] } | null = null
+
+/** Dropped when something that feeds the leaderboard changes. */
+export function invalidateLeaderboardCache(): void {
+  baseCache = null
+}
+
 export default defineEventHandler((event) => {
   const q = getQuery(event)
   const limit = Math.min(2000, Math.max(1, Number(q.limit) || 100))
@@ -21,6 +37,9 @@ export default defineEventHandler((event) => {
   const followedOnly = String(q.followed ?? '') === '1'
 
   const db = getDb()
+  const cached = baseCache && Date.now() - baseCache.at < BASE_TTL_MS ? baseCache.rows : null
+  if (cached) return respond(db, event, cached, { limit, offset, search, followedOnly })
+
   // Build a map of player-name → role for accounts with a notable role.
   const roleRows = db.prepare(
     `SELECT COALESCE(claimed_player, username) AS player_name, role
@@ -100,7 +119,20 @@ export default defineEventHandler((event) => {
     return a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
   })
 
-  let filtered = [...all]
+  baseCache = { at: Date.now(), rows: all }
+  return respond(db, event, all, { limit, offset, search, followedOnly })
+})
+
+type RespondOpts = { limit: number; offset: number; search: string; followedOnly: boolean }
+
+/**
+ * Filter, rank and page the base set for this specific caller. Split out so
+ * the cached and freshly-built paths can't drift apart. Nothing here mutates
+ * `all` — the ranked rows are new objects, so the cache stays clean.
+ */
+function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: RespondOpts) {
+  const { limit, offset, search, followedOnly } = opts
+  let filtered: Row[] = all
 
   if (followedOnly) {
     const me = getCurrentAccount(event)
@@ -118,9 +150,41 @@ export default defineEventHandler((event) => {
   }
 
   // Ranks reflect position within the filtered/searched results, ordered by
-  // points, so the top result in a search is always shown as #1.
-  const ranked = filtered.map((p, i) => ({ rank: i + 1, ...p }))
-  const total = ranked.length
-  const items = ranked.slice(offset, offset + limit)
+  // points, so the top result in a search is always shown as #1. Only the
+  // requested page is materialised — mapping 50k rows to add a rank number
+  // just to slice 200 of them was most of the cost of a page turn.
+  const total = filtered.length
+  const items = filtered.slice(offset, offset + limit).map((p, i) => ({
+    rank: offset + i + 1,
+    ...p,
+    account_username: null as string | null,
+    has_avatar: false,
+  }))
+
+  // Attach the site account behind each name on this page only — the full set
+  // is tens of thousands of rows and the avatars are only ever rendered for
+  // what's on screen.
+  const names = items.map((p) => p.player)
+  if (names.length) {
+    const ph = names.map(() => '?').join(',')
+    const accs = db.prepare(
+      `SELECT username, claimed_player, (avatar_blob IS NOT NULL) AS has_avatar
+         FROM accounts
+        WHERE banned_at IS NULL
+          AND (username COLLATE NOCASE IN (${ph}) OR claimed_player COLLATE NOCASE IN (${ph}))`,
+    ).all(...names, ...names) as { username: string; claimed_player: string | null; has_avatar: number }[]
+    const byName = new Map<string, { username: string; has_avatar: boolean }>()
+    for (const a of accs) {
+      const entry = { username: a.username, has_avatar: !!a.has_avatar }
+      byName.set(a.username.toLowerCase(), entry)
+      if (a.claimed_player) byName.set(a.claimed_player.toLowerCase(), entry)
+    }
+    for (const p of items) {
+      const hit = byName.get(p.player.toLowerCase())
+      p.account_username = hit?.username ?? null
+      p.has_avatar = hit?.has_avatar ?? false
+    }
+  }
+
   return { total, items }
-})
+}

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SITE_VERSION } from '~/utils/site-updates'
+
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
@@ -17,7 +19,13 @@ async function logout() {
         <NuxtLink to="/about" class="hover:text-zinc-300 transition-colors">About</NuxtLink>
         <NuxtLink to="/changelog" class="hover:text-zinc-300 transition-colors">Changelog</NuxtLink>
         <NuxtLink to="/leaderboard" class="hover:text-zinc-300 transition-colors">Leaderboard</NuxtLink>
+        <NuxtLink to="/updates" class="hover:text-zinc-300 transition-colors">Updates</NuxtLink>
       </nav>
+      <NuxtLink
+        to="/updates"
+        class="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] tabular-nums text-zinc-500 hover:border-accent/40 hover:text-accent transition-colors"
+        :title="`Website version ${SITE_VERSION} — see what changed`"
+      >v{{ SITE_VERSION }}</NuxtLink>
       <button
         v-if="me"
         type="button"

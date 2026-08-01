@@ -20,7 +20,12 @@ export default defineEventHandler(() => {
 
   const recentRecords = db.prepare(
     `SELECT r.player_name, r.percent, r.video, r.submitted_at,
-            l.position, l.sheet_placement, l.name AS level_name, l.gd_id
+            l.position, l.sheet_placement, l.name AS level_name, l.gd_id, l.gddl_tier,
+            (SELECT username FROM accounts a
+              WHERE a.banned_at IS NULL
+                AND (a.claimed_player = r.player_name COLLATE NOCASE
+                     OR a.username = r.player_name COLLATE NOCASE)
+              LIMIT 1) AS player_username
        FROM records r
        JOIN levels l ON l.id = r.level_id
       WHERE r.permanent = 1 AND r.submitted_by IS NOT NULL
@@ -29,7 +34,8 @@ export default defineEventHandler(() => {
   ).all()
 
   const newLists = db.prepare(
-    `SELECT cl.public_id, cl.title, cl.likes, cl.updated_at, a.username AS owner_username,
+    `SELECT cl.public_id, cl.title, cl.likes, cl.updated_at, cl.icon_url, cl.accent_color,
+            a.username AS owner_username,
             (SELECT COUNT(*) FROM custom_list_items i WHERE i.list_id = cl.id) AS item_count
        FROM custom_lists cl
        LEFT JOIN accounts a ON a.id = cl.owner_account_id
@@ -39,10 +45,12 @@ export default defineEventHandler(() => {
   ).all()
 
   const newMembers = db.prepare(
-    `SELECT username, created_at, claimed_player FROM accounts
+    `SELECT username, created_at, claimed_player,
+            (avatar_blob IS NOT NULL) AS has_avatar
+       FROM accounts
       WHERE banned_at IS NULL
       ORDER BY created_at DESC
-      LIMIT 8`,
+      LIMIT 12`,
   ).all()
 
   const totals = db.prepare(

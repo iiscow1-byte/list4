@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { SITE_VERSION } from '~/utils/site-updates'
+
 const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
@@ -46,12 +48,25 @@ onBeforeUnmount(() => { if (adminCountTimer) clearInterval(adminCountTimer) })
 const creditsOpen = ref(false)
 watch(() => route.fullPath, () => { creditsOpen.value = false })
 
+/**
+ * Whether the site has shipped an update this visitor hasn't opened yet. The
+ * marker is read on mount so server and client render the same thing first,
+ * and cleared by the Updates page itself.
+ */
+const updatesUnread = ref(false)
+onMounted(() => {
+  try {
+    updatesUnread.value = localStorage.getItem('all:updates-seen') !== SITE_VERSION
+  } catch { updatesUnread.value = false }
+})
+watch(() => route.path, (p) => { if (p === '/updates') updatesUnread.value = false })
+
 const startsWith = (...prefixes: string[]) =>
   prefixes.some((p) => route.path === p || route.path.startsWith(`${p}/`))
 
 const buildActive = computed(() => startsWith('/builder', '/lists'))
 const listActive = computed(() => startsWith('/levels', '/awaiting', '/void', '/open-verifications'))
-const communityActive = computed(() => startsWith('/community', '/leaderboard', '/changelog', '/users', '/about'))
+const communityActive = computed(() => startsWith('/community', '/leaderboard', '/changelog', '/users', '/about', '/updates'))
 const submitActive = computed(() => startsWith('/records', '/opinions') || route.path === '/levels/submit')
 </script>
 
@@ -66,32 +81,89 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
       <nav class="flex items-center gap-1">
         <!-- Build your own list — the first menu -->
         <NavMenu label="Build" to="/builder" :active="buildActive">
-          <NavMenuItem to="/builder" accent hint="Drag levels in and rank them yourself">Build your own list</NavMenuItem>
-          <NavMenuItem to="/lists" hint="Lists shared by the community">Public lists</NavMenuItem>
+          <NavMenuSection label="Your lists" first />
+          <NavMenuItem to="/builder" accent hint="Drag levels in and rank them yourself">
+            <template #icon><NavIcon name="build" /></template>
+            Build your own list
+          </NavMenuItem>
+          <NavMenuSection label="Discover" />
+          <NavMenuItem to="/lists" hint="Lists shared by the community">
+            <template #icon><NavIcon name="gallery" /></template>
+            Public lists
+          </NavMenuItem>
         </NavMenu>
 
         <!-- The list -->
         <NavMenu label="List" to="/levels/1" :active="listActive">
-          <NavMenuItem to="/levels/1" hint="Every ranked level">Main list</NavMenuItem>
-          <NavMenuItem to="/awaiting" hint="Approved, not yet placed">Awaiting placement</NavMenuItem>
-          <NavMenuItem to="/void" hint="No difficulty opinion yet">Void list</NavMenuItem>
-          <NavMenuItem to="/open-verifications" hint="Unverified levels looking for a verifier">Open verifications</NavMenuItem>
+          <NavMenuSection label="Ranked" first />
+          <NavMenuItem to="/levels/1" hint="Every ranked level">
+            <template #icon><NavIcon name="list" /></template>
+            Main list
+          </NavMenuItem>
+          <NavMenuSection label="In progress" />
+          <NavMenuItem to="/awaiting" hint="Approved, not yet placed">
+            <template #icon><NavIcon name="clock" /></template>
+            Awaiting placement
+          </NavMenuItem>
+          <NavMenuItem to="/void" hint="No difficulty opinion yet">
+            <template #icon><NavIcon name="void" /></template>
+            Void list
+          </NavMenuItem>
+          <NavMenuItem to="/open-verifications" hint="Unverified levels looking for a verifier">
+            <template #icon><NavIcon name="verify" /></template>
+            Open verifications
+          </NavMenuItem>
         </NavMenu>
 
         <!-- Community -->
-        <NavMenu label="Community" to="/community" :active="communityActive">
-          <NavMenuItem to="/community" hint="Activity from people you follow">Community hub</NavMenuItem>
-          <NavMenuItem to="/leaderboard" hint="Ranked players">Leaderboard</NavMenuItem>
-          <NavMenuItem to="/changelog" hint="Placements and movements">Changelog</NavMenuItem>
-          <NavMenuItem to="/about" hint="How the list works, and stats">About &amp; stats</NavMenuItem>
+        <NavMenu label="Community" to="/community" :active="communityActive" :dot="updatesUnread">
+          <NavMenuSection label="People" first />
+          <NavMenuItem to="/community" hint="Activity from people you follow">
+            <template #icon><NavIcon name="users" /></template>
+            Community hub
+          </NavMenuItem>
+          <NavMenuItem to="/leaderboard" hint="Ranked players">
+            <template #icon><NavIcon name="trophy" /></template>
+            Leaderboard
+          </NavMenuItem>
+          <NavMenuSection label="The list" />
+          <NavMenuItem to="/changelog" hint="Placements and movements">
+            <template #icon><NavIcon name="history" /></template>
+            Changelog
+          </NavMenuItem>
+          <NavMenuItem to="/updates" :hint="`What's new on the site — v${SITE_VERSION}`">
+            <template #icon><NavIcon name="sparkles" /></template>
+            List updates
+            <template v-if="updatesUnread">
+              <span class="ml-1.5 align-middle inline-block w-1.5 h-1.5 rounded-full bg-accent" aria-label="new" />
+            </template>
+          </NavMenuItem>
+          <NavMenuItem to="/about" hint="How the list works, and stats">
+            <template #icon><NavIcon name="info" /></template>
+            About &amp; stats
+          </NavMenuItem>
         </NavMenu>
 
         <!-- Submit -->
         <NavMenu label="Submit" :active="submitActive">
-          <NavMenuItem to="/levels/find" accent hint="Search Geometry Dash and submit from results">Find a level</NavMenuItem>
-          <NavMenuItem to="/levels/submit" hint="Add a level to the list">Submit a level</NavMenuItem>
-          <NavMenuItem to="/records/submit" hint="Claim a completion">Submit a record</NavMenuItem>
-          <NavMenuItem to="/opinions/submit" hint="Rate difficulty and enjoyment">Submit an opinion</NavMenuItem>
+          <NavMenuSection label="Levels" first />
+          <NavMenuItem to="/levels/find" accent hint="Search Geometry Dash and submit from results">
+            <template #icon><NavIcon name="search" /></template>
+            Find a level
+          </NavMenuItem>
+          <NavMenuItem to="/levels/submit" hint="Add a level to the list">
+            <template #icon><NavIcon name="plus" /></template>
+            Submit a level
+          </NavMenuItem>
+          <NavMenuSection label="Your play" />
+          <NavMenuItem to="/records/submit" hint="Claim a completion">
+            <template #icon><NavIcon name="flag" /></template>
+            Submit a record
+          </NavMenuItem>
+          <NavMenuItem to="/opinions/submit" hint="Rate difficulty and enjoyment">
+            <template #icon><NavIcon name="star" /></template>
+            Submit an opinion
+          </NavMenuItem>
         </NavMenu>
 
         <NuxtLink
@@ -140,13 +212,14 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
         </template>
 
         <!-- Socials, collapsed into one menu instead of four loose icons -->
-        <NavMenu icon-only aria-label="Social links" align="right" width="min-w-[11rem]">
+        <NavMenu icon-only aria-label="Social links" align="right" width="min-w-[13rem]">
           <template #trigger>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]" aria-hidden="true">
               <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
               <path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" />
             </svg>
           </template>
+          <NavMenuSection label="Follow the list" first />
           <NavMenuItem href="https://discord.gg/KfZvUpS3PB">
             <template #icon>
               <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-4 h-4 shrink-0 text-[#5865F2]" aria-hidden="true">
@@ -180,18 +253,15 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
             TikTok
           </NavMenuItem>
 
-          <div class="my-1 border-t border-zinc-800" />
-          <button
-            type="button"
-            role="menuitem"
-            class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-left text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            @click="creditsOpen = true"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 text-accent" aria-hidden="true">
-              <path d="M12 21s-7-4.35-9-8.5A5 5 0 0 1 12 6a5 5 0 0 1 9 6.5C19 16.65 12 21 12 21z" />
-            </svg>
+          <NavMenuSection label="About this site" />
+          <NavMenuItem to="/updates" :hint="`Version ${SITE_VERSION}`">
+            <template #icon><NavIcon name="sparkles" /></template>
+            List updates
+          </NavMenuItem>
+          <NavMenuItem accent @click="creditsOpen = true">
+            <template #icon><NavIcon name="heart" /></template>
             Credits
-          </button>
+          </NavMenuItem>
         </NavMenu>
 
         <!-- Credits -->

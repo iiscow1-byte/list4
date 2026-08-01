@@ -58,7 +58,10 @@ export type LeaderboardRow = {
   progresses: number
   hardest_name: string | null
   hardest_rank: number | null
+  /** Level art for the hardest completion, shown behind podium cards. */
+  hardest_gd_id: number | null
   account_username: string | null
+  has_avatar: boolean
 }
 
 /**
@@ -79,8 +82,8 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
 
   // sort_order is 0-based; rank is 1-based.
   const rows = db.prepare(
-    `SELECT r.player_name, r.percent, i.sort_order, i.name AS level_name,
-            a.username AS account_username
+    `SELECT r.player_name, r.percent, i.sort_order, i.name AS level_name, i.gd_id AS level_gd_id,
+            a.username AS account_username, (a.avatar_blob IS NOT NULL) AS has_avatar
        FROM custom_list_records r
        JOIN custom_list_items i ON i.id = r.item_id
        LEFT JOIN accounts a ON a.id = r.submitted_by
@@ -90,7 +93,9 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
     percent: number
     sort_order: number
     level_name: string
+    level_gd_id: number | null
     account_username: string | null
+    has_avatar: number | null
   }[]
 
   type Acc = Omit<LeaderboardRow, 'rank'>
@@ -111,7 +116,9 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
         progresses: 0,
         hardest_name: null,
         hardest_rank: null,
+        hardest_gd_id: null,
         account_username: null,
+        has_avatar: false,
       }
       byPlayer.set(key, acc)
     }
@@ -122,8 +129,12 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
     if (r.percent >= 100 && (acc.hardest_rank === null || rank < acc.hardest_rank)) {
       acc.hardest_rank = rank
       acc.hardest_name = r.level_name
+      acc.hardest_gd_id = r.level_gd_id
     }
-    if (!acc.account_username && r.account_username) acc.account_username = r.account_username
+    if (!acc.account_username && r.account_username) {
+      acc.account_username = r.account_username
+      acc.has_avatar = !!r.has_avatar
+    }
   }
 
   return Array.from(byPlayer.values())

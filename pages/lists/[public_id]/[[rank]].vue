@@ -66,7 +66,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :items="list.items"
         :active-id="activeItem?.id ?? null"
         :list-path="base"
+        :can-edit="canEdit"
+        :api-base="`/api/custom-lists/${publicId}`"
         class="hidden md:flex"
+        @changed="refresh"
       />
       <CustomListLevelDetail
         :item="activeItem"
@@ -74,6 +77,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :total-items="list.items.length"
         :list-path="base"
         :can-edit="canEdit"
+        :api-base="`/api/custom-lists/${publicId}`"
+        @changed="refresh"
       />
       <CustomListRecords
         :item="activeItem"

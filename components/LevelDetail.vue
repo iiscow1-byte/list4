@@ -632,6 +632,45 @@ async function saveEdit() {
   }
 }
 
+/**
+ * Quick move: nudge the draft placement by a fixed step, or apply the move on
+ * its own without saving the rest of the edit form.
+ *
+ * Retyping a five-digit placement to shift a level by one is the slowest part
+ * of curating, so the common small moves get buttons and the "apply" path
+ * skips the metadata PATCH entirely.
+ */
+const NUDGES = [-10, -5, -1, 1, 5, 10] as const
+const movingNow = ref(false)
+
+function nudgePlacement(by: number) {
+  const cur = Number(draftPosition.value) || (props.level.sheet_placement ?? props.level.position)
+  draftPosition.value = Math.max(1, cur + by)
+}
+
+const placementChanged = computed(() => {
+  const n = Number(draftPosition.value)
+  const cur = props.level.sheet_placement ?? props.level.position
+  return Number.isInteger(n) && n > 0 && n !== cur
+})
+
+async function applyMoveOnly() {
+  if (movingNow.value || !placementChanged.value) return
+  movingNow.value = true
+  saveError.value = null
+  try {
+    const res = await $fetch<{ to: number }>(
+      `/api/admin/levels/${props.level.position}/move`,
+      { method: 'POST', body: { to_placement: Number(draftPosition.value) } },
+    )
+    await navigateTo(`/levels/${res.to}`)
+  } catch (e: any) {
+    saveError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Move failed.'
+  } finally {
+    movingNow.value = false
+  }
+}
+
 // Move-below: clicking a level in the left nav (via parent mediation) sets the
 // draft position to place this level immediately below the clicked one.
 const moveBelowActive = ref(false)
@@ -1281,25 +1320,62 @@ const chartAredlSeries = computed(() =>
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
           <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
         </label>
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
-          <div class="mt-1 flex items-center gap-2">
-            <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        <label class="block sm:col-span-2">
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-[7rem] rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+
+            <!-- Small moves are the common case; typing five digits for them is
+                 the slow part of curating. -->
+            <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden shrink-0">
+              <button
+                v-for="n in NUDGES"
+                :key="n"
+                type="button"
+                class="px-2 py-1.5 text-[11px] tabular-nums font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 border-l border-zinc-800 first:border-l-0 transition-colors"
+                :title="n < 0 ? `${-n} place${n === -1 ? '' : 's'} harder` : `${n} place${n === 1 ? '' : 's'} easier`"
+                @click="nudgePlacement(n)"
+              >{{ n > 0 ? `+${n}` : n }}</button>
+            </div>
+
+            <button
+              type="button"
+              class="shrink-0 rounded-lg border border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent text-xs px-2.5 py-1.5 transition-colors"
+              title="Drag this level into place among its neighbours"
+              @click="placementEditorOpen = true"
+            >Drag…</button>
             <button
               v-if="!moveBelowActive"
               type="button"
-              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
+              class="shrink-0 rounded-lg border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
               title="Click a level in the left panel to place this one immediately below it"
               @click="startMoveBelow"
             >Move below…</button>
             <button
               v-else
               type="button"
-              class="shrink-0 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-2.5 py-1.5 transition-colors"
+              class="shrink-0 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-2.5 py-1.5 transition-colors"
               @click="stopMoveBelow"
             >Cancel pick</button>
           </div>
 
+          <div v-if="placementChanged" class="mt-1.5 flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] text-zinc-500 tabular-nums">
+              #{{ shownPlacement }} → <span class="text-accent">#{{ draftPosition }}</span>
+            </span>
+            <button
+              type="button"
+              :disabled="movingNow"
+              class="rounded-lg bg-accent text-zinc-950 font-semibold text-[11px] px-2.5 py-1 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              title="Move now, without saving the rest of this form"
+              @click="applyMoveOnly"
+            >{{ movingNow ? 'Moving…' : 'Move now' }}</button>
+            <button
+              type="button"
+              class="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
+              @click="draftPosition = shownPlacement"
+            >reset</button>
+          </div>
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>

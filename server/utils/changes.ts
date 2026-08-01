@@ -26,6 +26,8 @@ export type Change = {
   level_position: number     // current position on the main list (for linking)
   level_name: string
   level_gddl_tier: string | null
+  /** For the row thumbnail on the changelog. */
+  level_gd_id: number | null
   level_rated: string | null // e.g. 'Challenge', 'Featured', etc.
   challenge_rank: number | null      // rank at to_position (1=hardest), null if not a challenge
   from_challenge_rank: number | null // rank at from_position for moves, null for adds / non-challenge
@@ -87,6 +89,7 @@ export function loadChanges(
             (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
             l.sheet_placement AS level_sheet_placement,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
+            l.gd_id AS level_gd_id,
             CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
                  WHEN l.rated IS NOT NULL AND l.rated <> '' THEN l.rated
                  ELSE NULL
@@ -121,6 +124,7 @@ export function loadChanges(
     level_position: number
     level_name: string
     level_gddl_tier: string | null
+    level_gd_id: number | null
     level_rated: string | null
     challenge_rank: number | null
     from_challenge_rank: number | null
@@ -174,6 +178,7 @@ export function loadChanges(
     level_position: r.level_position,
     level_name: r.level_name,
     level_gddl_tier: r.level_gddl_tier,
+    level_gd_id: r.level_gd_id ?? null,
     level_rated: r.level_rated,
     challenge_rank: r.challenge_rank,
     from_challenge_rank: r.from_challenge_rank,

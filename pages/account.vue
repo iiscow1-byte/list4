@@ -45,6 +45,8 @@ function startEdit() {
   favoriteLevelId.value = me.value.favorite_level_id
   favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
   favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
+  hardestRecordId.value = me.value.hardest_record_id ?? null
+  bannerChoice.value = me.value.banner_choice ?? 'hardest'
   profileError.value = null
   profileSaved.value = false
   editing.value = true
@@ -60,6 +62,8 @@ function cancelEdit() {
     favoriteLevelId.value = me.value.favorite_level_id
     favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
     favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
+    hardestRecordId.value = me.value.hardest_record_id ?? null
+    bannerChoice.value = me.value.banner_choice ?? 'hardest'
   }
   profileError.value = null
   editing.value = false
@@ -74,8 +78,11 @@ async function saveProfile() {
       ...profile,
       favorite_level_id: favoriteLevelId.value ?? null,
       favorite_level_note: favoriteLevelNote.value.trim() || null,
+      hardest_record_id: hardestRecordId.value ?? null,
+      banner_choice: bannerChoice.value,
     } })
     await refreshMe()
+    await loadProfileData()
     profileSaved.value = true
     editing.value = false
     setTimeout(() => (profileSaved.value = false), 2500)
@@ -488,6 +495,24 @@ const favoriteLevelDisplay = ref<FavLevel | null>(null)
 const favoriteLevelNote = ref('')
 const favoriteLevelPickerOpen = ref(false)
 
+// --- Hardest completion + which pick paints the profile header ---
+// Chosen from the account's own approved records, so the options are exactly
+// what the server will accept — no free-text level id to get wrong.
+const hardestRecordId = ref<number | null>(null)
+const bannerChoice = ref<'hardest' | 'favorite' | 'none'>('hardest')
+
+/** Own completions, hardest (lowest list position) first. */
+const completionOptions = computed(() => {
+  const rows = profileData.value?.completedLevels ?? []
+  return rows
+    .filter((r: any) => r.record_id)
+    .slice()
+    .sort((a: any, b: any) => a.position - b.position)
+})
+const hardestPick = computed(() =>
+  completionOptions.value.find((r: any) => r.record_id === hardestRecordId.value) ?? null,
+)
+
 // --- Profile data (stats, completed, created, progress) ---
 type ProfileData = {
   account: {
@@ -504,6 +529,8 @@ type ProfileData = {
   follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
   favorite_level: FavLevel | null
   favorite_level_note: string | null
+  hardest_completion: { record_id: number; position: number; name: string; percent: number | null } | null
+  banner_choice: 'hardest' | 'favorite' | 'none'
 }
 const profileData = ref<ProfileData | null>(null)
 
@@ -600,6 +627,16 @@ function fmt(n: number | null | undefined) {
                 <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
               </div>
             </dl>
+            <div v-if="profileData?.hardest_completion" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+              <p class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Hardest completion</p>
+              <NuxtLink :to="`/levels/${profileData.hardest_completion.position}`" class="text-sm text-accent hover:underline font-medium">
+                {{ profileData.hardest_completion.name }}
+              </NuxtLink>
+              <span
+                v-if="profileData.hardest_completion.percent != null && profileData.hardest_completion.percent < 100"
+                class="text-xs text-zinc-500 ml-1 tabular-nums"
+              >{{ profileData.hardest_completion.percent }}%</span>
+            </div>
             <div v-if="profileData?.favorite_level" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
               <p class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Favorite Level</p>
               <NuxtLink :to="`/levels/${profileData.favorite_level.position}`" class="text-sm text-accent hover:underline font-medium">
@@ -709,6 +746,48 @@ function fmt(n: number | null | undefined) {
                     class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </label>
+
+                <div class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Hardest completion</span>
+                  <p class="text-[11px] text-zinc-600 mt-0.5">
+                    Pick one of your approved records to headline your profile.
+                  </p>
+                  <select
+                    v-model="hardestRecordId"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  >
+                    <option :value="null">— none —</option>
+                    <option v-for="r in completionOptions" :key="r.record_id" :value="r.record_id">
+                      #{{ r.sheet_placement ?? r.position }} · {{ r.name }}<template v-if="r.percent != null && r.percent < 100"> ({{ r.percent }}%)</template>
+                    </option>
+                  </select>
+                  <p v-if="!completionOptions.length" class="text-[11px] text-zinc-600 mt-1">
+                    You don't have any approved records yet —
+                    <NuxtLink to="/records/submit" class="text-accent hover:underline">submit one</NuxtLink>.
+                  </p>
+                  <p v-else-if="hardestPick" class="text-[11px] text-zinc-400 mt-1 truncate">
+                    Showing <span class="text-zinc-200">{{ hardestPick.name }}</span> on your profile.
+                  </p>
+                </div>
+
+                <div class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Profile banner</span>
+                  <p class="text-[11px] text-zinc-600 mt-0.5">Which level's art sits behind your name.</p>
+                  <div class="mt-1.5 inline-flex rounded-lg border border-zinc-800 overflow-hidden">
+                    <button
+                      v-for="opt in [
+                        { v: 'hardest', l: 'Hardest completion' },
+                        { v: 'favorite', l: 'Favorite level' },
+                        { v: 'none', l: 'Plain' },
+                      ]"
+                      :key="opt.v"
+                      type="button"
+                      class="px-3 py-1.5 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
+                      :class="bannerChoice === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+                      @click="bannerChoice = opt.v as any"
+                    >{{ opt.l }}</button>
+                  </div>
+                </div>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
                 <button

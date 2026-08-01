@@ -168,13 +168,60 @@ the ID and name.
 
 ## Moving levels
 
-Moderators can move a level numerically, or open **Actions → Drag to place**
-for a drag-and-drop editor (`components/PlacementEditor.vue`). It loads a
-window of the list around the level via `/api/levels?fromPosition=…`, reorders
-a local copy as you drag, and only writes when you hit Apply — which issues the
-same single `POST /api/admin/levels/:position/move` the numeric control uses.
+Moderators get four ways to reposition a level, all landing on the same
+`POST /api/admin/levels/:position/move`:
+
+- **Type a placement** in the edit form. The field speaks *sheet placements*,
+  the numbers the site displays, so `to_placement` is resolved server-side to
+  whichever level currently sits there.
+- **Nudge buttons** (±1 / ±5 / ±10) next to it, for the small moves that make
+  up most curation.
+- **Drag to place** (`components/PlacementEditor.vue`) loads a window of the
+  list around the level via `/api/levels?fromPosition=…`, reorders a local copy
+  as you drag, and only writes on Apply.
+- **Move below…** turns the left nav into a picker: click a level and this one
+  lands directly under it.
+
+**Move now** applies just the placement change and skips the metadata PATCH, so
+a reorder doesn't have to carry a whole form save with it.
+
+Custom lists have the equivalent, scoped to the list: editors toggle reorder
+mode in the list nav and drag rows or type a rank, and each level page has an
+inline editor. Those go through `POST /api/custom-lists/:id/move` and
+`PATCH|DELETE /api/custom-lists/:id/items/:item_id`, which move or edit one row
+and log one changelog entry — the builder's full `PATCH` reconciles every row
+and is far more machinery than a single drag needs. On a linked row (one
+pointing at an ALL level) the name, creator, ID and video are read-only: a full
+save re-reads them from `levels`, so letting them be edited here would look
+like it worked and then silently revert.
+
+## Building a custom list from an imported list
+
+`components/AdminCustomLists.vue` can seed a custom list out of **any** list the
+site mirrors, not just the ALL — pick the source in the toggle and every
+GDListTemplate list (CCL, TSL, EDI, …), AREDL, GDL or MSCL becomes available.
+`server/utils/list-sources.ts` holds the per-source queries;
+`utils/list-source-catalog.ts` holds the catalogue itself, shared so the picker
+and the server validate against the same list. Rows whose `gd_id` also exists on
+the ALL list are linked to it, so the copy keeps following the ALL list for
+names and metadata; the rest are stored as hand-entered items. Tier and rating
+filters are disabled for mirrors, which carry no ALL tier data.
+
+## Website updates and version
+
+`utils/site-updates.ts` is the site's own changelog — distinct from `/changelog`,
+which tracks level placements. Add an entry when you ship and everything else
+follows from it: `/updates` renders the timeline, the footer chip shows
+`SITE_VERSION` (the newest entry's version), and the header's Community menu
+grows a dot until the visitor opens the page. Nothing else needs updating.
 
 ## Setup
+
+Requires **Node ≥ 22.5** — `node:sqlite` needs 22.5, and the Nuxt 3.21 / Vite 7
+toolchain needs `^20.19.0 || >=22.12.0`. On an older Node the build fails during
+CSS processing with `Cannot use 'import.meta' outside a module`, which looks
+like a stylesheet problem but is the version gap.
+
 
 ```bash
 npm install

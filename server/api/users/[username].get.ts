@@ -13,14 +13,32 @@ export default defineEventHandler((event) => {
     `SELECT id, username, role, bio, country, subdivision, claimed_player,
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
             pronouns, discord_handle, youtube_url,
-            favorite_level_id, favorite_level_note
+            favorite_level_id, favorite_level_note,
+            hardest_record_id, banner_choice
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })
   acc.has_avatar = !!acc.has_avatar
 
   const favorite_level = acc.favorite_level_id
-    ? (db.prepare(`SELECT id, position, name, gddl_tier FROM levels WHERE id = ?`).get(acc.favorite_level_id) as { id: number; position: number; name: string; gddl_tier: string | null } | null)
+    ? (db.prepare(
+        `SELECT id, position, sheet_placement, name, gddl_tier, gd_id, creator, verification_url
+           FROM levels WHERE id = ?`,
+      ).get(acc.favorite_level_id) as any | null)
+    : null
+
+  // The pinned completion. Joined through `records` so the percent and the
+  // proof link travel with it, and re-checked against the profile's own name
+  // so a since-renamed claim can't leave someone else's record pinned here.
+  const hardest_completion = acc.hardest_record_id
+    ? (db.prepare(
+        `SELECT r.id AS record_id, r.percent, r.video, r.hz, r.player_name,
+                l.id AS level_id, l.position, l.sheet_placement, l.name, l.gd_id,
+                l.gddl_tier, l.creator, l.points, l.verification_url
+           FROM records r
+           JOIN levels l ON l.id = r.level_id
+          WHERE r.id = ? AND r.permanent = 1`,
+      ).get(acc.hardest_record_id) as any | null)
     : null
 
   // Use the claimed leaderboard name when available, else the username — for
@@ -113,5 +131,13 @@ export default defineEventHandler((event) => {
     publicLists,
     favorite_level,
     favorite_level_note: acc.favorite_level_note ?? null,
+    // Drop the pin if the profile's canonical name has moved on since it was
+    // set — the record is someone else's now, and showing it would be a lie.
+    hardest_completion:
+      hardest_completion &&
+      hardest_completion.player_name?.toLowerCase() === effectiveName.toLowerCase()
+        ? hardest_completion
+        : null,
+    banner_choice: acc.banner_choice ?? 'hardest',
   }
 })

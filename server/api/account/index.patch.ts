@@ -43,11 +43,34 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // The showcased completion has to be one of the caller's own approved
+  // records — otherwise anyone could pin someone else's #1 to their profile.
+  let hardest_record_id: number | null = (me as any).hardest_record_id ?? null
+  if ('hardest_record_id' in body) {
+    const raw = body.hardest_record_id
+    if (raw === null || raw === '' || raw === undefined) {
+      hardest_record_id = null
+    } else {
+      const n = Number(raw)
+      if (!Number.isFinite(n) || n <= 0) throw createError({ statusCode: 400, statusMessage: 'Invalid hardest_record_id' })
+      const mine = getDb().prepare(
+        `SELECT id FROM records WHERE id = ? AND permanent = 1 AND player_name = ? COLLATE NOCASE`,
+      ).get(n, me.claimed_player ?? me.username)
+      if (!mine) throw createError({ statusCode: 404, statusMessage: 'That completion is not on your profile.' })
+      hardest_record_id = n
+    }
+  }
+
+  const BANNERS = new Set(['hardest', 'favorite', 'none'])
+  const banner_choice = 'banner_choice' in body && BANNERS.has(String(body.banner_choice))
+    ? String(body.banner_choice)
+    : ((me as any).banner_choice ?? 'hardest')
+
   getDb().prepare(
     `UPDATE accounts SET bio = ?, country = ?, subdivision = ?, pronouns = ?, discord_handle = ?, youtube_url = ?,
-     favorite_level_id = ?, favorite_level_note = ? WHERE id = ?`,
+     favorite_level_id = ?, favorite_level_note = ?, hardest_record_id = ?, banner_choice = ? WHERE id = ?`,
   ).run(next.bio, next.country, next.subdivision, next.pronouns, next.discord_handle, next.youtube_url,
-    favorite_level_id, next.favorite_level_note, me.id)
+    favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, me.id)
 
-  return { ok: true, ...next, favorite_level_id }
+  return { ok: true, ...next, favorite_level_id, hardest_record_id, banner_choice }
 })

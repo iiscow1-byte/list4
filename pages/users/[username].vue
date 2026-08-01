@@ -1,14 +1,32 @@
 <script setup lang="ts">
 import { roleBadgeClass } from '~/utils/role-styles'
+import { tierColor, textOn } from '~/utils/tier-colors'
 
 const route = useRoute()
 const username = computed(() => String(route.params.username))
+
+type ShowcaseLevel = {
+  id?: number
+  level_id?: number
+  record_id?: number
+  position: number
+  sheet_placement: number | null
+  name: string
+  gd_id: number | null
+  gddl_tier: string | null
+  creator?: string | null
+  points?: number | null
+  percent?: number | null
+  video?: string | null
+  hz?: number | null
+  verification_url?: string | null
+}
 
 const { data, error, refresh } = await useFetch<{
   account: {
     id: number; username: string; role: 'user'|'moderator'|'admin'|'owner'|'developer'
     bio: string | null; country: string | null; subdivision: string | null
-    claimed_player: string | null; has_avatar: boolean
+    claimed_player: string | null; has_avatar: boolean; created_at: string
     pronouns: string | null; discord_handle: string | null; youtube_url: string | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
@@ -23,8 +41,10 @@ const { data, error, refresh } = await useFetch<{
     following: { name: string; username: string | null }[]
   }
   publicLists: { public_id: string; title: string; likes: number; is_public: number; item_count: number }[]
-  favorite_level: { id: number; position: number; name: string; gddl_tier: string | null } | null
+  favorite_level: ShowcaseLevel | null
   favorite_level_note: string | null
+  hardest_completion: ShowcaseLevel | null
+  banner_choice: 'hardest' | 'favorite' | 'none'
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
 
 const { data: meRes } = useCurrentUser()
@@ -43,6 +63,22 @@ const avatarUrl = computed(() =>
     : null,
 )
 
+/**
+ * The level painted behind the profile header.
+ *
+ * `banner_choice` decides which pick wins. 'none' is honoured exactly — that's
+ * someone asking for a plain header — but the default 'hardest' falls back to
+ * the favourite, since every account starts on that default and most will have
+ * set a favourite long before they pin a completion.
+ */
+const bannerLevel = computed<ShowcaseLevel | null>(() => {
+  const d = data.value
+  if (!d) return null
+  if (d.banner_choice === 'none') return null
+  if (d.banner_choice === 'favorite') return d.favorite_level
+  return d.hardest_completion ?? d.favorite_level
+})
+
 function fmt(n: number | null | undefined) {
   if (n == null) return '—'
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -54,39 +90,100 @@ const youtubeHandle = computed(() => {
   const m = url.match(/youtube\.com\/@([^/?&#]+)/i)
   return m ? '@' + m[1] : null
 })
+
+const joined = computed(() => {
+  const at = data.value?.account.created_at
+  if (!at) return null
+  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+})
+
+/** Headline numbers under the name — the bit that reads like a social profile. */
+const stats = computed(() => {
+  const d = data.value
+  if (!d) return []
+  return [
+    { label: 'Points', value: d.player ? fmt(d.player.total_points) : '—', tone: 'text-amber-300' },
+    { label: 'Completions', value: d.completedLevels.length.toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Following', value: d.follow.followingCount.toLocaleString(), tone: 'text-zinc-100' },
+  ]
+})
 </script>
 
 <template>
-  <div class="container-tight py-8 max-w-5xl">
-    <div v-if="error" class="text-sm text-zinc-500">No such user.</div>
-    <div v-else-if="data" class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-6">
-      <aside class="lg:sticky lg:top-20 lg:self-start">
-        <RecordCharts :completed="data.completedLevels" />
-      </aside>
-      <main class="space-y-6 min-w-0">
-      <header class="flex items-start gap-4 flex-wrap">
-        <div class="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 overflow-hidden shrink-0">
-          <img v-if="avatarUrl" :src="avatarUrl" alt="avatar" class="w-full h-full object-cover" />
-          <div v-else class="w-full h-full flex items-center justify-center text-2xl text-zinc-600 font-bold">
-            {{ data.account.username.charAt(0).toUpperCase() }}
+  <div v-if="error" class="container-tight py-16 text-center">
+    <p class="text-sm text-zinc-500">No such user.</p>
+    <NuxtLink to="/leaderboard" class="text-accent hover:underline text-sm mt-2 inline-block">Browse players →</NuxtLink>
+  </div>
+
+  <div v-else-if="data">
+    <!-- Header: the profile's cover, painted with whichever level they pinned -->
+    <header class="relative">
+      <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
+        <LevelThumbBg
+          v-if="bannerLevel"
+          :key="bannerLevel.gd_id ?? bannerLevel.name"
+          :gd-id="bannerLevel.gd_id"
+          :video-url="bannerLevel.video ?? bannerLevel.verification_url"
+          res="high"
+          img-class="opacity-60 scale-105"
+          overlay-class="bg-gradient-to-b from-zinc-950/40 via-zinc-950/70 to-zinc-950"
+        />
+        <div
+          v-else
+          class="absolute inset-0 bg-[radial-gradient(80%_140%_at_50%_0%,theme(colors.zinc.800),theme(colors.zinc.950))]"
+          aria-hidden="true"
+        />
+        <!-- Even with a thumbnail the bottom has to fade to the page colour so
+             the avatar and name never sit on a busy patch. -->
+        <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent" aria-hidden="true" />
+
+        <NuxtLink
+          v-if="bannerLevel?.position"
+          :to="`/levels/${bannerLevel.position}`"
+          class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors"
+        >
+          <span class="tabular-nums text-zinc-400">#{{ bannerLevel.sheet_placement ?? bannerLevel.position }}</span>
+          <span class="truncate max-w-[10rem]">{{ bannerLevel.name }}</span>
+        </NuxtLink>
+      </div>
+
+      <div class="container-tight max-w-5xl">
+        <div class="relative -mt-14 sm:-mt-16 flex items-end gap-4 flex-wrap">
+          <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-zinc-900 ring-4 ring-zinc-950 overflow-hidden shrink-0 shadow-xl shadow-black/50">
+            <img v-if="avatarUrl" :src="avatarUrl" alt="" class="w-full h-full object-cover" />
+            <div v-else class="w-full h-full flex items-center justify-center text-3xl text-zinc-600 font-black">
+              {{ data.account.username.charAt(0).toUpperCase() }}
+            </div>
           </div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-baseline gap-2 flex-wrap">
-            <h1 class="text-3xl font-semibold tracking-tight">{{ data.account.username }}</h1>
-            <span v-if="data.account.role !== 'user'" class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded" :class="roleBadgeClass(data.account.role)">{{ data.account.role }}</span>
-            <span v-if="data.account.pronouns" class="text-xs text-zinc-500">({{ data.account.pronouns }})</span>
+
+          <div class="flex-1 min-w-0 pb-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ data.account.username }}</h1>
+              <span
+                v-if="data.account.role !== 'user'"
+                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
+                :class="roleBadgeClass(data.account.role)"
+              >{{ data.account.role }}</span>
+              <span v-if="data.account.pronouns" class="text-xs text-zinc-500">{{ data.account.pronouns }}</span>
+            </div>
+            <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span v-if="data.account.claimed_player">
+                playing as <span class="text-zinc-300">{{ data.account.claimed_player }}</span>
+              </span>
+              <span v-if="data.account.subdivision || data.account.country">
+                <span v-if="data.account.subdivision">{{ data.account.subdivision }}, </span>{{ data.account.country }}
+              </span>
+              <span v-if="joined">joined {{ joined }}</span>
+            </p>
           </div>
-          <p v-if="data.account.claimed_player" class="text-xs text-zinc-500 mt-1">
-            Claimed as <span class="text-zinc-300">{{ data.account.claimed_player }}</span>
-          </p>
-          <p v-if="data.account.country || data.account.subdivision" class="text-xs text-zinc-500 mt-0.5">
-            <span v-if="data.account.subdivision">{{ data.account.subdivision }}, </span>
-            <span v-if="data.account.country">{{ data.account.country }}</span>
-          </p>
-          <div v-if="data.account.discord_handle || data.account.youtube_url" class="flex items-center gap-3 mt-1.5">
-            <span v-if="data.account.discord_handle" class="inline-flex items-center gap-1.5 text-xs text-zinc-400">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+
+          <div class="pb-1 flex items-center gap-2 shrink-0">
+            <span v-if="data.account.discord_handle" class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400">
+              <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-3.5 h-3.5 shrink-0 text-[#5865F2]" aria-hidden="true">
                 <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
               </svg>
               {{ data.account.discord_handle }}
@@ -96,16 +193,20 @@ const youtubeHandle = computed(() => {
               :href="data.account.youtube_url"
               target="_blank"
               rel="noopener"
-              class="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-red-400 transition-colors"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-red-400 hover:border-red-900/60 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
                 <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
               </svg>
               {{ youtubeHandle ?? 'YouTube' }}
             </a>
-          </div>
-          <div class="mt-2">
+            <NuxtLink
+              v-if="isOwnProfile"
+              to="/account"
+              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
+            >Edit profile</NuxtLink>
             <FollowButton
+              v-else
               :target="data.follow.target"
               :initial-followed="data.follow.followed"
               :can-follow="data.follow.canFollow"
@@ -114,122 +215,202 @@ const youtubeHandle = computed(() => {
             />
           </div>
         </div>
-      </header>
 
-      <section v-if="data.account.bio" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Bio</h2>
-        <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ data.account.bio }}</p>
-      </section>
-
-      <section v-if="data.favorite_level" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-2">Favorite Level</h2>
-        <NuxtLink
-          :to="`/levels/${data.favorite_level.position}`"
-          class="inline-flex items-baseline gap-2 group"
-        >
-          <span class="tabular-nums text-xs text-zinc-500">#{{ data.favorite_level.position }}</span>
-          <span class="text-sm font-medium text-zinc-100 group-hover:text-accent transition-colors">{{ data.favorite_level.name }}</span>
-          <span v-if="data.favorite_level.gddl_tier" class="text-xs text-zinc-500">{{ data.favorite_level.gddl_tier }}</span>
-        </NuxtLink>
-        <p v-if="data.favorite_level_note" class="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">{{ data.favorite_level_note }}</p>
-      </section>
-
-      <section v-if="data.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
-        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-          <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
-            <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
-          </div>
-          <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
-            <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
-          </div>
-          <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
-            <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
-          </div>
-          <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
-            <dd class="text-zinc-100 text-base">{{ data.player.tier ?? '—' }}</dd>
+        <!-- Headline numbers -->
+        <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
+          <div v-for="s in stats" :key="s.label" class="bg-zinc-950 px-3 py-2.5">
+            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ s.label }}</dt>
+            <dd class="tabular-nums text-lg font-semibold" :class="s.tone">{{ s.value }}</dd>
           </div>
         </dl>
-      </section>
+      </div>
+    </header>
 
-      <ProgressPosts
-        :posts="data.progressPosts"
-        :can-post="isOwnProfile"
-        @changed="refresh()"
-      />
+    <div class="container-tight max-w-5xl py-6">
+      <p v-if="data.account.bio" class="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed mb-6 max-w-2xl">{{ data.account.bio }}</p>
 
-      <!-- Published lists -->
-      <section v-if="data.publicLists?.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Lists</h2>
-        <ul class="grid gap-1.5 sm:grid-cols-2">
-          <li v-for="l in data.publicLists" :key="l.public_id">
-            <NuxtLink
-              :to="`/lists/${l.public_id}`"
-              class="flex items-center gap-2 rounded-lg border border-zinc-800/70 px-3 py-2 text-sm hover:border-zinc-700 hover:bg-zinc-900/40 transition-colors"
-            >
-              <span class="truncate flex-1 text-zinc-200">{{ l.title }}</span>
-              <span v-if="!l.is_public" class="text-[10px] uppercase tracking-wider text-zinc-600 shrink-0">private</span>
-              <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">{{ l.item_count }}</span>
-              <span class="text-[11px] text-zinc-600 tabular-nums shrink-0">★ {{ l.likes }}</span>
+      <!-- Showcase: the two levels a player chooses to be known for -->
+      <section v-if="data.hardest_completion || data.favorite_level" class="grid gap-3 sm:grid-cols-2 mb-6">
+        <article
+          v-if="data.hardest_completion"
+          class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
+        >
+          <LevelThumbBg
+            :gd-id="data.hardest_completion.gd_id"
+            :video-url="data.hardest_completion.video ?? data.hardest_completion.verification_url"
+            res="high"
+            img-class="opacity-25 group-hover:opacity-40"
+            overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+          />
+          <div class="relative p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Hardest completion</h2>
+            <NuxtLink :to="`/levels/${data.hardest_completion.position}`" class="mt-1.5 block group/link">
+              <span class="text-lg font-bold text-zinc-50 group-hover/link:text-accent transition-colors">{{ data.hardest_completion.name }}</span>
+              <span v-if="data.hardest_completion.creator" class="block text-[11px] text-zinc-500 truncate">by {{ data.hardest_completion.creator }}</span>
             </NuxtLink>
-          </li>
-        </ul>
+            <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span class="tabular-nums rounded px-1.5 py-0.5 bg-zinc-900 text-zinc-300 border border-zinc-800">
+                #{{ data.hardest_completion.sheet_placement ?? data.hardest_completion.position }}
+              </span>
+              <span
+                v-if="data.hardest_completion.gddl_tier"
+                class="tabular-nums rounded px-1.5 py-0.5 font-semibold"
+                :style="{ backgroundColor: tierColor(data.hardest_completion.gddl_tier), color: textOn(tierColor(data.hardest_completion.gddl_tier)) }"
+              >{{ data.hardest_completion.gddl_tier }}</span>
+              <span v-if="data.hardest_completion.points" class="tabular-nums text-amber-300">{{ fmt(data.hardest_completion.points) }} pts</span>
+              <span v-if="data.hardest_completion.percent != null && data.hardest_completion.percent < 100" class="tabular-nums text-zinc-400">{{ data.hardest_completion.percent }}%</span>
+              <a
+                v-if="data.hardest_completion.video"
+                :href="data.hardest_completion.video"
+                target="_blank"
+                rel="noopener"
+                class="text-zinc-500 hover:text-accent transition-colors"
+              >watch ↗</a>
+            </div>
+          </div>
+        </article>
+
+        <article
+          v-if="data.favorite_level"
+          class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
+        >
+          <LevelThumbBg
+            :gd-id="data.favorite_level.gd_id"
+            :video-url="data.favorite_level.verification_url"
+            res="high"
+            img-class="opacity-25 group-hover:opacity-40"
+            overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
+          />
+          <div class="relative p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-pink-400 font-semibold">Favourite level</h2>
+            <NuxtLink :to="`/levels/${data.favorite_level.position}`" class="mt-1.5 block group/link">
+              <span class="text-lg font-bold text-zinc-50 group-hover/link:text-accent transition-colors">{{ data.favorite_level.name }}</span>
+              <span v-if="data.favorite_level.creator" class="block text-[11px] text-zinc-500 truncate">by {{ data.favorite_level.creator }}</span>
+            </NuxtLink>
+            <div class="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span class="tabular-nums rounded px-1.5 py-0.5 bg-zinc-900 text-zinc-300 border border-zinc-800">
+                #{{ data.favorite_level.sheet_placement ?? data.favorite_level.position }}
+              </span>
+              <span
+                v-if="data.favorite_level.gddl_tier"
+                class="tabular-nums rounded px-1.5 py-0.5 font-semibold"
+                :style="{ backgroundColor: tierColor(data.favorite_level.gddl_tier), color: textOn(tierColor(data.favorite_level.gddl_tier)) }"
+              >{{ data.favorite_level.gddl_tier }}</span>
+            </div>
+            <p v-if="data.favorite_level_note" class="mt-2 text-xs text-zinc-400 whitespace-pre-wrap">{{ data.favorite_level_note }}</p>
+          </div>
+        </article>
       </section>
 
-      <!-- Followers / following -->
-      <section class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">
-            Followers <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
-          </h2>
-          <p v-if="!data.follow.followers?.length" class="text-xs text-zinc-600">No followers yet.</p>
-          <ul v-else class="flex flex-wrap gap-1.5">
-            <li v-for="f in data.follow.followers" :key="f.username">
-              <NuxtLink
-                :to="`/users/${encodeURIComponent(f.username)}`"
-                class="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
-              >
-                <span class="w-4 h-4 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
-                  <img v-if="f.has_avatar" :src="`/api/users/${encodeURIComponent(f.username)}/avatar`" class="w-full h-full object-cover" alt="" />
-                  <span v-else class="text-[8px] font-semibold uppercase">{{ f.username.charAt(0) }}</span>
-                </span>
-                {{ f.username }}
-              </NuxtLink>
-            </li>
-          </ul>
-        </div>
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">
-            Following <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
-          </h2>
-          <p v-if="!data.follow.following?.length" class="text-xs text-zinc-600">Not following anyone yet.</p>
-          <ul v-else class="flex flex-wrap gap-1.5">
-            <li v-for="f in data.follow.following" :key="f.name">
-              <NuxtLink
-                :to="f.username ? `/users/${encodeURIComponent(f.username)}` : `/users/by-player/${encodeURIComponent(f.name)}`"
-                class="inline-block px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
-              >{{ f.name }}</NuxtLink>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <p
+        v-else-if="isOwnProfile"
+        class="mb-6 rounded-xl border border-dashed border-zinc-800 px-4 py-5 text-center text-xs text-zinc-500"
+      >
+        Pick a hardest completion and a favourite level in
+        <NuxtLink to="/account" class="text-accent hover:underline">your settings</NuxtLink>
+        — they show up here with the level art behind them.
+      </p>
 
-      <ProfileLevelLists
-        :completed="data.completedLevels"
-        :created="data.createdLevels"
-        :verified="data.verifiedLevels"
-        @refresh="refresh()"
-      />
+      <div class="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 items-start">
+        <main class="space-y-6 min-w-0">
+          <section v-if="data.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Player stats</h2>
+            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+              <div>
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+                <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
+              </div>
+              <div>
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+                <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
+              </div>
+              <div>
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+                <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
+              </div>
+              <div>
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
+                <dd class="text-zinc-100 text-base">{{ data.player.tier ?? '—' }}</dd>
+              </div>
+            </dl>
+          </section>
 
-      <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments</h2>
-        <CommentSection kind="profile" :target-id="data.account.id" />
-      </section>
-      </main>
+          <ProgressPosts
+            :posts="data.progressPosts"
+            :can-post="isOwnProfile"
+            @changed="refresh()"
+          />
+
+          <ProfileLevelLists
+            :completed="data.completedLevels"
+            :created="data.createdLevels"
+            :verified="data.verifiedLevels"
+            @refresh="refresh()"
+          />
+
+          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Comments</h2>
+            <CommentSection kind="profile" :target-id="data.account.id" />
+          </section>
+        </main>
+
+        <aside class="space-y-4 lg:sticky lg:top-20">
+          <RecordCharts :completed="data.completedLevels" />
+
+          <section v-if="data.publicLists?.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">Lists</h2>
+            <ul class="space-y-1">
+              <li v-for="l in data.publicLists" :key="l.public_id">
+                <NuxtLink
+                  :to="`/lists/${l.public_id}`"
+                  class="flex items-center gap-2 rounded-lg border border-zinc-800/70 px-2.5 py-1.5 text-xs hover:border-zinc-700 hover:bg-zinc-900/40 transition-colors"
+                >
+                  <span class="truncate flex-1 text-zinc-200">{{ l.title }}</span>
+                  <span v-if="!l.is_public" class="text-[9px] uppercase tracking-wider text-zinc-600 shrink-0">private</span>
+                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0">{{ l.item_count }}</span>
+                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0">★{{ l.likes }}</span>
+                </NuxtLink>
+              </li>
+            </ul>
+          </section>
+
+          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
+              Followers <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
+            </h2>
+            <p v-if="!data.follow.followers?.length" class="text-xs text-zinc-600">No followers yet.</p>
+            <ul v-else class="flex flex-wrap gap-1.5">
+              <li v-for="f in data.follow.followers" :key="f.username">
+                <NuxtLink
+                  :to="`/users/${encodeURIComponent(f.username)}`"
+                  class="inline-flex items-center gap-1.5 px-1.5 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+                >
+                  <span class="w-4 h-4 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
+                    <img v-if="f.has_avatar" :src="`/api/users/${encodeURIComponent(f.username)}/avatar`" class="w-full h-full object-cover" alt="" />
+                    <span v-else class="text-[8px] font-semibold uppercase">{{ f.username.charAt(0) }}</span>
+                  </span>
+                  {{ f.username }}
+                </NuxtLink>
+              </li>
+            </ul>
+          </section>
+
+          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
+              Following <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
+            </h2>
+            <p v-if="!data.follow.following?.length" class="text-xs text-zinc-600">Not following anyone yet.</p>
+            <ul v-else class="flex flex-wrap gap-1.5">
+              <li v-for="f in data.follow.following" :key="f.name">
+                <NuxtLink
+                  :to="f.username ? `/users/${encodeURIComponent(f.username)}` : `/users/by-player/${encodeURIComponent(f.name)}`"
+                  class="inline-block px-2 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+                >{{ f.name }}</NuxtLink>
+              </li>
+            </ul>
+          </section>
+        </aside>
+      </div>
     </div>
   </div>
 </template>
