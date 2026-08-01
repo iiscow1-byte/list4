@@ -4,6 +4,8 @@ import { SITE_VERSION } from '~/utils/site-updates'
 const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
+/** Don't offer a Sign up button the server will refuse. */
+const signupsOpen = computed(() => meRes.value?.site?.signupsEnabled ?? false)
 
 // Inbox unread badge — only fetched when logged in. Refreshes on route change
 // so the count drops as soon as the user opens the inbox page.
@@ -212,7 +214,11 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
         </template>
         <template v-else>
           <NuxtLink to="/login" class="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">Log in</NuxtLink>
-          <NuxtLink to="/signup" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-accent text-zinc-950 hover:bg-accent/90 transition-colors">Sign up</NuxtLink>
+          <NuxtLink
+            v-if="signupsOpen"
+            to="/signup"
+            class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-accent text-zinc-950 hover:bg-accent/90 transition-colors"
+          >Sign up</NuxtLink>
         </template>
 
         <!-- Socials, collapsed into one menu instead of four loose icons -->

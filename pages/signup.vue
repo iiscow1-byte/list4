@@ -1,6 +1,11 @@
 <script setup lang="ts">
 useHead({ title: 'Sign up — All Levels List' })
 
+// The server refuses signups outright; this only decides which of the two
+// states the page renders, so the form isn't offered when it can't work.
+const { data: meRes } = useCurrentUser()
+const signupsOpen = computed(() => meRes.value?.site?.signupsEnabled ?? false)
+
 const username = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
@@ -27,7 +32,22 @@ async function submit() {
 </script>
 
 <template>
-  <div class="container-tight py-12 max-w-sm">
+  <div v-if="!signupsOpen" class="container-tight py-20 max-w-md text-center">
+    <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+      Alpha
+    </div>
+    <h1 class="mt-4 text-2xl font-bold tracking-tight">Sign-ups are closed</h1>
+    <p class="mt-2 text-sm text-zinc-400 leading-relaxed">
+      The All Levels List isn't taking new accounts while it's in alpha.
+    </p>
+    <p class="mt-6 text-xs text-zinc-500">
+      Already have an account?
+      <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink>.
+    </p>
+  </div>
+
+  <div v-else class="container-tight py-12 max-w-sm">
     <h1 class="text-3xl font-semibold tracking-tight mb-1">Create an account</h1>
     <p class="text-sm text-zinc-400 mb-6">
       Sign up, then claim your leaderboard player from your account page.

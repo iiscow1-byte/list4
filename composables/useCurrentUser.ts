@@ -24,11 +24,29 @@ export type CurrentUser = {
 }
 
 /**
+ * The site's access policy, decided server-side and sent with the session.
+ *
+ * `canAccess` is the server's verdict on *this* session, not a rule the client
+ * re-evaluates — so the route middleware and the server middleware can't drift
+ * apart on who is allowed in.
+ */
+export type SitePolicy = {
+  /** Only staff may use the site. */
+  adminOnly: boolean
+  /** Registration is open. */
+  signupsEnabled: boolean
+  /** Whether the current session may use the site. */
+  canAccess: boolean
+}
+
+export type MeResponse = { account: CurrentUser | null; site: SitePolicy }
+
+/**
  * Shared, SSR-aware current-user fetch. Components that need the active session
  * call this; mutations refresh it via `refreshNuxtData('auth-me')`.
  */
 export function useCurrentUser() {
-  return useFetch<{ account: CurrentUser | null }>('/api/auth/me', {
+  return useFetch<MeResponse>('/api/auth/me', {
     key: 'auth-me',
     headers: useRequestHeaders(['cookie']),
   })

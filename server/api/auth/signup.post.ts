@@ -1,9 +1,19 @@
 import { getDb } from '~/server/db'
 import { hashPassword, createSession, setSessionCookie } from '~/server/utils/auth'
+import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
 
 const BOOTSTRAP_ADMIN = (process.env.BOOTSTRAP_ADMIN_USERNAME || 'Gerg').toLowerCase()
 
 export default defineEventHandler(async (event) => {
+  // Closed here, not just hidden in the UI — the form is one `curl` away.
+  // Admin accounts are created with `npm run make-admin` while this is off.
+  if (!SIGNUPS_ENABLED) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Account creation is closed.',
+    })
+  }
+
   const body = await readBody(event)
   const username = String(body?.username ?? '').trim()
   const password = String(body?.password ?? '')

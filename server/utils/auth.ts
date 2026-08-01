@@ -1,6 +1,11 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { getDb } from '~/server/db'
+// Lives in its own module so standalone scripts can import it without pulling
+// in the `~/server/db` alias. Re-exported below so callers don't have to care.
+import { hashPassword, verifyPassword } from './password'
+
+export { hashPassword, verifyPassword }
 
 export const SESSION_COOKIE = 'als_session'
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
@@ -42,19 +47,6 @@ export type Account = {
   banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
   /** Free-choice header level, used when `banner_choice` is 'level'. */
   banner_level_id: number | null
-}
-
-export function hashPassword(password: string): { hash: string; salt: string } {
-  const salt = randomBytes(16).toString('hex')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return { hash, salt }
-}
-
-export function verifyPassword(password: string, hash: string, salt: string): boolean {
-  const test = scryptSync(password, salt, 64)
-  const expected = Buffer.from(hash, 'hex')
-  if (test.length !== expected.length) return false
-  return timingSafeEqual(test, expected)
 }
 
 export function createSession(accountId: number): string {

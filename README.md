@@ -233,6 +233,65 @@ follows from it: `/updates` renders the timeline, the footer chip shows
 `SITE_VERSION` (the newest entry's version), and the header's Community menu
 grows a dot until the visitor opens the page. Nothing else needs updating.
 
+## Access control (alpha lockdown)
+
+The site is currently closed: only staff can use it, and nobody can register.
+Both switches live in `server/utils/site-access.ts` and both default to the
+closed position, so a deployment that sets nothing is locked rather than open.
+
+| Env var | Default | Effect |
+| --- | --- | --- |
+| `PUBLIC_SITE=1` | unset | Re-opens the site to everyone. |
+| `ALLOW_SIGNUPS=1` | unset | Re-opens registration. |
+| `LOCKDOWN_ALLOW_MODERATORS=1` | unset | Lets moderators in too (staff is `admin`/`owner`/`developer` otherwise). |
+
+The two are independent: opening the site does **not** re-open sign-ups.
+
+Enforcement is `server/middleware/00.lockdown.ts`. It has to be server-side —
+a route middleware only guards navigation in the browser, so without it every
+`/api/**` endpoint still answers to anyone with `curl` and the whole list,
+every profile and the leaderboard are readable. `middleware/lockdown.global.ts`
+exists only to stop a soft navigation rendering a page the server would refuse.
+The client never re-derives the rule: `/api/auth/me` returns `site.canAccess`,
+the server's verdict on that session, so the two halves cannot disagree.
+
+**The internal-request token.** While rendering a page, Nuxt calls its own API
+with `$fetch`, and server-side `$fetch` does not forward the browser's cookies —
+so those calls look anonymous and every server-rendered page 403s for the admins
+the lockdown is meant to admit. `server/plugins/00.internal-fetch.ts` stamps
+same-server requests with a per-process secret (`server/utils/internal-token.ts`)
+that the middleware accepts. Recognising internal calls by their *shape* instead
+(no user-agent, empty `remoteAddress`) is a guess about transport: behind a proxy
+on a Unix socket real external requests look identical and the site silently
+opens. The token is attached only to relative URLs, so it never reaches the
+Google Sheet, the GD API or YouTube.
+
+### Accounts, with sign-ups closed
+
+```bash
+npm run make-admin -- --list                                  # who can get in
+npm run make-admin -- --username Gerg --password '<password>' # create
+npm run make-admin -- --username Gerg --role owner            # promote
+```
+
+This is the only way an account is created while sign-ups are off, and the way
+back in if the last admin is ever lost. It's a local CLI on purpose — an HTTP
+endpoint that mints admins is a back door however it's guarded.
+
+```bash
+npm run purge-accounts                        # dry run (default cutoff 2026-07-30)
+npm run purge-accounts -- --apply             # delete
+npm run purge-accounts -- --cutoff=2026-07-30 --include-staff --apply
+```
+
+Dry run by default: deleting an account takes its custom lists, progress posts,
+comments, follows and inbox with it, and the dry run prints that blast radius
+read from the live schema rather than from a hardcoded list. `--apply` writes a
+`VACUUM INTO` snapshot to `data/backups/` first (a plain file copy can miss
+writes still sitting in the WAL). Staff are kept unless `--include-staff`, and
+it refuses outright to leave zero admins — with sign-ups closed that would lock
+everyone out of the site permanently.
+
 ## Setup
 
 Requires **Node ≥ 22.5** — `node:sqlite` needs 22.5, and the Nuxt 3.21 / Vite 7

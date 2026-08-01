@@ -22,6 +22,18 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.4.0',
+    date: '2026-08-01',
+    title: 'Closed for alpha',
+    tags: ['Access', 'Admin'],
+    changes: [
+      'The site is now restricted to the team while the list and the website settle.',
+      'Account creation is closed. Existing accounts still sign in; nobody new can register.',
+      'Signed-in accounts without access get a page explaining that, instead of being bounced around a login form they can already satisfy.',
+      'Admin accounts are created from the command line while sign-ups are off, which is also the way back in if the last one is ever lost.',
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-08-01',
     title: 'About, profiles and the admin panel',
