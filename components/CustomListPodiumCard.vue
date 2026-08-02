@@ -27,7 +27,8 @@ function fmt(n: number): string {
 <template>
   <LevelThumbBg
     :gd-id="row.hardest_gd_id"
-    res="small"
+    res="medium"
+    sizes="(max-width: 640px) 100vw, 380px"
     img-class="opacity-[0.12] group-hover:opacity-25"
     overlay-class="bg-gradient-to-b from-zinc-950/80 to-zinc-950"
   />

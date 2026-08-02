@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { pointsForRank } from './custom-list-scoring'
+import { firstProfanity } from '~/utils/profanity'
 
 export const MAX_ITEMS = 250
 export const MAX_LISTS_PER_USER = 50
@@ -174,6 +175,18 @@ export function replaceItems(
     let fields = fieldsFor(linked)
     if (!fields.name) continue // an item with no name at all is not renderable
 
+    // A level's *name* is never checked — those are real level names, and one
+    // of the lists this site mirrors is literally called "The Shitty List".
+    // A note is the editor's own prose, and is.
+    const note = clean(raw?.notes, 500)
+    const badNote = firstProfanity(note)
+    if (badNote) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: `The note on "${fields.name}" can't contain "${badNote}".`,
+      })
+    }
+
     const ptq = Number(raw?.percent_to_qualify)
     const listMeta = [
       clean(raw?.verifier, 200),
@@ -214,7 +227,7 @@ export function replaceItems(
     if (matchId != null) {
       upd.run(
         n, linked?.id ?? null, fields.name, fields.gd_id, fields.creator, fields.difficulty,
-        fields.gddl_tier, fields.verification_url, clean(raw?.notes, 500),
+        fields.gddl_tier, fields.verification_url, note,
         ...listMeta, matchId, listId,
       )
       keptIds.add(matchId)
@@ -225,7 +238,7 @@ export function replaceItems(
     } else {
       const newId = Number(ins.run(
         listId, n, linked?.id ?? null, fields.name, fields.gd_id, fields.creator,
-        fields.difficulty, fields.gddl_tier, fields.verification_url, clean(raw?.notes, 500),
+        fields.difficulty, fields.gddl_tier, fields.verification_url, note,
         ...listMeta,
       ).lastInsertRowid)
       changes.push({ itemId: newId, name: fields.name, kind: 'add', from: null, to: n + 1 })
@@ -295,7 +308,7 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
             cl.icon_url, cl.accent_color, cl.banner_url, cl.follow_all_order,
-            cl.accepts_submissions, cl.discord_url, cl.youtube_url,
+            cl.accepts_submissions, cl.require_record_video, cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl

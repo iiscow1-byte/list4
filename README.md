@@ -93,12 +93,38 @@ where the numbering actually moved. `?full=1` returns the per-level list anyway.
 
 Level rows and the level-page hero use community thumbnails from the
 [Level Thumbnails API](https://levelthumbs.prevter.me/swagger/), keyed on the
-level's GD ID: `GET /thumbnail/{gd_id}/{high|medium|small}`. List rows request
-`small`, heroes request `high`.
+level's GD ID: `GET /thumbnail/{gd_id}/{high|medium|small}`.
+
+Measured, because the names don't tell you and the numbers drive everything
+below:
+
+| name | size | weight |
+|---|---|---|
+| `small` | 640×360 | ~200–290 kB |
+| `medium` | 1280×720 | ~545–840 kB |
+| `high` | 1920×1080 | ~860 kB–1.35 MB |
+
+Those are heavy files for a decorative background, which is why `res` on
+`LevelThumbBg` is a **ceiling** rather than a choice: every size up to it goes
+into a `srcset`, and the browser picks using `sizes` and the device pixel ratio.
+A fixed size is wrong in both directions — a phone downloading 1.35 MB to paint
+a 390 px header, and a HiDPI desktop stretching a 640 px image across 1400 px —
+and this fixes both at once, so quality goes up on large screens while bytes go
+*down* on small ones. The ceiling is what keeps a 500-row list page from ever
+reaching for the big files: those rows are 64 px tall behind a gradient at 12 %
+opacity, so `small` is already more than they can show.
+
+Backgrounds load `lazy` at `fetchpriority="low"`; the one hero a page opens on
+passes `priority` for `eager` / `high`. Both CDNs are `preconnect`ed in
+`nuxt.config.ts` so the first image doesn't pay for DNS and TLS.
 
 Roughly a third of levels have no entry there. Those fall back to the thumbnail
-of the level's verification video, which YouTube serves at a predictable URL.
-`components/LevelThumbBg.vue` renders whichever succeeds as an
+of the level's verification video, which YouTube serves at a predictable URL —
+`maxresdefault` (1280×720) first in large contexts, then `hqdefault` (480×360),
+which exists for every public video. `maxresdefault` 404s for anything not
+uploaded in HD, so it is never the only fallback and is never requested from a
+dense row, where the extra round trip would be paid 500 times for a difference
+nobody can see. `components/LevelThumbBg.vue` renders whichever succeeds as an
 absolutely-positioned backdrop and stays invisible until an image actually
 loads, so a level with neither keeps the plain background instead of flashing a
 broken image.
@@ -108,6 +134,35 @@ proxies an image, so none of this costs request time. Misses are memoised in
 memory and in `localStorage` (7-day TTL, capped at 4,000 ids, written behind a
 1s debounce), so a level known to have no community thumbnail skips straight to
 the video fallback on later renders instead of re-requesting a 404.
+
+## Profanity
+
+Two jobs, one word list (`utils/profanity.ts`):
+
+- **`useProfanityFilter`** — a *reading* preference that masks words in text you
+  are shown. Personal, and can be turned off.
+- **`assertClean`** (`server/utils/profanity-guard.ts`) — refuses the text where
+  it is written, for the surfaces nobody can opt out of seeing: usernames,
+  custom-list titles and descriptions, pack names, level notes, record player
+  names and notes, and comments. Server-side, because every one of those
+  endpoints is one `curl` away.
+
+Level **names** are deliberately exempt: they are real level names, and one of
+the lists this site mirrors is called *The Shitty List*.
+
+Matching folds leetspeak, drops separators (`f.u.c.k`) and collapses runs of
+**three or more** of a letter (`fuuuck`). Three, not two — collapsing every run
+folds `nigger` and `Niger`, a country, onto the same string, and any rule that
+then let one through would let the other through too. `fuuck` gets past; a word
+list was never going to stop someone determined, and over-blocking is the worse
+failure.
+
+The list is split by how safely a word can be matched. Words with no innocent
+embedding are found anywhere in the text; short or collision-prone ones
+(`cum`/document, `anal`/analysis, `cock`/cockpit, `anus`/Uranus, `rape`/grape,
+`coon`/raccoon, `spic`/spicy) only count as whole words. On top of that, a
+substring match landing inside an ordinary word — Scunthorpe, assassin, classic,
+therapist, retardant, Titanic — is ignored.
 
 ## Custom lists
 

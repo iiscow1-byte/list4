@@ -194,6 +194,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         :gd-id="item.gd_id"
         :video-url="item.verification_url"
         res="high"
+        priority
         img-class="opacity-40 scale-105"
         overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
       />

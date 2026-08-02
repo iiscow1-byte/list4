@@ -15,6 +15,12 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+        // Almost every page paints level thumbnails from these two hosts, and
+        // the first one on the page otherwise waits on DNS + TLS before a byte
+        // moves. Opening the connections alongside the fonts costs nothing and
+        // takes that wait off the first image.
+        { rel: 'preconnect', href: 'https://levelthumbs.prevter.me', crossorigin: '' },
+        { rel: 'preconnect', href: 'https://i.ytimg.com', crossorigin: '' },
         {
           // One variable font covering 400–900 rather than four static cuts:
           // fewer requests, and `font-black` (900) finally has a real weight to

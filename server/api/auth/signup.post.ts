@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { hashPassword, createSession, setSessionCookie } from '~/server/utils/auth'
 import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
+import { assertClean } from '~/server/utils/profanity-guard'
 
 const BOOTSTRAP_ADMIN = (process.env.BOOTSTRAP_ADMIN_USERNAME || 'Gerg').toLowerCase()
 
@@ -23,6 +24,9 @@ export default defineEventHandler(async (event) => {
   if (password.length < 8) {
     throw createError({ statusCode: 400, statusMessage: 'Password must be at least 8 characters.' })
   }
+  // A username isn't a message — it appears beside every record its owner holds,
+  // in the leaderboard and in other people's inboxes, with no way to opt out.
+  assertClean(username, 'Usernames')
 
   const db = getDb()
   const existing = db.prepare(`SELECT id FROM accounts WHERE username = ? COLLATE NOCASE`).get(username)

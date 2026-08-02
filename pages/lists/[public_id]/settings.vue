@@ -237,6 +237,25 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               />
               Accept record submissions and run a leaderboard
             </label>
+            <label
+              v-if="l.accepts_records"
+              class="flex items-start gap-2 text-sm text-zinc-300 cursor-pointer select-none pl-6"
+            >
+              <input
+                type="checkbox"
+                class="accent-accent mt-1"
+                :checked="!l.require_record_video"
+                :disabled="busy"
+                @change="patch({ require_record_video: !($event.target as HTMLInputElement).checked }, 'Record settings updated.')"
+              />
+              <span>
+                Records don't need a video link
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">
+                  Off by default — proof is the norm. Turn it on for a list whose community
+                  already trusts its members, or one tracking something a video can't show.
+                </span>
+              </span>
+            </label>
             <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
               <input
                 type="checkbox"

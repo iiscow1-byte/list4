@@ -22,6 +22,19 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.5.1',
+    date: '2026-08-02',
+    title: 'Sharper backgrounds, and a filter that runs before the words land',
+    tags: ['UI', 'Custom lists', 'Moderation', 'Fixes'],
+    changes: [
+      'Level backgrounds now come in the size the screen actually needs. Big headers are sharper on desktop, and phones stop downloading a megabyte to paint one they can\'t show.',
+      'Profanity is refused where it becomes part of the site rather than one person\'s message: usernames, custom list titles and descriptions, pack names, level notes, record player names, and comments.',
+      'The filter reads through the usual dodges — sh1t, f.u.c.k, fuuuck — while leaving Scunthorpe, assassin, analysis, cockpit and Uranus alone.',
+      'New custom list setting: records don\'t need a video link. Off by default, for lists whose community already trusts its members.',
+      'Fixed: a custom list leaderboard with one or two players showed "No players match “”" and nothing else. With exactly three it said the same thing under a podium showing all three.',
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-08-02',
     title: 'Placement backups, and the ALL stops borrowing AREDL\'s history',

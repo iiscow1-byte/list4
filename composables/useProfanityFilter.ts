@@ -1,14 +1,16 @@
+import { maskProfanity } from '~/utils/profanity'
+
+/**
+ * The reading preference: mask profanity in text other people wrote.
+ *
+ * Distinct from the submission guard in `server/utils/profanity-guard.ts`,
+ * which refuses text outright. That one covers names and titles nobody can opt
+ * out of seeing; this one is a personal setting over message bodies. Both read
+ * the same word list, so they can't disagree about what a word is — this used
+ * to keep its own copy of fourteen words while nothing checked submissions at
+ * all.
+ */
 const STORAGE_KEY = 'als-profanity-filter'
-
-const WORDS = [
-  'fuck', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
-  'nigger', 'nigga', 'faggot', 'fag', 'retard', 'whore', 'slut',
-]
-
-const PATTERN = new RegExp(
-  WORDS.map((w) => `\\b${w}s?\\b`).join('|'),
-  'gi',
-)
 
 let _enabled: ReturnType<typeof useState<boolean>> | null = null
 
@@ -26,7 +28,7 @@ export function useProfanityFilter() {
 
   function filter(text: string): string {
     if (!enabled.value) return text
-    return text.replace(PATTERN, (m) => '*'.repeat(m.length))
+    return maskProfanity(text)
   }
 
   return { enabled, setEnabled, filter }

@@ -240,6 +240,7 @@ const coveragePct = computed(() => {
             <LevelThumbBg
               :gd-id="stats.hardest.gd_id"
               res="high"
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 620px"
               img-class="opacity-25 group-hover:opacity-40"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />

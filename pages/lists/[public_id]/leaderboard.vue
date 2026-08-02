@@ -26,9 +26,27 @@ const rows = computed(() => {
 /**
  * The podium is the unfiltered top three — a search result's "#1" is the best
  * match, not the best player, so it drops away as soon as you type.
+ *
+ * It needs all three to render (`podium.length === 3` below), and this is where
+ * that used to go wrong: with one or two players it was non-empty but unshown,
+ * so the podium didn't render *and* `listRows` skipped past everyone. The whole
+ * leaderboard came out as "No players match “”" — the reported bug. A podium of
+ * fewer than three players isn't a podium; those players belong in the table.
  */
-const podium = computed(() => (search.value.trim() ? [] : all.value.slice(0, 3)))
+const podium = computed(() =>
+  search.value.trim() || all.value.length < 3 ? [] : all.value.slice(0, 3),
+)
 const listRows = computed(() => (podium.value.length ? rows.value.slice(3) : rows.value))
+
+/**
+ * Why the table is empty — which is not always "the search found nothing".
+ * With exactly three players the podium above is showing all of them, and
+ * saying nobody matched an empty search is both wrong and confusing.
+ */
+const emptyReason = computed<'search' | 'all-on-podium' | null>(() => {
+  if (listRows.value.length) return null
+  return search.value.trim() ? 'search' : 'all-on-podium'
+})
 const topPoints = computed(() => all.value[0]?.points ?? 0)
 
 /** Totals across everyone, for the strip above the table. */
@@ -187,8 +205,11 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
               </span>
             </div>
           </li>
-          <li v-if="!listRows.length" class="px-4 py-10 text-center text-xs text-zinc-500">
-            No players match “{{ search }}”.
+          <li v-if="emptyReason === 'search'" class="px-4 py-10 text-center text-xs text-zinc-500">
+            No players match “{{ search.trim() }}”.
+          </li>
+          <li v-else-if="emptyReason === 'all-on-podium'" class="px-4 py-8 text-center text-xs text-zinc-600">
+            That's everyone so far.
           </li>
         </ul>
       </template>

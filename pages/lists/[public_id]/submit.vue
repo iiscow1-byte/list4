@@ -25,6 +25,13 @@ watch(me, (v) => { if (v && !player.value) player.value = v.claimed_player ?? v.
 
 const picked = computed(() => list.value?.items.find((i: any) => i.id === itemId.value) ?? null)
 
+/**
+ * Lists can waive the video requirement (settings → "Records don't need a video
+ * link"). Defaults to required when the list hasn't loaded yet, so the form
+ * never invites someone to submit something the server will reject.
+ */
+const videoRequired = computed(() => list.value?.require_record_video !== 0)
+
 /** What this submission would be worth, so the stakes are visible up front. */
 const previewPoints = computed(() => {
   if (!picked.value) return null
@@ -40,7 +47,7 @@ async function submit() {
   error.value = null
   done.value = null
   if (!itemId.value) { error.value = 'Pick a level.'; return }
-  if (!video.value.trim()) { error.value = 'A video link is required.'; return }
+  if (videoRequired.value && !video.value.trim()) { error.value = 'A video link is required.'; return }
   busy.value = true
   try {
     const res = await $fetch<{ status: string }>(`/api/custom-lists/${publicId.value}/records`, {
@@ -127,8 +134,11 @@ useHead(() => ({ title: list.value ? `Submit a record — ${list.value.title}` :
           </span>
         </label>
         <label class="block sm:col-span-2">
-          <span :class="label">Video link *</span>
+          <span :class="label">Video link<template v-if="videoRequired"> *</template></span>
           <input v-model="video" type="url" placeholder="https://youtube.com/watch?v=…" :class="field" />
+          <span v-if="!videoRequired" class="block text-[10px] text-zinc-600 mt-1">
+            Optional on this list.
+          </span>
         </label>
         <label class="block">
           <span :class="label">Refresh rate</span>

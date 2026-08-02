@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { assertClean } from '~/server/utils/profanity-guard'
 
 /**
  * Submit a record to a custom list. Goes to the list owner's queue as
@@ -27,10 +28,12 @@ export default defineEventHandler(async (event) => {
 
   const db = getDb()
   const list = db.prepare(
-    `SELECT id, owner_account_id, is_public, accepts_records, title
+    `SELECT id, owner_account_id, is_public, accepts_records, require_record_video, title
        FROM custom_lists WHERE public_id = ?`,
-  ).get(publicId) as
-    { id: number; owner_account_id: number; is_public: number; accepts_records: number; title: string } | undefined
+  ).get(publicId) as {
+    id: number; owner_account_id: number; is_public: number
+    accepts_records: number; require_record_video: number; title: string
+  } | undefined
   if (!list) throw createError({ statusCode: 404, statusMessage: 'List not found' })
   if (!list.is_public && list.owner_account_id !== account.id) {
     throw createError({ statusCode: 403, statusMessage: 'This list is private.' })
@@ -56,13 +59,22 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Proof is the default, but a list can turn it off — a community that already
+  // trusts its members shouldn't have every submission bounced for a field it
+  // doesn't care about. Enforced here as well as in the form: the form is a
+  // convenience, this is the rule.
   const video = String(body?.video ?? '').trim().slice(0, 500)
-  if (!video) throw createError({ statusCode: 400, statusMessage: 'A video link is required.' })
+  if (!video && list.require_record_video) {
+    throw createError({ statusCode: 400, statusMessage: 'A video link is required.' })
+  }
 
   // Default to the submitter's claimed player name so leaderboard entries line
   // up with the rest of the site's notion of who someone is.
   const playerName = String(body?.player_name ?? '').trim().slice(0, 100)
     || account.claimed_player || account.username
+
+  assertClean(playerName, 'Player names')
+  assertClean(String(body?.note ?? ''), 'Record notes')
 
   const hzRaw = Number(body?.hz)
   const hz = Number.isFinite(hzRaw) && hzRaw > 0 ? Math.round(hzRaw) : null
@@ -81,7 +93,7 @@ export default defineEventHandler(async (event) => {
        decided_by = excluded.decided_by, decided_at = excluded.decided_at,
        reject_reason = NULL`,
   ).run(
-    list.id, item.id, playerName, percent, hz, video, body?.mobile ? 1 : 0,
+    list.id, item.id, playerName, percent, hz, video || null, body?.mobile ? 1 : 0,
     String(body?.note ?? '').trim().slice(0, 500) || null, status,
     account.id, isOwner ? account.id : null, isOwner ? new Date().toISOString() : null,
   )

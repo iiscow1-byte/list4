@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { assertClean } from '~/server/utils/profanity-guard'
 
 const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 const MAX_BODY = 1000
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
   if (text.length > MAX_BODY) {
     throw createError({ statusCode: 400, statusMessage: `Comment must be ≤${MAX_BODY} characters.` })
   }
+  assertClean(text, 'Comments')
 
   const db = getDb()
   const result = db.prepare(

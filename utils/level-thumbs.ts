@@ -78,6 +78,58 @@ export function levelThumbUrl(gdId: number | null | undefined, res: ThumbRes = '
   return `https://levelthumbs.prevter.me/thumbnail/${gdId}/${res}`
 }
 
+/**
+ * What the three names actually are, measured rather than assumed:
+ *
+ *   small   640×360    ~200–290 kB
+ *   medium  1280×720   ~545–840 kB
+ *   high    1920×1080  ~860 kB–1.35 MB
+ *
+ * Those are heavy files for a decorative background, and the sizes are what
+ * makes a fixed `res` the wrong tool. Picking one means every viewport gets the
+ * same bytes: a phone downloads a megabyte to paint a 390 px-wide header, and a
+ * 1440 px HiDPI screen stretches a 640 px image across a full-width row and
+ * looks soft. Offering all three as a `srcset` and describing the element's real
+ * width in `sizes` lets the browser choose — which raises quality on big screens
+ * and *lowers* the bytes on small ones.
+ */
+export const THUMB_WIDTHS: Record<ThumbRes, number> = { small: 640, medium: 1280, high: 1920 }
+
+const RES_ORDER: ThumbRes[] = ['small', 'medium', 'high']
+
+/**
+ * Candidates up to `maxRes`, which acts as a ceiling rather than a choice.
+ *
+ * The ceiling matters: a dense list row is 64 px tall and behind a gradient at
+ * 12 % opacity, so there is nothing for a 1920 px source to show. Capping those
+ * at `small` keeps a 50-row page from asking for 50 MB of images the reader
+ * cannot see.
+ */
+export function levelThumbSrcset(gdId: number | null | undefined, maxRes: ThumbRes = 'small'): string | null {
+  if (!gdId || !Number.isFinite(Number(gdId))) return null
+  const cap = RES_ORDER.indexOf(maxRes)
+  return RES_ORDER.slice(0, cap + 1)
+    .map((r) => `https://levelthumbs.prevter.me/thumbnail/${gdId}/${r} ${THUMB_WIDTHS[r]}w`)
+    .join(', ')
+}
+
+/**
+ * A default `sizes` for each ceiling, used when a call site doesn't say.
+ *
+ * Deliberately conservative — `sizes` too large wastes bytes, too small looks
+ * soft, and the component has no way to measure its own parent. Call sites with
+ * an unusual layout pass their own.
+ */
+export const THUMB_SIZES: Record<ThumbRes, string> = {
+  // Dense rows: narrow on phones, roughly half a wide window in two-column
+  // layouts, and never worth more than the 640 px source.
+  small: '(max-width: 640px) 100vw, 640px',
+  // Cards and panels.
+  medium: '(max-width: 640px) 100vw, (max-width: 1280px) 60vw, 800px',
+  // Full-bleed heroes and profile covers.
+  high: '100vw',
+}
+
 /** Extract a YouTube video id from any of the URL shapes YouTube uses. */
 export function youtubeIdFrom(url: string | null | undefined): string | null {
   if (!url || typeof url !== 'string') return null
@@ -95,12 +147,27 @@ export function youtubeIdFrom(url: string | null | undefined): string | null {
 }
 
 /**
- * Thumbnail for a video URL. `hqdefault` exists for every public video (unlike
- * maxresdefault, which 404s on anything not uploaded in HD), so it is the safe
- * choice for a fallback that must not fail twice.
+ * Thumbnail for a video URL. `hqdefault` (480×360) exists for every public
+ * video, so it is the safe choice for a fallback that must not fail twice.
  */
 export function videoThumbUrl(videoUrl: string | null | undefined, res: ThumbRes = 'small'): string | null {
   const id = youtubeIdFrom(videoUrl)
   if (!id) return null
   return `https://i.ytimg.com/vi/${id}/${res === 'high' ? 'hqdefault' : 'mqdefault'}.jpg`
+}
+
+/**
+ * The 1280×720 version of a video's thumbnail, or null.
+ *
+ * YouTube only generates `maxresdefault` for videos uploaded in HD, and returns
+ * 404 for the rest — so this can never be the only fallback. It is offered
+ * first *only* in large contexts, where hqdefault's 480×360 (with black bars
+ * down to an effective 480×270) is visibly soft across a full-width header. A
+ * dense row never asks for it, so the extra request on a miss is paid once, on
+ * one image, on the pages where the difference is actually visible.
+ */
+export function videoThumbUrlMax(videoUrl: string | null | undefined): string | null {
+  const id = youtubeIdFrom(videoUrl)
+  if (!id) return null
+  return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
 }

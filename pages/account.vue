@@ -789,6 +789,7 @@ function fmt(n: number | null | undefined) {
           :gd-id="bannerLevel.gd_id"
           :video-url="bannerLevel.video ?? bannerLevel.verification_url"
           res="high"
+          priority
           img-class="opacity-60 scale-105"
           overlay-class="bg-gradient-to-b from-zinc-950/40 via-zinc-950/70 to-zinc-950"
         />
@@ -907,6 +908,7 @@ function fmt(n: number | null | undefined) {
               :gd-id="profileData.hardest_completion.gd_id"
               :video-url="profileData.hardest_completion.video ?? profileData.hardest_completion.verification_url"
               res="high"
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 620px"
               img-class="opacity-25 group-hover:opacity-40"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />
@@ -935,6 +937,7 @@ function fmt(n: number | null | undefined) {
               :gd-id="profileData.favorite_level.gd_id"
               :video-url="profileData.favorite_level.verification_url"
               res="high"
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 620px"
               img-class="opacity-25 group-hover:opacity-40"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />

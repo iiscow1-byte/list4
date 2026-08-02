@@ -1547,6 +1547,13 @@ function initSchema(db: DatabaseSync) {
   if (!clCols2.some((c) => c.name === 'follow_all_order')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN follow_all_order INTEGER NOT NULL DEFAULT 0`)
   }
+  // Whether a record on this list has to link a video. On by default, because
+  // proof is the norm — but a list run inside a community that already trusts
+  // its members, or one tracking something a video can't show, shouldn't have
+  // to reject every submission for a field it doesn't care about.
+  if (!clCols2.some((c) => c.name === 'require_record_video')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN require_record_video INTEGER NOT NULL DEFAULT 1`)
+  }
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts
   // caused by other levels being placed/removed). Powers the position-over-time

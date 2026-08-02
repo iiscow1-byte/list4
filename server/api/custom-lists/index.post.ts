@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { assertClean } from '~/server/utils/profanity-guard'
 import {
   loadList, newPublicId, replaceItems, MAX_LISTS_PER_USER,
   type CustomListItemInput,
@@ -26,6 +27,8 @@ export default defineEventHandler(async (event) => {
 
   const title = String(body?.title ?? '').trim().slice(0, 120) || 'My list'
   const description = String(body?.description ?? '').trim().slice(0, 2000) || null
+  assertClean(title, 'List titles')
+  assertClean(description, 'List descriptions')
 
   db.exec('BEGIN')
   try {

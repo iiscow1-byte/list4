@@ -1061,6 +1061,7 @@ const chartAredlSeries = computed(() =>
         :gd-id="level.gd_id"
         :video-url="level.verification_url"
         res="high"
+        priority
         img-class="opacity-45 scale-105"
         overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
       />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
-  levelThumbUrl, videoThumbUrl, isKnownThumbMiss, rememberThumbMiss, type ThumbRes,
+  levelThumbUrl, levelThumbSrcset, videoThumbUrl, videoThumbUrlMax,
+  isKnownThumbMiss, rememberThumbMiss, THUMB_SIZES, type ThumbRes,
 } from '~/utils/level-thumbs'
 
 /**
@@ -14,12 +15,33 @@ import {
  *
  * Levels already known to have no community thumbnail skip straight to the
  * video fallback — see `utils/level-thumbs.ts` for that cache.
+ *
+ * ## Resolution
+ *
+ * `res` is a **ceiling**, not a choice. Every size up to it is offered as a
+ * `srcset` and the browser picks using `sizes` and the device's pixel ratio.
+ * That cuts both ways, which is the point: a full-bleed header on a phone stops
+ * downloading the 1.35 MB 1920 px file it cannot show, and the same header on a
+ * HiDPI desktop stops stretching a 640 px one across 1400 px. The ceiling is
+ * what keeps a 50-row list from ever reaching for the big files at all.
  */
 const props = defineProps<{
   gdId?: number | null
   /** Verification video, used for the fallback thumbnail. */
   videoUrl?: string | null
+  /** Largest size worth fetching here. Defaults to `small`. */
   res?: ThumbRes
+  /**
+   * The element's rendered width, in `sizes` syntax. The component cannot
+   * measure its own parent, so a call site with an unusual layout should say;
+   * otherwise a sensible default for `res` is used.
+   */
+  sizes?: string
+  /**
+   * Above the fold. Loads eagerly at high priority instead of lazily at low —
+   * for the one hero image a page opens on, never for rows.
+   */
+  priority?: boolean
   /** Extra classes for the <img> itself (opacity, hover states, …). */
   imgClass?: string
   /** Tailwind gradient classes painted over the image for text legibility. */
@@ -27,16 +49,32 @@ const props = defineProps<{
 }>()
 
 const res = computed<ThumbRes>(() => props.res ?? 'small')
-const fallbackUrl = computed(() => videoThumbUrl(props.videoUrl, res.value))
+const sizes = computed(() => props.sizes ?? THUMB_SIZES[res.value])
 
-type Stage = 'primary' | 'fallback' | 'done'
+/**
+ * Stages, in the order they are tried:
+ *   primary   — the community thumbnail
+ *   videoMax  — YouTube's 1280×720, large contexts only; often missing
+ *   video     — YouTube's hqdefault, which always exists
+ *   done      — nothing to show
+ */
+type Stage = 'primary' | 'videoMax' | 'video' | 'done'
 const stage = ref<Stage>('primary')
 const loaded = ref(false)
 
+const videoMaxUrl = computed(() =>
+  res.value === 'small' ? null : videoThumbUrlMax(props.videoUrl),
+)
+const videoUrl = computed(() => videoThumbUrl(props.videoUrl, res.value))
+
+/** The first video stage worth trying, or 'done' when there is no video. */
+function firstVideoStage(): Stage {
+  if (videoMaxUrl.value) return 'videoMax'
+  return videoUrl.value ? 'video' : 'done'
+}
+
 function initialStage(): Stage {
-  if (!props.gdId || isKnownThumbMiss(props.gdId)) {
-    return fallbackUrl.value ? 'fallback' : 'done'
-  }
+  if (!props.gdId || isKnownThumbMiss(props.gdId)) return firstVideoStage()
   return 'primary'
 }
 
@@ -73,14 +111,29 @@ watch(stage, () => nextTick(syncFromDom))
 
 const url = computed(() => {
   if (stage.value === 'primary') return levelThumbUrl(props.gdId, res.value)
-  if (stage.value === 'fallback') return fallbackUrl.value
+  if (stage.value === 'videoMax') return videoMaxUrl.value
+  if (stage.value === 'video') return videoUrl.value
   return null
 })
+
+/**
+ * Only the community thumbnail comes in several sizes. YouTube's are fixed, so
+ * offering one as a srcset would just be a single candidate with a width glued
+ * to it — and would stop the browser applying `sizes` sensibly.
+ */
+const srcset = computed(() =>
+  stage.value === 'primary' ? levelThumbSrcset(props.gdId, res.value) : null,
+)
 
 function onError() {
   if (stage.value === 'primary') {
     rememberThumbMiss(props.gdId)
-    stage.value = fallbackUrl.value ? 'fallback' : 'done'
+    stage.value = firstVideoStage()
+    return
+  }
+  if (stage.value === 'videoMax') {
+    // Not uploaded in HD — the common case, not an error.
+    stage.value = videoUrl.value ? 'video' : 'done'
     return
   }
   stage.value = 'done'
@@ -102,8 +155,11 @@ watch(
       :key="url"
       ref="imgEl"
       :src="url"
+      :srcset="srcset || undefined"
+      :sizes="srcset ? sizes : undefined"
       alt=""
-      loading="lazy"
+      :loading="priority ? 'eager' : 'lazy'"
+      :fetchpriority="priority ? 'high' : 'low'"
       decoding="async"
       referrerpolicy="no-referrer"
       draggable="false"

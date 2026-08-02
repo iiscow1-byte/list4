@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
+import { assertClean } from '~/server/utils/profanity-guard'
 import { loadList, replaceItems, MAX_ITEMS, type CustomListItemInput } from '~/server/utils/custom-lists'
 
 /** Owner-only update. Any provided field replaces the stored one wholesale. */
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
     accent_color?: string
     banner_url?: string
     accepts_submissions?: boolean
+    require_record_video?: boolean
     discord_url?: string
     youtube_url?: string
     max_points?: number
@@ -38,10 +40,12 @@ export default defineEventHandler(async (event) => {
   db.exec('BEGIN')
   try {
     if (typeof body?.title === 'string') {
+      assertClean(body.title, 'List titles')
       db.prepare(`UPDATE custom_lists SET title = ? WHERE id = ?`)
         .run(body.title.trim().slice(0, 120) || 'My list', row.id)
     }
     if (typeof body?.description === 'string') {
+      assertClean(body.description, 'List descriptions')
       db.prepare(`UPDATE custom_lists SET description = ? WHERE id = ?`)
         .run(body.description.trim().slice(0, 2000) || null, row.id)
     }
@@ -80,6 +84,10 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.accepts_submissions === 'boolean') {
       db.prepare(`UPDATE custom_lists SET accepts_submissions = ? WHERE id = ?`)
         .run(body.accepts_submissions ? 1 : 0, row.id)
+    }
+    if (typeof body?.require_record_video === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET require_record_video = ? WHERE id = ?`)
+        .run(body.require_record_video ? 1 : 0, row.id)
     }
     // Social links are rendered as anchors on a public page, so only http(s)
     // URLs are stored — a javascript: value here would be a stored XSS.
@@ -130,6 +138,7 @@ export default defineEventHandler(async (event) => {
       body.packs.slice(0, 50).forEach((p, i) => {
         const name = String(p?.name ?? '').trim().slice(0, 80)
         if (!name) return
+        assertClean(name, 'Pack names')
         const color = String(p?.color ?? '').trim().slice(0, 20) || null
         const packId = Number(insPack.run(row.id, name, color, i).lastInsertRowid)
         for (const rawId of (p?.item_ids ?? []).slice(0, MAX_ITEMS)) {
