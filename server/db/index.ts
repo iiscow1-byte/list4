@@ -4,6 +4,16 @@ import { dirname, resolve } from 'node:path'
 
 const DB_PATH = process.env.LIST_DB_PATH || resolve(process.cwd(), 'data', 'list.db')
 
+/**
+ * Where the database lives, for the things that need to write next to it —
+ * the automatic snapshot taken before a placement restore, most of all. Derived
+ * rather than assumed, so a deployment pointing `LIST_DB_PATH` elsewhere keeps
+ * its backups with its data instead of in whatever directory it was started in.
+ */
+export function dataDir(): string {
+  return dirname(DB_PATH)
+}
+
 let _db: DatabaseSync | null = null
 
 export function getDb(): DatabaseSync {
@@ -1168,6 +1178,25 @@ function initSchema(db: DatabaseSync) {
   if (!has('sheet_placement')) db.exec(`ALTER TABLE levels ADD COLUMN sheet_placement INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_sheet_placement ON levels(sheet_placement)`)
 
+  // `sheet_rank`: the same number the sheet gave this level, but never handed
+  // back out to another row.
+  //
+  // `sheet_placement` can't answer "where does the sheet put this level?" once
+  // anything has moved. A placement number belongs to the *slot*, so every move
+  // redistributes the numbers across the affected range — correct for display,
+  // and it means the sheet's own ordering is gone the moment a curator drags
+  // something. Nothing recorded it, so "put the list back the way the sheet has
+  // it" had no source to read.
+  //
+  // Backfilled from `sheet_placement`, which is exactly right immediately after
+  // an import and off only by whatever moves have happened since; the next ALL
+  // import writes the real values.
+  if (!has('sheet_rank')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN sheet_rank INTEGER`)
+    db.exec(`UPDATE levels SET sheet_rank = sheet_placement`)
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_sheet_rank ON levels(sheet_rank)`)
+
   // `site_only`: 1 when the ALL sheet has no level with this level's ID.
   //
   // This used to be inferred from `sheet_placement IS NULL`, which is a
@@ -1237,6 +1266,45 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE position_history ADD COLUMN raw_to_position INTEGER`)
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_position_history_source ON position_history(source)`)
+
+  // Imported AREDL moves are no longer part of this list's history.
+  //
+  // They were written here so the changelog could show them, and the effect was
+  // that a changelog of 1,777 entries described 1,774 movements that happened on
+  // another site. AREDL's ranking is its own; it belongs beside ours on the
+  // level graph — which still has the full trace in `aredl_position_history` —
+  // not in the record of what the ALL did. Cleared at boot rather than only on
+  // the next AREDL import so the changelog is correct immediately.
+  const strayAredl = (db.prepare(
+    `SELECT COUNT(*) AS n FROM position_history WHERE source = 'aredl'`,
+  ).get() as { n: number }).n
+  if (strayAredl > 0) {
+    db.exec(`DELETE FROM position_history WHERE source = 'aredl'`)
+    console.log(`[db] removed ${strayAredl} imported AREDL entries from the changelog`)
+  }
+
+  // --- Imported movements: suggestions an admin has decided against ---
+  //
+  // The suggestions themselves are computed on demand from the imported lists,
+  // so there is nothing to store about them — but "the ALL disagrees with CCL
+  // here on purpose" is a real answer that has to survive, or the tab shows the
+  // same rejected rows forever.
+  //
+  // `source_position` is part of the record, not just the key: a dismissal says
+  // "we disagree with what that list says *now*". When the source list re-ranks
+  // the level its claim is new, and the suggestion comes back.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS imported_movement_dismissals (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      source          TEXT    NOT NULL,
+      level_id        INTEGER NOT NULL REFERENCES levels(id) ON DELETE CASCADE,
+      source_position INTEGER NOT NULL,
+      dismissed_at    TEXT    NOT NULL DEFAULT (datetime('now')),
+      dismissed_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      UNIQUE(source, level_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_imd_source ON imported_movement_dismissals(source);
+  `)
 
   // --- Custom user lists (the home-page list builder) ---
   // A list belongs to an account (guests build in localStorage and save once

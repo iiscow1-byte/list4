@@ -17,9 +17,6 @@ type Change = {
   to_placement: number | null
   changed_at: string
   changed_by: string | null
-  source: string
-  raw_from_position: number | null
-  raw_to_position: number | null
 }
 type ChangesDay = { date: string; changes: Change[] }
 type Changes = { days: ChangesDay[] }
@@ -30,9 +27,10 @@ const isMod = computed(() => {
   return r === 'moderator' || r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-// `source` filters server-side; `range` widens the window far enough back to
-// cover the imported AREDL history (which reaches to 2016-ish).
-const sourceFilter = ref<'' | 'all' | 'aredl'>('')
+// The changelog is this list's own movements only. There used to be a source
+// filter here because AREDL's history was imported into it; that history now
+// lives on each level's graph instead, where it is one site's ranking beside
+// another's rather than an entry claiming the ALL moved.
 const range = ref(30)
 const RANGES = [
   { value: 14,   label: '14d' },
@@ -46,7 +44,6 @@ const { data: changes, pending, refresh: refreshChanges } = await useFetch<Chang
   query: computed(() => ({
     days: range.value,
     limit: 2000,
-    source: sourceFilter.value || undefined,
   })),
 })
 
@@ -182,16 +179,6 @@ useHead({ title: 'Changelog — All Levels List' })
 
         <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
           <button
-            v-for="opt in [{ v: '', l: 'All sources' }, { v: 'all', l: 'ALL native' }, { v: 'aredl', l: 'AREDL' }]"
-            :key="opt.v"
-            type="button"
-            :class="[segBtn, sourceFilter === opt.v ? segOn : segOff]"
-            @click="sourceFilter = opt.v as any"
-          >{{ opt.l }}</button>
-        </div>
-
-        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-          <button
             v-for="r in RANGES"
             :key="r.value"
             type="button"
@@ -302,14 +289,6 @@ useHead({ title: 'Changelog — All Levels List' })
                 :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
                 :title="c.level_gddl_tier"
               >{{ shortTier(c.level_gddl_tier) }}</span>
-
-              <span
-                v-if="c.source === 'aredl'"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/50 text-sky-300/90 border border-sky-900/60"
-                :title="c.raw_to_position != null
-                  ? `From AREDL history — AREDL ${c.raw_from_position != null ? '#' + c.raw_from_position + ' → ' : ''}#${c.raw_to_position}, converted to ALL placements`
-                  : 'Imported from AREDL history, converted to ALL placements'"
-              >AREDL</span>
 
               <span class="shrink-0 font-semibold tabular-nums text-zinc-300 ml-auto" :class="dense ? 'text-sm' : 'text-base'">
                 <template v-if="changelogView === 'challenge'">

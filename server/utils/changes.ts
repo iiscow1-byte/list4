@@ -41,9 +41,6 @@ export type Change = {
   level_sheet_placement: number | null
   changed_at: string         // raw datetime('now') from SQLite, UTC
   changed_by: string | null  // username, null for system / deleted account
-  source: string             // 'all' = native move, 'aredl' = imported AREDL history
-  raw_from_position: number | null // original AREDL positions for source='aredl'
-  raw_to_position: number | null
 }
 export type DayGroup = {
   date: string               // YYYY-MM-DD (UTC)
@@ -70,12 +67,15 @@ export function loadChanges(
   db: DatabaseSync,
   opts: { since?: string; until?: string; limit?: number; source?: string } = {},
 ): Change[] {
-  const conds: string[] = []
+  // Imported AREDL history is never part of this list's changelog — a level on
+  // the ALL moves when someone moves it here. The rows are deleted at boot and
+  // no longer written; this makes the guarantee hold even if one turns up.
+  const conds: string[] = [`h.source <> 'aredl'`]
   const params: any[] = []
   if (opts.since) { conds.push('h.changed_at >= ?'); params.push(opts.since) }
   if (opts.until) { conds.push('h.changed_at <= ?'); params.push(opts.until) }
   if (opts.source) { conds.push('h.source = ?'); params.push(opts.source) }
-  const where = conds.length ? `WHERE ${conds.join(' AND ')}` : ''
+  const where = `WHERE ${conds.join(' AND ')}`
   const limit = Math.max(1, Math.min(opts.limit ?? 500, 2000))
 
   // from/to are internal positions; the UI speaks the sheet's placements, so
@@ -83,8 +83,7 @@ export function loadChanges(
   // are ordered identically under both numberings, so this lands on the right
   // neighbourhood even for historical rows.
   const rows = db.prepare(
-    `SELECT h.level_id, h.from_position, h.to_position, h.changed_at,
-            h.source, h.raw_from_position, h.raw_to_position,
+    `SELECT h.level_id, h.from_position, h.to_position, h.changed_at, h.source,
             (SELECT sheet_placement FROM levels WHERE position = h.from_position) AS from_placement,
             (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
             l.sheet_placement AS level_sheet_placement,
@@ -116,8 +115,6 @@ export function loadChanges(
     to_position: number
     changed_at: string
     source: string
-    raw_from_position: number | null
-    raw_to_position: number | null
     from_placement: number | null
     to_placement: number | null
     level_sheet_placement: number | null
@@ -189,9 +186,6 @@ export function loadChanges(
     level_sheet_placement: r.level_sheet_placement ?? null,
     changed_at: r.changed_at,
     changed_by: r.changed_by,
-    source: r.source ?? 'all',
-    raw_from_position: r.raw_from_position ?? null,
-    raw_to_position: r.raw_to_position ?? null,
   }))
 }
 

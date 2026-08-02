@@ -17,6 +17,7 @@
  * changes is a no-op for unchanged rows.
  */
 import { getDb } from './index.ts'
+import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
 
 export type GdtplListConfig = {
   /** Short stable identifier — e.g. 'tsl'. Used as the gdtpl_levels.list_slug. */
@@ -98,23 +99,6 @@ function firstId(v: unknown): number | null {
   if (!m) return null
   const n = Number(m[0])
   return Number.isFinite(n) ? n : null
-}
-
-// Tier label ↔ ordinal helpers. Mirror the admin UI:
-//   "Subtier N" (1..5) → N
-//   "Tier N"    (1..)  → 5 + N
-function tierToOrd(label: string | null): number | null {
-  if (!label) return null
-  const sub = label.match(/^Subtier (\d{1,2})$/)
-  if (sub) return Number(sub[1])
-  const t = label.match(/^Tier (\d{1,2})$/)
-  if (t) return 5 + Number(t[1])
-  return null
-}
-function ordToTier(ord: number): string {
-  const r = Math.max(1, Math.round(ord))
-  if (r <= 5) return `Subtier ${r}`
-  return `Tier ${r - 5}`
 }
 
 export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
@@ -243,38 +227,20 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   }>
 
   // Prefetch all source-list levels that are *also* on the ALL list, sorted by
-  // source-list position. We binary-search this array per pending row instead
-  // of running 4 join-against-52k-row SELECTs for every iteration — node:sqlite
-  // is synchronous, and per-row queries inside one big transaction starve the
-  // event loop (no HTTP request returns for the duration of the import).
-  type Neighbour = { sourcePos: number; allPos: number; tier: string | null }
-  const sharedAll: Neighbour[] = (db.prepare(
-    `SELECT g.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
-       FROM gdtpl_levels g
-       JOIN levels l ON l.gd_id = g.gd_id
-      WHERE g.list_slug = ?
-      ORDER BY g.position ASC`,
-  ).all(cfg.source) as { source_pos: number; all_pos: number; tier: string | null }[])
-    .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier }))
-  // Tier estimation needs only neighbours that actually have a gddl_tier, so
-  // pre-filter once.
-  const sharedTiered: Neighbour[] = sharedAll.filter((n) => n.tier != null && n.tier.trim() !== '')
-
-  // Find first index in `arr` whose sourcePos is strictly greater than `pos`.
-  // arr must be sorted ascending by sourcePos.
-  function gtIdx(arr: Neighbour[], pos: number): number {
-    let lo = 0, hi = arr.length
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (arr[mid]!.sourcePos <= pos) lo = mid + 1
-      else hi = mid
-    }
-    return lo
-  }
-  function neighboursAt(arr: Neighbour[], pos: number): { above: Neighbour | null; below: Neighbour | null } {
-    const i = gtIdx(arr, pos)
-    return { above: i > 0 ? arr[i - 1]! : null, below: i < arr.length ? arr[i]! : null }
-  }
+  // source-list position. The estimator binary-searches this array per pending
+  // row instead of running join-against-52k-row SELECTs for every iteration —
+  // node:sqlite is synchronous, and per-row queries inside one big transaction
+  // starve the event loop (no HTTP request returns for the duration).
+  const anchors = buildAnchors(
+    (db.prepare(
+      `SELECT g.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
+         FROM gdtpl_levels g
+         JOIN levels l ON l.gd_id = g.gd_id
+        WHERE g.list_slug = ?
+        ORDER BY g.position ASC`,
+    ).all(cfg.source) as { source_pos: number; all_pos: number; tier: string | null }[])
+      .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier })),
+  )
 
   // Conflict-target must repeat the partial-index WHERE clause for SQLite to
   // match `idx_pending_levels_from_gdtpl` (a unique-when-not-null index).
@@ -330,38 +296,14 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
       for (const lv of slice) {
         if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-        const { above, below } = neighboursAt(sharedAll, lv.position)
-        let placementEstimate: number | null = null
-        if (above && below) {
-          // Linear interpolation against the source-list position. With sparse
-          // overlap the bracket can span huge gaps, so a flat midpoint puts
-          // every level in that gap at the same ALL-position regardless of
-          // whether it's near the top or bottom of the gap. Scaling by the
-          // source-list fraction gives a much closer estimate.
-          const span = below.sourcePos - above.sourcePos
-          const frac = span > 0 ? (lv.position - above.sourcePos) / span : 0.5
-          placementEstimate = Math.round(above.allPos + frac * (below.allPos - above.allPos))
-        } else if (above) placementEstimate = above.allPos + 1
-        else if (below) placementEstimate = Math.max(1, below.allPos - 1)
+        const est = estimateForSourcePosition(anchors, lv.position)
+        let placementEstimate = est.placement
         // Top-of-list extremes have ALL-positions close to their source-list
         // positions, so the estimate can coincidentally equal the source rank.
         // Drop the suggestion in that case — using the source-list position as a
         // placement on our list would be misleading.
         if (placementEstimate === lv.position) placementEstimate = null
-
-        const { above: tAbove, below: tBelow } = neighboursAt(sharedTiered, lv.position)
-        const aboveOrd = tierToOrd(tAbove?.tier ?? null)
-        const belowOrd = tierToOrd(tBelow?.tier ?? null)
-        let estimatedTier: string | null = null
-        if (aboveOrd != null && belowOrd != null) {
-          const span = tBelow!.sourcePos - tAbove!.sourcePos
-          const frac = span > 0 ? (lv.position - tAbove!.sourcePos) / span : 0.5
-          estimatedTier = ordToTier(aboveOrd + frac * (belowOrd - aboveOrd))
-        } else if (aboveOrd != null) {
-          estimatedTier = ordToTier(aboveOrd)
-        } else if (belowOrd != null) {
-          estimatedTier = ordToTier(belowOrd)
-        }
+        const estimatedTier = est.tier
 
         const notes = `Imported from ${cfg.displayName} · placement #${lv.position}`
         const result = insPending.run(

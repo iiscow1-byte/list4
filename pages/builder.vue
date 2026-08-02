@@ -18,15 +18,12 @@ type Change = {
   level_gddl_tier: string | null
   from_position: number | null
   to_position: number
+  to_placement: number | null
   changed_at: string
-  source: string
 }
 type Changes = { days: { date: string; changes: Change[] }[] }
 
 const { data: stats } = await useFetch<Stats>('/api/stats')
-// All sources — an AREDL-derived move is still a real movement on this list
-// once converted, and filtering to native moves would leave the rail empty on
-// a fresh deploy. /changelog is where the per-source breakdown lives.
 const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
   query: { days: 7, limit: 40 },
 })
@@ -122,11 +119,6 @@ useHead({ title: 'Build your own list — All Levels List' })
             class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold leading-none"
             :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
           >{{ shortTier(c.level_gddl_tier) }}</span>
-          <span
-            v-if="c.source === 'aredl'"
-            class="shrink-0 text-[9px] uppercase tracking-widest px-1 py-px rounded bg-sky-950/50 text-sky-300/90 border border-sky-900/60"
-            title="Converted from AREDL placement history"
-          >AREDL</span>
           <span class="shrink-0 tabular-nums text-xs text-zinc-400">#{{ c.to_placement ?? c.to_position }}</span>
         </li>
       </ul>

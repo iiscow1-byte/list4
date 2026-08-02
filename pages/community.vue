@@ -74,6 +74,79 @@ function profileLink(i: FeedItem): string {
     : `/users/by-player/${encodeURIComponent(i.actor)}`
 }
 
+/**
+ * Player search.
+ *
+ * The hub is where you go to find people, and until now the only way to do that
+ * was to page through the leaderboard hoping to spot a name. This asks every
+ * list at once — site members, ALL record holders, AREDL, Pointercrate, GDL —
+ * so a name that exists anywhere is findable here.
+ */
+type PlayerHit = {
+  name: string
+  href: string
+  sources: ('account' | 'all' | 'aredl' | 'pointercrate' | 'gdl')[]
+  username: string | null
+  has_avatar: boolean
+  country: string | null
+  points: number | null
+  rank: number | null
+  hardest: string | null
+  role: string | null
+}
+
+const SOURCE_LABELS: Record<PlayerHit['sources'][number], string> = {
+  account: 'Member',
+  all: 'ALL',
+  aredl: 'AREDL',
+  pointercrate: 'Pointercrate',
+  gdl: 'GDL',
+}
+
+const playerQuery = ref('')
+const playerHits = ref<PlayerHit[]>([])
+const playerSearching = ref(false)
+const playerSearched = ref(false)
+let playerTimer: ReturnType<typeof setTimeout> | null = null
+/** Guards against a slow early request overwriting a later, faster one. */
+let playerSeq = 0
+
+async function runPlayerSearch() {
+  const q = playerQuery.value.trim()
+  if (q.length < 2) {
+    playerHits.value = []
+    playerSearched.value = false
+    playerSearching.value = false
+    return
+  }
+  const seq = ++playerSeq
+  playerSearching.value = true
+  try {
+    const res = await $fetch<{ items: PlayerHit[] }>('/api/community/players', { query: { q } })
+    if (seq !== playerSeq) return
+    playerHits.value = res.items
+    playerSearched.value = true
+  } catch {
+    if (seq !== playerSeq) return
+    playerHits.value = []
+    playerSearched.value = true
+  } finally {
+    if (seq === playerSeq) playerSearching.value = false
+  }
+}
+
+watch(playerQuery, () => {
+  if (playerTimer) clearTimeout(playerTimer)
+  playerTimer = setTimeout(runPlayerSearch, 220)
+})
+onBeforeUnmount(() => { if (playerTimer) clearTimeout(playerTimer) })
+
+function clearPlayerSearch() {
+  playerQuery.value = ''
+  playerHits.value = []
+  playerSearched.value = false
+}
+
 useHead({ title: 'Community — All Levels List' })
 </script>
 
@@ -96,6 +169,63 @@ useHead({ title: 'Community — All Levels List' })
         </div>
       </dl>
     </header>
+
+    <!-- Find a player -->
+    <section class="card overflow-hidden">
+      <div class="px-4 py-3 flex items-center gap-3 flex-wrap">
+        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold shrink-0">Find a player</h2>
+        <div class="relative flex-1 min-w-[14rem]">
+          <input
+            v-model="playerQuery"
+            type="search"
+            placeholder="Search members, ALL, AREDL, Pointercrate and GDL…"
+            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 pl-8 pr-8 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            @keydown.esc="clearPlayerSearch"
+          />
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" aria-hidden="true">
+            <path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.4 9.83l3.14 3.13a.75.75 0 1 0 1.06-1.06l-3.13-3.13A5.5 5.5 0 0 0 9 3.5zM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0z" clip-rule="evenodd" />
+          </svg>
+          <span v-if="playerSearching" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-zinc-600">…</span>
+        </div>
+        <NuxtLink to="/leaderboard" class="text-[11px] text-zinc-500 hover:text-accent transition-colors shrink-0">Full leaderboard →</NuxtLink>
+      </div>
+
+      <p v-if="playerSearched && !playerHits.length" class="px-4 pb-4 text-xs text-zinc-500">
+        No player matches “{{ playerQuery.trim() }}”.
+      </p>
+
+      <ul v-else-if="playerHits.length" class="border-t border-zinc-800/80 divide-y divide-zinc-900/60 max-h-[22rem] overflow-y-auto">
+        <li v-for="h in playerHits" :key="h.href">
+          <NuxtLink :to="h.href" class="px-4 py-2.5 flex items-center gap-3 hover:bg-zinc-900/40 transition-colors">
+            <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 shrink-0 flex items-center justify-center">
+              <img
+                v-if="h.has_avatar && h.username"
+                :src="`/api/users/${encodeURIComponent(h.username)}/avatar`"
+                class="w-full h-full object-cover"
+                alt=""
+              />
+              <span v-else class="text-[11px] font-bold uppercase text-zinc-400">{{ h.name.charAt(0) }}</span>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="flex items-baseline gap-2 flex-wrap">
+                <span class="text-sm font-medium text-zinc-100 truncate">{{ h.name }}</span>
+                <span
+                  v-for="s in h.sources"
+                  :key="s"
+                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded border"
+                  :class="s === 'account'
+                    ? 'border-accent/30 bg-accent/10 text-accent'
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-500'"
+                >{{ SOURCE_LABELS[s] }}</span>
+              </span>
+              <span v-if="h.hardest" class="block text-[11px] text-zinc-600 truncate">Hardest: {{ h.hardest }}</span>
+            </span>
+            <span v-if="h.rank != null" class="text-[11px] text-zinc-500 tabular-nums shrink-0">#{{ h.rank.toLocaleString() }}</span>
+            <span v-if="h.points != null" class="text-[11px] text-zinc-400 tabular-nums shrink-0 w-16 text-right">{{ h.points.toLocaleString(undefined, { maximumFractionDigits: 1 }) }}</span>
+          </NuxtLink>
+        </li>
+      </ul>
+    </section>
 
     <div class="grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start">
       <!-- Following feed -->

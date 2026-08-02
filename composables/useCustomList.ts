@@ -6,13 +6,14 @@
 export function useCustomList(publicId: MaybeRefOrGetter<string>) {
   const id = computed(() => toValue(publicId))
 
-  const { data, error, refresh, pending } = useFetch<{
+  const req = useFetch<{
     list: any
     can_edit: boolean
     can_manage: boolean
     editors: { id: number; username: string }[]
     liked_by_me: boolean
   }>(() => `/api/custom-lists/${id.value}`, { key: () => `custom-list-${id.value}` })
+  const { data, error, refresh, pending } = req
 
   const list = computed(() => data.value?.list ?? null)
   const canEdit = computed(() => !!data.value?.can_edit)
@@ -51,6 +52,10 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
   }
 
   return {
+    // The request itself, for pages that build state out of the list during
+    // setup: `await req` waits on this one shared fetch rather than starting a
+    // second, so their derived state exists in the server-rendered HTML.
+    req,
     data, error, pending, refresh,
     list, canEdit, canManage, editors, base,
     pendingCount, suggestionCount, refreshPending, liked, toggleLike,

@@ -32,10 +32,44 @@ Two numbers describe where a level sits, and they are deliberately different:
   the search box's `#N` shortcut resolves against, via
   `/api/levels/by-placement/:n`.
 
+- **`levels.sheet_rank`** — the same number the sheet gave the level, but never
+  handed back out to another row.
+
+  A placement number belongs to the **slot**, not to the level in it, so every
+  move redistributes `sheet_placement` across the range it touched
+  (`resyncPlacements`). That is right for display and it means `sheet_placement`
+  stops recording what the sheet said the moment anyone drags something —
+  nothing recorded the sheet's own ordering, so "put the list back the way the
+  sheet has it" had no source to read and was silently a no-op. `sheet_rank` is
+  written by the importer and left alone by everything else.
+
 Keeping URLs on `position` means links survive a re-import even when the
 curators renumber the sheet. `server/utils/changes.ts` maps historical
 positions through to placements so the changelog speaks the same numbering as
 the rest of the site.
+
+### Placement backups
+
+**Admin → Imports → Placement backups** (`server/utils/placement-snapshot.ts`):
+
+- `GET /api/admin/placements/export?format=json|csv` — every level and where it
+  sits. JSON carries the ids that make a restore exact; CSV is for editing.
+- `POST /api/admin/placements/restore` — the file is the request body, sniffed
+  rather than declared. `?apply=1` writes; without it you get the same report as
+  a preview, from the same code path.
+- `POST /api/admin/placements/reset-to-sheet` — orders sheet-backed levels by
+  `sheet_rank`, flowing around site-only and permanent rows, exactly as a full
+  sheet import leaves things. Same preview/apply split.
+
+A restore is **not** `SET position = whatever the file said`: positions are
+`UNIQUE`, the file may be stale, and the list may have gained levels. The file
+carries an *ordering*, so that is what is applied — rows it names are laid out in
+its order, and rows it has never heard of stay directly after the neighbour they
+currently follow rather than being swept to the bottom. Rows are matched by id
+first, then `gd_id` + name, then either alone when unambiguous.
+
+Both writes save the current placements to `data/backups/` first and refuse to
+proceed if they can't.
 
 - **`levels.site_only`** — 1 when the sheet carries no level with this level's
   ID. Recomputed from the sheet's full ID set on every ALL import
@@ -324,25 +358,55 @@ records   (level_id, player_id, percent, hz, video, verified)
 
 `npm run import:aredl-history` (admin panel: Imports → **AREDL history**) walks every
 ALL level that is also ranked on AREDL and pulls `GET /levels/{gd_id}/history`
-from `api.aredl.net/v2`. It writes two tables:
+from `api.aredl.net/v2`. It writes **one** table:
 
 - `aredl_position_history` — the complete raw trace, including the passive ±1
   shifts a level absorbs when *other* levels are placed or removed. ~190k rows.
-  This is what the placement-over-time graph on the level page plots.
-- `position_history` with `source = 'aredl'` — only the level's own moves
-  (`Placed` / `MovedUp` / `MovedDown`), so the changelog shows deliberate
-  placements rather than thousands of knock-on shifts. ~1.8k rows.
+  This is what the placement-over-time graph on the level page plots, and the
+  only place imported AREDL history is allowed to live.
 
-AREDL positions are converted to their equivalent **ALL** placements by linear
-interpolation between the nearest anchors, where an anchor is any level whose
-current AREDL *and* ALL positions we both know. The original AREDL numbers are
-kept in `raw_from_position` / `raw_to_position`, which is what the "AREDL" badge
-tooltip in the changelog shows.
+It used to also write the level's own moves into `position_history` with
+`source = 'aredl'`, converted into equivalent ALL placements, so they appeared
+in the changelog. The result was a changelog where **1,774 of 1,777 entries
+described movements on another site** — the ALL looked like it was reordering
+itself constantly when nobody had moved anything. Those rows are deleted at boot
+(`initSchema`), `loadChanges` excludes the source outright, and the importer no
+longer writes them. A level on this list moves when someone moves it here.
+
+The comparison is still available where it belongs: the level page graph draws
+AREDL's ranks and the ALL's placements as two series **on separate axes** —
+AREDL runs 1…150ish and the ALL 1…54,000, so one shared axis rendered both
+useless. `aredl_position_history.all_position` keeps AREDL ranks converted to
+their ALL equivalent for reference, but nothing plots or places by it: the
+conversion uses *today's* anchor mapping, so an old AREDL rank would be drawn at
+a placement that list never had.
 
 Re-running is idempotent: each level's imported rows are deleted and rewritten,
 so new history lands without duplicating old entries. Native admin moves
-(`source = 'all'`) are never touched. The daily Discord digest filters to
-`source = 'all'` so a backfill can't flood it.
+(`source = 'all'`) are never touched.
+
+## Imported movements
+
+Importing another list surfaces the levels the ALL is *missing* (as pending
+rows). **Admin → Imported moves** is the other half: the levels both lists carry
+and rank differently, in `server/utils/imported-movements.ts`.
+
+Every pair the two lists order differently is a disagreement, which on a list
+sharing 3,900 levels with the ALL is tens of thousands of pairs describing a few
+dozen real problems. What the tab shows instead is the *smallest set of levels
+that would have to move for the two orderings to agree* — everything outside the
+**longest increasing subsequence** of ALL positions read in source-list order.
+That backbone doubles as the anchor set: each row's target is read off the levels
+the two lists already agree about, using the same estimator that places a new
+submission.
+
+- Computed on request (cached 60 s for the badge), never stored — the answer
+  changes every time a level moves or a list is re-imported.
+- "Keep" records a deliberate disagreement in `imported_movement_dismissals`,
+  against the rank that list gives the level *now*. If the source list re-ranks
+  it, the suggestion comes back.
+- Applying re-derives each target immediately before moving, because every move
+  shifts everything it passes and a batch of stale targets would land wrong.
 
 The `records` table is currently empty — the sheet does not expose per-level records. The schema and right-panel UI are in place so a future submissions flow can populate them.
 

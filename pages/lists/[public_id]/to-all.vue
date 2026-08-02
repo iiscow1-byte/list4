@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { estimateFromNeighbours, findAllNeighbours } from '~/utils/tier-ordinal'
+import { anchorsFromItems, estimateAt } from '~/utils/tier-ordinal'
+import { youtubeIdFrom } from '~/utils/level-thumbs'
 
 /**
  * Submit this list's levels to the ALL list in bulk.
@@ -13,7 +14,11 @@ definePageMeta({ layout: 'level' })
 
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
-const { list, base, refresh } = useCustomList(publicId)
+const { list, base, refresh, req } = useCustomList(publicId)
+// The drafts are built from the list during setup, so the list has to be here
+// by then. Without this the server rendered "every level is already on the ALL"
+// and the real rows only appeared after hydration.
+await req
 
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
@@ -37,13 +42,15 @@ const drafts = ref<Draft[]>([])
 /** Rebuild the drafts whenever the list loads or changes underneath us. */
 function seed() {
   const items = list.value?.items ?? []
+  // Read the anchors once for the whole list rather than re-scanning it for
+  // every row — a 250-level list would otherwise walk it 250 times.
+  const anchors = anchorsFromItems(items as any[])
   drafts.value = items
     // A row already linked to an ALL level is by definition already there.
     .map((it: any, idx: number) => ({ it, idx }))
     .filter(({ it }) => it.level_id == null)
     .map(({ it, idx }) => {
-      const { above, below } = findAllNeighbours(items as any[], idx)
-      const est = estimateFromNeighbours(above, below)
+      const est = estimateAt(anchors, idx)
       return {
         item_id: it.id,
         rank: it.rank,
@@ -60,8 +67,10 @@ function seed() {
         basis: est.basis,
       }
     })
+  // Client-only: the date lookup is a third-party round trip, not something a
+  // server render should wait on.
+  if (import.meta.client && drafts.value.length) fillDatesFromVideos()
 }
-watch(list, seed, { immediate: true })
 
 const selected = computed(() => drafts.value.filter((d) => d.selected))
 
@@ -79,6 +88,77 @@ const readyCount = computed(() => selected.value.filter((d) => missing(d).length
 function toggleAll(on: boolean) {
   for (const d of drafts.value) d.selected = on
 }
+
+/**
+ * Fill each row's verification date from its video's upload date.
+ *
+ * The single submit form has done this for one video for a long time; a list
+ * submitted in bulk arrived with every date blank, which made "verify date" the
+ * one thing standing between a curated list and a batch submission. Asked in
+ * chunks of 50 because that's what one YouTube API request covers.
+ */
+const CHUNK = 50
+const datesBusy = ref(false)
+const datesFilled = ref<number | null>(null)
+/** Videos already asked about, so re-seeding the drafts doesn't re-query them. */
+const dateCache = new Map<string, string | null>()
+
+async function fillDatesFromVideos(rows: Draft[] = drafts.value) {
+  if (datesBusy.value) return
+  const wanted = new Map<string, Draft[]>()
+  for (const d of rows) {
+    if (d.verify_date) continue
+    const id = youtubeIdFrom(d.verification_url)
+    if (!id) continue
+    const cached = dateCache.get(id)
+    if (cached !== undefined) {
+      if (cached) d.verify_date = cached
+      continue
+    }
+    const bucket = wanted.get(id)
+    if (bucket) bucket.push(d)
+    else wanted.set(id, [d])
+  }
+  if (!wanted.size) return
+
+  datesBusy.value = true
+  let filled = 0
+  try {
+    const ids = [...wanted.keys()]
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK)
+      const res = await $fetch<{ dates: Record<string, string> }>('/api/youtube/upload-date', {
+        query: { ids: slice.join(',') },
+      })
+      for (const id of slice) {
+        const date = res?.dates?.[id] ?? null
+        dateCache.set(id, date)
+        if (!date) continue
+        for (const d of wanted.get(id) ?? []) {
+          // Never overwrite something typed while the lookup was in flight.
+          if (!d.verify_date) { d.verify_date = date; filled++ }
+        }
+      }
+    }
+    datesFilled.value = filled
+  } catch {
+    // Non-fatal: the dates stay blank and can be typed or bulk-applied.
+  } finally {
+    datesBusy.value = false
+  }
+}
+
+/** A row whose video link is edited by hand gets its own lookup. */
+let rowDateTimer: ReturnType<typeof setTimeout> | null = null
+function onVideoEdited(d: Draft) {
+  if (rowDateTimer) clearTimeout(rowDateTimer)
+  rowDateTimer = setTimeout(() => fillDatesFromVideos([d]), 600)
+}
+
+// Declared after everything `seed` touches: the watcher fires immediately, and
+// a `const` referenced before its own initialiser is a runtime error, not a
+// hoisting convenience.
+watch(list, seed, { immediate: true })
 
 /** One date for the whole batch — usually they were all verified long ago. */
 const bulkDate = ref('')
@@ -183,7 +263,17 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
                 class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 disabled:opacity-40 transition-colors"
                 @click="applyBulkDate"
               >Apply</button>
+              <button
+                type="button"
+                :disabled="datesBusy"
+                class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 disabled:opacity-40 transition-colors"
+                title="Read each blank date from its verification video's upload date"
+                @click="fillDatesFromVideos()"
+              >{{ datesBusy ? 'Reading videos…' : 'From videos' }}</button>
             </div>
+            <span v-if="datesFilled != null && !datesBusy" class="text-[10px] text-zinc-600">
+              {{ datesFilled === 0 ? 'No dates found from the videos.' : `Filled ${datesFilled} from video upload dates.` }}
+            </span>
           </label>
 
           <div class="ml-auto text-right">
@@ -253,7 +343,12 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
                   </label>
                   <label class="block lg:col-span-2">
                     <span class="text-[9px] uppercase tracking-widest text-zinc-600">Verification video</span>
-                    <input v-model="d.verification_url" placeholder="https://youtube.com/…" :class="field" />
+                    <input
+                      v-model="d.verification_url"
+                      placeholder="https://youtube.com/…"
+                      :class="field"
+                      @input="onVideoEdited(d)"
+                    />
                   </label>
                   <div class="grid grid-cols-2 gap-2">
                     <label class="block">

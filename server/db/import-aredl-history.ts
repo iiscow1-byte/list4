@@ -2,22 +2,21 @@
  * AREDL placement-history importer.
  *
  * For every ALL-list level that is also ranked on AREDL, fetches
- * `GET /levels/{gd_id}/history` from api.aredl.net/v2 and stores:
+ * `GET /levels/{gd_id}/history` from api.aredl.net/v2 and stores the full raw
+ * trace in `aredl_position_history` — every event, including the passive ±1
+ * shifts caused by other levels being placed or removed above. That table
+ * powers the placement-over-time graph on the level page and nothing else.
  *
- *   - aredl_position_history — the full raw trace (every event, including the
- *     passive ±1 shifts caused by other levels being placed/removed above).
- *     Powers the position-over-time graph on the level page.
+ * It deliberately does **not** touch `position_history` any more. It used to
+ * write AREDL's own moves there, translated into ALL placements, so they showed
+ * up in the changelog — and the result was a changelog in which 1,774 of 1,777
+ * entries described movements that never happened on this list. AREDL's ranking
+ * is another site's opinion; it belongs on the graph next to ours, not in the
+ * record of what the ALL did. Levels on this list move when someone moves them.
  *
- *   - position_history (source='aredl') — only the level's own moves
- *     (Placed / MovedUp / MovedDown), so the changelog shows deliberate
- *     placements rather than thousands of knock-on shifts. AREDL positions
- *     are converted to their equivalent ALL placements (see below); the raw
- *     AREDL positions are kept in raw_from_position / raw_to_position.
- *
- * AREDL→ALL conversion: the current levels table gives us an anchor mapping
- * (aredl_position → ALL position) for every shared level. A historical AREDL
- * position converts by linear interpolation between the two nearest anchors
- * (exact match → that anchor's ALL position; beyond the ends → clamped).
+ * The `all_position` column keeps AREDL ranks converted to their ALL equivalent
+ * via the current anchor mapping — useful for comparison, never used as a
+ * placement.
  *
  * Idempotent: each level's imported rows are deleted and re-inserted, so
  * re-runs pick up new history without duplicating old entries.
@@ -36,8 +35,6 @@ type HistoryEntry = {
   action_at: string
   cause: { id: string; name: string } | null
 }
-
-const SELF_EVENTS = new Set(['Placed', 'MovedUp', 'MovedDown'])
 
 async function fetchJson<T>(path: string, retries = 6): Promise<T> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
@@ -137,14 +134,11 @@ export async function importAredlHistory() {
       (level_id, gd_id, event, aredl_position, all_position, position_diff, legacy, cause_name, action_at)
     VALUES (?,?,?,?,?,?,?,?,?)
   `)
+  // Anything a previous version of this importer put in the changelog is
+  // cleared out as we go, so re-running is also the repair.
   const delSelf = db.prepare(`DELETE FROM position_history WHERE level_id = ? AND source = 'aredl'`)
-  const insSelf = db.prepare(`
-    INSERT INTO position_history
-      (level_id, from_position, to_position, changed_by, changed_at, source, raw_from_position, raw_to_position)
-    VALUES (?,?,?,NULL,?,'aredl',?,?)
-  `)
 
-  let done = 0, failed = 0, rawRows = 0, selfRows = 0
+  let done = 0, failed = 0, rawRows = 0
   const BATCH = 40
   for (let off = 0; off < targets.length; off += BATCH) {
     const slice = targets.slice(off, off + BATCH)
@@ -168,7 +162,6 @@ export async function importAredlHistory() {
         const entries = [...hist].reverse()
         delRaw.run(lvl.id)
         delSelf.run(lvl.id)
-        let prevAredl: number | null = null
         for (const e of entries) {
           const at = toSqliteUtc(e.action_at)
           const allPos = e.position != null ? convert(e.position) : null
@@ -178,14 +171,6 @@ export async function importAredlHistory() {
             e.legacy ? 1 : 0, e.cause?.name ?? null, at,
           )
           rawRows++
-          if (SELF_EVENTS.has(e.event) && e.position != null && allPos != null) {
-            // 'Placed' → from NULL (an add); moves → from the carried position.
-            const fromAredl = e.event === 'Placed' ? null : prevAredl
-            const fromAll = fromAredl != null ? convert(fromAredl) : null
-            insSelf.run(lvl.id, fromAll, allPos, at, fromAredl, e.position)
-            selfRows++
-          }
-          if (e.position != null) prevAredl = e.position
         }
         done++
       }
@@ -197,7 +182,7 @@ export async function importAredlHistory() {
     console.log(`[aredl-history]   ${Math.min(off + BATCH, targets.length)}/${targets.length} (ok=${done}, failed=${failed})`)
   }
 
-  console.log(`[aredl-history] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${rawRows} trace rows, ${selfRows} changelog rows, ${failed} fetch failures`)
+  console.log(`[aredl-history] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s — ${rawRows} trace rows, ${failed} fetch failures`)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

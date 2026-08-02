@@ -9,11 +9,14 @@ import { getDb } from '~/server/db'
 export default defineEventHandler(() => {
   const db = getDb()
 
+  // Levels added to *this* list. Imported AREDL "Placed" events also carry a
+  // null from_position, so without the source guard the newly-ranked panel
+  // filled up with placements that happened on another site years ago.
   const newLevels = db.prepare(
     `SELECT l.position, l.sheet_placement, l.name, l.gd_id, l.gddl_tier, h.changed_at
        FROM position_history h
        JOIN levels l ON l.id = h.level_id
-      WHERE h.from_position IS NULL
+      WHERE h.from_position IS NULL AND h.source <> 'aredl'
       ORDER BY h.changed_at DESC, h.id DESC
       LIMIT 10`,
   ).all()

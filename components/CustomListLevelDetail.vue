@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { youtubeIdFrom } from '~/utils/level-thumbs'
-import { estimateFromNeighbours, findAllNeighbours } from '~/utils/tier-ordinal'
+import { estimateForItem } from '~/utils/tier-ordinal'
 
 /** Centre panel of a custom list: the selected level in full. */
 const props = defineProps<{
@@ -158,8 +158,7 @@ const estimate = computed(() => {
   const items = props.items ?? []
   const idx = items.findIndex((x: any) => x.id === props.item?.id)
   if (idx === -1) return { placement: null, tier: null, basis: null }
-  const { above, below } = findAllNeighbours(items as any[], idx)
-  return estimateFromNeighbours(above, below)
+  return estimateForItem(items as any[], idx)
 })
 
 /**

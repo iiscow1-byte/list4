@@ -70,7 +70,10 @@ const enjoyment = ref('')
 const skillset = ref('')
 const tagSet = reactive<Record<string, boolean>>({ old: false, uldm: false, buffed: false, nerfed: false, unnerfed: false, easy: false, shitty: false })
 const notes = ref('')
-const placementEstimate = ref<string>('')
+// A custom list's "Submit to the ALL" button already worked out where the level
+// would sit from its neighbours and passes it here; the form used to drop it on
+// the floor and make the submitter guess a number out of 54,000 again.
+const placementEstimate = ref<string>(/^\d{1,7}$/.test(q('placement_estimate', 8)) ? q('placement_estimate', 8) : '')
 const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
 const sameAsAbove = ref(false)
 const isAlternate = ref(false)
@@ -383,8 +386,14 @@ function youtubeId(url: string | null): string | null {
 const ytId = computed(() => youtubeId(verificationUrl.value.trim()))
 
 const dateLoading = ref(false)
+// `immediate` matters: arriving from a custom list or from /levels/find brings
+// the video link in the query string, so `ytId` already has its final value by
+// the time the watcher is registered and would otherwise never fire — which is
+// why prefilled submissions turned up with an empty verification date.
 watch(ytId, async (id) => {
-  if (!id) return
+  // Client-only: a server render firing this would spend a YouTube quota unit
+  // on a result the browser is about to fetch again anyway.
+  if (!id || !import.meta.client) return
   if (verifyDate.value) return
   dateLoading.value = true
   try {
@@ -393,7 +402,7 @@ watch(ytId, async (id) => {
   } catch { /* ignore — user can fill in the date manually */ } finally {
     dateLoading.value = false
   }
-})
+}, { immediate: true })
 
 /**
  * What the form still needs, in the order `submit()` checks it.

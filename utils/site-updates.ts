@@ -22,6 +22,25 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.5.0',
+    date: '2026-08-02',
+    title: 'Placement backups, and the ALL stops borrowing AREDL\'s history',
+    tags: ['Admin', 'Changelog', 'Community', 'Fixes'],
+    changes: [
+      'Admin: download every placement as a file and upload it back to undo. The CSV is editable — retype a few numbers in a spreadsheet and feed it in to move those levels.',
+      'Admin: "Reset to the sheet\'s order" puts every sheet-backed level back where the sheet has it, without re-downloading the sheet. Site-only levels hold their positions.',
+      'Both preview what they would do before anything moves, and save the current placements next to the database first.',
+      'New admin tab, Imported moves: the levels an imported list and the ALL both carry but rank differently, with where that list says each belongs and one button to move it.',
+      'The changelog is the ALL\'s own history again. 1,774 of its 1,777 entries were imported AREDL movements describing another site\'s list; they are gone, and the Newly ranked panel no longer shows placements from 2019.',
+      'Level graphs keep AREDL\'s placement history and now plot the ALL\'s alongside it, each on its own scale — the two were sharing one axis, which made both unreadable.',
+      'Community: search for a player across members, the ALL, AREDL, Pointercrate and GDL at once. Someone who has claimed their leaderboard name is found once, as themselves.',
+      'Fixed: placement and tier estimates collapsed onto one answer. Levels below the lowest-ranked level on a list all reported that level\'s tier, and levels between two known ones all got the same midpoint. Both now follow the list\'s own spacing.',
+      'Fixed: levels submitted from a custom list arrived with no verification date. It is read from the video, in one request for the whole batch.',
+      'Fixed: levels submitted from a custom list arrived with no estimated placement, even though the list had already worked one out.',
+      'Fixed: the bulk submit page told you every level was already on the ALL for a moment before showing the ones that weren\'t.',
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-08-01',
     title: 'Closed for alpha',

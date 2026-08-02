@@ -56,11 +56,11 @@ type PositionHistoryEntry = {
   id: number
   from_position: number | null
   to_position: number
+  /** The same two numbers as the sheet placements the site prints. */
+  from_placement?: number | null
+  to_placement?: number | null
   changed_at: string
   changed_by: string | null
-  source?: string
-  raw_from_position?: number | null
-  raw_to_position?: number | null
 }
 type AredlHistoryEntry = {
   event: string
@@ -1022,22 +1022,26 @@ const historyByDay = computed(() => {
 
 // --- Placement graph series ---
 //
-// Historical ALL placements are deliberately *not* plotted. The only long-run
-// history we have is AREDL's, and converting an old AREDL rank into an ALL
-// placement uses today's anchor mapping — a level at AREDL #50 in 2019 sat at a
-// completely different ALL placement than AREDL #50 does now, so those
-// converted numbers described a list that never existed and made the line
-// wander in ways the level never did. What's left is two series of real
-// observations: moves this site actually recorded, and AREDL's own ranks.
+// Two series of real observations, each on its own scale. Converted numbers are
+// deliberately absent: turning an old AREDL rank into an ALL placement uses
+// *today's* anchor mapping, so a level at AREDL #50 in 2019 would be drawn at
+// the ALL placement AREDL #50 maps to now — a list that never existed.
 
-/** Moves recorded on this site — genuine ALL placements, dated when they happened. */
+/**
+ * This level's ALL placement over time.
+ *
+ * In the numbers the site prints, not internal positions, and always ending at
+ * where the level sits right now — a level that has never been moved still has
+ * a placement, and a graph that omitted it would imply otherwise.
+ */
 const chartAllSeries = computed(() => {
   const pts = (props.level.position_history ?? [])
-    .filter((h) => (h.source ?? 'all') !== 'aredl')
-    .map((h) => ({ at: h.changed_at, position: h.to_position }))
+    .map((h) => ({ at: h.changed_at, position: h.to_placement ?? h.to_position }))
   pts.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
-  // Only extend to "now" when there's real history to extend.
-  if (pts.length) pts.push({ at: new Date().toISOString(), position: props.level.position })
+  pts.push({
+    at: new Date().toISOString(),
+    position: props.level.sheet_placement ?? props.level.position,
+  })
   return pts
 })
 
@@ -1973,20 +1977,12 @@ const chartAredlSeries = computed(() =>
                   title="Moved down"
                 >▼ Moved</span>
 
-                <span
-                  v-if="entry.source === 'aredl'"
-                  class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/50 text-sky-300/90 border border-sky-900/60"
-                  :title="entry.raw_to_position != null
-                    ? `From AREDL history — AREDL ${entry.raw_from_position != null ? '#' + entry.raw_from_position + ' → ' : ''}#${entry.raw_to_position}, converted to ALL placements`
-                    : 'Imported from AREDL history, converted to ALL placements'"
-                >AREDL</span>
-
                 <span class="shrink-0 text-base font-semibold tabular-nums text-zinc-300 ml-auto">
-                  <template v-if="entry.from_position == null">#{{ entry.to_position }}</template>
+                  <template v-if="entry.from_position == null">#{{ entry.to_placement ?? entry.to_position }}</template>
                   <template v-else>
-                    <span class="text-zinc-500">#{{ entry.from_position }}</span>
+                    <span class="text-zinc-500">#{{ entry.from_placement ?? entry.from_position }}</span>
                     <span class="text-zinc-600 mx-1">→</span>
-                    <span class="text-accent">#{{ entry.to_position }}</span>
+                    <span class="text-accent">#{{ entry.to_placement ?? entry.to_position }}</span>
                   </template>
                 </span>
 

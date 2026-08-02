@@ -15,6 +15,7 @@
  * returned array is short of `limit`.
  */
 import { getDb } from './index.ts'
+import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
 
 const API_BASE = process.env.GDL_API_BASE || 'https://api.demonlist.org'
 const PAR = Number(process.env.GDL_PARALLELISM || 8)
@@ -360,15 +361,16 @@ export async function importGdl() {
     verifier_name: string | null; verification_url: string | null
   }>
 
-  const findNeighborAbove = db.prepare(
-    `SELECT position, gdl_position FROM levels
-      WHERE gdl_position IS NOT NULL AND gdl_position < ?
-      ORDER BY gdl_position DESC LIMIT 1`,
-  )
-  const findNeighborBelow = db.prepare(
-    `SELECT position, gdl_position FROM levels
-      WHERE gdl_position IS NOT NULL AND gdl_position > ?
-      ORDER BY gdl_position ASC LIMIT 1`,
+  // Every level the ALL and GDL share, in GDL order — the anchors an estimate
+  // for a GDL-only level is read from.
+  const anchors = buildAnchors(
+    (db.prepare(
+      `SELECT gdl_position AS source_pos, position AS all_pos, gddl_tier AS tier
+         FROM levels
+        WHERE gdl_position IS NOT NULL
+        ORDER BY gdl_position ASC`,
+    ).all() as { source_pos: number; all_pos: number; tier: string | null }[])
+      .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier })),
   )
   const insPending = db.prepare(
     `INSERT INTO pending_levels
@@ -393,21 +395,7 @@ export async function importGdl() {
     for (const lv of gdlOnlyForReview) {
       if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-      const above = findNeighborAbove.get(lv.placement) as { position: number; gdl_position: number } | undefined
-      const below = findNeighborBelow.get(lv.placement) as { position: number; gdl_position: number } | undefined
-      // Linear interpolation against the GDL position. With sparse overlap the
-      // bracket can span hundreds of GDL slots, so a flat midpoint puts every
-      // level in the gap at the same ALL-position regardless of where it sits
-      // on GDL. Scaling by the GDL fraction tracks the source list's gradient.
-      // If only one side has a match (this level is harder/easier than anything
-      // ALL knows about on GDL), nudge by ±1 from that neighbor as a starter.
-      let placementEstimate: number | null = null
-      if (above && below) {
-        const span = below.gdl_position - above.gdl_position
-        const frac = span > 0 ? (lv.placement - above.gdl_position) / span : 0.5
-        placementEstimate = Math.round(above.position + frac * (below.position - above.position))
-      } else if (above) placementEstimate = above.position + 1
-      else if (below) placementEstimate = Math.max(1, below.position - 1)
+      const placementEstimate = estimateForSourcePosition(anchors, lv.placement).placement
 
       const notes = `Imported from GDL · placement #${lv.placement} on ${lv.list_type ?? 'classic'} list`
       const result = insPending.run(

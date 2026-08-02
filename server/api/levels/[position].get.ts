@@ -107,13 +107,19 @@ export default defineEventHandler((event) => {
   // sheet value for display purposes.
   const enjoyment = community.community_enjoyment ?? level.enjoyment
 
+  // This level's own movements. Imported AREDL history is excluded on purpose:
+  // it describes another site's ranking, and it has the graph below to itself.
+  // `*_placement` maps each internal position through whichever level sits
+  // there now, so the history speaks the numbers the site prints.
   const position_history = db
     .prepare(
-      `SELECT h.id, h.from_position, h.to_position, h.changed_at, h.source,
-              h.raw_from_position, h.raw_to_position, a.username AS changed_by
+      `SELECT h.id, h.from_position, h.to_position, h.changed_at,
+              (SELECT sheet_placement FROM levels WHERE position = h.from_position) AS from_placement,
+              (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
+              a.username AS changed_by
        FROM position_history h
        LEFT JOIN accounts a ON a.id = h.changed_by
-       WHERE h.level_id = ?
+       WHERE h.level_id = ? AND h.source <> 'aredl'
        ORDER BY h.changed_at DESC, h.id DESC`,
     )
     .all(level.id)

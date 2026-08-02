@@ -352,21 +352,31 @@ async function importLevels() {
   // `rated` is imported from the sheet only for the 'Challenge' value — every
   // other rating is sourced from the GD API at query time. `points` is skipped
   // entirely; values are derived from gddl_tier + position via recomputePoints().
+  // `sheet_rank` is written alongside `sheet_placement` and is the same number,
+  // but the two answer different questions from then on. `sheet_placement` is
+  // the number the list *prints*, and a placement number belongs to a slot: move
+  // a level and the numbers get handed back out in the new order, so after any
+  // move it no longer records what the sheet said. `sheet_rank` is never
+  // redistributed, so it stays the sheet's own opinion of where this level goes
+  // — which is what "put everything back the way the sheet has it" needs, and
+  // what nothing recorded before.
   const insert = db.prepare(`
     INSERT INTO levels
       (position, name, gd_id, gddl_tier, difficulty, placement_source,
        main_skillset, verify_date, verification, verification_url, pov_placement,
-       year_verified, category, source_tab, rated, sheet_placement)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?)
+       year_verified, category, source_tab, rated, sheet_placement, sheet_rank)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?, ?)
   `)
   // Refreshed on every run for rows that already exist, so a curator
   // renumbering, renaming, or filling in the Level ID shows up without a wipe.
   const updSheetRow = db.prepare(
-    `UPDATE levels SET sheet_placement = ?, name = ?, gd_id = COALESCE(?, gd_id) WHERE id = ?`,
+    `UPDATE levels SET sheet_placement = ?, sheet_rank = ?, name = ?, gd_id = COALESCE(?, gd_id) WHERE id = ?`,
   )
   // A level that has fallen off the sheet keeps its position but must not keep
   // advertising a stale placement — that's what put a "#5" between #19 and #20.
-  const clearSheetPlacement = db.prepare(`UPDATE levels SET sheet_placement = NULL WHERE id = ?`)
+  const clearSheetPlacement = db.prepare(
+    `UPDATE levels SET sheet_placement = NULL, sheet_rank = NULL WHERE id = ?`,
+  )
 
   // Levels that have a permanent counterpart are owned by the website, not the
   // sheet — skip any incoming row matching one of these gd_ids.
@@ -561,7 +571,7 @@ async function importLevels() {
           // The row may have been found by a fallback because the sheet
           // renamed it or filled in its Level ID — write both back so the
           // next run matches on the exact key again.
-          updSheetRow.run(placement, name, gdId, known)
+          updSheetRow.run(placement, placement, name, gdId, known)
           continue
         }
 
@@ -586,6 +596,7 @@ async function importLevels() {
           num(r[c['year verified']!]),
           tab.label,
           sheetRated,
+          placement,
           placement,
         )
         newIds.add(Number(result.lastInsertRowid))

@@ -13,7 +13,7 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'open-verifications' | 'imports' | 'claims' | 'accounts' | 'discord'
+type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'imported-movements' | 'open-verifications' | 'imports' | 'claims' | 'accounts' | 'discord' | 'custom-lists'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
@@ -21,6 +21,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'imported-levels',    label: 'Imported levels', adminOnly: false },
   { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
   { id: 'movements',          label: 'Movements',       adminOnly: false },
+  { id: 'imported-movements', label: 'Imported moves',  adminOnly: false },
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
   { id: 'imports',            label: 'Imports',         adminOnly: true },
   { id: 'claims',             label: 'Claims',          adminOnly: true },
@@ -38,7 +39,7 @@ const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value)
 // (`overflow-x-auto`, which clips the panel vertically as well), and the nav
 // has a `backdrop-blur`, which opens a stacking context the panel's z-index
 // can't escape — so it rendered *behind* the tab content below it.
-const PENDING_TABS: TabId[] = ['levels', 'imported-levels', 'awaiting', 'movements', 'records', 'opinions']
+const PENDING_TABS: TabId[] = ['levels', 'imported-levels', 'awaiting', 'movements', 'imported-movements', 'records', 'opinions']
 const pendingDropdownOpen = ref(false)
 const isPendingTab = computed(() => PENDING_TABS.includes(tab.value))
 
@@ -463,6 +464,154 @@ async function downloadSheetReport(kind: ReportKind) {
   }
 }
 
+/**
+ * Placement snapshots — download the list's order, put one back.
+ *
+ * Every write is previewed first. The preview and the apply are the same
+ * request with one flag flipped, so what the admin approves is exactly what
+ * runs, rather than a summary produced by different code than the write.
+ */
+type RestoreMove = {
+  level_id: number; name: string; gd_id: number | null
+  from_position: number; to_position: number
+  from_placement: number | null; to_placement: number | null
+}
+type RestoreResult = {
+  read?: 'json' | 'csv'
+  generated_at?: string | null
+  backup?: string | null
+  matched: number; unmatched: number; untouched_extra: number
+  moved: number; sample: RestoreMove[]; applied: boolean
+}
+
+const snapshotBusy = ref<'json' | 'csv' | null>(null)
+const snapshotError = ref<string | null>(null)
+
+async function downloadPlacements(format: 'json' | 'csv') {
+  if (snapshotBusy.value) return
+  snapshotBusy.value = format
+  snapshotError.value = null
+  try {
+    const blob = await $fetch<Blob>('/api/admin/placements/export', {
+      query: { format }, responseType: 'blob',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `all-placements-${new Date().toISOString().slice(0, 10)}.${format}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e: any) {
+    snapshotError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Could not build the file.'
+  } finally {
+    snapshotBusy.value = null
+  }
+}
+
+const restoreFileInput = ref<HTMLInputElement | null>(null)
+const restoreFileName = ref<string | null>(null)
+const restoreText = ref<string | null>(null)
+const restorePreview = ref<RestoreResult | null>(null)
+const restoreBusy = ref(false)
+const restoreError = ref<string | null>(null)
+const restoreDone = ref<string | null>(null)
+
+function pickRestoreFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  restorePreview.value = null
+  restoreError.value = null
+  restoreDone.value = null
+  restoreText.value = null
+  restoreFileName.value = file?.name ?? null
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    restoreText.value = String(reader.result ?? '')
+    previewRestore()
+  }
+  reader.onerror = () => { restoreError.value = 'Could not read that file.' }
+  reader.readAsText(file)
+}
+
+/** Send the file as-is; `apply` decides whether the server writes. */
+async function sendRestore(apply: boolean) {
+  if (!restoreText.value || restoreBusy.value) return
+  restoreBusy.value = true
+  restoreError.value = null
+  try {
+    const res = await $fetch<RestoreResult>('/api/admin/placements/restore', {
+      method: 'POST',
+      query: apply ? { apply: '1' } : {},
+      body: restoreText.value,
+      headers: { 'Content-Type': 'text/plain' },
+    })
+    restorePreview.value = res
+    if (apply) {
+      restoreDone.value = res.moved === 0
+        ? 'The list already matched that file — nothing moved.'
+        : `Restored — ${res.moved.toLocaleString()} level${res.moved === 1 ? '' : 's'} moved.`
+        + (res.backup ? ` Previous placements saved as ${res.backup}.` : '')
+      restoreText.value = null
+      restoreFileName.value = null
+      if (restoreFileInput.value) restoreFileInput.value.value = ''
+    }
+  } catch (e: any) {
+    restoreError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    restoreBusy.value = false
+  }
+}
+const previewRestore = () => sendRestore(false)
+
+function applyRestore() {
+  const p = restorePreview.value
+  if (!p) return
+  const warning = p.unmatched > 0
+    ? `\n\n${p.unmatched.toLocaleString()} row(s) in the file match no level here and will be ignored.`
+    : ''
+  if (!confirm(`Move ${p.moved.toLocaleString()} level(s) to match this file?${warning}`)) return
+  sendRestore(true)
+}
+
+// --- Reset to the sheet's order ---
+const sheetResetPreview = ref<RestoreResult | null>(null)
+const sheetResetBusy = ref(false)
+const sheetResetError = ref<string | null>(null)
+const sheetResetDone = ref<string | null>(null)
+
+async function sheetReset(apply: boolean) {
+  if (sheetResetBusy.value) return
+  sheetResetBusy.value = true
+  sheetResetError.value = null
+  if (!apply) sheetResetDone.value = null
+  try {
+    const res = await $fetch<RestoreResult>('/api/admin/placements/reset-to-sheet', {
+      method: 'POST', query: apply ? { apply: '1' } : {},
+    })
+    sheetResetPreview.value = res
+    if (apply) {
+      sheetResetDone.value = res.moved === 0
+        ? 'Already in sheet order — nothing moved.'
+        : `${res.moved.toLocaleString()} level${res.moved === 1 ? '' : 's'} moved back to the sheet's order.`
+        + (res.backup ? ` Previous placements saved as ${res.backup}.` : '')
+      sheetResetPreview.value = null
+    }
+  } catch (e: any) {
+    sheetResetError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    sheetResetBusy.value = false
+  }
+}
+
+function applySheetReset() {
+  const p = sheetResetPreview.value
+  if (!p) return
+  if (!confirm(`Move ${p.moved.toLocaleString()} level(s) back to the order the sheet gives them?`)) return
+  sheetReset(true)
+}
+
 async function clearPending(source: PendingKey) {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
@@ -755,6 +904,10 @@ async function setClaim(u: AdminUser) {
     <!-- Movements tab — pending level-position movement requests -->
     <AdminMovementsReview v-else-if="tab === 'movements'" class="flex-1 min-h-0" />
 
+    <!-- Imported movements — where an imported list orders shared levels
+         differently to the ALL -->
+    <AdminImportedMovements v-else-if="tab === 'imported-movements'" class="flex-1 min-h-0" />
+
     <!-- Open verifications tab — pending unverified-level submissions -->
     <AdminOpenVerificationsReview v-else-if="tab === 'open-verifications'" class="flex-1 min-h-0" />
 
@@ -784,6 +937,120 @@ async function setClaim(u: AdminUser) {
           <p v-if="repairResult" class="mt-2 text-xs" :class="repairResult.startsWith('Failed') ? 'text-red-400' : 'text-emerald-400'">
             {{ repairResult }}
           </p>
+        </section>
+
+        <!-- Placement snapshots -->
+        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <h2 class="text-sm font-semibold text-zinc-100">Placement backups</h2>
+          <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
+            The list's order as a file. Download one before anything risky; upload it back to
+            undo. The CSV is the one to edit — retype a few numbers in a spreadsheet and feed it
+            back in to move those levels.
+          </p>
+
+          <div class="mt-3 flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              :disabled="!!snapshotBusy"
+              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              @click="downloadPlacements('json')"
+            >{{ snapshotBusy === 'json' ? 'Building…' : 'Download placements (JSON)' }}</button>
+            <button
+              type="button"
+              :disabled="!!snapshotBusy"
+              class="rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              title="Editable in a spreadsheet"
+              @click="downloadPlacements('csv')"
+            >{{ snapshotBusy === 'csv' ? 'Building…' : 'Download (CSV)' }}</button>
+          </div>
+          <p v-if="snapshotError" class="mt-2 text-xs text-red-400">{{ snapshotError }}</p>
+
+          <!-- Restore -->
+          <div class="mt-4 pt-4 border-t border-zinc-900">
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="text-xs text-zinc-300 cursor-pointer rounded border border-zinc-700 px-3 py-1.5 hover:border-accent/60 hover:text-accent transition-colors">
+                Choose a placement file…
+                <input
+                  ref="restoreFileInput"
+                  type="file"
+                  accept=".json,.csv,application/json,text/csv,text/plain"
+                  class="hidden"
+                  @change="pickRestoreFile"
+                />
+              </label>
+              <span v-if="restoreFileName" class="text-xs text-zinc-500 truncate max-w-[16rem]">{{ restoreFileName }}</span>
+              <span v-if="restoreBusy" class="text-xs text-zinc-500">Reading…</span>
+            </div>
+
+            <div v-if="restorePreview && !restorePreview.applied" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 p-3">
+              <p class="text-xs text-zinc-300">
+                Read as <span class="text-zinc-100">{{ restorePreview.read?.toUpperCase() }}</span>.
+                <span class="tabular-nums text-zinc-100">{{ restorePreview.matched.toLocaleString() }}</span> matched,
+                <span class="tabular-nums" :class="restorePreview.unmatched ? 'text-amber-300' : 'text-zinc-500'">{{ restorePreview.unmatched.toLocaleString() }}</span> unmatched,
+                <span class="tabular-nums text-zinc-100">{{ restorePreview.moved.toLocaleString() }}</span> would move.
+              </p>
+              <p v-if="restorePreview.untouched_extra > 0" class="text-[11px] text-zinc-600 mt-1">
+                {{ restorePreview.untouched_extra.toLocaleString() }} level(s) here aren't in the file — each keeps the neighbour it currently follows.
+              </p>
+              <ul v-if="restorePreview.sample.length" class="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
+                <li v-for="m in restorePreview.sample" :key="m.level_id" class="text-[11px] text-zinc-500 flex gap-2">
+                  <span class="tabular-nums text-zinc-400 shrink-0">#{{ m.from_position.toLocaleString() }} → #{{ m.to_position.toLocaleString() }}</span>
+                  <span class="truncate text-zinc-300">{{ m.name }}</span>
+                </li>
+              </ul>
+              <button
+                type="button"
+                :disabled="restoreBusy || restorePreview.moved === 0"
+                class="mt-3 rounded bg-amber-500 text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+                @click="applyRestore"
+              >{{ restorePreview.moved === 0 ? 'Nothing to restore' : `Restore ${restorePreview.moved.toLocaleString()} placement(s)` }}</button>
+            </div>
+
+            <p v-if="restoreDone" class="mt-2 text-xs text-emerald-400">{{ restoreDone }}</p>
+            <p v-if="restoreError" class="mt-2 text-xs text-red-400">{{ restoreError }}</p>
+          </div>
+
+          <!-- Back to the sheet's order -->
+          <div class="mt-4 pt-4 border-t border-zinc-900">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h3 class="text-xs font-semibold text-zinc-200">Reset to the sheet's order</h3>
+                <p class="text-[11px] text-zinc-500 mt-0.5 max-w-lg">
+                  Undo every move made here and put the sheet-backed levels back in the sheet's own
+                  order. Site-only levels — the ones the sheet doesn't carry — hold their positions
+                  and the rest flow around them, exactly as a full sheet import leaves things.
+                </p>
+              </div>
+              <button
+                type="button"
+                :disabled="sheetResetBusy"
+                class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+                @click="sheetReset(false)"
+              >{{ sheetResetBusy ? 'Checking…' : 'Preview' }}</button>
+            </div>
+
+            <div v-if="sheetResetPreview" class="mt-3 rounded border border-zinc-800 bg-zinc-900/40 p-3">
+              <p class="text-xs text-zinc-300">
+                <span class="tabular-nums text-zinc-100">{{ sheetResetPreview.moved.toLocaleString() }}</span>
+                of {{ sheetResetPreview.matched.toLocaleString() }} sheet-backed level(s) would move.
+                <span class="text-zinc-600">{{ sheetResetPreview.untouched_extra.toLocaleString() }} anchored.</span>
+              </p>
+              <ul v-if="sheetResetPreview.sample.length" class="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
+                <li v-for="m in sheetResetPreview.sample" :key="m.level_id" class="text-[11px] text-zinc-500 flex gap-2">
+                  <span class="tabular-nums text-zinc-400 shrink-0">#{{ m.from_position.toLocaleString() }} → #{{ m.to_position.toLocaleString() }}</span>
+                  <span class="truncate text-zinc-300">{{ m.name }}</span>
+                </li>
+              </ul>
+              <button
+                type="button"
+                :disabled="sheetResetBusy || sheetResetPreview.moved === 0"
+                class="mt-3 rounded bg-amber-500 text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-amber-400 disabled:opacity-40 transition-colors"
+                @click="applySheetReset"
+              >{{ sheetResetPreview.moved === 0 ? 'Already in sheet order' : `Reset ${sheetResetPreview.moved.toLocaleString()} placement(s)` }}</button>
+            </div>
+            <p v-if="sheetResetDone" class="mt-2 text-xs text-emerald-400">{{ sheetResetDone }}</p>
+            <p v-if="sheetResetError" class="mt-2 text-xs text-red-400">{{ sheetResetError }}</p>
+          </div>
         </section>
 
         <!-- Sheet vs. site reconciliation -->

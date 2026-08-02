@@ -1,5 +1,6 @@
 import { requireAdmin } from '~/server/utils/auth'
 import { isImportRunning, startImport, finishImport, queueImport, isImportQueued, dequeueImport } from '~/server/utils/imports-state'
+import { invalidateImportedMovementSummary } from '~/server/utils/imported-movements'
 import { importPendingList, runImport } from '~/server/db/import'
 import { importGdl } from '~/server/db/import-gdl'
 import { importTsl } from '~/server/db/import-tsl'
@@ -46,6 +47,9 @@ async function runWithQueue(source: string, runner: () => Promise<void>): Promis
     console.error(`[admin/imports] ${source} failed:`, err)
   } finally {
     finishImport(source)
+    // A fresh import is exactly when the ALL and that list can start
+    // disagreeing, so don't make the tab wait out its cache.
+    invalidateImportedMovementSummary()
     if (dequeueImport(source)) {
       startImport(source)
       runWithQueue(source, runner).catch(() => {})

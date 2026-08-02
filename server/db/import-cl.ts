@@ -13,6 +13,7 @@
  */
 import { getDb } from './index.ts'
 import { spawn } from 'node:child_process'
+import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
 
 const API_BASE = process.env.CL_API_BASE || 'https://challengelist.gd/api'
 const REQ_DELAY_MS = Number(process.env.CL_REQ_DELAY_MS || 400)
@@ -89,20 +90,6 @@ type ClDemon = {
   level_id: number | null
   verifier: { id: number; name: string; banned: boolean } | null
   video: string | null
-}
-
-function tierToOrd(label: string | null): number | null {
-  if (!label) return null
-  const sub = label.match(/^Subtier (\d{1,2})$/)
-  if (sub) return Number(sub[1])
-  const t = label.match(/^Tier (\d{1,2})$/)
-  if (t) return 5 + Number(t[1])
-  return null
-}
-function ordToTier(ord: number): string {
-  const r = Math.max(1, Math.round(ord))
-  if (r <= 5) return `Subtier ${r}`
-  return `Tier ${r - 5}`
 }
 
 export async function importCl(): Promise<void> {
@@ -182,30 +169,16 @@ export async function importCl(): Promise<void> {
   console.log(`[cl]   ${onlyHere.length} CL-only levels for pending queue`)
 
   // Shared levels (on CL and ALL list) — used for placement/tier estimation.
-  type Neighbour = { sourcePos: number; allPos: number; tier: string | null }
-  const sharedAll: Neighbour[] = (db.prepare(`
-    SELECT g.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
-      FROM gdtpl_levels g
-      JOIN levels l ON l.gd_id = g.gd_id
-     WHERE g.list_slug = ?
-     ORDER BY g.position ASC
-  `).all(LIST_SLUG) as { source_pos: number; all_pos: number; tier: string | null }[])
-    .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier }))
-  const sharedTiered = sharedAll.filter((n) => n.tier != null && n.tier.trim() !== '')
-
-  function gtIdx(arr: Neighbour[], pos: number): number {
-    let lo = 0, hi = arr.length
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (arr[mid]!.sourcePos <= pos) lo = mid + 1
-      else hi = mid
-    }
-    return lo
-  }
-  function neighboursAt(arr: Neighbour[], pos: number) {
-    const i = gtIdx(arr, pos)
-    return { above: i > 0 ? arr[i - 1]! : null, below: i < arr.length ? arr[i]! : null }
-  }
+  const anchors = buildAnchors(
+    (db.prepare(`
+      SELECT g.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
+        FROM gdtpl_levels g
+        JOIN levels l ON l.gd_id = g.gd_id
+       WHERE g.list_slug = ?
+       ORDER BY g.position ASC
+    `).all(LIST_SLUG) as { source_pos: number; all_pos: number; tier: string | null }[])
+      .map((r) => ({ sourcePos: r.source_pos, allPos: r.all_pos, tier: r.tier })),
+  )
 
   const insPending = db.prepare(`
     INSERT INTO pending_levels
@@ -239,28 +212,10 @@ export async function importCl(): Promise<void> {
       for (const lv of slice) {
         if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-        const { above, below } = neighboursAt(sharedAll, lv.position)
-        let est: number | null = null
-        if (above && below) {
-          // Linear interpolation against the CL position — a flat midpoint
-          // collapses every level in a sparse bracket to the same suggestion.
-          const span = below.sourcePos - above.sourcePos
-          const frac = span > 0 ? (lv.position - above.sourcePos) / span : 0.5
-          est = Math.round(above.allPos + frac * (below.allPos - above.allPos))
-        } else if (above) est = above.allPos + 1
-        else if (below) est = Math.max(1, below.allPos - 1)
+        const guess = estimateForSourcePosition(anchors, lv.position)
+        let est = guess.placement
         if (est === lv.position) est = null
-
-        const { above: tA, below: tB } = neighboursAt(sharedTiered, lv.position)
-        const aOrd = tierToOrd(tA?.tier ?? null)
-        const bOrd = tierToOrd(tB?.tier ?? null)
-        let tier: string | null = null
-        if (aOrd != null && bOrd != null) {
-          const span = tB!.sourcePos - tA!.sourcePos
-          const frac = span > 0 ? (lv.position - tA!.sourcePos) / span : 0.5
-          tier = ordToTier(aOrd + frac * (bOrd - aOrd))
-        } else if (aOrd != null) tier = ordToTier(aOrd)
-        else if (bOrd != null) tier = ordToTier(bOrd)
+        const tier = guess.tier
 
         const res = insPending.run(
           lv.gd_id, lv.name, lv.verification_url, lv.verifier,
