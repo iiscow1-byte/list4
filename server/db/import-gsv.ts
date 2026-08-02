@@ -17,6 +17,7 @@
  * a transient fetch failure for one player doesn't blank their records.
  */
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.GSV_API_BASE || 'https://api.globalstatsviewer.com'
 const PAR = Number(process.env.GSV_PARALLELISM || 8)
@@ -97,7 +98,7 @@ async function fetchAllAccounts(): Promise<SearchEntry[]> {
   return out
 }
 
-export async function importGsv() {
+export async function importGsv(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -107,6 +108,7 @@ export async function importGsv() {
   const userCount = accounts.filter((a) => a.source === 'user').length
   const profileCount = accounts.length - userCount
   console.log(`[gsv]   ${accounts.length} accounts (${userCount} users, ${profileCount} profiles)`)
+  report?.({ phase: 'Fetching records', done: 0, total: accounts.length })
 
   const delPlayerRecords = db.prepare(`DELETE FROM aredl_records WHERE player_uuid = ?`)
 
@@ -175,6 +177,7 @@ export async function importGsv() {
     }
 
     const done = Math.min(off + PERSIST_BATCH, accounts.length)
+    report?.({ done })
     console.log(`[gsv]   ${done}/${accounts.length} accounts processed (recs=${recImported}, failed=${accountsFailed})`)
   }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { SITE_VERSION } from '~/utils/site-updates'
+import { ALL_SHEET_URL } from '~/utils/sheet'
 
 const route = useRoute()
 const { data: meRes } = useCurrentUser()
@@ -118,6 +119,11 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
           <NavMenuItem to="/open-verifications" hint="Unverified levels looking for a verifier">
             <template #icon><NavIcon name="verify" /></template>
             Open verifications
+          </NavMenuItem>
+          <NavMenuSection label="Source" />
+          <NavMenuItem :href="ALL_SHEET_URL" hint="The Google Sheet this list is built from">
+            <template #icon><NavIcon name="sheet" /></template>
+            The ALL sheet
           </NavMenuItem>
         </NavMenu>
 

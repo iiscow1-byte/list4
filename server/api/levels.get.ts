@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { getCurrentAccount, isModRole } from '~/server/utils/auth'
 
 const TIER_ORD_SQL = `
   CASE
@@ -119,9 +120,14 @@ export default defineEventHandler((event) => {
   // Tri-state filter for levels flagged as tentative placements.
   const tentativePlacements = q.tentativePlacements === 'hide' || q.tentativePlacements === 'only' ? q.tentativePlacements : 'show'
   // Levels on the site but not in the source sheet: promoted submissions and
-  // hand-placed additions. `sheet_placement` is cleared for exactly these on
-  // every import, so its absence is the marker.
-  const siteOnly = q.siteOnly === 'hide' || q.siteOnly === 'only' ? q.siteOnly : 'show'
+  // hand-placed additions.
+  //
+  // Moderators only. It answers a question about the sheet's bookkeeping rather
+  // than about the list, and the control is hidden for everyone else — but the
+  // query string is public, so the check belongs here rather than in the nav.
+  const viewer = getCurrentAccount(event)
+  const staff = !!viewer && isModRole(viewer.role)
+  const siteOnly = staff && (q.siteOnly === 'hide' || q.siteOnly === 'only') ? q.siteOnly : 'show'
   const creator = typeof q.creator === 'string' ? q.creator.trim() : ''
   const source = typeof q.source === 'string' ? q.source.trim() : ''
   const verifyFrom = typeof q.verifyFrom === 'string' ? q.verifyFrom.trim() : ''

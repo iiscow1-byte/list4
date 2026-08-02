@@ -412,13 +412,42 @@ watch(ytId, async (id) => {
  * visible before pressing Submit rather than as a one-line error after.
  */
 const requirements = computed(() => [
-  { label: 'Level ID',          ok: /^\d+$/.test(gdId.value.trim()) },
-  { label: 'Level name',        ok: !!name.value.trim() },
-  { label: 'Verifier',          ok: !!verifier.value.trim() },
-  { label: 'Verification date', ok: !!verifyDate.value },
-  { label: 'Verification link', ok: isAdmin.value || !!verificationUrl.value.trim() },
+  { label: 'Level ID',          ok: /^\d+$/.test(gdId.value.trim()), field: 'gd_id' },
+  { label: 'Level name',        ok: !!name.value.trim(),              field: 'name' },
+  { label: 'Verifier',          ok: !!verifier.value.trim(),          field: 'verifier' },
+  { label: 'Verification date', ok: !!verifyDate.value,               field: 'verify_date' },
+  { label: 'Verification link', ok: isAdmin.value || !!verificationUrl.value.trim(), field: 'verification_url' },
 ])
 const missingCount = computed(() => requirements.value.filter((r) => !r.ok).length)
+
+/**
+ * Jump to the field a requirement chip names.
+ *
+ * The chips told you what was missing and left you to find it — and three of
+ * the five live inside collapsed sections, so "Verifier" could be pointing at
+ * something not on screen. Opening the section first is the whole point.
+ */
+function focusField(field: string) {
+  const el = document.querySelector<HTMLElement>(`[data-field="${field}"]`)
+  if (!el) return
+  el.closest('details')?.setAttribute('open', '')
+  nextTick(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.focus({ preventScroll: true })
+  })
+}
+
+/**
+ * The level's own art, once there's an ID to look it up with.
+ *
+ * Submitting the wrong level is the easiest mistake to make on this form and
+ * the hardest to notice afterwards — an ID is eight digits with no meaning. If
+ * the thumbnail is the level you meant, it's the right ID.
+ */
+const previewGdId = computed(() => {
+  const raw = gdId.value.trim()
+  return /^\d{1,12}$/.test(raw) ? Number(raw) : null
+})
 
 async function submit() {
   if (submitting.value) return
@@ -504,16 +533,19 @@ async function submit() {
       <!-- Live requirements, so "what's missing" is answerable without pressing
            Submit and reading a single-line error. -->
       <ul class="mt-4 flex flex-wrap gap-1.5">
-        <li
-          v-for="r in requirements"
-          :key="r.label"
-          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors"
-          :class="r.ok
-            ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
-            : 'border-zinc-800 bg-zinc-900/60 text-zinc-500'"
-        >
-          <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
-          {{ r.label }}
+        <li v-for="r in requirements" :key="r.label">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors"
+            :class="r.ok
+              ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
+              : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:border-amber-800/70 hover:text-amber-300'"
+            :title="r.ok ? `${r.label} — done` : `Go to ${r.label}`"
+            @click="focusField(r.field)"
+          >
+            <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
+            {{ r.label }}
+          </button>
         </li>
       </ul>
     </header>
@@ -525,6 +557,7 @@ async function submit() {
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID <span class="text-red-400">*</span></span>
           <input
             v-model="gdId"
+            data-field="gd_id"
             inputmode="numeric"
             placeholder="e.g. 12345678"
             required
@@ -535,11 +568,39 @@ async function submit() {
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level Name <span class="text-red-400">*</span></span>
           <input
             v-model="name"
+            data-field="name"
             placeholder="Level name"
             required
             class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
         </label>
+      </div>
+
+      <!-- Is this the level you meant? An eight-digit ID isn't checkable by
+           eye; its thumbnail is. -->
+      <div
+        v-if="previewGdId"
+        class="relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950"
+      >
+        <LevelThumbBg
+          :gd-id="previewGdId"
+          :video-url="verificationUrl || null"
+          res="medium"
+          img-class="opacity-40"
+          overlay-class="bg-gradient-to-r from-zinc-950 via-zinc-950/80 to-zinc-950/40"
+        />
+        <div class="relative px-3 py-2.5 flex items-center gap-3">
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-sm font-medium text-zinc-100">{{ name || 'Untitled level' }}</span>
+            <span class="block text-[11px] text-zinc-500 tabular-nums">ID {{ previewGdId }}</span>
+          </span>
+          <a
+            :href="`https://gdbrowser.com/${previewGdId}`"
+            target="_blank"
+            rel="noopener"
+            class="shrink-0 text-[11px] text-zinc-400 hover:text-accent transition-colors"
+          >Open in GDBrowser ↗</a>
+        </div>
       </div>
 
       <!-- Verification -->
@@ -559,6 +620,7 @@ async function submit() {
             </span>
             <input
               v-model="verificationUrl"
+              data-field="verification_url"
               type="url"
               :required="!isAdmin"
               placeholder="https://www.youtube.com/watch?v=…"
@@ -583,6 +645,7 @@ async function submit() {
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier <span class="text-red-400">*</span></span>
               <input
                 v-model="verifier"
+                data-field="verifier"
                 placeholder="Player name"
                 required
                 class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
@@ -595,6 +658,7 @@ async function submit() {
               <div class="relative mt-1">
                 <input
                   v-model="verifyDate"
+                  data-field="verify_date"
                   type="date"
                   :disabled="dateLoading"
                   required

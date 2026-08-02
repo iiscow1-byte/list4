@@ -464,7 +464,10 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     } else {
       flash('ok', 'Submission rejected.')
     }
-    selectedId.value = null
+    // Move to the next submission in the queue, not back to the top. Reviewing
+    // is a pass down a list; every decision used to throw the reviewer back to
+    // row one and make them find their place again.
+    selectedId.value = nextIdAfter(selected.value?.id ?? null)
     placement.value = ''
     tierOverride.value = ''
     difficultyOverride.value = ''
@@ -486,6 +489,79 @@ async function decide(action: 'approve' | 'reject' | 'await') {
     decideLoading.value = false
   }
 }
+
+/**
+ * What a submission still needs before it can go on the list.
+ *
+ * The detail panel used to answer this as six tiles that mostly said "—", so
+ * telling a complete submission from one missing its verifier meant reading all
+ * of them. Naming the gaps is the same move the public submit form makes, and
+ * it's what a reviewer is actually looking for.
+ */
+function missingFields(r: PendingLevel): string[] {
+  const gaps: string[] = []
+  if (r.gd_id == null) gaps.push('level ID')
+  if (!r.name) gaps.push('name')
+  if (!r.verifier) gaps.push('verifier')
+  if (!r.verify_date) gaps.push('verify date')
+  if (!r.verification_url) gaps.push('video')
+  if (!r.gddl_tier) gaps.push('tier')
+  return gaps
+}
+const selectedMissing = computed(() => (selected.value ? missingFields(selected.value) : []))
+
+/** "3d" rather than "2026-07-31 12:04:11" — the queue is scanned, not read. */
+function relativeAge(at: string): string {
+  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return at
+  const secs = Math.max(0, (Date.now() - t) / 1000)
+  if (secs < 3600) return `${Math.max(1, Math.floor(secs / 60))}m`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`
+  const days = Math.floor(secs / 86400)
+  if (days < 30) return `${days}d`
+  const months = Math.floor(days / 30)
+  return months < 12 ? `${months}mo` : `${Math.floor(days / 365)}y`
+}
+
+/** The row after `id` in the queue as it's currently filtered and sorted. */
+function nextIdAfter(id: number | null): number | null {
+  const rows = filteredItems.value
+  if (!rows.length) return null
+  const i = rows.findIndex((r) => r.id === id)
+  if (i === -1) return rows[0]!.id
+  return (rows[i + 1] ?? rows[i - 1] ?? null)?.id ?? null
+}
+
+/**
+ * j/k (and the arrow keys) walk the queue.
+ *
+ * Reviewing an imported queue is a few hundred near-identical decisions, and
+ * every one of them was a trip to the mouse. Ignored while typing, so the
+ * search box and the placement field still work normally.
+ */
+function onReviewKey(e: KeyboardEvent) {
+  const el = e.target as HTMLElement | null
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+  if (e.metaKey || e.ctrlKey || e.altKey) return
+  const rows = filteredItems.value
+  if (!rows.length) return
+  const dir = e.key === 'j' || e.key === 'ArrowDown' ? 1
+    : e.key === 'k' || e.key === 'ArrowUp' ? -1
+      : 0
+  if (!dir) return
+  e.preventDefault()
+  const i = rows.findIndex((r) => r.id === selectedId.value)
+  const next = i === -1 ? 0 : Math.max(0, Math.min(rows.length - 1, i + dir))
+  selectedId.value = rows[next]!.id
+  // Keep the moving selection on screen.
+  nextTick(() => {
+    document.querySelector(`[data-pending-row="${selectedId.value}"]`)
+      ?.scrollIntoView({ block: 'nearest' })
+  })
+}
+onMounted(() => document.addEventListener('keydown', onReviewKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onReviewKey))
 
 function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
@@ -644,8 +720,9 @@ watch(preview, (p) => {
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <div class="flex items-baseline justify-between gap-2 mb-2">
           <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
-          <p class="text-[11px] text-zinc-600 tabular-nums">
+          <p class="text-[11px] text-zinc-600 tabular-nums" title="Press j and k to move through the queue">
             {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> waiting
+            <span class="text-zinc-700 normal-case tracking-normal ml-1">· j/k</span>
           </p>
         </div>
         <div class="flex items-stretch gap-1.5">
@@ -818,6 +895,7 @@ watch(preview, (p) => {
           <li v-for="r in filteredItems" :key="r.id">
             <button
               type="button"
+              :data-pending-row="r.id"
               class="relative w-full overflow-hidden text-left px-2.5 py-2 text-sm rounded-lg transition-all group"
               :class="selectedId === r.id
                 ? 'ring-2 ring-inset ring-accent bg-zinc-900 text-zinc-50'
@@ -835,6 +913,14 @@ watch(preview, (p) => {
               />
 
               <div class="relative font-medium truncate flex items-center gap-1.5">
+                <!-- Ready or not, before anything is clicked. A queue of two
+                     hundred imports is mostly incomplete rows, and finding the
+                     ones worth opening meant opening all of them. -->
+                <span
+                  class="shrink-0 w-1.5 h-1.5 rounded-full"
+                  :class="missingFields(r).length ? 'bg-amber-500/70' : 'bg-emerald-500'"
+                  :title="missingFields(r).length ? `Needs ${missingFields(r).join(', ')}` : 'Has everything it needs'"
+                />
                 <span class="truncate drop-shadow-sm">{{ r.name ?? `Level ${r.gd_id}` }}</span>
                 <span
                   v-if="r.from_open_verification_id"
@@ -884,7 +970,8 @@ watch(preview, (p) => {
                 <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
                 <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
                 <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
-                <span class="text-zinc-700" aria-hidden="true"> · </span>{{ r.submitted_at }}
+                <span class="text-zinc-700" aria-hidden="true"> · </span>
+                <span :title="r.submitted_at">{{ relativeAge(r.submitted_at) }}</span>
               </div>
             </button>
           </li>
@@ -1079,41 +1166,46 @@ watch(preview, (p) => {
           </span>
         </div>
 
-        <!-- Stats grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
-            <a v-if="gdBrowserLink(selected.gd_id)" :href="gdBrowserLink(selected.gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.gd_id }}</a>
-            <div v-else class="text-zinc-600">—</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
-            <div class="text-sm text-zinc-100">{{ selected.verify_date ?? '—' }}</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
-            <div class="text-sm text-zinc-100">
-              {{ selected.gddl_tier || tierOverride || '—' }}
-              <span v-if="selected.gddl_tier && selected.gddl_tier_estimated" class="text-[10px] text-sky-300 ml-1">(estimated)</span>
-              <span v-else-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
-            </div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
-            <div class="text-sm text-zinc-100">
-              {{ selected.difficulty || difficultyOverride || '—' }}
-              <span v-if="!selected.difficulty && difficultyOverride" class="text-[10px] text-zinc-500 ml-1">(auto)</span>
-            </div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
-            <div class="text-sm text-zinc-100">{{ selected.main_skillset ?? '—' }}</div>
-          </div>
-          <div class="bg-zinc-950 p-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
-            <div class="text-sm text-zinc-100 tabular-nums">{{ selected.enjoyment != null ? Number(selected.enjoyment).toFixed(1) : '—' }}</div>
-          </div>
+        <!-- What this submission still needs, then what it has. Six tiles of
+             "—" told a reviewer nothing they could act on. -->
+        <div
+          v-if="selectedMissing.length"
+          class="rounded-md border border-amber-900/50 bg-amber-950/20 px-4 py-3"
+        >
+          <h3 class="text-[10px] uppercase tracking-widest text-amber-300/90 font-medium">Still missing</h3>
+          <p class="text-sm text-amber-100/90 mt-1">{{ selectedMissing.join(', ') }}</p>
+          <p class="text-[11px] text-amber-200/50 mt-1">
+            Fill them in with Edit above, or approve anyway if the list can carry it as it is.
+          </p>
         </div>
+        <div v-else class="rounded-md border border-emerald-900/50 bg-emerald-950/20 px-4 py-2.5">
+          <p class="text-xs text-emerald-300/90">Everything the list needs is filled in.</p>
+        </div>
+
+        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
+          <div class="bg-zinc-950 p-3">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</dt>
+            <dd class="text-sm" :class="selected.verify_date ? 'text-zinc-100' : 'text-amber-400/80'">
+              {{ selected.verify_date ?? 'missing' }}
+            </dd>
+          </div>
+          <div class="bg-zinc-950 p-3">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Tier</dt>
+            <dd class="text-sm" :class="selected.gddl_tier || tierOverride ? 'text-zinc-100' : 'text-amber-400/80'">
+              {{ selected.gddl_tier || tierOverride || 'missing' }}
+              <span v-if="selected.gddl_tier && selected.gddl_tier_estimated" class="text-[10px] text-sky-300 ml-1">est.</span>
+              <span v-else-if="!selected.gddl_tier && tierOverride" class="text-[10px] text-zinc-500 ml-1">auto</span>
+            </dd>
+          </div>
+          <div class="bg-zinc-950 p-3">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</dt>
+            <dd class="text-sm text-zinc-100">{{ selected.main_skillset ?? '—' }}</dd>
+          </div>
+          <div class="bg-zinc-950 p-3">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</dt>
+            <dd class="text-sm text-zinc-100 tabular-nums">{{ selected.enjoyment != null ? Number(selected.enjoyment).toFixed(1) : '—' }}</dd>
+          </div>
+        </dl>
 
         <!-- Verification -->
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60">

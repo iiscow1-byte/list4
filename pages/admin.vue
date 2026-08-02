@@ -350,9 +350,42 @@ const groupsOpen = reactive<Record<string, boolean>>(
   Object.fromEntries(IMPORT_GROUPS.map(g => [g.heading, true])),
 )
 
-const importsStatus = ref<{ pendingCounts: Record<string, number>; running: string[]; queued: string[] }>({
-  pendingCounts: {}, running: [], queued: [],
-})
+type ImportProgress = {
+  phase: string
+  done: number
+  total: number | null
+  startedAt: number
+  updatedAt: number
+}
+const importsStatus = ref<{
+  pendingCounts: Record<string, number>
+  running: string[]
+  queued: string[]
+  progress: Record<string, ImportProgress>
+}>({ pendingCounts: {}, running: [], queued: [], progress: {} })
+
+/** Whole seconds since an import started, for the "running for" readout. */
+const nowTick = ref(Date.now())
+let nowTimer: ReturnType<typeof setInterval> | null = null
+
+function elapsed(ms: number): string {
+  const s = Math.max(0, Math.round((nowTick.value - ms) / 1000))
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  return `${m}m ${String(s % 60).padStart(2, '0')}s`
+}
+
+/**
+ * A percentage, or null when the phase can't count itself.
+ *
+ * Null is a real answer, not a missing one: "fetching the sheet" has no
+ * denominator until the fetch returns, and a bar that invents one is worse than
+ * a bar that says it doesn't know.
+ */
+function progressPct(p: ImportProgress | undefined): number | null {
+  if (!p || p.total == null || p.total <= 0) return null
+  return Math.max(0, Math.min(100, Math.round((p.done / p.total) * 100)))
+}
 const importBusy = reactive<Record<string, boolean>>({})
 
 const totalUnaccepted = computed(() =>
@@ -612,6 +645,57 @@ function applySheetReset() {
   sheetReset(true)
 }
 
+/**
+ * Levels the site owns rather than the sheet, and handing them back.
+ *
+ * `sheet_exclusive_levels` has been reporting the mismatch after every import —
+ * "the sheet describes this level and nothing here represents it" — without
+ * anywhere to act on it. This is that place.
+ */
+type HandoverItem = {
+  level_id: number
+  position: number
+  name: string
+  gd_id: number | null
+  reason: 'permanent' | 'site_only' | 'both'
+  sheet: { name: string; sheet_placement: number | null; gddl_tier: string | null } | null
+}
+const handover = ref<{ items: HandoverItem[]; total: number; matched: number } | null>(null)
+const handoverBusy = ref<number | 'all' | null>(null)
+const handoverNote = ref<string | null>(null)
+const handoverError = ref<string | null>(null)
+
+async function loadHandover() {
+  if (!isAdmin.value) return
+  try {
+    handover.value = await $fetch('/api/admin/sheet-handover')
+  } catch { /* non-fatal */ }
+}
+
+async function handOver(target: number | 'all') {
+  if (handoverBusy.value != null) return
+  const matched = handover.value?.matched ?? 0
+  if (target === 'all' && !confirm(`Hand ${matched} level(s) over to the sheet? Their data is replaced with the sheet's.`)) return
+  handoverBusy.value = target
+  handoverError.value = null
+  handoverNote.value = null
+  try {
+    const res = await $fetch<{ handed_over: number; skipped: number }>(
+      '/api/admin/sheet-handover/apply',
+      { method: 'POST', body: target === 'all' ? { matched: true } : { level_id: target } },
+    )
+    handoverNote.value = res.handed_over === 0
+      ? 'Nothing changed.'
+      : `${res.handed_over} level${res.handed_over === 1 ? '' : 's'} handed to the sheet.`
+        + (res.skipped ? ` ${res.skipped} skipped.` : '')
+    await loadHandover()
+  } catch (e: any) {
+    handoverError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    handoverBusy.value = null
+  }
+}
+
 async function clearPending(source: PendingKey) {
   const count = importsStatus.value.pendingCounts[source] ?? 0
   if (count === 0) { flash('ok', 'Nothing to clear.'); return }
@@ -648,10 +732,14 @@ watch(tab, (t) => {
   // Poll the status endpoint while the imports tab is open so the running
   // indicator and pending counts refresh without the admin reloading.
   if (t === 'imports' && import.meta.client) {
-    importsTimer = setInterval(loadImportsStatus, 5_000)
+    // 1.5s rather than 5s: this now drives a progress bar, and a bar that
+    // steps five times a minute reads as a stall.
+    importsTimer = setInterval(loadImportsStatus, 1_500)
   }
 }, { immediate: true })
 onBeforeUnmount(() => { if (importsTimer) clearInterval(importsTimer) })
+onMounted(() => { nowTimer = setInterval(() => { nowTick.value = Date.now() }, 1_000) })
+onBeforeUnmount(() => { if (nowTimer) clearInterval(nowTimer) })
 
 // --- Notification counts ---
 // Declared before the watch(tab) below so the immediate callback doesn't hit
@@ -665,7 +753,7 @@ watch(tab, (t) => {
   if (t === 'claims')   loadClaims()
   if (t === 'accounts') loadUsers()
   if (t === 'discord')  loadWebhooks()
-  if (t === 'imports')  loadImportsStatus()
+  if (t === 'imports')  { loadImportsStatus(); loadHandover() }
   // Mark tab as seen so its badge clears, and persist to server
   if (liveCounts.value) {
     const n = liveCounts.value[t as keyof typeof liveCounts.value] ?? 0
@@ -939,6 +1027,58 @@ async function setClaim(u: AdminUser) {
           </p>
         </section>
 
+        <!-- Site-owned levels -->
+        <section v-if="handover && handover.total > 0" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 class="text-sm font-semibold text-zinc-100">Levels stored here, not on the sheet</h2>
+              <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
+                Promoted submissions and hand-placed additions. The site owns their data and the
+                importer leaves them alone — right until the curators add them to the sheet, after
+                which the copy here is a stale duplicate. Handing one over takes the sheet's data
+                and gives the importer the row from then on.
+              </p>
+            </div>
+            <button
+              type="button"
+              :disabled="handoverBusy != null || handover.matched === 0"
+              class="shrink-0 rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              @click="handOver('all')"
+            >{{ handoverBusy === 'all' ? 'Handing over…' : `Hand over ${handover.matched} matched` }}</button>
+          </div>
+
+          <p class="mt-2 text-[11px] text-zinc-600 tabular-nums">
+            {{ handover.total }} site-owned · {{ handover.matched }} the sheet already has
+          </p>
+
+          <ul class="mt-3 divide-y divide-zinc-900/60 max-h-64 overflow-y-auto rounded border border-zinc-900">
+            <li v-for="h in handover.items" :key="h.level_id" class="flex items-center gap-3 px-3 py-2">
+              <NuxtLink :to="`/levels/${h.position}`" class="text-xs text-zinc-200 hover:text-accent truncate flex-1">
+                {{ h.name }}
+                <span class="text-zinc-600">#{{ h.position.toLocaleString() }}</span>
+              </NuxtLink>
+              <span
+                class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded border"
+                :class="h.reason === 'site_only'
+                  ? 'border-amber-900/60 bg-amber-950/40 text-amber-300/90'
+                  : 'border-violet-900/60 bg-violet-950/40 text-violet-300/90'"
+              >{{ h.reason === 'site_only' ? 'site only' : h.reason === 'both' ? 'both' : 'permanent' }}</span>
+              <span v-if="h.sheet" class="shrink-0 text-[11px] text-emerald-400/90 tabular-nums">
+                sheet #{{ h.sheet.sheet_placement ?? '—' }}
+              </span>
+              <span v-else class="shrink-0 text-[11px] text-zinc-700">not on the sheet</span>
+              <button
+                type="button"
+                :disabled="handoverBusy != null || !h.sheet"
+                class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-[11px] px-2 py-0.5 disabled:opacity-30 transition-colors"
+                @click="handOver(h.level_id)"
+              >{{ handoverBusy === h.level_id ? '…' : 'Hand over' }}</button>
+            </li>
+          </ul>
+          <p v-if="handoverNote" class="mt-2 text-xs text-emerald-400">{{ handoverNote }}</p>
+          <p v-if="handoverError" class="mt-2 text-xs text-red-400">{{ handoverError }}</p>
+        </section>
+
         <!-- Placement snapshots -->
         <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
           <h2 class="text-sm font-semibold text-zinc-100">Placement backups</h2>
@@ -1144,47 +1284,75 @@ async function setClaim(u: AdminUser) {
 
           <!-- Rows (collapsed when group toggled) -->
           <ul v-if="groupsOpen[group.heading]" class="divide-y divide-zinc-900/60 border-t border-zinc-800">
-            <li
-              v-for="src in group.sources"
-              :key="src.key"
-              class="flex items-center gap-3 px-4 py-2.5"
-            >
-              <!-- Name + running/queued badge -->
-              <div class="flex items-center gap-2 w-44 shrink-0">
-                <span class="text-sm text-zinc-100 font-medium">{{ src.label }}</span>
-                <span
-                  v-if="importsStatus.running.includes(src.key)"
-                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60 animate-pulse"
-                >Running</span>
-                <span
-                  v-else-if="importsStatus.queued.includes(src.key)"
-                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
-                >Queued</span>
+            <li v-for="src in group.sources" :key="src.key" class="px-4 py-2.5">
+              <div class="flex items-center gap-3">
+                <!-- Name + running/queued badge -->
+                <div class="flex items-center gap-2 w-44 shrink-0">
+                  <span class="text-sm text-zinc-100 font-medium">{{ src.label }}</span>
+                  <span
+                    v-if="importsStatus.running.includes(src.key)"
+                    class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"
+                  >Running</span>
+                  <span
+                    v-else-if="importsStatus.queued.includes(src.key)"
+                    class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60"
+                  >Queued</span>
+                </div>
+                <!-- Unaccepted count -->
+                <span class="flex-1 text-xs text-zinc-500 tabular-nums">
+                  <template v-if="src.pendingKey != null">
+                    {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
+                  </template>
+                  <template v-else>
+                    <span class="text-zinc-700">positions only</span>
+                  </template>
+                </span>
+                <!-- Actions -->
+                <div class="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    :disabled="importBusy[src.key] || importsStatus.queued.includes(src.key)"
+                    class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    @click="runImport(src.key)"
+                  >{{ importsStatus.queued.includes(src.key) ? 'Queued' : importsStatus.running.includes(src.key) ? 'Queue' : 'Reimport' }}</button>
+                  <button
+                    v-if="src.pendingKey != null"
+                    type="button"
+                    :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
+                    class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    @click="clearPending(src.pendingKey)"
+                  >Clear</button>
+                </div>
               </div>
-              <!-- Unaccepted count -->
-              <span class="flex-1 text-xs text-zinc-500 tabular-nums">
-                <template v-if="src.pendingKey != null">
-                  {{ importsStatus.pendingCounts[src.pendingKey] ?? 0 }} unaccepted
-                </template>
-                <template v-else>
-                  <span class="text-zinc-700">positions only</span>
-                </template>
-              </span>
-              <!-- Actions -->
-              <div class="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  :disabled="importBusy[src.key] || importsStatus.queued.includes(src.key)"
-                  class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  @click="runImport(src.key)"
-                >{{ importsStatus.queued.includes(src.key) ? 'Queued' : importsStatus.running.includes(src.key) ? 'Queue' : 'Reimport' }}</button>
-                <button
-                  v-if="src.pendingKey != null"
-                  type="button"
-                  :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
-                  class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  @click="clearPending(src.pendingKey)"
-                >Clear</button>
+
+              <!-- Progress. Only while running, and only for this source: an
+                   importer that hasn't reported yet gets an indeterminate bar,
+                   which still separates "working" from "wedged" — the thing the
+                   pulsing chip could never say. -->
+              <div v-if="importsStatus.running.includes(src.key)" class="mt-2">
+                <div class="flex items-baseline justify-between gap-3 text-[11px] mb-1">
+                  <span class="text-zinc-400 truncate">
+                    {{ importsStatus.progress[src.key]?.phase || 'Working…' }}
+                  </span>
+                  <span class="text-zinc-600 tabular-nums shrink-0">
+                    <template v-if="progressPct(importsStatus.progress[src.key]) != null">
+                      {{ importsStatus.progress[src.key]!.done.toLocaleString() }} /
+                      {{ importsStatus.progress[src.key]!.total!.toLocaleString() }}
+                      ({{ progressPct(importsStatus.progress[src.key]) }}%)
+                    </template>
+                    <template v-if="importsStatus.progress[src.key]">
+                      · {{ elapsed(importsStatus.progress[src.key]!.startedAt) }}
+                    </template>
+                  </span>
+                </div>
+                <div class="h-1.5 rounded-full bg-zinc-900 overflow-hidden">
+                  <div
+                    v-if="progressPct(importsStatus.progress[src.key]) != null"
+                    class="h-full rounded-full bg-accent transition-[width] duration-500 ease-out"
+                    :style="{ width: `${progressPct(importsStatus.progress[src.key])}%` }"
+                  />
+                  <div v-else class="h-full w-1/3 rounded-full bg-accent/70 animate-[indeterminate_1.4s_ease-in-out_infinite]" />
+                </div>
               </div>
             </li>
           </ul>

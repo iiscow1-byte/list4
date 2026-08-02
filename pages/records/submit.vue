@@ -50,6 +50,47 @@ watch(selectedLevel, async (l) => {
 
 const canClaimVerification = computed(() => selectedLevel.value != null && !selectedVerifier.value)
 
+/**
+ * The level you picked, shown back to you.
+ *
+ * The picker left a string in a text box, and "#4042 Tempest Tornado" reads the
+ * same whether or not it's the level you meant — the two commonest mistakes on
+ * this form are the wrong variant of a level and a stale preselection from a
+ * `?position=` link. The art, placement and tier make it checkable at a glance.
+ */
+type PickedLevel = {
+  position: number
+  sheet_placement: number | null
+  name: string
+  gd_id: number | null
+  gddl_tier: string | null
+  verification_url: string | null
+}
+const pickedLevel = ref<PickedLevel | null>(null)
+watch(selectedLevel, async (l) => {
+  if (!l) { pickedLevel.value = null; return }
+  try {
+    pickedLevel.value = await $fetch<PickedLevel>(`/api/levels/${l.position}`)
+  } catch {
+    pickedLevel.value = null
+  }
+}, { immediate: true })
+
+/**
+ * What the form still needs. Mirrors the level-submission form, so the two
+ * pages answer "can I press Submit yet?" the same way.
+ */
+const recordRequirements = computed(() => multi.value
+  ? [
+      { label: 'At least one level', ok: rows.value.some((r) => r.selected != null) },
+      { label: 'A video for each', ok: rows.value.filter((r) => r.selected).every((r) => !!r.video.trim()) },
+    ]
+  : [
+      { label: 'Level', ok: selectedLevel.value != null },
+      { label: 'Video link', ok: !!video.value.trim() },
+    ])
+const recordMissing = computed(() => recordRequirements.value.filter((r) => !r.ok).length)
+
 const holderName = ref('')
 const video = ref('')
 const note = ref('')
@@ -303,6 +344,20 @@ async function submit() {
           It counts toward your points
         </li>
       </ol>
+
+      <ul class="mt-3 flex flex-wrap gap-1.5">
+        <li
+          v-for="r in recordRequirements"
+          :key="r.label"
+          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
+          :class="r.ok
+            ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
+            : 'border-zinc-800 bg-zinc-900/60 text-zinc-500'"
+        >
+          <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
+          {{ r.label }}
+        </li>
+      </ul>
     </header>
 
     <form class="space-y-4" @submit.prevent="submit">
@@ -359,6 +414,37 @@ async function submit() {
           </li>
           <li v-if="levelPicker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
         </ul>
+        </div>
+
+        <!-- The level you actually picked. A name in a text box is not proof
+             you have the right one; its art is. -->
+        <div
+          v-if="pickedLevel"
+          class="relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950"
+        >
+          <LevelThumbBg
+            :gd-id="pickedLevel.gd_id"
+            :video-url="pickedLevel.verification_url"
+            res="medium"
+            img-class="opacity-40"
+            overlay-class="bg-gradient-to-r from-zinc-950 via-zinc-950/80 to-zinc-950/40"
+          />
+          <div class="relative px-3 py-2.5 flex items-center gap-3">
+            <span class="shrink-0 tabular-nums text-accent text-sm font-semibold">
+              #{{ (pickedLevel.sheet_placement ?? pickedLevel.position).toLocaleString() }}
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-zinc-100">{{ pickedLevel.name }}</span>
+              <span class="block text-[11px] text-zinc-500">
+                {{ pickedLevel.gddl_tier ?? 'no tier' }}
+                <template v-if="selectedVerifier"> · verified by {{ selectedVerifier }}</template>
+              </span>
+            </span>
+            <NuxtLink
+              :to="`/levels/${pickedLevel.position}`"
+              class="shrink-0 text-[11px] text-zinc-400 hover:text-accent transition-colors"
+            >Open ↗</NuxtLink>
+          </div>
         </div>
 
         <label class="block">

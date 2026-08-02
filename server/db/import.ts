@@ -1,4 +1,5 @@
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 import { recomputePoints } from '../utils/points.ts'
 import { repairSandwichedTiers } from '../utils/tier-repair.ts'
 
@@ -344,7 +345,7 @@ function recordSheetExclusives(db: ReturnType<typeof getDb>, rows: SheetExclusiv
   }
 }
 
-async function importLevels() {
+async function importLevels(report?: ProgressReporter) {
   const db = getDb()
 
   cleanupDuplicateLevels(db)
@@ -488,6 +489,7 @@ async function importLevels() {
   // Sheet rows that never became a level on the site (see recordSheetExclusives).
   const sheetExclusives: SheetExclusiveRow[] = []
 
+  report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length })
   for (const tab of TABS) {
     process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
     const { text, html } = await fetchTabRows(tab.gid)
@@ -503,6 +505,7 @@ async function importLevels() {
     }
     console.log(`${text.length - found.headerIdx - 1} rows`)
     fetched.push({ tab, text, html, cols: c, headerIdx: found.headerIdx })
+    report?.({ done: fetched.length })
 
     for (let i = found.headerIdx + 1; i < text.length; i++) {
       const r = text[i]!
@@ -518,6 +521,8 @@ async function importLevels() {
   }
 
   // --- Phase 2: reconcile the sheet against the database.
+  report?.({ phase: 'Reconciling rows', done: 0, total: fetched.length })
+  let tabsDone = 0
   for (const { tab, text, html, cols: c, headerIdx } of fetched) {
     const found = { headerIdx }
     const sourceCol = c['source'] ?? c['primary source']
@@ -610,6 +615,7 @@ async function importLevels() {
     }
     console.log(`${imported} new`)
     total += imported
+    report?.({ done: ++tabsDone })
   }
 
   // Levels on the site but not in the sheet: promoted submissions, hand-placed
@@ -672,6 +678,7 @@ async function importLevels() {
     `(${siteOnlyStats.changed} reclassified). ${sheetExclusives.length} sheet row(s) not represented here.`,
   )
 
+  report?.({ phase: 'Renumbering by sheet order', done: 0, total: null })
   const orphans = applySheetOrder(db, sheetOrder, {
     newIds,
     recordHistory: hadLevelsBefore,
@@ -689,6 +696,7 @@ async function importLevels() {
   // Points are derived from tier + position; recompute against the freshly
   // settled list ordering so every level (including imports just renumbered)
   // ends up with a current value.
+  report?.({ phase: 'Recomputing points', done: 0, total: null })
   recomputePoints(db)
 
   // Detect natural ties (level has the same points as its position-neighbor
@@ -1184,8 +1192,9 @@ export async function importVoidList() {
   console.log(`${imported} levels`)
 }
 
-export async function importPendingList() {
+export async function importPendingList(report?: ProgressReporter) {
   const db = getDb()
+  report?.({ phase: 'Fetching the pending tab', done: 0, total: null })
   process.stdout.write(`Fetching pending list (gid=${PENDING_LIST_GID})... `)
   const { text, html } = await fetchTabRows(PENDING_LIST_GID)
   const found = findHeaderColumns(text)
@@ -1340,13 +1349,17 @@ export async function importPendingList() {
   }
 }
 
-export async function runImport() {
+export async function runImport(report?: ProgressReporter) {
   const t0 = Date.now()
-  await importLevels()
+  await importLevels(report)
+  report?.({ phase: 'Leaderboard', done: 0, total: null })
   await importLeaderboard()
+  report?.({ phase: 'Stats viewer tab', done: 0, total: null })
   await importStatsViewer()
+  report?.({ phase: 'Void list', done: 0, total: null })
   await importVoidList()
-  await importPendingList()
+  report?.({ phase: 'Pending list', done: 0, total: null })
+  await importPendingList(report)
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
 }
 

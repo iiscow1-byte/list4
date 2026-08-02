@@ -3,6 +3,7 @@
  * the GDListTemplate format. Thin wrapper over the generic gdtpl importer.
  */
 import { importGdtpl, type GdtplListConfig } from './import-gdtpl.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export const SFL_CONFIG: GdtplListConfig = {
   source: 'sfl',
@@ -10,8 +11,8 @@ export const SFL_CONFIG: GdtplListConfig = {
   baseUrl: process.env.SFL_BASE_URL || 'https://straightfly.pages.dev',
 }
 
-export async function importSfl(): Promise<void> {
-  await importGdtpl(SFL_CONFIG)
+export async function importSfl(report?: ProgressReporter): Promise<void> {
+  await importGdtpl(SFL_CONFIG, report)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

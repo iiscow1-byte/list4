@@ -98,42 +98,6 @@ async function load(opts: { keepSelection?: boolean } = {}) {
 }
 onMounted(load)
 
-watch(selectedId, async (id) => {
-  if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
-  if (adminNotesSaveDebounce) { clearTimeout(adminNotesSaveDebounce); adminNotesSaveDebounce = null }
-  placement.value = ''
-  preview.value = null
-  tierOverride.value = ''
-  difficultyOverride.value = ''
-  isDuplicate.value = false
-  duplicateOfId.value = null
-  draftDuplicateOf.value = null
-  isAlternate.value = false
-  alternateOfId.value = null
-  draftAlternateOf.value = null
-  isTentative.value = false
-  adminNotes.value = ''
-  editingVideo.value = false
-  editVideoUrl.value = ''
-  if (id == null) { selected.value = null; return }
-  try {
-    selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
-    if (selected.value?.placement_suggestion != null) {
-      placement.value = String(selected.value.placement_suggestion)
-    }
-    isDuplicate.value = !!selected.value?.same_as_above
-    duplicateOfId.value = selected.value?.duplicate_of_id ?? null
-    isAlternate.value = !!selected.value?.is_alternate
-    alternateOfId.value = selected.value?.alternate_of_id ?? null
-    isTentative.value = !!selected.value?.tentative_placement
-    tierOverride.value = selected.value?.gddl_tier ?? ''
-    difficultyOverride.value = selected.value?.difficulty ?? ''
-    adminNotes.value = selected.value?.admin_notes ?? ''
-  } catch {
-    selected.value = null
-  }
-}, { immediate: true })
-
 let placementDebounce: ReturnType<typeof setTimeout> | null = null
 watch(placement, (v) => {
   if (placementDebounce) clearTimeout(placementDebounce)
@@ -381,6 +345,49 @@ async function submitAllPending() {
 
 const editingVideo = ref(false)
 const editVideoUrl = ref('')
+
+/**
+ * Registered here, not up beside `load()`, because it fires immediately and
+ * clears about fifteen refs — several of which are declared further down this
+ * file. A `const` touched before its own initialiser is a runtime error, and
+ * this one crashed the whole Awaiting tab with "Cannot access 'tierOverride'
+ * before initialization" the moment it was server-rendered.
+ */
+watch(selectedId, async (id) => {
+  if (tierSaveDebounce) { clearTimeout(tierSaveDebounce); tierSaveDebounce = null }
+  if (adminNotesSaveDebounce) { clearTimeout(adminNotesSaveDebounce); adminNotesSaveDebounce = null }
+  placement.value = ''
+  preview.value = null
+  tierOverride.value = ''
+  difficultyOverride.value = ''
+  isDuplicate.value = false
+  duplicateOfId.value = null
+  draftDuplicateOf.value = null
+  isAlternate.value = false
+  alternateOfId.value = null
+  draftAlternateOf.value = null
+  isTentative.value = false
+  adminNotes.value = ''
+  editingVideo.value = false
+  editVideoUrl.value = ''
+  if (id == null) { selected.value = null; return }
+  try {
+    selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
+    if (selected.value?.placement_suggestion != null) {
+      placement.value = String(selected.value.placement_suggestion)
+    }
+    isDuplicate.value = !!selected.value?.same_as_above
+    duplicateOfId.value = selected.value?.duplicate_of_id ?? null
+    isAlternate.value = !!selected.value?.is_alternate
+    alternateOfId.value = selected.value?.alternate_of_id ?? null
+    isTentative.value = !!selected.value?.tentative_placement
+    tierOverride.value = selected.value?.gddl_tier ?? ''
+    difficultyOverride.value = selected.value?.difficulty ?? ''
+    adminNotes.value = selected.value?.admin_notes ?? ''
+  } catch {
+    selected.value = null
+  }
+}, { immediate: true })
 
 // --- Inline metadata edit (mirrors LevelDetail's edit panel for the main list) ---
 const editing = ref(false)

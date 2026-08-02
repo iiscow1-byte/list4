@@ -1,6 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { estimateAt, type EstimateAnchor } from '~/utils/tier-ordinal'
-import { LIST_SOURCES, sourceLabel } from '~/utils/list-source-catalog'
+import { LIST_SOURCES, sourceLabel, sourceShortLabel } from '~/utils/list-source-catalog'
+
+/** "CCL" out of "CCL — Consistency Challenge List", for the per-row wording. */
+function sourceShortName(key: string): string {
+  return sourceShortLabel(key)
+}
 
 /**
  * Where an imported list disagrees with the ALL about the order of levels both
@@ -24,10 +28,21 @@ import { LIST_SOURCES, sourceLabel } from '~/utils/list-source-catalog'
  *
  * ## Where each one would go
  *
- * The backbone doubles as the anchor set: a level's target is read off the
- * agreeing levels around it on the source list, using the same estimator that
- * places a brand-new submission. So the suggestion is "put it where this list
- * says it goes, relative to the levels we already agree about".
+ * The backbone doubles as the anchor set. Each disagreeing level sits between
+ * two backbone levels on the source list, and the suggestion is the *smallest*
+ * move that satisfies that: land it immediately on the far side of the anchor
+ * it has to cross, and no further.
+ *
+ * This replaces an earlier version that interpolated a midpoint between the two
+ * anchors' ALL positions. Midpoints were wrong for the case this tab exists to
+ * serve — a level the imported list has *rearranged* since it was placed here.
+ * If that list now puts it directly after some level, and the ALL happens to
+ * carry forty levels between that one and the next shared level, the imported
+ * list has no opinion about those forty; dropping the level in the middle of
+ * them invents a claim it never made and moves the level twenty places further
+ * than anything asked for. "Directly after the level it now follows" is the
+ * whole of what the source said, and it is what a curator acting on the same
+ * information would do.
  */
 
 export type ImportedMovement = {
@@ -47,6 +62,17 @@ export type ImportedMovement = {
   distance: number
   /** The agreeing levels the suggestion was read from. */
   basis: string | null
+  /**
+   * How firm the target is.
+   *
+   * `exact` — the imported list puts this level directly between two levels the
+   * two lists already agree about, so its new neighbours are not a guess.
+   * `bracketed` — other disagreeing levels share the same gap, so the order
+   * within it is right but the exact slots depend on which is applied first.
+   * `open` — only one side is anchored; the level is past an end of the
+   * overlap and only "after X" or "before Y" is known.
+   */
+  confidence: 'exact' | 'bracketed' | 'open'
   dismissed: boolean
 }
 
@@ -178,6 +204,32 @@ function loadDismissals(db: DatabaseSync, source: string): Map<number, number> {
   return new Map(rows.map((r) => [r.level_id, r.source_position]))
 }
 
+/**
+ * The smallest move that puts a level where the imported list says it goes.
+ *
+ * `above` / `below` are the nearest backbone levels on either side of it in the
+ * *source* list — the ones the two lists already agree about. The level has to
+ * end up between them, and any slot in that window satisfies the source; the
+ * one chosen is the nearest to where the level already is, because everything
+ * beyond that is movement the source never asked for.
+ *
+ * Returns null when the level already satisfies the constraint (it can be
+ * outside the backbone for reasons that don't require it to move).
+ */
+function targetFor(
+  current: number,
+  above: SharedRow | undefined,
+  below: SharedRow | undefined,
+): number | null {
+  // Too low: it must come before `below`, so the nearest legal slot is that
+  // level's own — which pushes it down one and leaves the order right.
+  if (below && current > below.position) return below.position
+  // Too high: it must come after `above`; land on that level's slot, which the
+  // shift leaves directly below it.
+  if (above && current < above.position) return above.position
+  return null
+}
+
 /** Everything `source` would move, in the order worth reading. */
 export function computeImportedMovements(db: DatabaseSync, source: string): {
   items: ImportedMovement[]
@@ -186,18 +238,35 @@ export function computeImportedMovements(db: DatabaseSync, source: string): {
   const shared = sharedWithAll(db, source)
   if (shared.length < 2) return { items: [], shared: shared.length }
 
-  const agreeingIdx = new Set(longestIncreasingRun(shared.map((r) => r.position)))
-
-  // The backbone is the anchor set. Indexed by source rank so a level 300 ranks
-  // below an anchor is placed 300 ranks' worth below it, not merely "after".
-  const anchors: EstimateAnchor[] = []
-  for (const i of agreeingIdx) {
-    const r = shared[i]!
-    anchors.push({ index: r.source_position, placement: r.position, tierOrd: null })
-  }
-  anchors.sort((a, b) => a.index - b.index)
-
+  const agreeing = longestIncreasingRun(shared.map((r) => r.position))
+  const agreeingIdx = new Set(agreeing)
   const dismissals = loadDismissals(db, source)
+
+  // For each row, the nearest backbone row on each side *in source order*.
+  // Walked once rather than searched per row.
+  const aboveOf: (number | undefined)[] = new Array(shared.length)
+  const belowOf: (number | undefined)[] = new Array(shared.length)
+  let lastBackbone: number | undefined
+  for (let i = 0; i < shared.length; i++) {
+    aboveOf[i] = lastBackbone
+    if (agreeingIdx.has(i)) lastBackbone = i
+  }
+  lastBackbone = undefined
+  for (let i = shared.length - 1; i >= 0; i--) {
+    belowOf[i] = lastBackbone
+    if (agreeingIdx.has(i)) lastBackbone = i
+  }
+
+  // How many disagreeing rows share each gap, so a level whose new neighbours
+  // are unambiguous can be told apart from one competing for the same slot.
+  const gapCount = new Map<string, number>()
+  const gapKey = (i: number) => `${aboveOf[i] ?? 'start'}:${belowOf[i] ?? 'end'}`
+  for (let i = 0; i < shared.length; i++) {
+    if (agreeingIdx.has(i)) continue
+    const k = gapKey(i)
+    gapCount.set(k, (gapCount.get(k) ?? 0) + 1)
+  }
+  const gapSeen = new Map<string, number>()
 
   // Position → the placement number that slot prints. Read as one table scan
   // the first time a row needs it: per-row lookups cost milliseconds each,
@@ -219,10 +288,43 @@ export function computeImportedMovements(db: DatabaseSync, source: string): {
   for (let i = 0; i < shared.length; i++) {
     if (agreeingIdx.has(i)) continue
     const r = shared[i]!
-    const est = estimateAt(anchors, r.source_position)
-    if (est.placement == null || est.placement === r.position) continue
+    const above = aboveOf[i] != null ? shared[aboveOf[i]!] : undefined
+    const below = belowOf[i] != null ? shared[belowOf[i]!] : undefined
 
-    const toPlacement = placementAt(est.placement)
+    let target = targetFor(r.position, above, below)
+    if (target == null) continue
+
+    // Several levels moved into the same gap land as a block, in source order.
+    //
+    // Applying is sequential and recomputes between each move, so the list ends
+    // up right whatever numbers are shown here — but showing every one of them
+    // the same target reads as a bug. A group moving up ends against the bottom
+    // of the window, a group moving down against the top, which is where they
+    // actually finish.
+    const key = gapKey(i)
+    const share = gapCount.get(key) ?? 1
+    if (share > 1) {
+      const nth = gapSeen.get(key) ?? 0
+      gapSeen.set(key, nth + 1)
+      const lo = above ? above.position : 1
+      const hi = below ? below.position : Number.MAX_SAFE_INTEGER
+      const movingUp = target < r.position
+      target = movingUp
+        ? Math.max(lo + 1, hi - (share - 1) + nth)
+        : Math.min(hi - 1, lo + nth)
+    }
+    if (target === r.position) continue
+
+    const confidence: ImportedMovement['confidence'] =
+      !above || !below ? 'open' : share > 1 ? 'bracketed' : 'exact'
+
+    const basis = above && below
+      ? `${sourceShortName(source)} puts it between ${above.name} and ${below.name}`
+      : above
+        ? `${sourceShortName(source)} puts it after ${above.name}`
+        : below
+          ? `${sourceShortName(source)} puts it before ${below.name}`
+          : null
 
     items.push({
       level_id: r.level_id,
@@ -232,16 +334,21 @@ export function computeImportedMovements(db: DatabaseSync, source: string): {
       source_position: r.source_position,
       from_position: r.position,
       from_placement: r.sheet_placement,
-      to_position: est.placement,
-      to_placement: toPlacement,
-      distance: est.placement - r.position,
-      basis: est.basis,
+      to_position: target,
+      to_placement: placementAt(target),
+      distance: target - r.position,
+      basis,
+      confidence,
       dismissed: dismissals.get(r.level_id) === r.source_position,
     })
   }
 
-  // Biggest disagreements first — those are the ones worth a decision.
-  items.sort((a, b) => Math.abs(b.distance) - Math.abs(a.distance))
+  // Rows whose new neighbours the source names outright come first — those are
+  // the "this level was rearranged over there" cases, and they're the ones an
+  // admin can act on without thinking. Everything else falls back to size.
+  const rank = { exact: 0, bracketed: 1, open: 2 } as const
+  items.sort((a, b) =>
+    rank[a.confidence] - rank[b.confidence] || Math.abs(b.distance) - Math.abs(a.distance))
   return { items, shared: shared.length }
 }
 

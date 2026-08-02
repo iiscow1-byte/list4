@@ -1,8 +1,14 @@
 /**
- * The lists an admin can spin a custom list out of.
+ * Every list this site imports, in one place.
  *
- * Kept in `utils/` rather than `server/utils/` because both sides need it: the
- * server validates `source` against it, and the admin picker renders from it.
+ * Kept in `utils/` rather than `server/utils/` because three things read it:
+ * the server validates a `source` against it, the admin's "build a list from"
+ * picker renders from it, and the public "Lists used" page enumerates it. That
+ * last one is why the URLs live here — the page used to show only what the
+ * sheet's own "All Demonlists Used" section happened to name, so a list this
+ * site actively mirrors could be missing from the page that claims to list
+ * them. Adding an importer now adds it to that page by construction.
+ *
  * The queries themselves live in `server/utils/list-sources.ts`.
  */
 export type ListSource = {
@@ -12,34 +18,51 @@ export type ListSource = {
   hint: string
   /** Only the ALL list carries the tier / rating data those filters need. */
   supportsFilters: boolean
+  /** Where a reader goes to see the list itself. */
+  url?: string
 }
 
 /**
  * GDListTemplate-backed lists all live in `gdtpl_levels`, keyed by `list_slug`.
  * Adding a newly imported one is a line here.
  */
-const GDTPL_LISTS: { slug: string; label: string; hint: string }[] = [
-  { slug: 'ccl', label: 'CCL — Consistency Challenge List', hint: 'consistencychallenge.pages.dev' },
-  { slug: 'tsl', label: 'TSL — The Shitty List', hint: 'GDListTemplate mirror' },
-  { slug: 'edi', label: 'EDI — Extreme Demon Index', hint: 'GDListTemplate mirror' },
-  { slug: 'ddl', label: 'DDL', hint: 'GDListTemplate mirror' },
-  { slug: 'll',  label: 'LL',  hint: 'GDListTemplate mirror' },
-  { slug: 'tcl', label: 'TCL — Tidal Challenge List', hint: 'GDListTemplate mirror' },
-  { slug: 'sfl', label: 'SFL — Straight Fly List', hint: 'GDListTemplate mirror' },
-  { slug: 'cl',  label: 'CL — Challenge List', hint: 'GDListTemplate mirror' },
+const GDTPL_LISTS: { slug: string; label: string; hint: string; url: string }[] = [
+  { slug: 'ccl', label: 'CCL — Consistency Challenge List', hint: 'consistencychallenge.pages.dev', url: 'https://consistencychallenge.pages.dev' },
+  { slug: 'tsl', label: 'TSL — The Shitty List', hint: 'tslplus.pages.dev', url: 'https://tslplus.pages.dev' },
+  { slug: 'edi', label: 'EDI — Extreme Demon Index', hint: 'edi-d6y.pages.dev', url: 'https://edi-d6y.pages.dev' },
+  { slug: 'ddl', label: 'DDL — Denouement Demonlist', hint: 'denouementdl.vercel.app', url: 'https://denouementdl.vercel.app' },
+  { slug: 'll',  label: 'LL — Layout List',  hint: 'laylist.pages.dev', url: 'https://laylist.pages.dev' },
+  { slug: 'tcl', label: 'TCL — Tiny Challenge List', hint: 'tinychallengelist.pages.dev', url: 'https://tinychallengelist.pages.dev' },
+  { slug: 'sfl', label: 'SFL — Straight Fly List', hint: 'straightfly.pages.dev', url: 'https://straightfly.pages.dev' },
+  { slug: 'cl',  label: 'CL — Challenge List', hint: 'challengelist.gd', url: 'https://challengelist.gd' },
 ]
 
 export const LIST_SOURCES: ListSource[] = [
   { key: 'all', label: 'ALL — the main list', hint: 'Placements as shown on the sheet', supportsFilters: true },
-  { key: 'aredl', label: 'AREDL — All Rated Extreme Demons', hint: 'aredl.net mirror', supportsFilters: false },
-  { key: 'gdl', label: 'GDL — Demonlist', hint: 'gdladder mirror', supportsFilters: false },
-  { key: 'mscl', label: 'MSCL — Super Challenge List', hint: 'mscl.dev mirror', supportsFilters: false },
+  { key: 'aredl', label: 'AREDL — All Rated Extreme Demons', hint: 'aredl.net', supportsFilters: false, url: 'https://aredl.net' },
+  { key: 'gdl', label: 'GDL — Global Demonlist', hint: 'gdladder.com', supportsFilters: false, url: 'https://gdladder.com' },
+  { key: 'mscl', label: 'MSCL — Super Challenge List', hint: 'mscl.dev', supportsFilters: false, url: 'https://mscl.dev' },
   ...GDTPL_LISTS.map((g) => ({
     key: `gdtpl:${g.slug}`,
     label: g.label,
     hint: g.hint,
     supportsFilters: false,
+    url: g.url,
   })),
+]
+
+/**
+ * Sources that feed the site but aren't lists you can build from.
+ *
+ * Pointercrate ranks demons and the Global Stats Viewer supplies records —
+ * neither belongs in the "build a custom list from" picker, and both belong on
+ * the page that says where the site's data comes from. Kept separate rather
+ * than flagged inside `LIST_SOURCES` so nothing that validates a builder source
+ * against that array has to learn about them.
+ */
+export const DATA_SOURCES: { key: string; label: string; hint: string; url: string }[] = [
+  { key: 'pointercrate', label: 'Pointercrate — Demonlist', hint: 'Placements and records', url: 'https://pointercrate.com' },
+  { key: 'gsv', label: 'Global Stats Viewer', hint: 'Player records across lists', url: 'https://globalstatsviewer.com' },
 ]
 
 export function findListSource(key: string): ListSource | undefined {

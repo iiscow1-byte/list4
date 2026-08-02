@@ -3,6 +3,7 @@
  * GDListTemplate format. Thin wrapper over the generic gdtpl importer.
  */
 import { importGdtpl, type GdtplListConfig } from './import-gdtpl.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export const LL_CONFIG: GdtplListConfig = {
   source: 'll',
@@ -10,8 +11,8 @@ export const LL_CONFIG: GdtplListConfig = {
   baseUrl: process.env.LL_BASE_URL || 'https://laylist.pages.dev',
 }
 
-export async function importLl(): Promise<void> {
-  await importGdtpl(LL_CONFIG)
+export async function importLl(report?: ProgressReporter): Promise<void> {
+  await importGdtpl(LL_CONFIG, report)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

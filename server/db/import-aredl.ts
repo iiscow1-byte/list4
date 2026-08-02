@@ -12,6 +12,7 @@
  * unchanged rows and an upsert for changed ones.
  */
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.AREDL_API_BASE || 'https://api.aredl.net/v2/api/aredl'
 // AREDL's rate limiter starts returning 429s above ~4 concurrent requests.
@@ -116,11 +117,12 @@ type AredlLevelDetail = AredlLevelLite & {
 }
 type AredlCreator = { id: string; username: string; global_name: string }
 
-export async function importAredl() {
+export async function importAredl(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
 
+  report?.({ phase: 'Fetching the leaderboard', done: 0, total: null })
   console.log('[aredl] Fetching leaderboard…')
   const lb = await fetchAllPages<LbEntry>('/leaderboard', 200)
   console.log(`[aredl]   ${lb.length} players`)
@@ -130,6 +132,7 @@ export async function importAredl() {
   console.log(`[aredl]   ${levels.length} levels`)
 
   // ---- Persist players first so a later phase failure doesn't lose work ----
+  report?.({ phase: 'Writing players', done: 0, total: lb.length })
   console.log('[aredl] Writing players…')
   const insPlayer = db.prepare(`
     INSERT INTO aredl_players
@@ -174,6 +177,7 @@ export async function importAredl() {
   }
 
   console.log(`[aredl] Fetching per-level detail + creators (${levels.length} × 2)…`)
+  report?.({ phase: 'Fetching level detail', done: 0, total: levels.length })
   const findExisting = db.prepare(`SELECT id, creator, verifier, publisher FROM levels WHERE gd_id = ?`)
   const claimedGdId = db.prepare(`SELECT uuid FROM aredl_levels WHERE gd_id = ?`)
   const mergeExisting = db.prepare(`
@@ -284,6 +288,7 @@ export async function importAredl() {
     }
 
     const done = Math.min(off + PERSIST_BATCH, levels.length)
+    report?.({ done })
     console.log(`[aredl]   ${done}/${levels.length} levels processed (merged=${merged}, aredl-only=${aredlOnly})`)
   }
   console.log(`[aredl] Levels: ${merged} merged into ALL, ${aredlOnly} Aredl-only, ${skippedVariant} duplicate-gd_id variants skipped`)

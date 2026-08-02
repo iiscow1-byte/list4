@@ -3,6 +3,7 @@
  * Thin wrapper over the generic gdtpl importer.
  */
 import { importGdtpl, type GdtplListConfig } from './import-gdtpl.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export const EDI_CONFIG: GdtplListConfig = {
   source: 'edi',
@@ -10,8 +11,8 @@ export const EDI_CONFIG: GdtplListConfig = {
   baseUrl: process.env.EDI_BASE_URL || 'https://edi-d6y.pages.dev',
 }
 
-export async function importEdi(): Promise<void> {
-  await importGdtpl(EDI_CONFIG)
+export async function importEdi(report?: ProgressReporter): Promise<void> {
+  await importGdtpl(EDI_CONFIG, report)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

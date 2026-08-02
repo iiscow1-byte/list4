@@ -1,5 +1,8 @@
 import { requireAdmin } from '~/server/utils/auth'
-import { isImportRunning, startImport, finishImport, queueImport, isImportQueued, dequeueImport } from '~/server/utils/imports-state'
+import {
+  isImportRunning, startImport, finishImport, queueImport, isImportQueued, dequeueImport,
+  setImportProgress, type ProgressReporter,
+} from '~/server/utils/imports-state'
 import { invalidateImportedMovementSummary } from '~/server/utils/imported-movements'
 import { importPendingList, runImport } from '~/server/db/import'
 import { importGdl } from '~/server/db/import-gdl'
@@ -17,31 +20,38 @@ import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importCl } from '~/server/db/import-cl'
 import { importGsv } from '~/server/db/import-gsv'
 
-const RUNNERS: Record<string, () => Promise<void>> = {
-  'sheet':         async () => { await runImport() },
-  'sheet-pending': async () => { await importPendingList() },
-  'gdl':           async () => { await importGdl() },
-  'tsl':           async () => { await importTsl() },
-  'edi':           async () => { await importEdi() },
-  'ccl':           async () => { await importCcl() },
-  'ddl':           async () => { await importDdl() },
-  'll':            async () => { await importLl() },
-  'tcl':           async () => { await importTcl() },
-  'sfl':           async () => { await importSfl() },
-  'mscl':          async () => { await importMscl() },
-  'aredl':         async () => { await importAredl() },
-  'aredl-history': async () => { await importAredlHistory() },
-  'pointercrate':  async () => { await importPointercrate() },
-  'cl':            async () => { await importCl() },
-  'gsv':           async () => { await importGsv() },
+/**
+ * Each runner takes a reporter so the admin panel can show a progress bar
+ * instead of a pulsing "Running" chip that means the same thing at ten seconds
+ * and at ten minutes. Importers that don't report yet simply don't call it, and
+ * the bar stays indeterminate — which is honest.
+ */
+const RUNNERS: Record<string, (report: ProgressReporter) => Promise<void>> = {
+  'sheet':         async (r) => { await runImport(r) },
+  'sheet-pending': async (r) => { await importPendingList(r) },
+  'gdl':           async (r) => { await importGdl(r) },
+  'tsl':           async (r) => { await importTsl(r) },
+  'edi':           async (r) => { await importEdi(r) },
+  'ccl':           async (r) => { await importCcl(r) },
+  'ddl':           async (r) => { await importDdl(r) },
+  'll':            async (r) => { await importLl(r) },
+  'tcl':           async (r) => { await importTcl(r) },
+  'sfl':           async (r) => { await importSfl(r) },
+  'mscl':          async (r) => { await importMscl(r) },
+  'aredl':         async (r) => { await importAredl(r) },
+  'aredl-history': async (r) => { await importAredlHistory(r) },
+  'pointercrate':  async (r) => { await importPointercrate(r) },
+  'cl':            async (r) => { await importCl(r) },
+  'gsv':           async (r) => { await importGsv(r) },
 }
 
 // Runs the import, then checks for a queued follow-up and starts it if needed.
-async function runWithQueue(source: string, runner: () => Promise<void>): Promise<void> {
+async function runWithQueue(source: string, runner: (r: ProgressReporter) => Promise<void>): Promise<void> {
   const t0 = Date.now()
+  const report: ProgressReporter = (patch) => setImportProgress(source, patch)
   try {
     console.log(`[admin/imports] starting ${source}`)
-    await runner()
+    await runner(report)
     console.log(`[admin/imports] finished ${source} in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
   } catch (err) {
     console.error(`[admin/imports] ${source} failed:`, err)

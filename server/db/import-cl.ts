@@ -14,6 +14,7 @@
 import { getDb } from './index.ts'
 import { spawn } from 'node:child_process'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.CL_API_BASE || 'https://challengelist.gd/api'
 const REQ_DELAY_MS = Number(process.env.CL_REQ_DELAY_MS || 400)
@@ -92,11 +93,12 @@ type ClDemon = {
   video: string | null
 }
 
-export async function importCl(): Promise<void> {
+export async function importCl(report?: ProgressReporter): Promise<void> {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
 
+  report?.({ phase: 'Fetching the Challenge List', done: 0, total: null })
   console.log('[cl] Fetching demons from Challenge List API…')
   const rawDemons = await fetchAllPages<ClDemon>('/v1/demons/?limit=100')
   const demons = rawDemons.filter((d) => !d.name.includes('❌'))
@@ -167,6 +169,7 @@ export async function importCl(): Promise<void> {
     verifier: string | null; verification_url: string | null
   }>
   console.log(`[cl]   ${onlyHere.length} CL-only levels for pending queue`)
+  report?.({ phase: 'Queuing new levels for review', done: 0, total: onlyHere.length })
 
   // Shared levels (on CL and ALL list) — used for placement/tier estimation.
   const anchors = buildAnchors(

@@ -22,6 +22,24 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.6.0',
+    date: '2026-08-02',
+    title: 'Imports you can watch, and levels that can go back to the sheet',
+    tags: ['Admin', 'Imports', 'UI', 'Fixes'],
+    changes: [
+      'Imports show a progress bar with the phase and the count, instead of a "Running" chip that meant the same thing at ten seconds and at ten minutes.',
+      'Admin: hand a level stored on this site back to the sheet. It takes the sheet\'s data, drops the site\'s ownership, and the importer owns the row from then on — which is what the sheet-exclusive report has been asking for after every import.',
+      'Imported moves now suggest the smallest move that satisfies the imported list, and name the two levels it puts each one between. A level rearranged over there lands next to its new neighbours here rather than in the middle of levels that list has no opinion about.',
+      'Every list this site imports is on About → Lists used automatically, with how many levels it carries and how many the ALL shares. Adding an importer adds it to the page.',
+      '"Site-only levels" on the main list is a moderator filter now — it answers a question about the sheet\'s bookkeeping, not about the list.',
+      'The List menu has a link straight to the ALL sheet.',
+      'Pending levels: a dot on each queue row says whether it has everything it needs, the detail panel names what\'s missing instead of showing six empty tiles, deciding moves to the next submission instead of back to the top, and j/k walk the queue.',
+      'Submit a level shows the level\'s art once you type an ID, and the checklist chips jump to the field they name — including into collapsed sections.',
+      'Submit a record shows the level you picked, with its art and placement, so the wrong variant is visible before you send it.',
+      'The builder\'s intro collapses, and stays collapsed.',
+    ],
+  },
+  {
     version: '1.5.1',
     date: '2026-08-02',
     title: 'Sharper backgrounds, and a filter that runs before the words land',

@@ -16,6 +16,7 @@
  */
 import { getDb } from './index.ts'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.GDL_API_BASE || 'https://api.demonlist.org'
 const PAR = Number(process.env.GDL_PARALLELISM || 8)
@@ -166,7 +167,7 @@ const numFromStr = (v: number | string | null | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-export async function importGdl() {
+export async function importGdl(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -174,6 +175,7 @@ export async function importGdl() {
   console.log('[gdl] Fetching leaderboard…')
   const players = await fetchAllPlayers()
   console.log(`[gdl]   ${players.length} players`)
+  report?.({ phase: 'Fetching the level list', done: 0, total: null })
 
   console.log('[gdl] Fetching level lists…')
   const [main, extended, advanced, unbounded] = await Promise.all([
@@ -235,6 +237,7 @@ export async function importGdl() {
   // Level detail (creator string, verification user/url) is also a per-level
   // fetch. Both run together in pmap-batches under PAR concurrency.
   console.log(`[gdl] Fetching per-level detail + records (${levels.length} × 2)…`)
+  report?.({ phase: 'Fetching level detail', done: 0, total: levels.length })
   const findExisting = db.prepare(`SELECT id, creator, verifier, publisher FROM levels WHERE gd_id = ?`)
   const mergeExisting = db.prepare(`
     UPDATE levels
@@ -339,6 +342,7 @@ export async function importGdl() {
 
     const done = Math.min(off + PERSIST_BATCH, levels.length)
     console.log(`[gdl]   ${done}/${levels.length} levels processed (merged=${merged}, gdl-only=${gdlOnly}, recs=${recImported})`)
+    report?.({ done })
   }
   console.log(`[gdl] Levels: ${merged} merged into ALL, ${gdlOnly} GDL-only`)
   console.log(`[gdl] Records: ${recImported} imported`)
@@ -347,6 +351,7 @@ export async function importGdl() {
   // rows, autofilled from the API. We run this AFTER the merge loop above so
   // levels.gdl_position is populated everywhere — that's what the placement
   // midpoint search reads. Idempotent via the unique idx on from_gdl_id.
+  report?.({ phase: 'Queuing new levels for review', done: 0, total: null })
   console.log('[gdl] Refreshing pending_levels for GDL-only levels…')
   const gdlOnlyForReview = db.prepare(
     `SELECT gl.gdl_id, gl.gd_id, gl.placement, gl.name, gl.list_type,

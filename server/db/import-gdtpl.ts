@@ -18,6 +18,7 @@
  */
 import { getDb } from './index.ts'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export type GdtplListConfig = {
   /** Short stable identifier — e.g. 'tsl'. Used as the gdtpl_levels.list_slug. */
@@ -101,7 +102,7 @@ function firstId(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
+export async function importGdtpl(cfg: GdtplListConfig, report?: ProgressReporter): Promise<void> {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -109,18 +110,26 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   const par = cfg.parallelism ?? 8
   const baseData = cfg.baseUrl.replace(/\/+$/, '') + '/data'
 
+  report?.({ phase: `Fetching ${cfg.displayName}`, done: 0, total: null })
   console.log(`${tag} Fetching _list.json (${cfg.displayName})…`)
   const slugs = await fetchJson<string[]>(`${baseData}/_list.json`)
   console.log(`${tag}   ${slugs.length} slugs`)
 
   console.log(`${tag} Fetching per-level JSON…`)
+  report?.({ phase: 'Fetching levels', done: 0, total: slugs.length })
+  let fetchedCount = 0
   type FetchedLevel = { slug: string; position: number; data: GdtplLevelJson | null }
   const fetched = await pmap<string, FetchedLevel>(slugs, par, async (slug, i) => {
+    // Reported inside the worker: `pmap` resolves out of order, so counting
+    // completions is the only honest measure of "how far along is this".
+    const tick = () => report?.({ done: ++fetchedCount })
     try {
       const data = await fetchJson<GdtplLevelJson>(`${baseData}/${encodeURIComponent(slug)}.json`)
+      tick()
       return { slug, position: i + 1, data }
     } catch (err) {
       console.warn(`${tag}   warn: failed to fetch ${slug}.json: ${(err as Error).message}`)
+      tick()
       return { slug, position: i + 1, data: null }
     }
   })
@@ -161,6 +170,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   `)
 
   let upserted = 0, mergedExisting = 0
+  report?.({ phase: 'Storing levels', done: 0, total: ok.length })
   db.exec('BEGIN')
   try {
     for (const f of ok) {
@@ -213,6 +223,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   // Surface levels not yet on the ALL list as pending_levels rows under
   // from_gdtpl_id so they appear in the admin "Imported levels" tab. Levels
   // already on the ALL list are skipped here (the merge above already happened).
+  report?.({ phase: 'Matching against the ALL', done: 0, total: null })
   console.log(`${tag} Refreshing pending_levels for ${cfg.source}-only levels…`)
   const onlyHere = db.prepare(
     `SELECT g.id, g.gd_id, g.position, g.name, g.author, g.verifier, g.verification_url
@@ -289,6 +300,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
   // whole loop and there are no awaits). 100 rows/batch keeps each blocking
   // window short enough that HTTP requests stay responsive.
   const BATCH_SIZE = 100
+  report?.({ phase: 'Queuing new levels for review', done: 0, total: onlyHere.length })
   for (let i = 0; i < onlyHere.length; i += BATCH_SIZE) {
     const slice = onlyHere.slice(i, i + BATCH_SIZE)
     db.exec('BEGIN')
@@ -327,6 +339,7 @@ export async function importGdtpl(cfg: GdtplListConfig): Promise<void> {
       db.exec('ROLLBACK')
       throw err
     }
+    report?.({ done: Math.min(i + BATCH_SIZE, onlyHere.length) })
     // Hand control back to the event loop so the running HTTP server can
     // serve requests between write batches.
     await new Promise<void>((r) => setImmediate(r))

@@ -4,6 +4,7 @@
  * importer.
  */
 import { importGdtpl, type GdtplListConfig } from './import-gdtpl.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export const TCL_CONFIG: GdtplListConfig = {
   source: 'tcl',
@@ -11,8 +12,8 @@ export const TCL_CONFIG: GdtplListConfig = {
   baseUrl: process.env.TCL_BASE_URL || 'https://tinychallengelist.pages.dev',
 }
 
-export async function importTcl(): Promise<void> {
-  await importGdtpl(TCL_CONFIG)
+export async function importTcl(report?: ProgressReporter): Promise<void> {
+  await importGdtpl(TCL_CONFIG, report)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

@@ -17,6 +17,7 @@
  * browser User-Agent which is enough to pass through the standard challenge.
  */
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 import { spawn } from 'node:child_process'
 
 const API_BASE = process.env.POINTERCRATE_API_BASE || 'https://pointercrate.com/api'
@@ -147,7 +148,7 @@ type PcRankedPlayer = {
   nationality: { country_code: string; nation: string; subdivision: string | null } | null
 }
 
-export async function importPointercrate() {
+export async function importPointercrate(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -159,6 +160,7 @@ export async function importPointercrate() {
   console.log('[pc] Fetching all demons (id → gd_id map)…')
   const allDemons = await fetchAllPages<PcDemon>('/v2/demons/?limit=100')
   console.log(`[pc]   ${allDemons.length} demons`)
+  report?.({ phase: 'Writing demons', done: 0, total: allDemons.length })
 
   // Backfill levels.pointercrate_position + creator/verifier/publisher (only-if-empty)
   // for ranked demons (1..extended_list_size). Legacy demons skip the level
@@ -204,6 +206,7 @@ export async function importPointercrate() {
   console.log('[pc] Fetching ranked players…')
   const players = await fetchAllPages<PcRankedPlayer>('/v1/players/ranking/?limit=100')
   console.log(`[pc]   ${players.length} ranked players`)
+  report?.({ phase: 'Writing players', done: 0, total: players.length })
 
   const insPlayer = db.prepare(`
     INSERT INTO pointercrate_players

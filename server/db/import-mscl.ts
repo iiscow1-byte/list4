@@ -1,4 +1,5 @@
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 /**
  * MSCL — Mooncandy's Super Challenge List (https://mscl.dev).
@@ -72,7 +73,7 @@ async function fetchAllDemons(): Promise<MsclDemon[]> {
   return out
 }
 
-export async function importMscl() {
+export async function importMscl(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -80,6 +81,7 @@ export async function importMscl() {
   console.log('[mscl] Fetching listed demons…')
   const demons = await fetchAllDemons()
   console.log(`[mscl]   ${demons.length} entries`)
+  report?.({ phase: 'Writing levels', done: 0, total: demons.length })
   if (!demons.length) {
     console.warn('[mscl] nothing returned — leaving existing data alone')
     return

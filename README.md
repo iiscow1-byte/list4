@@ -13,7 +13,7 @@ An AREDL-style ranking site for the **All Levels List** — tens of thousands of
   - `/builder` — the list builder: drag levels out of the ALL list (or type your own), then save and share
   - `/lists` — gallery of published lists; `/lists/:public_id` — one list
   - `/community` — activity from people you follow, newly ranked levels, latest records, fresh lists
-  - `/changelog` — placements and movements, filterable by source (native vs imported AREDL history)
+  - `/changelog` — this list's own placements and movements
   - `/leaderboard` — players from the sheet's leaderboard tab
   - `/about` — intro, FAQ, stats, and the demonlists used
 
@@ -440,6 +440,42 @@ Re-running is idempotent: each level's imported rows are deleted and rewritten,
 so new history lands without duplicating old entries. Native admin moves
 (`source = 'all'`) are never touched.
 
+## Handing a level back to the sheet
+
+A level is here in one of two ways. Most are the sheet's — the importer owns the
+row and renumbers it on every run. Some are the site's: promoted submissions,
+AREDL promotions, hand-placed additions, carrying `permanent = 1` (the importer
+skips them) or `site_only = 1` (no sheet row has their ID).
+
+The second kind is meant to be temporary, and `sheet_exclusive_levels` has been
+reporting the moment it stops being true — "the sheet describes this level and
+nothing here represents it" — with nowhere to act on it. **Admin → Imports →
+Levels stored here, not on the sheet** (`server/utils/sheet-handover.ts`) is that
+place: it takes the sheet's data, clears both ownership flags, and drops the
+sheet-exclusive record.
+
+The sheet's number goes into `sheet_rank`, **not** `sheet_placement`. Placement
+is what the slot prints and has to climb as you read down the list; writing the
+sheet's 12,345 onto a level currently at position 300 would put a `#12345`
+between `#299` and `#301`. Rank is the sheet's opinion of where it belongs, which
+is what the next import — or "Reset to the sheet's order" — reads to actually
+move it.
+
+The reverse is deliberately not offered: turning a sheet row into a site-owned
+one is what `permanent` already means, and doing it by hand would silently freeze
+a level against every future import.
+
+## Import progress
+
+Importers take an optional `ProgressReporter` (`server/utils/imports-state.ts`)
+and the admin panel renders it as a bar. Passed in rather than looked up: several
+sources can import at once, and a module-level "current import" would attribute
+one's progress to another. Optional everywhere, because the same importers run
+standalone from the CLI where nobody is watching.
+
+`total: null` means the phase can't count itself yet — a fetch that hasn't
+returned. The bar goes indeterminate rather than inventing a percentage.
+
 ## Imported movements
 
 Importing another list surfaces the levels the ALL is *missing* (as pending
@@ -451,9 +487,19 @@ sharing 3,900 levels with the ALL is tens of thousands of pairs describing a few
 dozen real problems. What the tab shows instead is the *smallest set of levels
 that would have to move for the two orderings to agree* — everything outside the
 **longest increasing subsequence** of ALL positions read in source-list order.
-That backbone doubles as the anchor set: each row's target is read off the levels
-the two lists already agree about, using the same estimator that places a new
-submission.
+That backbone doubles as the anchor set, and each row's target is the **smallest**
+move that satisfies it: land the level immediately on the far side of the anchor
+it has to cross, and no further.
+
+That replaced a midpoint interpolation, which was wrong for the case the tab
+exists to serve — a level the imported list has *rearranged* since it was placed
+here. If that list now puts it directly after some level and the ALL happens to
+carry forty levels between that one and the next shared level, the imported list
+has no opinion about those forty; dropping it in the middle of them invents a
+claim it never made and moves the level further than anything asked for. Rows
+carry a `confidence` (`exact` / `bracketed` / `open`) and are sorted by it, so
+the ones whose new neighbours are known come first whether they moved four places
+or four thousand.
 
 - Computed on request (cached 60 s for the badge), never stored — the answer
   changes every time a level moves or a list is re-imported.

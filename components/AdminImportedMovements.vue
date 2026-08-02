@@ -9,6 +9,11 @@ import { tierColor, textOn } from '~/utils/tier-colors'
  * the other half: the levels both lists carry, ordered differently. Rows are
  * the smallest set that would have to move for the two orderings to agree, so
  * the list is short enough to actually work through.
+ *
+ * Sorted by how firm the answer is, not by how big the move is. A level the
+ * source list has rearranged since it was placed here has known new
+ * neighbours — that's an `exact` row, it's the case this tab is for, and it
+ * belongs at the top whether it moved four places or four thousand.
  */
 type Movement = {
   level_id: number
@@ -22,6 +27,7 @@ type Movement = {
   to_placement: number | null
   distance: number
   basis: string | null
+  confidence: 'exact' | 'bracketed' | 'open'
   dismissed: boolean
 }
 type SourceSummary = {
@@ -266,12 +272,21 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
             >{{ shortTier(m.gddl_tier) }}</span>
 
             <div class="min-w-0 flex-1">
-              <NuxtLink
-                :to="`/levels/${m.from_position}`"
-                class="text-sm font-medium text-zinc-100 hover:text-accent transition-colors truncate block"
-              >{{ m.name }}</NuxtLink>
+              <span class="flex items-baseline gap-2">
+                <NuxtLink
+                  :to="`/levels/${m.from_position}`"
+                  class="text-sm font-medium text-zinc-100 hover:text-accent transition-colors truncate"
+                >{{ m.name }}</NuxtLink>
+                <span
+                  v-if="m.confidence !== 'exact'"
+                  class="shrink-0 text-[9px] uppercase tracking-widest px-1 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-500"
+                  :title="m.confidence === 'bracketed'
+                    ? 'Other levels are moving into the same gap — the order is right, the exact slots settle as each is applied'
+                    : 'Only one side is anchored, so this is “after X” rather than a slot between two known levels'"
+                >{{ m.confidence }}</span>
+              </span>
               <p class="text-[11px] text-zinc-600 truncate">
-                {{ current?.label.split(' — ')[0] }} #{{ m.source_position.toLocaleString() }}
+                #{{ m.source_position.toLocaleString() }} on the list
                 <template v-if="m.basis"> · {{ m.basis }}</template>
               </p>
             </div>

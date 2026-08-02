@@ -2,6 +2,7 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
 import { SITE_VERSION } from '~/utils/site-updates'
+import { ALL_SHEET_URL } from '~/utils/sheet'
 
 /**
  * About &amp; stats.
@@ -52,12 +53,46 @@ const tab = ref<Tab>(
 )
 watch(tab, (v) => router.replace({ query: { ...route.query, tab: v === 'about' ? undefined : v } }))
 
-const listsSearch = ref('')
-const filteredLists = computed(() => {
-  const q = listsSearch.value.trim().toLowerCase()
-  if (!q) return landing.value?.lists ?? []
-  return (landing.value?.lists ?? []).filter((l) => l.name.toLowerCase().includes(q))
+/**
+ * Every list the ALL draws from.
+ *
+ * Two sources, merged: the lists this site actually imports (generated from the
+ * importer catalogue, so it can't fall behind) and the names the sheet's own
+ * "All Demonlists Used" section carries. The sheet names many lists nobody
+ * mirrors — those still belong here — but the ones the site pulls live are the
+ * ones with a number next to them, and they used to be missing entirely unless
+ * the sheet happened to mention them too.
+ */
+type ImportedSource = {
+  key: string; label: string; hint: string; url: string | null
+  levels: number; shared: number | null
+}
+const { data: sourceData } = await useFetch<{ sources: ImportedSource[] }>('/api/list-sources')
+
+const importedSources = computed(() => sourceData.value?.sources ?? [])
+
+/** Sheet-named lists the site doesn't import, deduped against the ones it does. */
+const otherLists = computed(() => {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const known = new Set<string>()
+  for (const s of importedSources.value) {
+    known.add(norm(s.label))
+    // "CCL — Consistency Challenge List" should also match a sheet entry of
+    // either "CCL" or "Consistency Challenge List".
+    for (const part of s.label.split(' — ')) known.add(norm(part))
+  }
+  return (landing.value?.lists ?? []).filter((l) => !known.has(norm(l.name)))
 })
+
+const listsSearch = ref('')
+function matches(text: string): boolean {
+  const q = listsSearch.value.trim().toLowerCase()
+  return !q || text.toLowerCase().includes(q)
+}
+const shownImported = computed(() => importedSources.value.filter((s) => matches(s.label)))
+const shownOther = computed(() => otherLists.value.filter((l) => matches(l.name)))
+const totalLists = computed(() => importedSources.value.length + otherLists.value.length)
+
 
 useHead({ title: 'About & stats — The All Levels List' })
 
@@ -149,7 +184,7 @@ const coveragePct = computed(() => {
             class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
           >Changelog</NuxtLink>
           <a
-            href="https://docs.google.com/spreadsheets/d/1ZRsTUeX4XRCLMcMbyacbk5dkZv8lild8F0zZNs6DGn4"
+            :href="ALL_SHEET_URL"
             target="_blank"
             rel="noopener noreferrer"
             class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
@@ -387,7 +422,7 @@ const coveragePct = computed(() => {
           <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">All demonlists used</h2>
           <p class="text-[11px] text-zinc-500 mt-1">
             Every list the ALL draws placements from.
-            <span v-if="landing?.lists?.length" class="tabular-nums text-zinc-600">{{ landing.lists.length }} total.</span>
+            <span v-if="totalLists" class="tabular-nums text-zinc-600">{{ totalLists }} total.</span>
           </p>
         </div>
         <input
@@ -398,22 +433,64 @@ const coveragePct = computed(() => {
         />
       </div>
 
-      <p v-if="filteredLists.length === 0" class="text-sm text-zinc-500 py-8 text-center">No matching lists.</p>
-      <ul v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
-        <li v-for="(l, i) in filteredLists" :key="`l-${i}`" class="bg-zinc-950">
-          <a
-            v-if="l.href"
-            :href="l.href"
-            target="_blank"
-            rel="noopener"
-            class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-zinc-200 hover:text-accent hover:bg-zinc-900/70 transition-colors group"
-          >
-            <span class="truncate">{{ l.name }}</span>
-            <span class="text-zinc-600 group-hover:text-accent text-xs shrink-0">↗</span>
-          </a>
-          <span v-else class="block px-3 py-2.5 text-sm text-zinc-500">{{ l.name }}</span>
-        </li>
-      </ul>
+      <!-- Imported live. Generated from the importers, so this section is
+           complete by construction rather than by anyone remembering. -->
+      <section v-if="shownImported.length" class="space-y-2">
+        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+          Imported by this site
+          <span class="text-zinc-700 normal-case tracking-normal">— kept in sync automatically</span>
+        </h3>
+        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
+          <li v-for="s in shownImported" :key="s.key" class="bg-zinc-950">
+            <component
+              :is="s.url ? 'a' : 'div'"
+              v-bind="s.url ? { href: s.url, target: '_blank', rel: 'noopener' } : {}"
+              class="flex items-center gap-3 px-3 py-2.5 group"
+              :class="s.url ? 'hover:bg-zinc-900/70 transition-colors' : ''"
+            >
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm" :class="s.url ? 'text-zinc-200 group-hover:text-accent transition-colors' : 'text-zinc-300'">
+                  {{ s.label }}
+                </span>
+                <span class="block truncate text-[10px] text-zinc-600">{{ s.hint }}</span>
+              </span>
+              <span v-if="s.levels" class="shrink-0 text-right tabular-nums">
+                <span class="block text-[11px] text-zinc-400">{{ s.levels.toLocaleString() }} levels</span>
+                <span v-if="s.shared != null && s.key !== 'all'" class="block text-[10px] text-zinc-600">
+                  {{ s.shared.toLocaleString() }} on the ALL
+                </span>
+              </span>
+              <span v-if="s.url" class="shrink-0 text-zinc-700 group-hover:text-accent text-xs">↗</span>
+            </component>
+          </li>
+        </ul>
+      </section>
+
+      <!-- Named on the sheet, not mirrored here. -->
+      <section v-if="shownOther.length" class="space-y-2">
+        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+          Also credited on the sheet
+        </h3>
+        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
+          <li v-for="(l, i) in shownOther" :key="`l-${i}`" class="bg-zinc-950">
+            <a
+              v-if="l.href"
+              :href="l.href"
+              target="_blank"
+              rel="noopener"
+              class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-zinc-200 hover:text-accent hover:bg-zinc-900/70 transition-colors group"
+            >
+              <span class="truncate">{{ l.name }}</span>
+              <span class="text-zinc-600 group-hover:text-accent text-xs shrink-0">↗</span>
+            </a>
+            <span v-else class="block px-3 py-2.5 text-sm text-zinc-500">{{ l.name }}</span>
+          </li>
+        </ul>
+      </section>
+
+      <p v-if="!shownImported.length && !shownOther.length" class="text-sm text-zinc-500 py-8 text-center">
+        No matching lists.
+      </p>
     </div>
   </div>
 </template>

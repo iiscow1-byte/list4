@@ -22,6 +22,7 @@
  * re-runs pick up new history without duplicating old entries.
  */
 import { getDb } from './index.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.AREDL_API_BASE || 'https://api.aredl.net/v2/api/aredl'
 // AREDL's rate limiter starts returning 429s above ~4 concurrent requests.
@@ -109,7 +110,7 @@ export function buildAredlToAllConverter(
   }
 }
 
-export async function importAredlHistory() {
+export async function importAredlHistory(report?: ProgressReporter) {
   const t0 = Date.now()
   const db = getDb()
 
@@ -127,6 +128,7 @@ export async function importAredlHistory() {
       ORDER BY aredl_position ASC`,
   ).all() as Array<{ id: number; gd_id: number; name: string }>
   console.log(`[aredl-history] fetching history for ${targets.length} levels…`)
+  report?.({ phase: 'Fetching placement history', done: 0, total: targets.length })
 
   const delRaw = db.prepare(`DELETE FROM aredl_position_history WHERE level_id = ?`)
   const insRaw = db.prepare(`
@@ -179,6 +181,7 @@ export async function importAredlHistory() {
       db.exec('ROLLBACK')
       throw err
     }
+    report?.({ done: Math.min(off + BATCH, targets.length) })
     console.log(`[aredl-history]   ${Math.min(off + BATCH, targets.length)}/${targets.length} (ok=${done}, failed=${failed})`)
   }
 

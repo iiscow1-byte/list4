@@ -89,8 +89,22 @@ type AltVersionMode = 'show' | 'hide' | 'only'
 const altVersions = ref<AltVersionMode>('show')
 const alternates = ref<AltVersionMode>('show')
 const tentativePlacements = ref<AltVersionMode>('show')
-// Levels that exist on the site but not in the source sheet.
+/**
+ * Levels that exist on the site but not in the source sheet — moderators only.
+ *
+ * It answers a question about the sheet's bookkeeping, not about the list:
+ * "this row's ID appears nowhere on the ALL sheet" is an editorial to-do, and a
+ * reader filtering by it just gets a confusing subset. The server clears the
+ * filter for everyone else, so hiding the control isn't the enforcement.
+ */
 const siteOnly = ref<AltVersionMode>('show')
+const { data: navMeRes } = useCurrentUser()
+const isStaff = computed(() => {
+  const r = navMeRes.value?.account?.role
+  return r === 'moderator' || r === 'admin' || r === 'owner' || r === 'developer'
+})
+// A demoted moderator shouldn't be left with a filter they can no longer use.
+watch(isStaff, (staff) => { if (!staff) siteOnly.value = 'show' })
 const creator = ref('')
 const sourceFilter = ref('')
 const sources = ref<{ source: string; count: number }[]>([])
@@ -800,8 +814,11 @@ watch(
                 <p class="text-[10px] text-zinc-600 mt-1">Levels with uncertain placements on the list.</p>
               </div>
 
-              <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Site-only levels</div>
+              <div v-if="isStaff">
+                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5 flex items-center gap-1.5">
+                  Site-only levels
+                  <span class="text-[9px] tracking-widest px-1 py-px rounded border border-amber-900/60 bg-amber-950/40 text-amber-300/90">admin</span>
+                </div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -815,7 +832,9 @@ watch(
                     {{ opt }}
                   </label>
                 </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Levels whose ID appears nowhere on the ALL sheet.</p>
+                <p class="text-[10px] text-zinc-600 mt-1">
+                  Levels stored here whose ID appears nowhere on the ALL sheet.
+                </p>
               </div>
 
               <div>

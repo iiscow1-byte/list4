@@ -79,3 +79,15 @@
     @apply rounded-xl border border-zinc-800 bg-zinc-950/70;
   }
 }
+
+/*
+ * An import that can't count itself still has to look like it's working.
+ *
+ * Phases like "fetching the sheet" have no denominator until the fetch
+ * returns, so the bar sweeps instead of filling — a determinate bar that
+ * invents a percentage is worse than one that admits it doesn't have one.
+ */
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}

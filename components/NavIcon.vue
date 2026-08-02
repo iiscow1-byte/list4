@@ -30,6 +30,8 @@ const PATHS: Record<string, string> = {
   star: 'm12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z',
   heart: 'M12 21s-7-4.35-9-8.5A5 5 0 0 1 12 6a5 5 0 0 1 9 6.5C19 16.65 12 21 12 21z',
   inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z',
+  // The source of truth behind the whole list.
+  sheet: 'M4 4h16v16H4V4ZM4 9h16M4 14.5h16M9.5 4v16M15 4v16',
 }
 
 const d = computed(() => PATHS[props.name] ?? PATHS.info!)

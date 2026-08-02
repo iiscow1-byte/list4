@@ -4,6 +4,7 @@
  * gdtpl importer.
  */
 import { importGdtpl, type GdtplListConfig } from './import-gdtpl.ts'
+import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export const CCL_CONFIG: GdtplListConfig = {
   source: 'ccl',
@@ -11,8 +12,8 @@ export const CCL_CONFIG: GdtplListConfig = {
   baseUrl: process.env.CCL_BASE_URL || 'https://consistencychallenge.pages.dev',
 }
 
-export async function importCcl(): Promise<void> {
-  await importGdtpl(CCL_CONFIG)
+export async function importCcl(report?: ProgressReporter): Promise<void> {
+  await importGdtpl(CCL_CONFIG, report)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&
