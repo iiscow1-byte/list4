@@ -12,7 +12,7 @@ export default defineEventHandler((event) => {
   const acc = db.prepare(
     `SELECT id, username, role, bio, country, subdivision, claimed_player,
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
-            pronouns, discord_handle, youtube_url,
+            pronouns, discord_handle, youtube_url, gd_username,
             favorite_level_id, favorite_level_note,
             hardest_record_id, banner_choice, banner_level_id
        FROM accounts WHERE username = ? COLLATE NOCASE`,

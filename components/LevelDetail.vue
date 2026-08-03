@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isChallengeSource } from '~/utils/challenge-sources'
+import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_ORD } from '~/utils/tier-ordinal'
 
 type Community = {
@@ -52,7 +53,14 @@ type Level = {
   aredl_history?: AredlHistoryEntry[]
   challenge_rank?: number | null
 }
-type OtherListEntry = { list: string; position: number; url?: string | null }
+type OtherListEntry = {
+  key?: string
+  list: string
+  /** Short form for the chip next to the title; falls back to `list`. */
+  badge?: string
+  position: number
+  url?: string | null
+}
 type PositionHistoryEntry = {
   id: number
   from_position: number | null
@@ -116,7 +124,22 @@ const gddlTierLabel = computed((): string | null => {
   return `${subtierM ? 'Subtier ' : 'Tier '}${(num + frac).toFixed(2)}`
 })
 
-type Tag = { label: string; to?: string; title?: string }
+/**
+ * The lists this level is also on, as chips beside its title.
+ *
+ * Capped at two. Every one of these is a real fact, but a level carried by six
+ * lists would push the tier and difficulty off the row it shares with them, and
+ * the full set is a scroll away in "Rankings on other lists" — which is where
+ * anyone who wants all of them is going anyway.
+ *
+ * The order comes from the server (GDL and AREDL first), and reuses the same
+ * filter the panel does: a GDL or AREDL rank on a level that isn't an extreme
+ * is stale mirror data rather than a placement worth advertising.
+ */
+const OTHER_LIST_BADGE_LIMIT = 2
+const otherListBadges = computed(() => visibleOtherLists.value.slice(0, OTHER_LIST_BADGE_LIMIT))
+
+type Tag = { label: string; to?: string; href?: string; title?: string }
 const tags = computed<Tag[]>(() => {
   const list: Tag[] = []
   if (gddlTierLabel.value) list.push({ label: gddlTierLabel.value })
@@ -128,6 +151,14 @@ const tags = computed<Tag[]>(() => {
   if (sourceForced) list.push({ label: 'Challenge' })
   else if (props.level.rated) list.push({ label: props.level.rated })
   if (props.level.placement_source) list.push({ label: props.level.placement_source })
+  // Where else this level is ranked, and at what number.
+  for (const e of otherListBadges.value) {
+    list.push({
+      label: `${e.badge ?? e.list} #${e.position.toLocaleString()}`,
+      href: e.url ?? undefined,
+      title: `#${e.position.toLocaleString()} on ${e.list}`,
+    })
+  }
   if (props.level.same_as_above) {
     const dup = props.level.duplicate_of
     list.push({
@@ -208,10 +239,7 @@ const fallbackSearch = computed(() => {
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
 })
 
-const gdLevelUrl = computed(() => {
-  if (!props.level.gd_id) return null
-  return `https://gdbrowser.com/${props.level.gd_id}`
-})
+const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
 const gdIdCopied = ref(false)
 let gdIdCopyTimer: ReturnType<typeof setTimeout> | null = null
@@ -1743,6 +1771,14 @@ const chartAredlSeries = computed(() =>
             :title="t.title"
             class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
           >{{ t.label }}</NuxtLink>
+          <a
+            v-else-if="t.href"
+            :href="t.href"
+            target="_blank"
+            rel="noopener"
+            :title="t.title"
+            class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+          >{{ t.label }}</a>
           <span
             v-else
             :title="t.title"
@@ -1768,7 +1804,16 @@ const chartAredlSeries = computed(() =>
           >
             <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GD Info</span>
-              <span class="text-[10px] text-zinc-600 tabular-nums">#{{ level.gd_id }}</span>
+              <!-- The ID is a link everywhere else on this page; it reads as
+                   one here too, so clicking it does what clicking it looks
+                   like it should. -->
+              <a
+                :href="levelUrl!"
+                target="_blank"
+                rel="noopener"
+                class="text-[10px] text-zinc-600 tabular-nums hover:text-accent transition-colors"
+                title="Open on gdbrowser"
+              >#{{ level.gd_id }}</a>
             </div>
 
             <div v-if="infoLoading" class="px-3 py-4 text-xs text-zinc-500">Loading…</div>
@@ -1825,7 +1870,7 @@ const chartAredlSeries = computed(() =>
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
           <div class="flex items-center gap-2">
             <a
-              :href="gdLevelUrl!"
+              :href="levelUrl!"
               target="_blank"
               rel="noopener"
               class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"

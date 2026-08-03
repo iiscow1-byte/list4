@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 type Movement = {
   id: number
   level_name: string
@@ -69,7 +70,6 @@ async function quickReject(id: number) {
   }
 }
 
-function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 </script>
 
 <template>
@@ -128,7 +128,7 @@ function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/$
         <div class="grid grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
           <div class="bg-zinc-950 p-4">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
-            <a v-if="gdBrowserLink(selected.level_gd_id)" :href="gdBrowserLink(selected.level_gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.level_gd_id }}</a>
+            <a v-if="gdLevelUrl(selected.level_gd_id)" :href="gdLevelUrl(selected.level_gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.level_gd_id }}</a>
             <div v-else class="text-zinc-600 text-sm">—</div>
           </div>
           <div class="bg-zinc-950 p-4">

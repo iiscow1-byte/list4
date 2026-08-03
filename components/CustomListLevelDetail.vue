@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { youtubeIdFrom } from '~/utils/level-thumbs'
+import { gdLevelUrl } from '~/utils/gd-links'
 import { estimateForItem, ALL_TIERS } from '~/utils/tier-ordinal'
 
 /** Centre panel of a custom list: the selected level in full. */
@@ -466,7 +467,17 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         </div>
         <div class="bg-zinc-950 px-3 py-2.5">
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Level ID</dt>
-          <dd class="tabular-nums text-sm text-zinc-300 truncate">{{ item.gd_id ?? '—' }}</dd>
+          <dd class="tabular-nums text-sm text-zinc-300 truncate">
+            <a
+              v-if="gdLevelUrl(item.gd_id)"
+              :href="gdLevelUrl(item.gd_id)!"
+              target="_blank"
+              rel="noopener"
+              class="hover:text-accent transition-colors"
+              title="Open on gdbrowser"
+            >{{ item.gd_id }}</a>
+            <span v-else>—</span>
+          </dd>
         </div>
       </dl>
 

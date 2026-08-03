@@ -22,6 +22,20 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.7.1',
+    date: '2026-08-03',
+    title: 'Where else a level is ranked, and who is behind a number',
+    tags: ['List', 'Profiles', 'Submissions', 'Fixes'],
+    changes: [
+      'Levels now carry a badge for the other lists that rank them, with the placement — "AREDL #4", "Challenge #23", "CCL #7". Two at most, GDL and AREDL first, and every list this site imports counts: the GDListTemplate ones were in the database and had never been shown anywhere.',
+      'Submitting a level: picking a tier fills in the placement with the middle of that tier. A tier already narrows 54,000 slots to a few hundred, and the box was blank. It stays editable, and a placement you typed — or one a custom list passed in — is never overwritten.',
+      'New profile link: your Geometry Dash username, which goes to your gdbrowser profile.',
+      'Followers and Following are clickable — on the number and on the panel heading — and open the full list rather than the first 24. Names you follow who don\'t have an account here are in it too.',
+      'Level IDs go to gdbrowser everywhere they appear. Two of them didn\'t: the one in a level\'s GD Info popover and the one on a custom list\'s level page.',
+      'Fixed: a Geometry Dash username longer than 20 characters was quietly cut down to 20 and saved — a name nobody typed, and probably somebody else\'s. It\'s refused now.',
+    ],
+  },
+  {
     version: '1.7.0',
     date: '2026-08-03',
     title: 'Moves that carry the tier, claims that carry the records',

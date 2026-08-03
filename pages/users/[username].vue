@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { roleBadgeClass } from '~/utils/role-styles'
+import { gdUserUrl } from '~/utils/gd-links'
 import { tierColor, textOn } from '~/utils/tier-colors'
 
 const route = useRoute()
@@ -28,6 +29,7 @@ const { data, error, refresh } = await useFetch<{
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean; created_at: string
     pronouns: string | null; discord_handle: string | null; youtube_url: string | null
+    gd_username: string | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
@@ -95,6 +97,9 @@ const youtubeHandle = computed(() => {
   return m ? '@' + m[1] : null
 })
 
+/** The in-game name, as a link to that player's gdbrowser profile. */
+const gdProfileUrl = computed(() => gdUserUrl(data.value?.account.gd_username))
+
 const joined = computed(() => {
   const at = data.value?.account.created_at
   if (!at) return null
@@ -111,10 +116,21 @@ const stats = computed(() => {
   return [
     { label: 'Points', value: d.player ? fmt(d.player.total_points) : '—', tone: 'text-amber-300' },
     { label: 'Completions', value: d.completedLevels.length.toLocaleString(), tone: 'text-zinc-100' },
-    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100' },
-    { label: 'Following', value: d.follow.followingCount.toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100', opens: 'followers' as const },
+    { label: 'Following', value: d.follow.followingCount.toLocaleString(), tone: 'text-zinc-100', opens: 'following' as const },
   ]
 })
+
+/**
+ * The two follow numbers open the list behind them. Kept here rather than in
+ * each tile so the header stat and the panel further down share one dialog.
+ */
+const followListOpen = ref(false)
+const followListMode = ref<'followers' | 'following'>('followers')
+function openFollowList(mode: 'followers' | 'following') {
+  followListMode.value = mode
+  followListOpen.value = true
+}
 </script>
 
 <template>
@@ -209,6 +225,17 @@ const stats = computed(() => {
               </svg>
               {{ youtubeHandle ?? 'YouTube' }}
             </a>
+            <a
+              v-if="gdProfileUrl"
+              :href="gdProfileUrl"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-accent hover:border-accent/50 transition-colors"
+              :title="`${data.account.gd_username} on gdbrowser`"
+            >
+              <GdCubeIcon class="w-3.5 h-3.5 shrink-0" />
+              {{ data.account.gd_username }}
+            </a>
             <NuxtLink
               v-if="isOwnProfile"
               to="/account"
@@ -227,10 +254,18 @@ const stats = computed(() => {
 
         <!-- Headline numbers -->
         <dl class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
-          <div v-for="s in stats" :key="s.label" class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ s.label }}</dt>
+          <component
+            :is="s.opens ? 'button' : 'div'"
+            v-for="s in stats"
+            :key="s.label"
+            :type="s.opens ? 'button' : undefined"
+            class="bg-zinc-950 px-3 py-2.5 text-left"
+            :class="s.opens ? 'hover:bg-zinc-900 transition-colors cursor-pointer group' : ''"
+            @click="s.opens && openFollowList(s.opens)"
+          >
+            <dt class="text-[10px] uppercase tracking-widest text-zinc-500" :class="s.opens ? 'group-hover:text-accent transition-colors' : ''">{{ s.label }}</dt>
             <dd class="tabular-nums text-lg font-semibold" :class="s.tone">{{ s.value }}</dd>
-          </div>
+          </component>
         </dl>
       </div>
     </header>
@@ -387,7 +422,12 @@ const stats = computed(() => {
 
           <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
-              Followers <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
+              <button
+                type="button"
+                class="uppercase tracking-widest hover:text-accent transition-colors"
+                @click="openFollowList('followers')"
+              >Followers</button>
+              <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
             </h2>
             <p v-if="!data.follow.followers?.length" class="text-xs text-zinc-600">No followers yet.</p>
             <ul v-else class="flex flex-wrap gap-1.5">
@@ -404,11 +444,22 @@ const stats = computed(() => {
                 </NuxtLink>
               </li>
             </ul>
+            <button
+              v-if="data.follow.followerCount > (data.follow.followers?.length ?? 0)"
+              type="button"
+              class="mt-2 text-[11px] text-zinc-500 hover:text-accent transition-colors"
+              @click="openFollowList('followers')"
+            >See all {{ data.follow.followerCount.toLocaleString() }} →</button>
           </section>
 
           <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
-              Following <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
+              <button
+                type="button"
+                class="uppercase tracking-widest hover:text-accent transition-colors"
+                @click="openFollowList('following')"
+              >Following</button>
+              <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
             </h2>
             <p v-if="!data.follow.following?.length" class="text-xs text-zinc-600">Not following anyone yet.</p>
             <ul v-else class="flex flex-wrap gap-1.5">
@@ -419,9 +470,23 @@ const stats = computed(() => {
                 >{{ f.name }}</NuxtLink>
               </li>
             </ul>
+            <button
+              v-if="data.follow.followingCount > (data.follow.following?.length ?? 0)"
+              type="button"
+              class="mt-2 text-[11px] text-zinc-500 hover:text-accent transition-colors"
+              @click="openFollowList('following')"
+            >See all {{ data.follow.followingCount.toLocaleString() }} →</button>
           </section>
         </aside>
       </div>
     </div>
+
+    <FollowListModal
+      v-model:open="followListOpen"
+      :target="data.follow.target"
+      :mode="followListMode"
+      :count="followListMode === 'followers' ? data.follow.followerCount : data.follow.followingCount"
+      :who="data.account.username"
+    />
   </div>
 </template>

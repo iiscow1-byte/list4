@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 type VoidLevel = {
   position: number
@@ -195,7 +196,7 @@ const fallbackSearch = computed(() => {
   if (!props.level.verification) return null
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
 })
-const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${props.level.gd_id}` : null)
+const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 </script>
 
 <template>
@@ -453,8 +454,8 @@ const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${p
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
         <a
-          v-if="gdLevelUrl"
-          :href="gdLevelUrl"
+          v-if="levelUrl"
+          :href="levelUrl"
           target="_blank"
           rel="noopener"
           class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"

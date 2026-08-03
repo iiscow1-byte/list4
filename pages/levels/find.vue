@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 import { difficultyColor, ratingColor } from '~/utils/stat-colors'
 
 /**
@@ -155,7 +156,7 @@ useHead({ title: 'Find a level — All Levels List' })
               <span class="text-[10px] text-zinc-600 text-center">Not ranked yet</span>
             </template>
             <a
-              :href="`https://gdbrowser.com/${r.gd_id}`"
+              :href="gdLevelUrl(r.gd_id)!"
               target="_blank"
               rel="noopener"
               class="text-[10px] text-zinc-600 hover:text-accent text-center transition-colors"

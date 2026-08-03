@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
@@ -559,7 +560,6 @@ function onReviewKey(e: KeyboardEvent) {
 onMounted(() => document.addEventListener('keydown', onReviewKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onReviewKey))
 
-function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
 function youtubeId(url: string | null): string | null {
   if (!url) return null
@@ -1024,8 +1024,8 @@ watch(preview, (p) => {
                 >{{ selected.gddl_tier || tierOverride }}</span>
                 <span v-if="selected.difficulty" class="rounded px-1.5 py-0.5 bg-zinc-900/80 text-zinc-300 border border-zinc-800">{{ selected.difficulty }}</span>
                 <a
-                  v-if="gdBrowserLink(selected.gd_id)"
-                  :href="gdBrowserLink(selected.gd_id)!"
+                  v-if="gdLevelUrl(selected.gd_id)"
+                  :href="gdLevelUrl(selected.gd_id)!"
                   target="_blank"
                   rel="noopener"
                   class="rounded px-1.5 py-0.5 bg-zinc-900/80 text-zinc-400 border border-zinc-800 hover:text-accent hover:border-accent/40 transition-colors tabular-nums"

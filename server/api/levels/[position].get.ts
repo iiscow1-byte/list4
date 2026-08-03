@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { communityStats } from '~/server/utils/opinions'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { otherListsFor } from '~/server/utils/other-lists'
 
 const IS_CHALLENGE_L = `(${challengeSourceSqlExpr('l.placement_source')} OR l.rated = 'Challenge' OR ((l.rated IS NULL OR l.rated = '') AND json_extract(c.info_json, '$.score') = 0 AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short') AND l.gddl_tier LIKE 'Tier %'))`
 const IS_CHALLENGE_L2 = `(${challengeSourceSqlExpr('l2.placement_source')} OR l2.rated = 'Challenge' OR ((l2.rated IS NULL OR l2.rated = '') AND json_extract(c2.info_json, '$.score') = 0 AND json_extract(c2.info_json, '$.length') IN ('Tiny', 'Short') AND l2.gddl_tier LIKE 'Tier %'))`
@@ -173,38 +174,10 @@ export default defineEventHandler((event) => {
     }
   }
 
-  // "Other lists" rankings — the level's position on every external list we
-  // mirror. Pointercrate Main + Extended share a single chip (legacy demons
-  // are not ranked by position, so they don't get one).
-  const other_lists: Array<{ list: string; position: number; url?: string | null }> = []
-  if (level.gdl_position != null) {
-    other_lists.push({
-      list: 'GDL',
-      position: level.gdl_position,
-      url: null,
-    })
-  }
-  if (level.aredl_position != null) {
-    other_lists.push({
-      list: 'AREDL',
-      position: level.aredl_position,
-      url: level.gd_id ? `https://aredl.net/level/${level.gd_id}` : null,
-    })
-  }
-  if (level.pointercrate_position != null) {
-    other_lists.push({
-      list: 'Pointercrate',
-      position: level.pointercrate_position,
-      url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
-    })
-  }
-  if (level.challenge_list_position != null) {
-    other_lists.push({
-      list: 'Challenge List',
-      position: level.challenge_list_position,
-      url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
-    })
-  }
+  // "Other lists" rankings — the level's position on every list this site
+  // mirrors, including the GDListTemplate ones (CCL, EDI, TSL, …) that only
+  // exist in `gdtpl_levels` and used to be missing from this page entirely.
+  const other_lists = otherListsFor(db, level)
 
   const challengeRow = db.prepare(
     `SELECT CASE WHEN ${IS_CHALLENGE_L}

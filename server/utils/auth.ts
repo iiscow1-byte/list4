@@ -84,7 +84,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
     `SELECT a.id, a.username, a.role, a.bio, a.country, a.subdivision, a.claimed_player,
             a.claimed_aredl_uuid, a.claimed_pointercrate_id, a.claimed_gdl_id,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
-            a.pronouns, a.discord_handle, a.youtube_url,
+            a.pronouns, a.discord_handle, a.youtube_url, a.gd_username,
             a.favorite_level_id, a.favorite_level_note,
             a.hardest_record_id, a.banner_choice, a.banner_level_id
        FROM sessions s

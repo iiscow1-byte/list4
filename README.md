@@ -470,9 +470,38 @@ levels    (position, name, gd_id, gddl_tier, rated, difficulty, placement_source
 players   (name, country, total_points, skill_points, hardest, tier)
 records   (level_id, player_id, percent, hz, video, verified,
            claim_source, claim_account_id)
+accounts  (username, role, claimed_player, claimed_aredl_uuid, claimed_gdl_id,
+           claimed_pointercrate_id, bio, pronouns, discord_handle, youtube_url,
+           gd_username, favorite_level_id, hardest_record_id, banner_choice)
 ```
 
 `position` is the global rank in the sheet. URLs are keyed on `position` so re-imports don't break links.
+
+`accounts.gd_username` is the in-game name, stored bare rather than as a URL: it
+is an identity, not a link, and the gdbrowser address is derived from it.
+`utils/gd-links.ts` owns both that and the level links — one place, because a
+level ID should go to the same destination from every one of the eight or so
+spots that render one, and two of them used to go nowhere at all.
+
+## Where else a level is ranked
+
+`server/utils/other-lists.ts` answers "what else carries this level, and at what
+number". Four lists have a dedicated column on `levels` — GDL, AREDL,
+Pointercrate and the Challenge List — and everything imported through
+GDListTemplate (CCL, EDI, TSL, …) lives in `gdtpl_levels` keyed by `gd_id`. Only
+the first four were ever surfaced, so the rest were present in the database and
+invisible on the page.
+
+The order is deliberate and is the order the badges appear in: GDL and AREDL
+first, because those are the two lists a reader of the ALL is most likely to be
+cross-referencing, then Pointercrate, then the challenge lists. The level page
+shows the first two as chips beside the title and the whole set in "Rankings on
+other lists" — a level carried by six lists would otherwise push its tier and
+difficulty off the row they share.
+
+The Challenge List is read from `levels.challenge_list_position` and excluded
+from the `gdtpl_levels` query, because the CL importer writes both and the
+column is the cleaned one. Miss that and the level is listed twice.
 
 ## Tiers
 

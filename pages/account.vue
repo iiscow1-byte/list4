@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdUserUrl, isGdUsername } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { roleBadgeClass } from '~/utils/role-styles'
 
@@ -19,6 +20,7 @@ const profile = reactive({
   pronouns: me.value?.pronouns ?? '',
   discord_handle: me.value?.discord_handle ?? '',
   youtube_url: me.value?.youtube_url ?? '',
+  gd_username: me.value?.gd_username ?? '',
 })
 const profileSaving = ref(false)
 const profileError = ref<string | null>(null)
@@ -32,6 +34,7 @@ watch(me, (val) => {
     profile.pronouns = val.pronouns ?? ''
     profile.discord_handle = val.discord_handle ?? ''
     profile.youtube_url = val.youtube_url ?? ''
+    profile.gd_username = val.gd_username ?? ''
   }
 }, { immediate: true })
 
@@ -43,6 +46,7 @@ function startEdit() {
   profile.pronouns = me.value.pronouns ?? ''
   profile.discord_handle = me.value.discord_handle ?? ''
   profile.youtube_url = me.value.youtube_url ?? ''
+    profile.gd_username = me.value.gd_username ?? ''
   favoriteLevelId.value = me.value.favorite_level_id
   favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
   favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
@@ -62,6 +66,7 @@ function cancelEdit() {
     profile.pronouns = me.value.pronouns ?? ''
     profile.discord_handle = me.value.discord_handle ?? ''
     profile.youtube_url = me.value.youtube_url ?? ''
+    profile.gd_username = me.value.gd_username ?? ''
     favoriteLevelId.value = me.value.favorite_level_id
     favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
     favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
@@ -734,6 +739,7 @@ type ProfileData = {
     bio: string | null; country: string | null; subdivision: string | null
     claimed_player: string | null; has_avatar: boolean; created_at: string
     pronouns: string | null; discord_handle: string | null; youtube_url: string | null
+    gd_username?: string | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
@@ -808,10 +814,19 @@ const headlineStats = computed(() => {
   return [
     { label: 'Points', value: d.player ? fmt(d.player.total_points) : '—', tone: 'text-amber-300' },
     { label: 'Completions', value: d.completedLevels.length.toLocaleString(), tone: 'text-zinc-100' },
-    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100' },
-    { label: 'Following', value: (d.follow.followingCount ?? 0).toLocaleString(), tone: 'text-zinc-100' },
+    { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100', opens: 'followers' as const },
+    { label: 'Following', value: (d.follow.followingCount ?? 0).toLocaleString(), tone: 'text-zinc-100', opens: 'following' as const },
   ]
 })
+
+// The same dialog the public profile opens — this page shows the same numbers,
+// so it answers the same click.
+const followListOpen = ref(false)
+const followListMode = ref<'followers' | 'following'>('followers')
+function openFollowList(mode: 'followers' | 'following') {
+  followListMode.value = mode
+  followListOpen.value = true
+}
 
 // --- Progress post composer (inline) ---
 const showProgress = ref(false)
@@ -821,6 +836,12 @@ const youtubeUrlValid = computed(() => {
   if (!url) return true
   return /^https?:\/\/(www\.)?youtube\.com\/((@|channel\/|c\/|user\/)[^/?&#\s]+)/i.test(url)
 })
+
+// The in-game name is stored bare and turned into a gdbrowser link on the way
+// out, so it's checked here for the same reason the server checks it: a value
+// that isn't a username produces a link that goes nowhere.
+const gdUsernameValid = computed(() => !profile.gd_username.trim() || isGdUsername(profile.gd_username))
+const gdProfileUrl = computed(() => gdUserUrl(me.value?.gd_username))
 
 async function logout() {
   await $fetch('/api/auth/logout', { method: 'POST' })
@@ -929,6 +950,17 @@ function fmt(n: number | null | undefined) {
               </svg>
               YouTube
             </a>
+            <a
+              v-if="gdProfileUrl"
+              :href="gdProfileUrl"
+              target="_blank"
+              rel="noopener"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-accent hover:border-accent/50 transition-colors"
+              :title="`${me.gd_username} on gdbrowser`"
+            >
+              <GdCubeIcon class="w-3.5 h-3.5 shrink-0" />
+              {{ me.gd_username }}
+            </a>
             <button
               type="button"
               class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
@@ -945,11 +977,27 @@ function fmt(n: number | null | undefined) {
         </div>
 
         <dl v-if="profileData" class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
-          <div v-for="s in headlineStats" :key="s.label" class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ s.label }}</dt>
+          <component
+            :is="s.opens ? 'button' : 'div'"
+            v-for="s in headlineStats"
+            :key="s.label"
+            :type="s.opens ? 'button' : undefined"
+            class="bg-zinc-950 px-3 py-2.5 text-left"
+            :class="s.opens ? 'hover:bg-zinc-900 transition-colors cursor-pointer group' : ''"
+            @click="s.opens && openFollowList(s.opens)"
+          >
+            <dt class="text-[10px] uppercase tracking-widest text-zinc-500" :class="s.opens ? 'group-hover:text-accent transition-colors' : ''">{{ s.label }}</dt>
             <dd class="tabular-nums text-lg font-semibold" :class="s.tone">{{ s.value }}</dd>
-          </div>
+          </component>
         </dl>
+        <FollowListModal
+          v-if="profileData"
+          v-model:open="followListOpen"
+          :target="profileData.follow.target"
+          :mode="followListMode"
+          :count="followListMode === 'followers' ? profileData.follow.followerCount : (profileData.follow.followingCount ?? 0)"
+          :who="me.username"
+        />
       </div>
     </header>
 
@@ -1035,6 +1083,12 @@ function fmt(n: number | null | undefined) {
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Discord</dt>
                 <dd class="text-zinc-100">{{ me.discord_handle }}</dd>
               </div>
+              <div v-if="me.gd_username">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Geometry Dash</dt>
+                <dd>
+                  <a :href="gdProfileUrl!" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">{{ me.gd_username }} ↗</a>
+                </dd>
+              </div>
               <div v-if="me.youtube_url" class="col-span-2">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">YouTube</dt>
                 <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
@@ -1115,6 +1169,25 @@ function fmt(n: number | null | undefined) {
                   />
                   <span v-if="profile.youtube_url.trim() && !youtubeUrlValid" class="text-[11px] text-red-400 mt-1 block">
                     Must be a YouTube channel URL, e.g. https://www.youtube.com/@handle
+                  </span>
+                </label>
+                <label class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                    Geometry Dash username
+                    <span class="text-zinc-600 normal-case">— links to your gdbrowser profile</span>
+                  </span>
+                  <input
+                    v-model="profile.gd_username"
+                    maxlength="20"
+                    placeholder="your in-game name"
+                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    :class="{ 'border-red-800': !gdUsernameValid }"
+                  />
+                  <span v-if="!gdUsernameValid" class="text-[11px] text-red-400 mt-1 block">
+                    Letters, numbers, spaces, dots, dashes and underscores, up to 20 characters.
+                  </span>
+                  <span v-else-if="profile.gd_username.trim()" class="text-[11px] text-zinc-600 mt-1 block truncate">
+                    gdbrowser.com/u/{{ profile.gd_username.trim() }}
                   </span>
                 </label>
                 <div class="block sm:col-span-2">
@@ -1218,7 +1291,7 @@ function fmt(n: number | null | undefined) {
               <div class="flex items-center gap-2 flex-wrap">
                 <button
                   type="submit"
-                  :disabled="profileSaving"
+                  :disabled="profileSaving || !gdUsernameValid || !youtubeUrlValid"
                   class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
                 >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
                 <button

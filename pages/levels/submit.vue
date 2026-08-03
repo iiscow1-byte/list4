@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
@@ -343,12 +344,78 @@ function confirmCompare() {
   if (lvl.gddl_tier) gddlTier.value = lvl.gddl_tier
   if (lvl.difficulty) difficulty.value = lvl.difficulty
   placementEstimate.value = String(lvl.position)
+  // A picked comparison is a stronger statement than "middle of the tier", so
+  // the tier watcher must not treat this number as its own to overwrite.
+  autofilledPlacement = null
+  tierPlacementNote.value = null
   compareOpen.value = false
 }
 function clearComparison() {
   comparisonLevel.value = null
   placementEstimate.value = ''
+  autofilledPlacement = null
+  // Dropping the comparison leaves the tier as the only thing said about
+  // difficulty, so it gets the box back.
+  applyTierMidpoint(gddlTier.value)
 }
+
+/**
+ * A tier is already an answer to "where does this go".
+ *
+ * Every tier occupies a contiguous stretch of the list, so naming one narrows
+ * 54,000 slots down to a few hundred — and the middle of that stretch is a far
+ * better starting point than the blank box submitters were left staring at.
+ * The number stays editable; this fills it in, it doesn't decide it.
+ *
+ * Only ever writes into an empty box or one it filled itself, so a typed
+ * placement, a prefill from a custom list, and a picked comparison level all
+ * survive changing the tier afterwards.
+ */
+const tierPlacementNote = ref<string | null>(null)
+/** Exactly what the last autofill wrote, which is how "mine to overwrite" is decided. */
+let autofilledPlacement: string | null = null
+
+async function applyTierMidpoint(tier: string) {
+  const mine = placementEstimate.value === '' || placementEstimate.value === autofilledPlacement
+  if (!mine) return
+
+  if (!tier) {
+    if (placementEstimate.value === autofilledPlacement) placementEstimate.value = ''
+    autofilledPlacement = null
+    tierPlacementNote.value = null
+    return
+  }
+
+  try {
+    const res = await $fetch<{ tier: string; count: number; midpoint: number | null }>(
+      '/api/levels/tier-midpoint', { query: { tier } },
+    )
+    // The tier may have been changed again while this was in flight, and the
+    // box may have been typed into. Re-check both before writing.
+    if (gddlTier.value !== tier) return
+    if (placementEstimate.value !== '' && placementEstimate.value !== autofilledPlacement) return
+
+    if (res.midpoint == null) {
+      tierPlacementNote.value = `The ALL has no ${tier} levels yet, so there's no middle of it to point at.`
+      return
+    }
+    autofilledPlacement = String(res.midpoint)
+    placementEstimate.value = autofilledPlacement
+    tierPlacementNote.value =
+      `Middle of ${tier} — ${res.count.toLocaleString()} level${res.count === 1 ? '' : 's'} on the ALL. Change it if you know better.`
+  } catch {
+    tierPlacementNote.value = null
+  }
+}
+
+watch(gddlTier, (tier) => { applyTierMidpoint(tier) })
+// Typing over the suggestion retires the note with it.
+watch(placementEstimate, (v) => {
+  if (v !== autofilledPlacement) tierPlacementNote.value = null
+})
+// A tier arriving in the URL (from a custom list's "Submit to the ALL") gets
+// the same treatment, unless that link already carried a placement.
+onMounted(() => { if (gddlTier.value) applyTierMidpoint(gddlTier.value) })
 
 // Derive whether the level "looks like" something that needs a verification video.
 function tierNumber(label: string): number | null {
@@ -596,7 +663,7 @@ async function submit() {
             <span class="block text-[11px] text-zinc-500 tabular-nums">ID {{ previewGdId }}</span>
           </span>
           <a
-            :href="`https://gdbrowser.com/${previewGdId}`"
+            :href="gdLevelUrl(previewGdId)!"
             target="_blank"
             rel="noopener"
             class="shrink-0 text-[11px] text-zinc-400 hover:text-accent transition-colors"
@@ -753,6 +820,7 @@ async function submit() {
               placeholder="e.g. 42"
               class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
+            <span v-if="tierPlacementNote" class="mt-1 block text-[11px] text-zinc-500">{{ tierPlacementNote }}</span>
           </label>
 
           <p

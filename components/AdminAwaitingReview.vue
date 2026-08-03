@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 type AwaitingLevel = {
   id: number
   gd_id: number | null
@@ -239,7 +240,6 @@ async function quickRemove(id: number) {
   }
 }
 
-function gdBrowserLink(id: number | null) { return id ? `https://gdbrowser.com/${id}` : null }
 
 function autoSaveTierDifficulty() {
   if (!selected.value) return
@@ -736,7 +736,7 @@ watch(verificationYtId, async (id) => {
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden">
           <div class="bg-zinc-950 p-3">
             <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
-            <a v-if="gdBrowserLink(selected.gd_id)" :href="gdBrowserLink(selected.gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.gd_id }}</a>
+            <a v-if="gdLevelUrl(selected.gd_id)" :href="gdLevelUrl(selected.gd_id)!" target="_blank" rel="noopener" class="tabular-nums text-sm text-zinc-100 hover:text-accent">{{ selected.gd_id }}</a>
             <div v-else class="text-zinc-600">—</div>
           </div>
           <div class="bg-zinc-950 p-3">

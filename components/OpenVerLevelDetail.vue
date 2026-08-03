@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdLevelUrl } from '~/utils/gd-links'
 type OpenVerLevel = {
   id: number
   gd_id: number | null
@@ -121,7 +122,7 @@ function youtubeId(url: string | null): string | null {
 }
 
 const ytId = computed(() => youtubeId(props.level.showcase_url))
-const gdLevelUrl = computed(() => props.level.gd_id ? `https://gdbrowser.com/${props.level.gd_id}` : null)
+const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
 const tagList = computed(() => {
   if (!props.level.tags) return []
@@ -298,8 +299,8 @@ const tagList = computed(() => {
       <div class="bg-zinc-950 p-4">
         <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
         <a
-          v-if="gdLevelUrl"
-          :href="gdLevelUrl"
+          v-if="levelUrl"
+          :href="levelUrl"
           target="_blank"
           rel="noopener"
           class="tabular-nums text-base text-zinc-100 hover:text-accent transition-colors"

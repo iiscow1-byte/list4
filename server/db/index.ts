@@ -198,6 +198,12 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'youtube_url')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN youtube_url TEXT`)
   }
+  // The in-game name, which is what everyone here is actually known by. Stored
+  // as the bare username rather than a URL: it is an identity, not a link, and
+  // the gdbrowser address is derived from it (`utils/gd-links.ts`).
+  if (!accCols.some((c) => c.name === 'gd_username')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN gd_username TEXT`)
+  }
   if (!accCols.some((c) => c.name === 'favorite_level_id')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN favorite_level_id INTEGER REFERENCES levels(id) ON DELETE SET NULL`)
   }
