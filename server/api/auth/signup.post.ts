@@ -1,3 +1,4 @@
+import { LOCKDOWN_HEADLINE } from '~/utils/lockdown'
 import { getDb } from '~/server/db'
 import { hashPassword, createSession, setSessionCookie } from '~/server/utils/auth'
 import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
@@ -11,7 +12,7 @@ export default defineEventHandler(async (event) => {
   if (!SIGNUPS_ENABLED) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Account creation is closed.',
+      statusMessage: `Account creation is closed. ${LOCKDOWN_HEADLINE}`,
     })
   }
 

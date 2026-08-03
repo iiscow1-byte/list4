@@ -1,3 +1,4 @@
+import { LOCKDOWN_NOTICE } from '~/utils/lockdown'
 import { timingSafeEqual } from 'node:crypto'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { ADMIN_ONLY, isPublicPath, isStaff, normalisePath } from '~/server/utils/site-access'
@@ -39,7 +40,7 @@ export default defineEventHandler((event) => {
   if (isApi) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'The All Levels List is closed while it is in alpha.',
+      statusMessage: LOCKDOWN_NOTICE,
     })
   }
 

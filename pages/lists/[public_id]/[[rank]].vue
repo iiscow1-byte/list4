@@ -10,8 +10,32 @@ definePageMeta({ layout: 'level' })
 
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
-const { list, error, refresh, canEdit, base, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(publicId)
+const {
+  list, error, refresh, canEdit, base, editors,
+  pendingCount, suggestionCount, liked, toggleLike,
+} = useCustomList(publicId)
 const { standalone, to } = useStandaloneList()
+
+/**
+ * The list's own accent, applied to the whole list root.
+ *
+ * `accent_color` has been storable since 1.3 and only ever tinted the fallback
+ * icon. Tailwind's `accent` resolves through `--c-accent`, so setting that one
+ * variable on this element re-themes every `text-accent` / `bg-accent` inside
+ * it — tabs, rank numbers, links — and nothing outside it.
+ */
+const accentStyle = computed(() => {
+  const hex = list.value?.accent_color
+  const m = typeof hex === 'string' ? hex.match(/^#([0-9a-f]{6})$/i) : null
+  if (!m) return undefined
+  const n = parseInt(m[1]!, 16)
+  return { '--c-accent': `${(n >> 16) & 0xff} ${(n >> 8) & 0xff} ${n & 0xff}` }
+})
+
+/** Presentation flags, defaulting to what the list looked like before they existed. */
+const on = (v: unknown) => v == null || !!v
+const showBanner = computed(() => on(list.value?.show_banner) && !!list.value?.banner_url)
+const showEditors = computed(() => on(list.value?.show_editors) && editors.value.length > 0)
 
 /**
  * `rank` is optional: `/lists/:id` opens the list at its top level and
@@ -56,9 +80,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
     </div>
   </div>
 
-  <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950">
+  <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950" :style="accentStyle">
+    <!-- The list's own banner. Storable since 1.3 and never rendered until
+         now; kept short so it frames the list rather than replacing it. -->
+    <div v-if="showBanner" class="relative shrink-0 h-20 sm:h-28 overflow-hidden border-b border-zinc-800/80">
+      <img :src="list.banner_url!" alt="" class="w-full h-full object-cover" referrerpolicy="no-referrer" />
+      <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" aria-hidden="true" />
+    </div>
+
     <CustomListBar
       :list="list"
+      :staff="editors"
       :can-edit="canEdit"
       :pending-count="pendingCount"
       :suggestion-count="suggestionCount"
@@ -74,6 +106,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :api-base="`/api/custom-lists/${publicId}`"
         :follow-all-order="!!list.follow_all_order"
         :mark-off-all="marksOffAll(list)"
+        :show-thumbnails="on(list.show_thumbnails)"
+        :show-points="on(list.show_points)"
+        :show-records="on(list.show_records)"
+        :compact="!!list.compact_rows"
         class="hidden md:flex"
         @changed="refresh"
       />
@@ -89,15 +125,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :mark-off-all="marksOffAll(list)"
         @changed="refresh"
       />
-      <CustomListRecords
-        :item="activeItem"
-        :accepts-records="!!list.accepts_records"
-        :can-moderate="canEdit"
-        :api-base="`/api/custom-lists/${publicId}`"
-        :page-base="base"
-        class="hidden xl:flex"
-        @deleted="refresh"
-      />
+      <!-- Right column: this level's records, and who runs the list under
+           them — the place a reader looks for both. -->
+      <aside class="hidden xl:flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
+        <CustomListRecords
+          :item="activeItem"
+          :accepts-records="!!list.accepts_records"
+          :can-moderate="canEdit"
+          :api-base="`/api/custom-lists/${publicId}`"
+          :page-base="base"
+          class="flex-1 min-h-0 !border-l-0"
+          @deleted="refresh"
+        />
+        <div v-if="showEditors" class="shrink-0 border-t border-zinc-800/80 p-3 max-h-56 overflow-y-auto">
+          <p class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-1.5 px-3">
+            List editors
+          </p>
+          <CustomListStaff :staff="editors" variant="compact" />
+        </div>
+      </aside>
     </div>
   </div>
 </template>

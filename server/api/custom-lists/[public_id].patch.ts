@@ -4,6 +4,15 @@ import { canEditList } from '~/server/utils/custom-list-perms'
 import { assertClean } from '~/server/utils/profanity-guard'
 import { loadList, replaceItems, MAX_ITEMS, type CustomListItemInput } from '~/server/utils/custom-lists'
 
+/**
+ * Presentation flags on `custom_lists`. A fixed allow-list, because these names
+ * are interpolated straight into the UPDATE.
+ */
+const DISPLAY_FLAGS = [
+  'show_banner', 'show_thumbnails', 'show_points', 'show_records',
+  'compact_rows', 'show_editors',
+] as const
+
 /** Owner-only update. Any provided field replaces the stored one wholesale. */
 export default defineEventHandler(async (event) => {
   const account = requireAccount(event)
@@ -93,6 +102,14 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.mark_off_all === 'boolean') {
       db.prepare(`UPDATE custom_lists SET mark_off_all = ? WHERE id = ?`)
         .run(body.mark_off_all ? 1 : 0, row.id)
+    }
+    // How the list draws itself. All plain booleans with no interaction between
+    // them, so one loop rather than six near-identical blocks — the column name
+    // comes from this fixed list and never from the body.
+    for (const col of DISPLAY_FLAGS) {
+      const v = (body as any)?.[col]
+      if (typeof v !== 'boolean') continue
+      db.prepare(`UPDATE custom_lists SET ${col} = ? WHERE id = ?`).run(v ? 1 : 0, row.id)
     }
     // Social links are rendered as anchors on a public page, so only http(s)
     // URLs are stored — a javascript: value here would be a stored XSS.

@@ -14,6 +14,7 @@
 import { getDb } from './index.ts'
 import { spawn } from 'node:child_process'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import { getTierCurve } from '../utils/tier-curve.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.CL_API_BASE || 'https://challengelist.gd/api'
@@ -171,6 +172,10 @@ export async function importCl(report?: ProgressReporter): Promise<void> {
   console.log(`[cl]   ${onlyHere.length} CL-only levels for pending queue`)
   report?.({ phase: 'Queuing new levels for review', done: 0, total: onlyHere.length })
 
+  // The ALL's own tier-to-placement shape, so a level guessed at from a wide
+  // gap gets the tier the list really has there rather than an evenly-spaced
+  // one. See `server/utils/tier-curve.ts`.
+  const curve = getTierCurve(db)
   // Shared levels (on CL and ALL list) — used for placement/tier estimation.
   const anchors = buildAnchors(
     (db.prepare(`
@@ -215,7 +220,7 @@ export async function importCl(report?: ProgressReporter): Promise<void> {
       for (const lv of slice) {
         if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-        const guess = estimateForSourcePosition(anchors, lv.position)
+        const guess = estimateForSourcePosition(anchors, lv.position, curve)
         let est = guess.placement
         if (est === lv.position) est = null
         const tier = guess.tier

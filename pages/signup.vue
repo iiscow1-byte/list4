@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { LOCKDOWN_LINES } from '~/utils/lockdown'
+
 useHead({ title: 'Sign up — All Levels List' })
 
 // The server refuses signups outright; this only decides which of the two
@@ -35,12 +37,15 @@ async function submit() {
   <div v-if="!signupsOpen" class="container-tight py-20 max-w-md text-center">
     <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
       <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-      Alpha
+      In development
     </div>
     <h1 class="mt-4 text-2xl font-bold tracking-tight">Sign-ups are closed</h1>
-    <p class="mt-2 text-sm text-zinc-400 leading-relaxed">
-      The All Levels List isn't taking new accounts while it's in alpha.
-    </p>
+    <p
+      v-for="(line, i) in LOCKDOWN_LINES"
+      :key="line"
+      class="text-sm leading-relaxed"
+      :class="i === 0 ? 'mt-3 text-zinc-300' : 'mt-1 text-zinc-500'"
+    >{{ line }}</p>
     <p class="mt-6 text-xs text-zinc-500">
       Already have an account?
       <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink>.

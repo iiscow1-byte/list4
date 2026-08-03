@@ -184,15 +184,22 @@ function relative(at: string): string {
   return new Date(t).toLocaleDateString()
 }
 
-// Polymorphic row link: claimed external players go directly to their site
-// profile (which shows ALL list points). Unclaimed external rows go to their
-// respective external player page. ALL list rows use the by-player route.
+/**
+ * Every row goes to that player's profile on this site.
+ *
+ * Rows sourced from AREDL, Pointercrate and GDL used to link straight out to
+ * those lists' own player pages, so clicking a name on the All Levels List's
+ * leaderboard took you to somebody's AREDL profile. It is our leaderboard: the
+ * destination is their standing *here*, and their ranks on the other lists are
+ * shown on that page as links for anyone who wants them.
+ *
+ * A claimed player has a real account page; everyone else gets the by-player
+ * profile, which now answers for external-only players too rather than 404ing
+ * — that gap is why this used to point outward.
+ */
 function rowLink(p: Row): string {
   const claimed = (p as GlobalRow).claimed_account?.username ?? (p as AllRow).account_username
   if (claimed) return `/users/${encodeURIComponent(claimed)}`
-  if (p.source === 'aredl') return `/aredl-players/${p.id}`
-  if (p.source === 'pointercrate') return `/pointercrate-players/${p.id}`
-  if (p.source === 'gdl') return `/gdl-players/${p.id}`
   return `/users/by-player/${encodeURIComponent(p.player)}`
 }
 function rowKey(p: Row, i: number): string {

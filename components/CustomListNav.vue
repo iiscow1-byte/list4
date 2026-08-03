@@ -38,6 +38,14 @@ const props = defineProps<{
   followAllOrder?: boolean
   /** Grey out levels the ALL doesn't carry, rather than colouring by rank. */
   markOffAll?: boolean
+  /**
+   * Presentation, chosen by the list's owner. Each defaults to what the list
+   * looked like before the setting existed, so an untouched list is unchanged.
+   */
+  showThumbnails?: boolean
+  showPoints?: boolean
+  showRecords?: boolean
+  compact?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
@@ -50,8 +58,9 @@ const { to } = useStandaloneList()
  * mode a row's colour depends on the rows around it, so this can't be a
  * per-row call without re-deriving the anchors 250 times.
  */
+const tierCurve = useTierCurve()
 const rowColor = computed(() => {
-  const colors = listRowColors(props.items, props.markOffAll !== false)
+  const colors = listRowColors(props.items, props.markOffAll !== false, tierCurve.value)
   const byId = new Map<number, string>()
   props.items.forEach((item, i) => byId.set(item.id, colors[i]!))
   return byId
@@ -229,8 +238,9 @@ async function remove(item: CustomItem) {
 
           <NuxtLink
             :to="to(`${listPath}/${lvl.rank}`)"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 py-1.5 text-sm rounded-lg group transition-all"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 text-sm rounded-lg group transition-all"
             :class="[
+              compact ? 'py-1' : 'py-1.5',
               lvl.id === activeId
                 ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'
                 : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50',
@@ -239,6 +249,7 @@ async function remove(item: CustomItem) {
             ]"
           >
             <LevelThumbBg
+              v-if="showThumbnails !== false"
               :gd-id="lvl.gd_id"
               :video-url="lvl.verification_url"
               res="small"
@@ -270,14 +281,24 @@ async function remove(item: CustomItem) {
 
             <span class="relative flex-1 min-w-0">
               <span class="block truncate font-medium drop-shadow-sm">{{ lvl.name }}</span>
-              <span v-if="lvl.creator" class="block truncate text-[10px] text-zinc-500">{{ lvl.creator }}</span>
+              <span
+                v-if="lvl.creator && !compact"
+                class="block truncate text-[10px] text-zinc-500"
+              >{{ lvl.creator }}</span>
             </span>
 
-            <span class="relative shrink-0 text-right">
-              <span class="block text-[11px] tabular-nums text-amber-300/90 font-medium">{{ lvl.points }}</span>
-              <span v-if="lvl.records.length" class="block text-[9px] tabular-nums text-zinc-600">
-                {{ lvl.records.length }} rec
-              </span>
+            <span
+              v-if="showPoints !== false || (showRecords !== false && lvl.records.length)"
+              class="relative shrink-0 text-right"
+            >
+              <span
+                v-if="showPoints !== false"
+                class="block text-[11px] tabular-nums text-amber-300/90 font-medium"
+              >{{ lvl.points }}</span>
+              <span
+                v-if="showRecords !== false && lvl.records.length"
+                class="block text-[9px] tabular-nums text-zinc-600"
+              >{{ lvl.records.length }} rec</span>
             </span>
 
             <button

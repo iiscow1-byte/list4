@@ -392,6 +392,11 @@ The site is currently closed: only staff can use it, and nobody can register.
 Both switches live in `server/utils/site-access.ts` and both default to the
 closed position, so a deployment that sets nothing is locked rather than open.
 
+The wording lives in `utils/lockdown.ts` and is used by all four places that say
+it — the closed page, the login form, the API's 403 and the signup refusal.
+Four hand-written copies of the same sentence had already drifted into
+disagreeing about who can get in and when it opens.
+
 | Env var | Default | Effect |
 | --- | --- | --- |
 | `PUBLIC_SITE=1` | unset | Re-opens the site to everyone. |
@@ -534,6 +539,41 @@ The sheet's own palette stops at Tier 40. Tiers 41–45 are this site's; they
 bottom out once more and then climb back through deep blue, because the red→black
 ramp has already run out of darkness and five more shades of black would be five
 tiers nobody could tell apart.
+
+### The tier curve
+
+Tier is a function of *where a level lands*, and that function is nowhere near a
+straight line. Measured off the real list:
+
+| Tier | Median placement | Tier | Median placement |
+| --- | --- | --- | --- |
+| 40 | #2 | 25 | #3,234 |
+| 35 | #281 | 20 | #7,011 |
+| 30 | #1,690 | 10 | #10,025 |
+| | | 1 | #17,620 |
+
+The top five tiers fit inside 300 placements; the bottom fifteen share ten
+thousand. Estimates used to space rows evenly between their anchors, so a custom
+list anchored at #50 (Tier 37) and #30,000 (Tier 1) gave the row halfway between
+them Tier 18 — the placement halfway between them is #15,000, where the list has
+Tier 1. Measured against the real curve, the worst row in that gap was **13
+tiers** out and the average was 4.6.
+
+`server/utils/tier-curve.ts` reads the curve out of the database — one point per
+tier at that tier's median placement — and `estimateAt` uses it as the *shape* of
+the interpolation while the anchors stay the endpoints. A list that sits
+systematically harder or easier than the ALL therefore keeps its offset instead
+of being flattened onto the ALL's numbers. Worst case is now 2 tiers, mean 0.89.
+
+It is measured rather than assumed for both the obvious reasons: no closed form
+was going to fit that shape, and it moves as the list grows. Tiers with fewer
+than five levels are dropped (two levels say more about those two than about the
+tier), and points that don't descend are dropped too — interpolating across one
+produces an estimate that gets *harder* further down the list.
+
+`/api/levels/tier-curve` serves it to the browser, cached both ends; the
+importers read it straight from the database. Absent, every caller falls back to
+the old row-spaced answer rather than to no answer.
 
 ## Records a claim brings with it
 

@@ -18,6 +18,7 @@
  */
 import { getDb } from './index.ts'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import { getTierCurve } from '../utils/tier-curve.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
 
 export type GdtplListConfig = {
@@ -240,6 +241,10 @@ export async function importGdtpl(cfg: GdtplListConfig, report?: ProgressReporte
   // Prefetch all source-list levels that are *also* on the ALL list, sorted by
   // source-list position. The estimator binary-searches this array per pending
   // row instead of running join-against-52k-row SELECTs for every iteration —
+  // The ALL's own tier-to-placement shape, so a level guessed at from a wide
+  // gap gets the tier the list really has there rather than an evenly-spaced
+  // one. See `server/utils/tier-curve.ts`.
+  const curve = getTierCurve(db)
   // node:sqlite is synchronous, and per-row queries inside one big transaction
   // starve the event loop (no HTTP request returns for the duration).
   const anchors = buildAnchors(
@@ -308,7 +313,7 @@ export async function importGdtpl(cfg: GdtplListConfig, report?: ProgressReporte
       for (const lv of slice) {
         if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-        const est = estimateForSourcePosition(anchors, lv.position)
+        const est = estimateForSourcePosition(anchors, lv.position, curve)
         let placementEstimate = est.placement
         // Top-of-list extremes have ALL-positions close to their source-list
         // positions, so the estimate can coincidentally equal the source rank.

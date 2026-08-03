@@ -182,12 +182,17 @@ async function linkToAll(unlink = false) {
  * list that the ALL already has. A custom list is an opinion about ordering, so
  * "it's between these two" is real information — far better than making the
  * submitter guess a placement out of 54,000 from scratch.
+ *
+ * The curve is the ALL's measured tier-to-placement shape; without it a level
+ * guessed at from a wide gap gets an evenly-spaced tier, which is wrong by more
+ * the wider the gap gets.
  */
+const tierCurve = useTierCurve()
 const estimate = computed(() => {
   const items = props.items ?? []
   const idx = items.findIndex((x: any) => x.id === props.item?.id)
   if (idx === -1) return { placement: null, tier: null, basis: null }
-  return estimateForItem(items as any[], idx)
+  return estimateForItem(items as any[], idx, tierCurve.value)
 })
 
 /**

@@ -8,6 +8,7 @@ const { data, error } = await useFetch<{
   derived: boolean
   completedLevels: any[]
   createdLevels: any[]
+  external?: { source: string; label: string; to: string; rank: number | null; points: number | null }[]
   follow: { target: string; followed: boolean; followerCount: number; isSelf: boolean; canFollow: boolean }
 }>(() => `/api/users/by-player/${encodeURIComponent(playerName.value)}`, { watch: [playerName] })
 
@@ -54,6 +55,25 @@ function fmt(n: number | null | undefined) {
           </div>
         </div>
       </header>
+
+      <!-- Where else this player ranks.
+           The leaderboard sends every row here now, including players the ALL
+           itself has never heard of, so the page has to answer "who is this"
+           for them — and the answer is the lists that do know them. -->
+      <section v-if="data.external?.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Also ranked on</h2>
+        <ul class="grid gap-px bg-zinc-800 rounded-lg overflow-hidden border border-zinc-800 sm:grid-cols-3">
+          <li v-for="e in data.external" :key="e.source" class="bg-zinc-950">
+            <NuxtLink :to="e.to" class="flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-900/70 transition-colors group">
+              <span class="text-sm text-zinc-300 group-hover:text-accent transition-colors">{{ e.label }}</span>
+              <span class="ml-auto text-right tabular-nums">
+                <span v-if="e.rank != null" class="block text-sm text-zinc-200">#{{ e.rank.toLocaleString() }}</span>
+                <span v-if="e.points != null" class="block text-[10px] text-zinc-600">{{ fmt(e.points) }} pts</span>
+              </span>
+            </NuxtLink>
+          </li>
+        </ul>
+      </section>
 
       <div class="rounded-md border border-amber-900/40 bg-amber-950/20 p-4 text-sm text-amber-200">
         This user has not claimed their account yet.

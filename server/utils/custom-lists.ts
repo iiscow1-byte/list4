@@ -309,6 +309,8 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
             cl.icon_url, cl.accent_color, cl.banner_url, cl.follow_all_order,
             cl.accepts_submissions, cl.require_record_video, cl.mark_off_all,
+            cl.show_banner, cl.show_thumbnails, cl.show_points, cl.show_records,
+            cl.compact_rows, cl.show_editors,
             cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title

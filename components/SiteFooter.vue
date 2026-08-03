@@ -29,10 +29,10 @@ async function logout() {
 
         <span
           class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300"
-          title="This site is in alpha — things move, break and change without warning."
+          title="The site is closed while it is being developed — things move, break and change without warning."
         >
           <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-          Alpha
+          In development
         </span>
 
         <NuxtLink

@@ -160,17 +160,58 @@ type DiscordWebhook = {
   last_posted_date: string | null
   last_post_status: string | null
 }
-const WEBHOOK_KIND_LABELS: Record<WebhookKind, string> = {
-  changes: 'Daily changes',
-  leaderboard: 'Leaderboard updates',
-  level_status: 'Level status',
-  challenge_changes: 'Challenge changes',
-}
+/**
+ * The four kinds, each with what it actually posts.
+ *
+ * One table rather than a labels map plus a paragraph plus two hard-coded
+ * `<select>` lists: those were four places to edit whenever a kind changed, and
+ * the paragraph explaining them had already drifted from the options beside it.
+ */
+const WEBHOOK_KINDS: { id: WebhookKind; label: string; blurb: string; tone: string }[] = [
+  {
+    id: 'changes',
+    label: 'Daily changes',
+    blurb: 'A nightly summary of every level that moved.',
+    tone: 'border-blue-900/60 bg-blue-950/40 text-blue-300',
+  },
+  {
+    id: 'challenge_changes',
+    label: 'Challenge changes',
+    blurb: 'The same summary, filtered to challenge-rated levels and numbered by challenge rank.',
+    tone: 'border-amber-900/60 bg-amber-950/40 text-amber-300',
+  },
+  {
+    id: 'leaderboard',
+    label: 'Leaderboard updates',
+    blurb: 'Fires when a record is approved.',
+    tone: 'border-emerald-900/60 bg-emerald-950/30 text-emerald-400',
+  },
+  {
+    id: 'level_status',
+    label: 'Level status',
+    blurb: 'Fires when a level reaches Awaiting Placement or the Void list.',
+    tone: 'border-purple-900/60 bg-purple-950/30 text-purple-300',
+  },
+]
+const WEBHOOK_KIND_LABELS: Record<WebhookKind, string> =
+  Object.fromEntries(WEBHOOK_KINDS.map((k) => [k.id, k.label])) as Record<WebhookKind, string>
 const webhooks = ref<DiscordWebhook[]>([])
 const newWebhookUrl = ref('')
 const newWebhookLabel = ref('')
 const newWebhookKind = ref<WebhookKind>('changes')
 const webhookBusy = ref(false)
+
+// Declared after `webhooks` on purpose: a computed reading a `const` declared
+// below it is a temporal-dead-zone crash waiting for the first render that
+// touches it during setup.
+/** Webhooks grouped by kind, so no row has to restate its own type. */
+const webhooksByKind = computed(() =>
+  WEBHOOK_KINDS.map((k) => ({ ...k, hooks: webhooks.value.filter((w) => w.kind === k.id) })),
+)
+/** Anything stored under a kind this build doesn't know — `kind` is free text in SQLite. */
+const strayWebhooks = computed(() =>
+  webhooks.value.filter((w) => !WEBHOOK_KINDS.some((k) => k.id === w.kind)),
+)
 
 async function loadWebhooks() {
   if (!isAdmin.value) return
@@ -1544,132 +1585,200 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
       </div>
     </div>
 
+    <!-- Discord: one section per kind of post, each listing the channels that
+         receive it. The old single flat list made every row restate its own
+         type twice — once as a badge, once as a full dropdown — and explained
+         the four kinds in a paragraph nowhere near them. -->
     <div v-else-if="tab === 'discord'" class="flex-1 overflow-y-auto">
-      <div class="container-tight py-8 max-w-3xl space-y-6">
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
-          <div class="px-4 pt-3 pb-2 flex items-baseline justify-between gap-3">
-            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Discord webhooks</h2>
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                class="text-[11px] text-accent hover:underline"
-                @click="postYesterday"
-                title="Post yesterday's completed changes (same as the auto-scheduler)"
-              >Post last changes</button>
-              <button
-                type="button"
-                class="text-[11px] text-zinc-400 hover:underline"
-                @click="postNow"
-                title="Post today's changes so far (partial day)"
-              >Post today's changes</button>
-            </div>
+      <div class="container-tight py-8 max-w-3xl space-y-5">
+        <header class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-sm font-semibold text-zinc-100">Discord webhooks</h2>
+            <p class="text-[11px] text-zinc-500 mt-1 leading-relaxed max-w-lg">
+              Channels the site posts to. Each webhook belongs to one kind of post.
+              Level links inside the embeds need the
+              <code class="text-zinc-400">SITE_URL</code> env var set.
+            </p>
           </div>
-          <p class="px-4 pb-3 text-[11px] text-zinc-500 leading-relaxed">
-            Webhooks are grouped by type: <strong class="text-zinc-400">Daily changes</strong> receives a nightly summary of level moves,
-            <strong class="text-zinc-400">Challenge changes</strong> is the same but filtered to challenge-rated levels only (with challenge ranks),
-            <strong class="text-zinc-400">Leaderboard updates</strong> fires when a record is approved,
-            and <strong class="text-zinc-400">Level status</strong> fires when a level reaches Awaiting Placement or the Void list.
-            Set the <code class="text-zinc-300">SITE_URL</code> env var to enable level links inside the embeds.
-          </p>
-
-          <div class="px-4 pb-4 border-t border-zinc-900 pt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto_auto] gap-2">
-            <input
-              v-model="newWebhookUrl"
-              placeholder="https://discord.com/api/webhooks/…/…"
-              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <input
-              v-model="newWebhookLabel"
-              placeholder="Label"
-              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            />
-            <select
-              v-model="newWebhookKind"
-              class="rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            >
-              <option value="changes">Daily changes</option>
-              <option value="challenge_changes">Challenge changes</option>
-              <option value="leaderboard">Leaderboard updates</option>
-              <option value="level_status">Level status</option>
-            </select>
+          <div class="flex items-center gap-2 shrink-0">
             <button
               type="button"
+              class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-2.5 py-1.5 hover:border-accent/60 hover:text-accent transition-colors"
+              title="Post yesterday's completed changes — the same message the nightly scheduler sends"
+              @click="postYesterday"
+            >Post yesterday</button>
+            <button
+              type="button"
+              class="rounded-lg border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1.5 hover:border-zinc-600 hover:text-zinc-200 transition-colors"
+              title="Post today's changes so far — a partial day"
+              @click="postNow"
+            >Post today</button>
+          </div>
+        </header>
+
+        <!-- Add a webhook -->
+        <form class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 space-y-2.5" @submit.prevent="addWebhook">
+          <div class="grid gap-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Webhook URL</span>
+              <input
+                v-model="newWebhookUrl"
+                type="url"
+                placeholder="https://discord.com/api/webhooks/…/…"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Label</span>
+              <input
+                v-model="newWebhookLabel"
+                placeholder="#changes in the ALL server"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              />
+            </label>
+          </div>
+          <div class="flex items-end gap-2.5 flex-wrap">
+            <label class="block min-w-[12rem]">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Posts</span>
+              <select
+                v-model="newWebhookKind"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              >
+                <option v-for="k in WEBHOOK_KINDS" :key="k.id" :value="k.id">{{ k.label }}</option>
+              </select>
+            </label>
+            <button
+              type="submit"
               :disabled="webhookBusy || !newWebhookUrl.trim()"
-              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
-              @click="addWebhook"
-            >{{ webhookBusy ? 'Adding…' : 'Add' }}</button>
+              class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+            >{{ webhookBusy ? 'Adding…' : 'Add webhook' }}</button>
+            <p class="text-[10px] text-zinc-600 ml-auto max-w-xs leading-snug">
+              The URL is a write credential for that channel. It's stored, then only
+              ever shown back with its token removed.
+            </p>
+          </div>
+        </form>
+
+        <!-- One block per kind -->
+        <section
+          v-for="k in webhooksByKind"
+          :key="k.id"
+          class="rounded-xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden"
+        >
+          <div class="px-3.5 py-2.5 flex items-center gap-2.5 border-b border-zinc-900">
+            <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0" :class="k.tone">
+              {{ k.label }}
+            </span>
+            <span class="text-[11px] text-zinc-500 min-w-0 truncate">{{ k.blurb }}</span>
+            <span class="ml-auto shrink-0 text-[11px] tabular-nums text-zinc-600">
+              {{ k.hooks.length || '—' }}
+            </span>
           </div>
 
-          <ul v-if="webhooks.length" class="divide-y divide-zinc-900">
-            <li v-for="w in webhooks" :key="w.id" class="px-4 py-3 flex flex-wrap gap-3 items-center" :class="{ 'opacity-60': !w.active }">
+          <ul v-if="k.hooks.length" class="divide-y divide-zinc-900">
+            <li
+              v-for="w in k.hooks"
+              :key="w.id"
+              class="px-3.5 py-3 flex flex-wrap items-center gap-x-3 gap-y-2"
+              :class="{ 'opacity-55': !w.active }"
+            >
+              <span
+                class="shrink-0 w-1.5 h-1.5 rounded-full"
+                :class="w.active ? 'bg-emerald-400' : 'bg-zinc-600'"
+                :title="w.active ? 'Active' : 'Paused'"
+                aria-hidden="true"
+              />
               <div class="flex-1 min-w-0">
-                <div class="flex items-baseline gap-2 flex-wrap">
-                  <span class="font-medium text-zinc-100 text-sm truncate">{{ w.label || 'Unnamed webhook' }}</span>
-                  <span
-                    class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border"
-                    :class="w.active
-                      ? 'border-emerald-900/60 bg-emerald-950/40 text-emerald-300'
-                      : 'border-zinc-800 bg-zinc-900 text-zinc-500'"
-                  >{{ w.active ? 'Active' : 'Paused' }}</span>
-                  <span
-                    class="text-[10px] px-1.5 py-0.5 rounded border"
-                    :class="{
-                      'border-blue-900/60 bg-blue-950/40 text-blue-300': w.kind === 'changes',
-                      'border-amber-900/60 bg-amber-950/40 text-amber-300': w.kind === 'challenge_changes',
-                      'border-emerald-900/60 bg-emerald-950/30 text-emerald-400': w.kind === 'leaderboard',
-                      'border-purple-900/60 bg-purple-950/30 text-purple-300': w.kind === 'level_status',
-                    }"
-                  >{{ WEBHOOK_KIND_LABELS[w.kind] ?? w.kind }}</span>
-                </div>
-                <div class="text-[11px] text-zinc-500 truncate font-mono" :title="w.url">{{ w.url }}</div>
+                <div class="text-sm text-zinc-100 truncate">{{ w.label || 'Unnamed webhook' }}</div>
+                <div class="text-[10px] text-zinc-600 truncate font-mono">{{ w.url }}</div>
                 <div class="text-[10px] text-zinc-600 mt-0.5">
                   Added {{ w.created_at }}<span v-if="w.created_by"> by {{ w.created_by }}</span>
-                  <template v-if="w.kind === 'changes'">
-                    · Last posted: <span class="text-zinc-400">{{ w.last_posted_date ?? '—' }}</span>
-                    <span v-if="w.last_post_status" class="text-zinc-500"> ({{ w.last_post_status }})</span>
+                  <template v-if="w.last_posted_date || w.last_post_status">
+                    · last posted
+                    <span class="text-zinc-400">{{ w.last_posted_date ?? '—' }}</span>
+                    <span
+                      v-if="w.last_post_status"
+                      :class="w.last_post_status === 'ok' ? 'text-emerald-400/80' : 'text-red-400/80'"
+                    > ({{ w.last_post_status }})</span>
                   </template>
                 </div>
               </div>
-              <div class="flex items-center gap-2 flex-wrap">
-                <select
-                  :value="w.kind"
-                  class="rounded border border-zinc-700 bg-zinc-900 text-xs px-2 py-1 text-zinc-300 focus:border-accent focus:outline-none"
-                  @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
-                >
-                  <option value="changes">Daily changes</option>
-                  <option value="challenge_changes">Challenge changes</option>
-                  <option value="leaderboard">Leaderboard updates</option>
-                  <option value="level_status">Level status</option>
-                </select>
-                <label
-                  v-if="w.kind === 'changes' || w.kind === 'challenge_changes'"
-                  class="flex items-center gap-1.5 cursor-pointer select-none text-xs transition-colors"
-                  :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
-                  :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in embeds'"
-                >
-                  <input type="checkbox" :checked="!!w.tier_emoji" class="accent-accent" @change="toggleTierEmoji(w)" />
-                  Tier emoji
-                </label>
+
+              <label
+                v-if="k.id === 'changes' || k.id === 'challenge_changes'"
+                class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] transition-colors shrink-0"
+                :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
+                :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in the embeds'"
+              >
+                <input type="checkbox" :checked="!!w.tier_emoji" class="accent-accent" @change="toggleTierEmoji(w)" />
+                Tier emoji
+              </label>
+
+              <div class="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  class="rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-2.5 py-1 transition-colors"
+                  class="rounded-lg border border-zinc-800 text-zinc-300 text-[11px] px-2 py-1 hover:border-accent/60 hover:text-accent transition-colors"
                   @click="testWebhook(w)"
                 >Test</button>
                 <button
                   type="button"
-                  class="rounded border border-zinc-700 text-xs px-2.5 py-1 transition-colors"
-                  :class="w.active ? 'hover:border-amber-700 hover:text-amber-300' : 'hover:border-emerald-700 hover:text-emerald-300'"
+                  class="rounded-lg border border-zinc-800 text-[11px] px-2 py-1 transition-colors"
+                  :class="w.active ? 'text-zinc-400 hover:border-amber-700 hover:text-amber-300' : 'text-emerald-400 hover:border-emerald-700'"
                   @click="toggleWebhook(w)"
                 >{{ w.active ? 'Pause' : 'Resume' }}</button>
+                <!-- Moving a hook between kinds is rare, so it's a small
+                     control rather than a full-width dropdown on every row. -->
+                <select
+                  :value="w.kind"
+                  class="rounded-lg border border-zinc-800 bg-zinc-900 text-[11px] px-1.5 py-1 text-zinc-500 hover:text-zinc-300 focus:border-accent focus:outline-none"
+                  title="Move to another kind"
+                  @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
+                >
+                  <option v-for="o in WEBHOOK_KINDS" :key="o.id" :value="o.id">{{ o.label }}</option>
+                </select>
                 <button
                   type="button"
-                  class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-2.5 py-1 transition-colors"
+                  class="rounded-lg border border-zinc-800 text-zinc-600 text-[11px] px-2 py-1 hover:border-red-900 hover:text-red-400 transition-colors"
                   @click="removeWebhook(w)"
                 >Remove</button>
               </div>
             </li>
           </ul>
-          <div v-else class="px-4 pb-4 text-xs text-zinc-600">No webhooks configured.</div>
+          <p v-else class="px-3.5 py-3 text-[11px] text-zinc-600">
+            Nothing receives this yet.
+          </p>
+        </section>
+
+        <!-- Rows stored under a kind this build doesn't know about. Shown
+             rather than silently dropped: invisible rows still fire. -->
+        <section v-if="strayWebhooks.length" class="rounded-xl border border-red-900/50 bg-red-950/10 overflow-hidden">
+          <div class="px-3.5 py-2.5 border-b border-red-900/40">
+            <h3 class="text-[10px] uppercase tracking-widest text-red-400 font-semibold">Unknown kind</h3>
+            <p class="text-[11px] text-zinc-500 mt-0.5">
+              Stored under a type this version doesn't recognise. Move them to one of the above, or remove them.
+            </p>
+          </div>
+          <ul class="divide-y divide-red-950/40">
+            <li v-for="w in strayWebhooks" :key="w.id" class="px-3.5 py-2.5 flex items-center gap-3">
+              <span class="flex-1 min-w-0">
+                <span class="block text-sm text-zinc-200 truncate">{{ w.label || 'Unnamed webhook' }}</span>
+                <span class="block text-[10px] text-zinc-600 font-mono truncate">{{ w.kind }} · {{ w.url }}</span>
+              </span>
+              <select
+                :value="w.kind"
+                class="rounded-lg border border-zinc-800 bg-zinc-900 text-[11px] px-1.5 py-1 text-zinc-400 focus:border-accent focus:outline-none"
+                @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
+              >
+                <option :value="w.kind" disabled>{{ w.kind }}</option>
+                <option v-for="o in WEBHOOK_KINDS" :key="o.id" :value="o.id">{{ o.label }}</option>
+              </select>
+              <button
+                type="button"
+                class="rounded-lg border border-zinc-800 text-zinc-600 text-[11px] px-2 py-1 hover:border-red-900 hover:text-red-400 transition-colors"
+                @click="removeWebhook(w)"
+              >Remove</button>
+            </li>
+          </ul>
         </section>
       </div>
     </div>

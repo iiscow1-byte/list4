@@ -6,6 +6,8 @@
  * already satisfy reads as a broken site — they'd sign in, get bounced, and
  * try again. This says what is actually happening.
  */
+import { LOCKDOWN_LINES } from '~/utils/lockdown'
+
 useHead({ title: 'Closed — All Levels List' })
 
 const { data: meRes } = useCurrentUser()
@@ -30,14 +32,18 @@ async function logout() {
   <div class="container-tight py-20 max-w-md text-center">
     <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
       <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-      Alpha
+      In development
     </div>
 
     <h1 class="mt-4 text-2xl font-bold tracking-tight">The All Levels List is closed</h1>
-    <p class="mt-2 text-sm text-zinc-400 leading-relaxed">
-      The site is restricted to the team while it's in alpha. It'll open up once
-      the list and the site have settled.
-    </p>
+    <!-- One line each: the three sentences answer three different questions,
+         and running them together buried the last one. -->
+    <p
+      v-for="(line, i) in LOCKDOWN_LINES"
+      :key="line"
+      class="text-sm leading-relaxed"
+      :class="i === 0 ? 'mt-3 text-zinc-300' : 'mt-1 text-zinc-500'"
+    >{{ line }}</p>
 
     <p v-if="me" class="mt-6 text-xs text-zinc-500">
       Signed in as <span class="text-zinc-300">{{ me.username }}</span>.

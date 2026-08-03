@@ -13,7 +13,7 @@
  * importers also run standalone under `node --experimental-strip-types`, where
  * Nuxt's `~` alias doesn't exist.
  */
-import { estimateAt, tierToOrd, type EstimateAnchor, type PlacementEstimate } from '../../utils/tier-ordinal.ts'
+import { estimateAt, tierToOrd, type EstimateAnchor, type PlacementEstimate, type TierCurve } from '../../utils/tier-ordinal.ts'
 
 export type { PlacementEstimate }
 
@@ -40,10 +40,17 @@ export function buildAnchors(rows: SharedRow[]): EstimateAnchor[] {
     .sort((a, b) => a.index - b.index)
 }
 
-/** Where a source-list level at `sourcePos` would land on the ALL. */
+/**
+ * Where a source-list level at `sourcePos` would land on the ALL.
+ *
+ * `curve` is the ALL's measured tier→placement shape. Optional because the
+ * importers run standalone as well as inside Nitro, and an estimate without it
+ * is the older row-spaced answer rather than no answer at all.
+ */
 export function estimateForSourcePosition(
   anchors: EstimateAnchor[],
   sourcePos: number,
+  curve?: TierCurve | null,
 ): PlacementEstimate {
-  return estimateAt(anchors, sourcePos)
+  return estimateAt(anchors, sourcePos, curve)
 }

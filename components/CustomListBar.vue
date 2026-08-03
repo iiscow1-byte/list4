@@ -18,9 +18,12 @@ const props = defineProps<{
     accent_color?: string | null
     discord_url?: string | null
     youtube_url?: string | null
+    show_editors?: number
     items: any[]
     packs?: any[]
   }
+  /** Owner first, then editors — see `loadEditors`. */
+  staff?: { id: number; username: string; role: 'owner' | 'editor'; has_avatar: boolean }[]
   canEdit?: boolean
   pendingCount?: number
   suggestionCount?: number
@@ -94,6 +97,49 @@ function isActive(t: { to: string; active?: boolean }) {
 }
 
 const levelCount = computed(() => props.list.items?.length ?? 0)
+
+/**
+ * The staff roster, as a popover off the bar.
+ *
+ * Reachable from every page of the list rather than only the one that has room
+ * for a sidebar, which is the reason it lives here and not just in the panel
+ * beside the levels.
+ */
+const staffOpen = ref(false)
+const staffRoot = ref<HTMLElement | null>(null)
+const showStaff = computed(() => props.list.show_editors !== 0 && (props.staff?.length ?? 0) > 0)
+
+function onDocClick(e: MouseEvent) {
+  if (!staffOpen.value) return
+  if (!staffRoot.value?.contains(e.target as Node)) staffOpen.value = false
+}
+function onEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') staffOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  document.addEventListener('keydown', onEsc)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocClick)
+  document.removeEventListener('keydown', onEsc)
+})
+// Following a link out of the popover should not leave it hanging open.
+watch(() => route.fullPath, () => { staffOpen.value = false })
+
+/**
+ * Straight into the builder with this list loaded.
+ *
+ * Reordering and adding levels is the most common thing an editor does, and it
+ * was three clicks away behind Settings → Levels → Open in builder, on a page
+ * that is otherwise about webhooks and permissions.
+ */
+const { loadFrom } = useListBuilder()
+const router = useRouter()
+async function openInBuilder() {
+  loadFrom(props.list as any)
+  await router.push('/builder')
+}
 </script>
 
 <template>
@@ -156,6 +202,63 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
         </NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1.5 shrink-0" />
+
+        <!-- Straight to the builder. The most common editing job was three
+             clicks deep inside a settings page about webhooks. -->
+        <button
+          v-if="canEdit"
+          type="button"
+          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
+          title="Open this list in the builder — add, remove and reorder levels"
+          @click="openInBuilder"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+            <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+          <span class="hidden sm:inline">Builder</span>
+        </button>
+
+        <!-- Who runs the list -->
+        <div v-if="showStaff" ref="staffRoot" class="relative shrink-0">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-lg border px-1.5 py-1 text-xs transition-colors"
+            :class="staffOpen
+              ? 'border-accent/50 text-accent bg-accent/10'
+              : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
+            :aria-expanded="staffOpen"
+            title="List editors"
+            @click.stop="staffOpen = !staffOpen"
+          >
+            <!-- Overlapping avatars: says "these people" without the space a
+                 list of names would need in a bar that already scrolls. -->
+            <span class="flex items-center -space-x-1.5">
+              <span
+                v-for="p in (staff ?? []).slice(0, 3)"
+                :key="p.id"
+                class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 border border-zinc-950 flex items-center justify-center"
+              >
+                <img
+                  v-if="p.has_avatar"
+                  :src="`/api/users/${encodeURIComponent(p.username)}/avatar`"
+                  class="w-full h-full object-cover" alt="" loading="lazy"
+                />
+                <span v-else class="text-[8px] font-bold uppercase text-zinc-500">{{ p.username.charAt(0) }}</span>
+              </span>
+            </span>
+            <span v-if="(staff?.length ?? 0) > 3" class="tabular-nums text-[10px]">+{{ (staff?.length ?? 0) - 3 }}</span>
+          </button>
+
+          <div
+            v-if="staffOpen"
+            class="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden"
+          >
+            <p class="px-3 py-2 text-[10px] uppercase tracking-widest text-zinc-500 font-semibold border-b border-zinc-900">
+              List editors
+            </p>
+            <CustomListStaff :staff="staff ?? []" variant="compact" />
+          </div>
+        </div>
 
         <!-- Standalone mode hides the site's own header, so this is the only
              way back to the rest of the site. It drops the flag deliberately:

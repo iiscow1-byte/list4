@@ -22,6 +22,24 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.8.0',
+    date: '2026-08-03',
+    title: 'Estimates that follow the list\'s own shape',
+    tags: ['Custom lists', 'Admin', 'Leaderboard', 'UI', 'Fixes'],
+    changes: [
+      'Placement estimates read the tier off the list\'s real shape instead of spacing rows evenly. A level guessed at from a wide gap was coming back up to thirteen tiers wrong — a row landing at #15,000 was called Tier 18 when the list has Tier 1 there. Worst case is now two tiers, typically under one.',
+      'Clicking a player on the leaderboard opens their profile here, not their AREDL page. Players only other lists know about get a profile too, listing where they rank on each.',
+      'Custom lists show who runs them: owner and editors, in the header on every page and beside the records.',
+      'Custom lists gained presentation settings — banner, level art, points, record counts, row density and the editor list can each be turned off. The accent colour now themes the whole list rather than just its icon, and the banner image finally renders.',
+      'A Builder button in every custom list\'s header. Adding and reordering levels was three clicks deep inside a settings page about webhooks.',
+      'Custom-list settings split into List, Appearance, Sharing, People and Integrations, instead of eight sections in one scroll.',
+      'The admin Discord tab is grouped by what each webhook posts, with the four kinds explained where they apply rather than in a paragraph above them.',
+      'Webhook URLs are no longer sent to the browser in full. The admin panel was rendering the whole credential; it now shows the same masked form the custom-list settings always did.',
+      'Lists used reads as a page rather than a list of links: short names line up in a column, and each mirrored list shows how much of it the ALL already carries.',
+      'Fixed: a custom list\'s editor roster was missing from the server-rendered page and only appeared once the browser caught up.',
+    ],
+  },
+  {
     version: '1.7.1',
     date: '2026-08-03',
     title: 'Where else a level is ranked, and who is behind a number',

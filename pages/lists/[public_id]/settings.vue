@@ -17,8 +17,20 @@ const error = ref<string | null>(null)
 const busy = ref(false)
 
 // --- Editors ---
-const roster = ref<{ id: number; username: string }[]>([])
-watch(editors, (v) => { roster.value = [...v] }, { immediate: true })
+type StaffRow = { id: number; username: string; role: 'owner' | 'editor'; has_avatar: boolean }
+
+/**
+ * The roster, derived rather than copied.
+ *
+ * It used to be a `ref` seeded by an immediate watcher on `editors`. That fires
+ * during setup — before the shared list fetch has resolved on the server — and
+ * a watcher doesn't run a second time during SSR's single render pass, so the
+ * server always shipped an empty roster and the names only appeared once the
+ * browser hydrated. The override holds the fresher array an add/remove returns,
+ * so those still land instantly without going back to the server.
+ */
+const rosterOverride = ref<StaffRow[] | null>(null)
+const roster = computed<StaffRow[]>(() => rosterOverride.value ?? (editors.value as StaffRow[]))
 
 const newEditor = ref('')
 async function addEditor() {
@@ -27,10 +39,10 @@ async function addEditor() {
   busy.value = true
   error.value = null
   try {
-    const res = await $fetch<{ added: boolean; editors: { id: number; username: string }[] }>(
+    const res = await $fetch<{ added: boolean; editors: StaffRow[] }>(
       `/api/custom-lists/${publicId.value}/editors`, { method: 'POST', body: { username } },
     )
-    roster.value = res.editors
+    rosterOverride.value = res.editors
     notice.value = res.added ? `${username} can now edit this list.` : `${username} is already an editor.`
     newEditor.value = ''
   } catch (e: any) {
@@ -43,10 +55,10 @@ async function removeEditor(id: number, username: string) {
   busy.value = true
   error.value = null
   try {
-    const res = await $fetch<{ editors: { id: number; username: string }[] }>(
+    const res = await $fetch<{ editors: StaffRow[] }>(
       `/api/custom-lists/${publicId.value}/editors`, { method: 'DELETE', query: { account_id: id } },
     )
-    roster.value = res.editors
+    rosterOverride.value = res.editors
     notice.value = `${username} removed.`
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? 'Could not remove that editor.'
@@ -161,6 +173,47 @@ async function deleteList() {
   }
 }
 
+/**
+ * Settings, in panes.
+ *
+ * Eight sections in one column meant scrolling past webhook configuration to
+ * reach a checkbox about level art. They group cleanly: what the list *is*,
+ * how it *looks*, who it's *shared* with, who *runs* it, and what it talks to.
+ */
+type SettingsTab = 'list' | 'appearance' | 'sharing' | 'people' | 'integrations'
+const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'list', label: 'List' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'sharing', label: 'Sharing' },
+  { id: 'people', label: 'People' },
+  { id: 'integrations', label: 'Integrations' },
+]
+const settingsTab = ref<SettingsTab>(
+  SETTINGS_TABS.some((t) => t.id === route.query.s) ? (route.query.s as SettingsTab) : 'list',
+)
+watch(settingsTab, (v) => {
+  router.replace({ query: { ...route.query, s: v === 'list' ? undefined : v } })
+})
+
+/**
+ * The presentation flags, as one table.
+ *
+ * Six near-identical checkbox blocks in the template is six places to get the
+ * inverted-checkbox pattern wrong; the two that already existed are inverted in
+ * opposite directions. `invert` says which way round the stored column runs, so
+ * the label can always read as the thing being turned on.
+ */
+const DISPLAY_SETTINGS: {
+  key: string; label: string; hint: string; invert?: boolean
+}[] = [
+  { key: 'show_banner', label: 'Show the banner image', hint: 'A wide image across the top of the list. Set one under Appearance.' },
+  { key: 'show_thumbnails', label: 'Level art on each row', hint: 'The level’s thumbnail behind its row in the list panel.' },
+  { key: 'show_points', label: 'Points on each row', hint: 'What a record on that level is worth.' },
+  { key: 'show_records', label: 'Record counts on each row', hint: 'How many approved records each level has.' },
+  { key: 'compact_rows', label: 'Compact rows', hint: 'Tighter rows without the creator line — more levels on screen at once.' },
+  { key: 'show_editors', label: 'Show the list’s editors', hint: 'Who runs the list, in the header and beside the records.' },
+]
+
 useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Settings' }))
 </script>
 
@@ -173,11 +226,24 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
         </p>
 
         <template v-else>
+          <nav class="flex items-center gap-0.5 overflow-x-auto border-b border-zinc-800/80 -mx-1 px-1 pb-2">
+            <button
+              v-for="t in SETTINGS_TABS"
+              :key="t.id"
+              type="button"
+              class="whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              :class="settingsTab === t.id
+                ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/25'
+                : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900'"
+              @click="settingsTab = t.id"
+            >{{ t.label }}</button>
+          </nav>
+
           <p v-if="notice" class="text-sm text-emerald-400">{{ notice }}</p>
           <p v-if="error" class="text-sm text-red-400">{{ error }}</p>
 
           <!-- Levels -->
-          <section class="card p-4">
+          <section v-show="settingsTab === 'list'" class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-2">Levels</h2>
             <p class="text-xs text-zinc-500 mb-3">
               Add, remove and reorder levels in the builder — it keeps every record attached as rows move.
@@ -190,7 +256,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Appearance -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
               <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Appearance</h2>
               <p class="text-xs text-zinc-500 mt-1">
@@ -228,14 +294,68 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 </div>
               </label>
             </div>
-            <div v-if="l.icon_url" class="flex items-center gap-2 pt-1">
-              <img :src="l.icon_url" alt="" referrerpolicy="no-referrer" class="w-8 h-8 rounded-lg object-cover border border-zinc-800 bg-zinc-900" />
-              <span class="text-[11px] text-zinc-600">Preview</span>
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Banner URL</span>
+              <input
+                type="url"
+                :value="l.banner_url ?? ''"
+                :disabled="busy"
+                placeholder="https://…/banner.png"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                @change="patch({ banner_url: ($event.target as HTMLInputElement).value }, 'Banner updated.')"
+              />
+              <span class="block text-[11px] text-zinc-600 mt-1">
+                A wide image across the top of the list. Something around 1500×300 works best.
+              </span>
+            </label>
+
+            <div v-if="l.icon_url || l.banner_url" class="space-y-2 pt-1">
+              <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Preview</span>
+              <div v-if="l.banner_url" class="relative h-16 rounded-lg overflow-hidden border border-zinc-800">
+                <img :src="l.banner_url" alt="" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" aria-hidden="true" />
+              </div>
+              <div v-if="l.icon_url" class="flex items-center gap-2">
+                <img :src="l.icon_url" alt="" referrerpolicy="no-referrer" class="w-8 h-8 rounded-lg object-cover border border-zinc-800 bg-zinc-900" />
+                <span class="text-[11px] text-zinc-600">Icon</span>
+              </div>
             </div>
           </section>
 
+          <!-- What the list shows -->
+          <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">What the list shows</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                How the list draws itself for everyone who opens it. Each is on unless you turn it off.
+              </p>
+            </div>
+            <label
+              v-for="d in DISPLAY_SETTINGS"
+              :key="d.key"
+              class="flex items-start gap-2 text-sm text-zinc-300 cursor-pointer select-none"
+            >
+              <input
+                type="checkbox"
+                class="accent-accent mt-1"
+                :checked="d.invert ? !(l as any)[d.key] : ((l as any)[d.key] ?? 1) !== 0"
+                :disabled="busy"
+                @change="patch(
+                  { [d.key]: d.invert
+                      ? !($event.target as HTMLInputElement).checked
+                      : ($event.target as HTMLInputElement).checked },
+                  'Presentation updated.',
+                )"
+              />
+              <span>
+                {{ d.label }}
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">{{ d.hint }}</span>
+              </span>
+            </label>
+          </section>
+
           <!-- Visibility -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'list'" class="card p-4 space-y-3">
             <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Visibility</h2>
             <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
               <input
@@ -324,7 +444,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Standalone link -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'sharing'" class="card p-4 space-y-3">
             <div>
               <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Standalone link</h2>
               <p class="text-xs text-zinc-500 mt-1">
@@ -355,7 +475,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Community links -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'sharing'" class="card p-4 space-y-3">
             <div>
               <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Community links</h2>
               <p class="text-xs text-zinc-500 mt-1">Shown as icons in this list's header.</p>
@@ -384,7 +504,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Discord webhooks -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'integrations'" class="card p-4 space-y-3">
             <div>
               <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Discord webhooks</h2>
               <p class="text-xs text-zinc-500 mt-1">
@@ -453,7 +573,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Editors -->
-          <section class="card p-4 space-y-3">
+          <section v-show="settingsTab === 'people'" class="card p-4 space-y-3">
             <div>
               <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Editors</h2>
               <p class="text-xs text-zinc-500 mt-1">
@@ -462,21 +582,38 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               </p>
             </div>
 
+            <!-- The roster now includes the owner, so it reads as the staff
+                 list readers see. Only editors can be removed — there is no
+                 such thing as a list without its owner. -->
             <ul v-if="roster.length" class="divide-y divide-zinc-900/60 rounded-lg border border-zinc-800/70">
-              <li v-for="e in roster" :key="e.id" class="px-3 py-2 flex items-center gap-2 text-sm">
+              <li v-for="e in roster" :key="e.id" class="px-3 py-2 flex items-center gap-2.5 text-sm">
+                <span class="w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">
+                  <img
+                    v-if="e.has_avatar"
+                    :src="`/api/users/${encodeURIComponent(e.username)}/avatar`"
+                    class="w-full h-full object-cover" alt="" loading="lazy"
+                  />
+                  <span v-else class="text-[10px] font-bold uppercase text-zinc-500">{{ e.username.charAt(0) }}</span>
+                </span>
                 <NuxtLink :to="`/users/${encodeURIComponent(e.username)}`" class="flex-1 truncate text-zinc-200 hover:text-accent transition-colors">
                   {{ e.username }}
                 </NuxtLink>
+                <span
+                  class="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border"
+                  :class="e.role === 'owner'
+                    ? 'border-accent/40 bg-accent/10 text-accent'
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-400'"
+                >{{ e.role === 'owner' ? 'Owner' : 'Editor' }}</span>
                 <button
-                  v-if="canManage"
+                  v-if="canManage && e.role !== 'owner'"
                   type="button"
                   :disabled="busy"
-                  class="text-[11px] text-zinc-600 hover:text-red-400 disabled:opacity-40 transition-colors"
+                  class="shrink-0 text-[11px] text-zinc-600 hover:text-red-400 disabled:opacity-40 transition-colors"
                   @click="removeEditor(e.id, e.username)"
                 >Remove</button>
               </li>
             </ul>
-            <p v-else class="text-xs text-zinc-600">No editors yet — it's just you.</p>
+            <p v-if="roster.length < 2" class="text-xs text-zinc-600">No other editors yet — it's just you.</p>
 
             <form v-if="canManage" class="flex items-stretch gap-2" @submit.prevent="addEditor">
               <input
@@ -494,7 +631,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           </section>
 
           <!-- Danger zone -->
-          <section v-if="canManage" class="rounded-xl border border-red-950/70 bg-red-950/10 p-4">
+          <section v-if="canManage && settingsTab === 'list'" class="rounded-xl border border-red-950/70 bg-red-950/10 p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-2">Delete list</h2>
             <p class="text-xs text-zinc-500 mb-3">
               Removes the list, its levels, and every record submitted to it. This can't be undone.

@@ -154,12 +154,18 @@ function slopeBetween(
  * a run of tierless anchors doesn't stop the tier estimate from reaching past
  * them to the last one that had a tier.
  */
-export function estimateAt(anchors: EstimateAnchor[], index: number): PlacementEstimate {
+export function estimateAt(
+  anchors: EstimateAnchor[],
+  index: number,
+  curve?: TierCurve | null,
+): PlacementEstimate {
   if (!anchors.length) return { placement: null, tier: null, basis: null }
 
   const p = estimatePlacement(anchors, index)
   const tiered = anchors.filter((a) => a.tierOrd != null)
-  const t = estimateTier(tiered, index)
+  // The placement is worked out first and then handed to the tier estimate,
+  // because where a level lands is what decides its tier — see `estimateTier`.
+  const t = estimateTier(tiered, index, p.value, curve)
 
   return { placement: p.value, tier: t.value == null ? null : ordToTier(t.value), basis: p.basis ?? t.basis }
 }
@@ -222,17 +228,105 @@ function estimatePlacement(anchors: EstimateAnchor[], index: number): { value: n
   return { value: null, basis: null }
 }
 
-function estimateTier(tiered: EstimateAnchor[], index: number): { value: number | null; basis: string | null } {
+/**
+ * Where each tier sits on the ALL — the shape the estimate is measured against.
+ *
+ * Tier is a function of *where a level lands*, not of how many rows down a list
+ * it happens to be written, and that function is nowhere near a straight line.
+ * Measured off the real list, the top five tiers are spent inside the first 300
+ * placements while the bottom fifteen share everything from #7,000 to #17,000:
+ *
+ *     Tier 40  →  #2        Tier 25  →  #3,234
+ *     Tier 35  →  #281      Tier 20  →  #7,011
+ *     Tier 30  →  #1,690    Tier 10  →  #10,025
+ *                           Tier 1   →  #17,620
+ *
+ * Spacing rows evenly across a gap that wide is what made tiers "scale down
+ * extremely slowly": a list anchored at #50 (Tier 37) and #30,000 (Tier 1) gave
+ * the row halfway between them Tier 18, when the placement halfway between them
+ * is #15,000 — a Tier 1 level. Every row in the gap was wrong, and the wider
+ * the gap the more wrong it got. A log scale is closer but still misses badly,
+ * because the curve is steep at the top and nearly flat at the bottom.
+ *
+ * So the curve is measured rather than assumed: `server/utils/tier-curve.ts`
+ * reads each tier's median placement out of the database, and it is passed in
+ * here. Sorted by placement ascending. Absent, everything below falls back to
+ * the anchors' own spacing.
+ */
+export type TierCurvePoint = { ord: number; placement: number }
+export type TierCurve = TierCurvePoint[]
+
+/**
+ * The tier the list itself has around `placement`, as a fractional ordinal.
+ *
+ * Interpolated in log-placement space *between* measured points, which is a
+ * good local approximation even though it is a poor global one — consecutive
+ * tiers are close enough together for the curvature between them not to matter.
+ */
+export function tierAtPlacement(curve: TierCurve | null | undefined, placement: number): number | null {
+  if (!curve?.length || !(placement > 0)) return null
+  if (curve.length === 1) return curve[0]!.ord
+
+  let lo = 0, hi = curve.length
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1
+    if (curve[mid]!.placement < placement) lo = mid + 1
+    else hi = mid
+  }
+  const a = curve[lo - 1] ?? curve[0]!
+  const b = curve[lo] ?? curve[curve.length - 1]!
+  if (a === b) return a.ord
+
+  const la = Math.log(a.placement), lb = Math.log(b.placement)
+  if (la === lb) return a.ord
+  // Not clamped: past either end the nearest pair's slope carries on, which is
+  // what makes a level below the last measured tier keep descending.
+  const frac = (Math.log(placement) - la) / (lb - la)
+  return clampOrd(a.ord + frac * (b.ord - a.ord))
+}
+
+function estimateTier(
+  tiered: EstimateAnchor[],
+  index: number,
+  placement: number | null,
+  curve: TierCurve | null | undefined,
+): { value: number | null; basis: string | null } {
   if (!tiered.length) return { value: null, basis: null }
   const { above, above2, below, below2 } = bracket(tiered, index)
 
+  /**
+   * How far the curve says the tier moves between two placements.
+   *
+   * Used as the *shape* of the interpolation while the anchors stay the
+   * endpoints, so a list that sits systematically harder or easier than the ALL
+   * keeps its offset instead of being flattened onto the ALL's own numbers.
+   */
+  const curveOrd = (p: number | null | undefined) =>
+    p == null ? null : tierAtPlacement(curve, p)
+
   if (above && below) {
+    const cA = curveOrd(above.placement)
+    const cB = curveOrd(below.placement)
+    const cP = curveOrd(placement)
+    if (cA != null && cB != null && cP != null && cA !== cB) {
+      // Clamped, so a placement estimate that strays outside the pair can't
+      // push the tier past the anchors that are supposed to bound it.
+      const frac = Math.max(0, Math.min(1, (cP - cA) / (cB - cA)))
+      return { value: above.tierOrd! + frac * (below.tierOrd! - above.tierOrd!), basis: null }
+    }
     const span = below.index - above.index
     const frac = span > 0 ? (index - above.index) / span : 0.5
     return { value: above.tierOrd! + frac * (below.tierOrd! - above.tierOrd!), basis: null }
   }
 
   if (above) {
+    // Past the last anchor: carry the curve's own change from that anchor to
+    // wherever this row lands, keeping the anchor's offset from the curve.
+    const cA = curveOrd(above.placement)
+    const cP = curveOrd(placement)
+    if (cA != null && cP != null) {
+      return { value: clampOrd(above.tierOrd! + (cP - cA)), basis: null }
+    }
     // The bug this exists to fix: with one anchor and no slope the answer was
     // always that anchor's own tier, so every row below the lowest-ranked level
     // on the list reported the same tier however far down it was.
@@ -243,6 +337,11 @@ function estimateTier(tiered: EstimateAnchor[], index: number): { value: number 
   }
 
   if (below) {
+    const cB = curveOrd(below.placement)
+    const cP = curveOrd(placement)
+    if (cB != null && cP != null) {
+      return { value: clampOrd(below.tierOrd! + (cP - cB)), basis: null }
+    }
     const slope = slopeBetween(below2, below, (a) => a.tierOrd)
     if (slope == null) return { value: below.tierOrd!, basis: null }
     const step = Math.max(-MAX_TIER_SLOPE, Math.min(MAX_TIER_SLOPE, slope))
@@ -251,6 +350,8 @@ function estimateTier(tiered: EstimateAnchor[], index: number): { value: number 
 
   return { value: null, basis: null }
 }
+
+const clampOrd = (n: number) => Math.max(0, Math.min(TIER_MAX_ORD, n))
 
 /**
  * Anchors from a custom list's items, in list order.
@@ -277,6 +378,6 @@ export function anchorsFromItems<
  */
 export function estimateForItem<
   T extends { position?: number | null; sheet_placement?: number | null; gddl_tier?: string | null },
->(items: T[], index: number): PlacementEstimate {
-  return estimateAt(anchorsFromItems(items), index)
+>(items: T[], index: number, curve?: TierCurve | null): PlacementEstimate {
+  return estimateAt(anchorsFromItems(items), index, curve)
 }

@@ -16,6 +16,7 @@
  */
 import { getDb } from './index.ts'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
+import { getTierCurve } from '../utils/tier-curve.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
 
 const API_BASE = process.env.GDL_API_BASE || 'https://api.demonlist.org'
@@ -366,6 +367,10 @@ export async function importGdl(report?: ProgressReporter) {
     verifier_name: string | null; verification_url: string | null
   }>
 
+  // The ALL's own tier-to-placement shape, so a level guessed at from a wide
+  // gap gets the tier the list really has there rather than an evenly-spaced
+  // one. See `server/utils/tier-curve.ts`.
+  const curve = getTierCurve(db)
   // Every level the ALL and GDL share, in GDL order — the anchors an estimate
   // for a GDL-only level is read from.
   const anchors = buildAnchors(
@@ -400,7 +405,7 @@ export async function importGdl(report?: ProgressReporter) {
     for (const lv of gdlOnlyForReview) {
       if (lv.verification_url && existingVerUrls.has(lv.verification_url)) { skippedDupVer++; continue }
 
-      const placementEstimate = estimateForSourcePosition(anchors, lv.placement).placement
+      const placementEstimate = estimateForSourcePosition(anchors, lv.placement, curve).placement
 
       const notes = `Imported from GDL · placement #${lv.placement} on ${lv.list_type ?? 'classic'} list`
       const result = insPending.run(

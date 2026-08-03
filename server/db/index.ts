@@ -1593,6 +1593,30 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN mark_off_all INTEGER NOT NULL DEFAULT 1`)
   }
 
+  /**
+   * How the list draws itself.
+   *
+   * All default to what the list already looked like, so every existing list
+   * renders identically until somebody changes something. They are stored on
+   * the list rather than kept as a per-visitor preference because they are the
+   * owner's presentation choices — a list built as a wall of level art should
+   * look that way to everyone who opens the link.
+   */
+  for (const [col, def] of [
+    // The banner image has been storable since 1.3 and was never rendered.
+    ['show_banner', 1],
+    ['show_thumbnails', 1],
+    ['show_points', 1],
+    ['show_records', 1],
+    ['compact_rows', 0],
+    // The editor roster, shown the way other list sites show their staff.
+    ['show_editors', 1],
+  ] as const) {
+    if (!clCols2.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE custom_lists ADD COLUMN ${col} INTEGER NOT NULL DEFAULT ${def}`)
+    }
+  }
+
   // Per-row overrides of the fields a linked level otherwise mirrors from the
   // ALL. NULL means "follow the main list", which is what every existing row
   // does and stays doing. Kept in separate columns rather than written over the

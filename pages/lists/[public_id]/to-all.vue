@@ -38,6 +38,9 @@ type Draft = {
   basis: string | null
 }
 
+// The ALL's measured tier-to-placement shape — see `useTierCurve`.
+const tierCurve = useTierCurve()
+
 const drafts = ref<Draft[]>([])
 
 /** Rebuild the drafts whenever the list loads or changes underneath us. */
@@ -51,7 +54,7 @@ function seed() {
     .map((it: any, idx: number) => ({ it, idx }))
     .filter(({ it }) => it.level_id == null)
     .map(({ it, idx }) => {
-      const est = estimateAt(anchors, idx)
+      const est = estimateAt(anchors, idx, tierCurve.value)
       return {
         item_id: it.id,
         rank: it.rank,

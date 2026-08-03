@@ -1,5 +1,5 @@
 import { tierColor } from './tier-colors'
-import { anchorsFromItems, estimateAt, ordToTier, tierToOrd } from './tier-ordinal'
+import { anchorsFromItems, estimateAt, ordToTier, tierToOrd, type TierCurve } from './tier-ordinal'
 
 /**
  * What colour a custom list's rank badges are.
@@ -52,9 +52,9 @@ const RAMP_BOTTOM_ORD = tierToOrd('Tier 1')!
  * needs the whole list to answer any single row, and recomputing the anchor set
  * per row would make rendering a 250-row list quadratic.
  */
-export function listRowColors(items: ColorItem[], markOffAll: boolean): string[] {
+export function listRowColors(items: ColorItem[], markOffAll: boolean, curve?: TierCurve | null): string[] {
   if (markOffAll) return items.map((i) => tierColor(i.gddl_tier))
-  return listRowTiers(items).map((t) => tierColor(t))
+  return listRowTiers(items, curve).map((t) => tierColor(t))
 }
 
 /**
@@ -62,7 +62,7 @@ export function listRowColors(items: ColorItem[], markOffAll: boolean): string[]
  * places that want the label too — the estimate panel, mainly — so the two can
  * never disagree about what a row is being shown as.
  */
-export function listRowTiers(items: ColorItem[]): (string | null)[] {
+export function listRowTiers(items: ColorItem[], curve?: TierCurve | null): (string | null)[] {
   if (!items.length) return []
 
   const anchors = anchorsFromItems(items)
@@ -71,7 +71,7 @@ export function listRowTiers(items: ColorItem[]): (string | null)[] {
   return items.map((item, index) => {
     if (item.gddl_tier) return item.gddl_tier
     if (anyTier) {
-      const est = estimateAt(anchors, index).tier
+      const est = estimateAt(anchors, index, curve).tier
       if (est) return est
     }
     // Nothing anywhere on the list has a tier. Spread the readable range over

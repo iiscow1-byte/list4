@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { LOCKDOWN_LINES } from '~/utils/lockdown'
+
 useHead({ title: 'Log in — All Levels List' })
 
 const username = ref('')
@@ -46,8 +48,9 @@ async function submit() {
       v-if="policy?.adminOnly"
       class="mb-6 rounded-lg border border-amber-900/50 bg-amber-950/25 px-3 py-2.5 text-xs text-amber-200/90 leading-relaxed"
     >
-      <span class="font-semibold">The site is closed while it's in alpha.</span>
-      Only team accounts can sign in right now.
+      <span class="block font-semibold text-amber-200">{{ LOCKDOWN_LINES[0] }}</span>
+      <span class="block mt-0.5">{{ LOCKDOWN_LINES[1] }}</span>
+      <span class="block mt-0.5 text-amber-200/70">{{ LOCKDOWN_LINES[2] }}</span>
     </p>
 
     <form class="space-y-4" @submit.prevent="submit">

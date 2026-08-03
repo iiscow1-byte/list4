@@ -93,6 +93,30 @@ const shownImported = computed(() => importedSources.value.filter((s) => matches
 const shownOther = computed(() => otherLists.value.filter((l) => matches(l.name)))
 const totalLists = computed(() => importedSources.value.length + otherLists.value.length)
 
+/**
+ * Every label is "CCL — Consistency Challenge List". Split rather than printed
+ * whole: the short name becomes a fixed-width tag so the column of names starts
+ * in the same place on every row, which one run-on string can't do.
+ */
+function shortName(label: string): string {
+  return label.split(' — ')[0]!.trim()
+}
+function longName(label: string): string {
+  const parts = label.split(' — ')
+  return parts.length > 1 ? parts.slice(1).join(' — ').trim() : parts[0]!.trim()
+}
+
+/** How much of a list the ALL already carries, 0–100. */
+function sharedPct(s: ImportedSource): number {
+  if (!s.levels || s.shared == null) return 0
+  return Math.max(0, Math.min(100, Math.round((s.shared / s.levels) * 100)))
+}
+
+/** Levels across every list this site mirrors, the ALL included. */
+const indexedLevels = computed(() =>
+  importedSources.value.reduce((sum, s) => sum + (s.levels || 0), 0),
+)
+
 
 useHead({ title: 'About & stats — The All Levels List' })
 
@@ -416,80 +440,130 @@ const coveragePct = computed(() => {
     </div>
 
     <!-- ---------------- Lists used ---------------- -->
-    <div v-else class="container-tight py-8 space-y-4">
-      <div class="flex items-center gap-3 flex-wrap">
-        <div>
-          <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">All demonlists used</h2>
-          <p class="text-[11px] text-zinc-500 mt-1">
-            Every list the ALL draws placements from.
-            <span v-if="totalLists" class="tabular-nums text-zinc-600">{{ totalLists }} total.</span>
-          </p>
+    <div v-else class="container-tight py-8 space-y-5">
+      <header class="space-y-3">
+        <div class="flex items-end gap-3 flex-wrap">
+          <div class="min-w-0">
+            <h2 class="text-lg font-semibold tracking-tight text-zinc-100">All demonlists used</h2>
+            <p class="text-xs text-zinc-500 mt-1 max-w-xl leading-relaxed">
+              Every list the ALL draws placements from. The ones this site mirrors carry live
+              counts; the rest are credited by the sheet.
+            </p>
+          </div>
+          <input
+            v-model="listsSearch"
+            type="search"
+            placeholder="Search lists…"
+            class="ml-auto w-full sm:w-56 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          />
         </div>
-        <input
-          v-model="listsSearch"
-          type="search"
-          placeholder="Search lists…"
-          class="ml-auto rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-        />
-      </div>
+
+        <!-- The page's own numbers, rather than a bare "N total" glued to a
+             sentence. Overlap is the interesting one: it says how much of each
+             list the ALL already carries. -->
+        <dl class="grid grid-cols-3 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
+          <div class="bg-zinc-950 px-3 py-2.5">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Lists</dt>
+            <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ totalLists }}</dd>
+          </div>
+          <div class="bg-zinc-950 px-3 py-2.5">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Mirrored here</dt>
+            <dd class="tabular-nums text-lg font-semibold text-accent">{{ importedSources.length }}</dd>
+          </div>
+          <div class="bg-zinc-950 px-3 py-2.5">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Levels indexed</dt>
+            <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ indexedLevels.toLocaleString() }}</dd>
+          </div>
+        </dl>
+      </header>
 
       <!-- Imported live. Generated from the importers, so this section is
            complete by construction rather than by anyone remembering. -->
       <section v-if="shownImported.length" class="space-y-2">
-        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
-          Imported by this site
-          <span class="text-zinc-700 normal-case tracking-normal">— kept in sync automatically</span>
-        </h3>
-        <ul class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
+        <div class="flex items-baseline gap-2">
+          <h3 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Imported by this site</h3>
+          <span class="text-[10px] text-zinc-600">kept in sync automatically</span>
+          <span class="ml-auto text-[10px] tabular-nums text-zinc-700">{{ shownImported.length }}</span>
+        </div>
+        <ul class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
           <li v-for="s in shownImported" :key="s.key" class="bg-zinc-950">
             <component
               :is="s.url ? 'a' : 'div'"
               v-bind="s.url ? { href: s.url, target: '_blank', rel: 'noopener' } : {}"
-              class="flex items-center gap-3 px-3 py-2.5 group"
+              class="flex items-center gap-3 px-3.5 py-3 group h-full"
               :class="s.url ? 'hover:bg-zinc-900/70 transition-colors' : ''"
             >
+              <!-- The short name, as a fixed-width tag, so the column of names
+                   lines up instead of every row starting at a different place. -->
+              <span
+                class="shrink-0 w-14 text-center px-1.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border transition-colors"
+                :class="s.key === 'all'
+                  ? 'border-accent/40 bg-accent/10 text-accent'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-400 group-hover:text-zinc-200'"
+              >{{ shortName(s.label) }}</span>
+
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-sm" :class="s.url ? 'text-zinc-200 group-hover:text-accent transition-colors' : 'text-zinc-300'">
-                  {{ s.label }}
-                </span>
+                <span
+                  class="block truncate text-sm"
+                  :class="s.url ? 'text-zinc-200 group-hover:text-accent transition-colors' : 'text-zinc-300'"
+                >{{ longName(s.label) }}</span>
                 <span class="block truncate text-[10px] text-zinc-600">{{ s.hint }}</span>
               </span>
+
               <span v-if="s.levels" class="shrink-0 text-right tabular-nums">
-                <span class="block text-[11px] text-zinc-400">{{ s.levels.toLocaleString() }} levels</span>
-                <span v-if="s.shared != null && s.key !== 'all'" class="block text-[10px] text-zinc-600">
-                  {{ s.shared.toLocaleString() }} on the ALL
+                <span class="block text-[11px] text-zinc-300">{{ s.levels.toLocaleString() }}</span>
+                <span class="block text-[10px] text-zinc-600">
+                  <template v-if="s.key === 'all'">levels</template>
+                  <template v-else-if="s.shared != null">{{ sharedPct(s) }}% shared</template>
+                  <template v-else>levels</template>
                 </span>
               </span>
               <span v-if="s.url" class="shrink-0 text-zinc-700 group-hover:text-accent text-xs">↗</span>
             </component>
+
+            <!-- How much of this list the ALL already carries, as a bar. Two
+                 numbers stacked in a corner didn't say "most of CCL is here
+                 and almost none of EDI is" at a glance; this does. -->
+            <div
+              v-if="s.shared != null && s.levels && s.key !== 'all'"
+              class="h-0.5 bg-zinc-900"
+              :title="`${s.shared.toLocaleString()} of ${s.levels.toLocaleString()} on the ALL`"
+            >
+              <div class="h-full bg-accent/50" :style="{ width: `${sharedPct(s)}%` }" />
+            </div>
           </li>
         </ul>
       </section>
 
       <!-- Named on the sheet, not mirrored here. -->
       <section v-if="shownOther.length" class="space-y-2">
-        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
-          Also credited on the sheet
-        </h3>
-        <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
-          <li v-for="(l, i) in shownOther" :key="`l-${i}`" class="bg-zinc-950">
+        <div class="flex items-baseline gap-2">
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Also credited on the sheet</h3>
+          <span class="text-[10px] text-zinc-700">not mirrored here</span>
+          <span class="ml-auto text-[10px] tabular-nums text-zinc-700">{{ shownOther.length }}</span>
+        </div>
+        <ul class="flex flex-wrap gap-1.5">
+          <li v-for="(l, i) in shownOther" :key="`l-${i}`">
             <a
               v-if="l.href"
               :href="l.href"
               target="_blank"
               rel="noopener"
-              class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm text-zinc-200 hover:text-accent hover:bg-zinc-900/70 transition-colors group"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
             >
-              <span class="truncate">{{ l.name }}</span>
-              <span class="text-zinc-600 group-hover:text-accent text-xs shrink-0">↗</span>
+              {{ l.name }}
+              <span class="text-zinc-700 text-[10px]" aria-hidden="true">↗</span>
             </a>
-            <span v-else class="block px-3 py-2.5 text-sm text-zinc-500">{{ l.name }}</span>
+            <span
+              v-else
+              class="inline-block rounded-lg border border-zinc-900 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-500"
+            >{{ l.name }}</span>
           </li>
         </ul>
       </section>
 
-      <p v-if="!shownImported.length && !shownOther.length" class="text-sm text-zinc-500 py-8 text-center">
-        No matching lists.
+      <p v-if="!shownImported.length && !shownOther.length" class="text-sm text-zinc-500 py-12 text-center">
+        No list matches “{{ listsSearch }}”.
       </p>
     </div>
   </div>
