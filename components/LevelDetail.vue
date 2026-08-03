@@ -911,6 +911,25 @@ const isExtremeLevel = computed(() =>
 // The server already computes challenge_rank using the full IS_CHALLENGE_L expression.
 const isChallengeLevel = computed(() => props.level.challenge_rank != null)
 
+/**
+ * "12th", for the challenge badge's tooltip.
+ *
+ * The badge is a bare `#12`, which doesn't say twelfth *of what* — and the
+ * answer isn't guessable, because the number is a rank within the ALL's own
+ * challenge sub-list rather than anything the page shows elsewhere.
+ */
+function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n.toLocaleString()}th`
+  const suffix = ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'
+  return `${n.toLocaleString()}${suffix}`
+}
+const challengeRankTitle = computed(() =>
+  props.level.challenge_rank == null
+    ? undefined
+    : `${ordinal(props.level.challenge_rank)} challenge on the All Levels List`,
+)
+
 // GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
 const visibleOtherLists = computed(() => {
   const lists = props.level.other_lists ?? []
@@ -1111,12 +1130,32 @@ const chartAredlSeries = computed(() =>
           <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ shownPlacement }}</span>
           <h1 class="text-3xl sm:text-4xl font-bold tracking-tight drop-shadow-lg">{{ level.name }}</h1>
         </div>
-        <p v-if="level.placement_source || level.year_verified" class="text-xs text-zinc-500 mt-1.5">
-          <span v-if="level.placement_source">Source: {{ level.placement_source }}</span>
-        </p>
-        <div v-if="level.challenge_rank != null" class="inline-flex items-center gap-2 mt-1.5 px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-900/40">
-          <span class="text-[10px] uppercase tracking-widest text-amber-500/80 font-medium">Challenge</span>
-          <span class="tabular-nums text-sm font-semibold text-amber-300">Ch. #{{ level.challenge_rank }}</span>
+        <!-- Where the level sits within the challenge sub-ranking, and where it
+             came from. One row, because each was its own line under the title
+             and neither is worth one on its own.
+
+             The badge used to read "CHALLENGE  Ch. #12" — the same word twice,
+             in a bespoke amber box that matched nothing else on the page. It's
+             the same two-tone shape the imported-list badges use now, kept in
+             amber to say what it is: this list's own ranking, not another
+             site's. The tooltip supplies the "of what" a bare #12 can't. -->
+        <div
+          v-if="level.challenge_rank != null || level.placement_source"
+          class="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2"
+        >
+          <span
+            v-if="level.challenge_rank != null"
+            class="inline-flex items-stretch rounded-full overflow-hidden border border-amber-900/50 text-[11px] font-medium leading-none"
+            :title="challengeRankTitle"
+          >
+            <span class="px-2.5 py-1 bg-amber-950/40 text-amber-500/90">Challenge</span>
+            <span class="px-2 py-1 tabular-nums bg-amber-900/30 text-amber-300">
+              #{{ level.challenge_rank.toLocaleString() }}
+            </span>
+          </span>
+          <span v-if="level.placement_source" class="text-xs text-zinc-500">
+            Source: {{ level.placement_source }}
+          </span>
         </div>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
           <DifficultyFace
