@@ -125,12 +125,13 @@ const gddlTierLabel = computed((): string | null => {
 })
 
 /**
- * The lists this level is also on, as chips beside its title.
+ * The lists this level is also on, as badges beside its title.
  *
  * Capped at two. Every one of these is a real fact, but a level carried by six
  * lists would push the tier and difficulty off the row it shares with them, and
  * the full set is a scroll away in "Rankings on other lists" — which is where
- * anyone who wants all of them is going anyway.
+ * anyone who wants all of them is going anyway. `hiddenListCount` is what's
+ * left over, shown as a "+2" that scrolls to that panel.
  *
  * The order comes from the server (GDL and AREDL first), and reuses the same
  * filter the panel does: a GDL or AREDL rank on a level that isn't an extreme
@@ -138,8 +139,17 @@ const gddlTierLabel = computed((): string | null => {
  */
 const OTHER_LIST_BADGE_LIMIT = 2
 const otherListBadges = computed(() => visibleOtherLists.value.slice(0, OTHER_LIST_BADGE_LIMIT))
+const hiddenListCount = computed(() => Math.max(0, visibleOtherLists.value.length - OTHER_LIST_BADGE_LIMIT))
 
-type Tag = { label: string; to?: string; href?: string; title?: string }
+/** Open the full rankings panel and scroll to it. */
+const otherListsSection = ref<HTMLElement | null>(null)
+async function revealOtherLists() {
+  otherListsOpen.value = true
+  await nextTick()
+  otherListsSection.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+type Tag = { label: string; to?: string; title?: string }
 const tags = computed<Tag[]>(() => {
   const list: Tag[] = []
   if (gddlTierLabel.value) list.push({ label: gddlTierLabel.value })
@@ -151,14 +161,6 @@ const tags = computed<Tag[]>(() => {
   if (sourceForced) list.push({ label: 'Challenge' })
   else if (props.level.rated) list.push({ label: props.level.rated })
   if (props.level.placement_source) list.push({ label: props.level.placement_source })
-  // Where else this level is ranked, and at what number.
-  for (const e of otherListBadges.value) {
-    list.push({
-      label: `${e.badge ?? e.list} #${e.position.toLocaleString()}`,
-      href: e.url ?? undefined,
-      title: `#${e.position.toLocaleString()} on ${e.list}`,
-    })
-  }
   if (props.level.same_as_above) {
     const dup = props.level.duplicate_of
     list.push({
@@ -1771,20 +1773,42 @@ const chartAredlSeries = computed(() =>
             :title="t.title"
             class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
           >{{ t.label }}</NuxtLink>
-          <a
-            v-else-if="t.href"
-            :href="t.href"
-            target="_blank"
-            rel="noopener"
-            :title="t.title"
-            class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
-          >{{ t.label }}</a>
           <span
             v-else
             :title="t.title"
             class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-zinc-900 border border-zinc-800 text-zinc-300"
           >{{ t.label }}</span>
         </template>
+
+        <!-- Where else this level is ranked.
+             Two-tone rather than another plain chip: these say two things at
+             once — which list, and at what number — and a single-tone pill made
+             "AREDL #4" read as one opaque token next to "Extreme Demon". The
+             number gets the accent because it's the part anyone is scanning
+             for. -->
+        <a
+          v-for="e in otherListBadges"
+          :key="e.key ?? e.list"
+          :href="e.url ?? undefined"
+          :target="e.url ? '_blank' : undefined"
+          :rel="e.url ? 'noopener' : undefined"
+          :title="`#${e.position.toLocaleString()} on ${e.list}`"
+          class="group/list inline-flex items-stretch rounded-full overflow-hidden border border-zinc-800 bg-zinc-900 text-[11px] font-medium leading-none hover:border-accent/40 transition-colors"
+        >
+          <span class="px-2.5 py-1 text-zinc-400 group-hover/list:text-zinc-200 transition-colors">
+            {{ e.badge ?? e.list }}
+          </span>
+          <span class="px-2 py-1 tabular-nums bg-zinc-800/80 text-accent/90 group-hover/list:text-accent transition-colors">
+            #{{ e.position.toLocaleString() }}
+          </span>
+        </a>
+        <button
+          v-if="hiddenListCount"
+          type="button"
+          class="px-2 py-1 rounded-full text-[11px] font-medium leading-none bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-accent hover:border-accent/40 transition-colors"
+          :title="`On ${visibleOtherLists.length} lists in total — see them all`"
+          @click="revealOtherLists"
+        >+{{ hiddenListCount }}</button>
 
         <div v-if="level.gd_id" class="relative">
           <button
@@ -2071,29 +2095,45 @@ const chartAredlSeries = computed(() =>
     </template>
 
     <!-- Rankings on other lists -->
-    <section class="mt-6 rounded-xl border border-zinc-800/70 bg-zinc-950">
+    <section ref="otherListsSection" class="mt-6 rounded-xl border border-zinc-800/70 bg-zinc-950">
       <details :open="otherListsOpen" class="group" @toggle="onOtherListsToggle">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
-          <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Rankings on other lists</h3>
+          <h3 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">
+            Rankings on other lists
+            <span v-if="visibleOtherLists.length" class="ml-1 text-zinc-600 tabular-nums normal-case tracking-normal">
+              {{ visibleOtherLists.length }}
+            </span>
+          </h3>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
 
-        <!-- Actual rankings -->
+        <!-- Actual rankings. The whole row is the link: the number alone was a
+             small target, and the list name is where a reader's eye starts. -->
         <ul v-if="visibleOtherLists.length > 0" class="divide-y divide-zinc-900 border-t border-zinc-900">
-          <li
-            v-for="entry in visibleOtherLists"
-            :key="entry.list"
-            class="flex items-center gap-3 px-4 py-3"
-          >
-            <span class="text-sm font-medium text-zinc-200">{{ entry.list }}</span>
-            <a
-              v-if="entry.url"
-              :href="entry.url"
-              target="_blank"
-              rel="noopener"
-              class="ml-auto tabular-nums text-base text-amber-300 hover:underline"
-            >#{{ entry.position }}</a>
-            <span v-else class="ml-auto tabular-nums text-base text-amber-300">#{{ entry.position }}</span>
+          <li v-for="entry in visibleOtherLists" :key="entry.key ?? entry.list">
+            <component
+              :is="entry.url ? 'a' : 'div'"
+              :href="entry.url ?? undefined"
+              :target="entry.url ? '_blank' : undefined"
+              :rel="entry.url ? 'noopener' : undefined"
+              class="flex items-center gap-3 px-4 py-3 group/row"
+              :class="entry.url ? 'hover:bg-zinc-900/50 transition-colors' : ''"
+            >
+              <span
+                class="shrink-0 w-16 text-center px-1.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider bg-zinc-900 border border-zinc-800 text-zinc-400 group-hover/row:text-zinc-200 transition-colors"
+              >{{ entry.badge ?? entry.list }}</span>
+              <span class="min-w-0 truncate text-sm text-zinc-300 group-hover/row:text-zinc-100 transition-colors">
+                {{ entry.list }}
+              </span>
+              <span class="ml-auto shrink-0 tabular-nums text-base text-amber-300 group-hover/row:text-amber-200 transition-colors">
+                #{{ entry.position.toLocaleString() }}
+              </span>
+              <span
+                v-if="entry.url"
+                class="shrink-0 text-zinc-700 group-hover/row:text-accent transition-colors text-[11px]"
+                aria-hidden="true"
+              >↗</span>
+            </component>
           </li>
         </ul>
 

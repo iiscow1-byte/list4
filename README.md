@@ -495,13 +495,25 @@ invisible on the page.
 The order is deliberate and is the order the badges appear in: GDL and AREDL
 first, because those are the two lists a reader of the ALL is most likely to be
 cross-referencing, then Pointercrate, then the challenge lists. The level page
-shows the first two as chips beside the title and the whole set in "Rankings on
-other lists" — a level carried by six lists would otherwise push its tier and
-difficulty off the row they share.
+shows the first two beside the title, a `+N` chip when there are more, and the
+whole set in "Rankings on other lists" — a level carried by six lists would
+otherwise push its tier and difficulty off the row they share.
+
+The badges are two-tone (list name, then the number) rather than plain chips:
+they say two things at once, and a single-tone pill made `AREDL #4` read as one
+opaque token beside `Extreme Demon`. Short names are `badge`, full ones `list`;
+the Challenge List's is **CH**, not CL, because the chip it most often sits
+beside is CCL and one character of difference doesn't read at a glance.
 
 The Challenge List is read from `levels.challenge_list_position` and excluded
 from the `gdtpl_levels` query, because the CL importer writes both and the
 column is the cleaned one. Miss that and the level is listed twice.
+
+Measured over the whole list: 3,041 levels are on exactly one other list, 952 on
+two, 146 on three — including 206 that two GDListTemplate lists both carry
+(`CCL #2 · SFL #1`, `EDI #711 · TSL #1`). The panel's existing rule that a
+GDL/AREDL rank only shows on an Extreme Demon suppresses nothing in practice,
+which is worth knowing before anyone removes it.
 
 ## Tiers
 

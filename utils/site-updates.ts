@@ -27,7 +27,8 @@ export const SITE_UPDATES: SiteUpdate[] = [
     title: 'Where else a level is ranked, and who is behind a number',
     tags: ['List', 'Profiles', 'Submissions', 'Fixes'],
     changes: [
-      'Levels now carry a badge for the other lists that rank them, with the placement — "AREDL #4", "Challenge #23", "CCL #7". Two at most, GDL and AREDL first, and every list this site imports counts: the GDListTemplate ones were in the database and had never been shown anywhere.',
+      'Levels now carry a badge for the other lists that rank them, with the placement — CH #17, CCL #1, AREDL #4. Two at most, GDL and AREDL first, and every list this site imports counts: the GDListTemplate ones were in the database and had never been shown anywhere. A level on more than two shows a "+1" that opens the full set.',
+      'Rankings on other lists reads as a list again: each row is a link end to end, tagged with the same short name as the badge, and the heading counts them.',
       'Submitting a level: picking a tier fills in the placement with the middle of that tier. A tier already narrows 54,000 slots to a few hundred, and the box was blank. It stays editable, and a placement you typed — or one a custom list passed in — is never overwritten.',
       'New profile link: your Geometry Dash username, which goes to your gdbrowser profile.',
       'Followers and Following are clickable — on the number and on the panel heading — and open the full list rather than the first 24. Names you follow who don\'t have an account here are in it too.',

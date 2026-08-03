@@ -99,9 +99,10 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
     out.push({
       key: 'gdtpl:cl',
       list: 'Challenge List',
-      // "CL" and "CCL" are one character apart and these two chips often sit
-      // side by side, so the longer word earns its space here.
-      badge: 'Challenge',
+      // "CH", not "CL": the two chips that most often sit side by side are this
+      // one and CCL, and one character of difference between them is not enough
+      // to read at a glance.
+      badge: 'CH',
       position: level.challenge_list_position,
       url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
     })
