@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { isChallengeSql } from '~/server/utils/challenge-expr'
 
 const TIER_ORD_SQL = `
   CASE
@@ -79,20 +79,19 @@ export default defineEventHandler((event) => {
   //   - or it's unrated (score 0) + Tiny/Short per the cached GD API info.
   // The first two reasons override any other `rated` value, mirroring the
   // filter logic in /api/levels and the label in LevelDetail.vue.
-  const sourceChallengeSql = challengeSourceSqlExpr('placement_source')
+  // Shared with the list filter and the level page, so a level unmarked as a
+  // challenge stops being counted as one here too. This used to be a fourth
+  // hand-written copy that had already lost the "Tier 1+" clause the other
+  // three carry.
   const ratingOrder = ['Mythic', 'Legendary', 'Epic', 'Featured', 'Rated', 'Unrated', 'Challenge', 'Official']
   const ratingRows = db
     .prepare(
       `SELECT
          CASE
-           WHEN ${sourceChallengeSql} THEN 'Challenge'
-           WHEN rated = 'Challenge' THEN 'Challenge'
-           WHEN rated IS NOT NULL AND rated <> '' THEN rated
-           WHEN COALESCE(
-                  json_extract(c.info_json, '$.score') = 0
-                  AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short'),
-                  0
-                ) = 1 THEN 'Challenge'
+           WHEN ${isChallengeSql('levels', 'c')} = 1 THEN 'Challenge'
+           -- A stored rated of 'Challenge' is a pin, not a rating: it feeds the
+           -- expression above, so once that says no the word must not return.
+           WHEN rated IS NOT NULL AND rated NOT IN ('', 'Challenge') THEN rated
            ELSE 'Unrated'
          END AS rating_name,
          COUNT(*) AS count

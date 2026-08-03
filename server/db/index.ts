@@ -1066,6 +1066,49 @@ function initSchema(db: DatabaseSync) {
   if (!has('mscl_position')) db.exec(`ALTER TABLE levels ADD COLUMN mscl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_mscl_position ON levels(mscl_position)`)
 
+  // --- CCPL (the ALL CHALLENGES LIST sheet) ---
+  // A Google Sheet rather than an API, so `import-ccpl.ts` reads it as CSV per
+  // tab. Keyed on (tab, position) because that is what the sheet actually
+  // guarantees: over half its rows carry no level ID at all, so `gd_id` can be
+  // neither the key nor required. Rows the ALL doesn't have live here until a
+  // curator promotes them, the same as every other mirror.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ccpl_levels (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      tab            TEXT    NOT NULL,
+      position       INTEGER NOT NULL,
+      gd_id          INTEGER,
+      name           TEXT    NOT NULL,
+      ccpl_tier      TEXT,
+      skillset       TEXT,
+      comparable     TEXT,
+      source         TEXT,
+      aredl_note     TEXT,
+      promoted_to_position INTEGER,
+      fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(tab, position)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_gd_id    ON ccpl_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_position ON ccpl_levels(tab, position);
+    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_promoted ON ccpl_levels(promoted_to_position);
+  `)
+  if (!has('ccpl_position')) db.exec(`ALTER TABLE levels ADD COLUMN ccpl_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_ccpl_position ON levels(ccpl_position)`)
+
+  /**
+   * An explicit "this is not a challenge" override.
+   *
+   * Whether a level is a challenge is otherwise *inferred* — from its placement
+   * source, from `rated = 'Challenge'`, or from Geometry Dash's own metadata
+   * (unrated, zero score, Tiny or Short). Inference has no way to be told it is
+   * wrong, so a level the heuristic caught by accident had no way off the
+   * challenge list. This column is checked by every one of those expressions
+   * and beats all of them.
+   */
+  if (!has('not_challenge')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN not_challenge INTEGER NOT NULL DEFAULT 0`)
+  }
+
   if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gdl_position ON levels(gdl_position)`)
 
@@ -1107,6 +1150,14 @@ function initSchema(db: DatabaseSync) {
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdtpl
              ON pending_levels(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL`)
+
+  // Same idea for the CCPL sheet: one pending row per sheet row, so re-running
+  // the import refreshes estimates instead of queueing duplicates.
+  if (!pcols.some((c) => c.name === 'from_ccpl_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_ccpl_id INTEGER`)
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_ccpl
+             ON pending_levels(from_ccpl_id) WHERE from_ccpl_id IS NOT NULL`)
 
   // Sheet-pending origin marker. Levels imported from the source sheet's
   // "Pending List" tab go through the same admin "Imported levels" review

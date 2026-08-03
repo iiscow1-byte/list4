@@ -488,6 +488,54 @@ is an identity, not a link, and the gdbrowser address is derived from it.
 level ID should go to the same destination from every one of the eight or so
 spots that render one, and two of them used to go nowhere at all.
 
+## The challenges sheet (CCPL)
+
+`server/db/import-ccpl.ts` reads the project's own **ALL CHALLENGES LIST**
+sheet, the only Google Sheet the site reads besides the main one. `CCPL` was
+already in `utils/challenge-sources.ts`, so a level promoted from it is
+classified as a challenge by placement source alone.
+
+Two things about the sheet shape the importer:
+
+**The tabs disagree with themselves.** EXTREME CHALLENGES puts the name at
+column 2, the level ID at 6 and the placement at 23; INSANE CHALLENGES puts them
+at 1, 5 and 15. Worse, EXTREME's header row labels only *some* of its columns —
+the ID and placement sit under blank ones. So labelled columns are found by name
+and those two are found by **shape**: a level ID column is overwhelmingly 5–11
+digit integers, and the placement column is the one whose values best match 1,
+2, 3, … Both are printed on every run, so a layout change shows up as a
+different mapping in the log rather than as silently empty data.
+
+**Over half the rows have no level ID** (520 of 940). `gd_id` therefore can't be
+the key or a requirement; `ccpl_levels` is keyed on `(tab, position)`.
+
+Rows are upserted and stale ones removed afterwards by `fetched_at`, *not*
+cleared first. `pending_levels.from_ccpl_id` points at these ids: wiping the
+table gave every surviving row a new id, the pending rows' conflict target
+stopped matching, and a second import queued all 262 of them a second time.
+Three consecutive runs now hold at 940 rows / 258 merged / 262 pending.
+
+## Challenges, and unmarking one
+
+Whether a level is a challenge is **inferred** three ways — see
+`server/utils/challenge-expr.ts`, which is the single definition all of them
+share. It appeared in five places across four files before that, each with its
+own table aliases, and the copy in `/api/stats` had already lost the "Tier 1+"
+clause the others carry.
+
+`levels.not_challenge` is the override, and it beats all three rules. It has its
+own endpoint rather than a field on the metadata PATCH, because that endpoint
+refuses any level that isn't `permanent` — correct for sheet-owned metadata the
+next import would overwrite, wrong for an editorial decision no importer
+touches. Routing it there would have forced an admin to freeze a level against
+all future imports just to correct which list it appears on.
+
+One trap worth knowing: `rated = 'Challenge'` is a **pin**, not a rating. It is
+an *input* to the expression above, so the "fall back to the stored rating"
+branch has to exclude it — otherwise an unmarked level's stored word comes back
+as the answer and it stays on the challenge list, in the filters and in the
+stats, which is exactly what happened.
+
 ## Where else a level is ranked
 
 `server/utils/other-lists.ts` answers "what else carries this level, and at what

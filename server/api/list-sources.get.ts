@@ -55,6 +55,11 @@ export default defineEventHandler(() => {
       shared = one(
         `SELECT COUNT(*) AS n FROM mscl_levels m JOIN levels l ON l.gd_id = m.gd_id`,
       )
+    } else if (s.key === 'ccpl') {
+      levels = one(`SELECT COUNT(*) AS n FROM ccpl_levels`)
+      shared = one(
+        `SELECT COUNT(*) AS n FROM ccpl_levels p JOIN levels l ON l.gd_id = p.gd_id`,
+      )
     } else if (s.key.startsWith('gdtpl:')) {
       const slug = s.key.slice('gdtpl:'.length)
       levels = one(`SELECT COUNT(*) AS n FROM gdtpl_levels WHERE list_slug = ?`, slug)

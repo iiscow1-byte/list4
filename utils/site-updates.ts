@@ -22,6 +22,18 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.9.0',
+    date: '2026-08-03',
+    title: 'The challenges sheet, and a level that can leave the challenge list',
+    tags: ['Imports', 'Admin', 'Challenges', 'Fixes'],
+    changes: [
+      'The ALL Challenges List sheet is an import source. 940 challenges, 258 of them already on the ALL — those now carry a CCPL badge with their rank — and the rest queued for review with a placement and tier estimated from the ones the two lists share.',
+      'Admin: Remove sits next to Edit on a level. Deleting one used to mean opening an edit form you had no intention of using and scrolling to the bottom of it.',
+      'Admin: a level can be taken off the challenge list, and put back. Being a challenge is otherwise inferred — from the placement source, from a pin, or from Geometry Dash\'s own metadata — and an inference with no override left a level the last rule caught by accident stuck there.',
+      'Fixed: a level pinned as a challenge stayed on the challenge list, in the filters and in the stats, even once it was unmarked. The pin is an input to that decision, and it was coming back through the rating fallback as though it were an answer.',
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-08-03',
     title: 'Estimates that follow the list\'s own shape',

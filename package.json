@@ -22,6 +22,7 @@
     "import:ll": "node --experimental-strip-types --no-warnings server/db/import-ll.ts",
     "import:tcl": "node --experimental-strip-types --no-warnings server/db/import-tcl.ts",
     "import:mscl": "node --experimental-strip-types --no-warnings server/db/import-mscl.ts",
+    "import:ccpl": "node --experimental-strip-types --no-warnings server/db/import-ccpl.ts",
     "import:sfl": "node --experimental-strip-types --no-warnings server/db/import-sfl.ts",
     "diff-sheet": "node --experimental-strip-types --no-warnings server/db/diff-sheet.ts",
     "clear-temporary-levels": "node --experimental-strip-types --no-warnings server/db/clear-temporary-levels.ts"

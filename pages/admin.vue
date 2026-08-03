@@ -347,8 +347,8 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl' | 'mscl'
-type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl'
+type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl' | 'mscl' | 'ccpl'
+type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl' | 'ccpl'
 type ImportSource = {
   key: ImportSourceKey
   label: string
@@ -362,6 +362,10 @@ const IMPORT_GROUPS: ImportGroup[] = [
     sources: [
       { key: 'sheet',         label: 'Full re-import',   pendingKey: 'sheet' },
       { key: 'sheet-pending', label: 'Pending list only', pendingKey: 'sheet' },
+      // The project's own challenge sheet, and the only other Google Sheet the
+      // site reads — so it belongs beside the main one rather than among the
+      // third-party lists below.
+      { key: 'ccpl',          label: 'Challenges sheet',  pendingKey: 'ccpl' },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { isChallengeSql } from '~/server/utils/challenge-expr'
 import { getCurrentAccount, isModRole } from '~/server/utils/auth'
 
 const TIER_ORD_SQL = `
@@ -18,24 +19,8 @@ const SOURCE_CHALLENGE_SQL = challengeSourceSqlExpr('placement_source')
 // Replace c.info_json → cc.info_json; other columns (rated, placement_source,
 // gddl_tier) are unambiguous within the CTE because gd_info_cache lacks them.
 
-// Whether a level is a "Challenge" — three independent reasons:
-//   1) placement_source is one of the curated challenge-list sources;
-//   2) admin/sheet pinned `rated = 'Challenge'`;
-//   3) GD API reports unrated (score 0) + Tiny/Short length, and the level
-//      sits at Tier 1+ on this list (Subtiers don't qualify).
-// Reasons (1) and (2) override any other `rated` value. Returns 0/1 (never
-// NULL) so it's safe to AND/NOT against.
-const IS_CHALLENGE_SQL = `
-  COALESCE(
-    ${SOURCE_CHALLENGE_SQL}
-    OR rated = 'Challenge'
-    OR ((rated IS NULL OR rated = '')
-        AND json_extract(c.info_json, '$.score') = 0
-        AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short')
-        AND gddl_tier LIKE 'Tier %'),
-    0
-  )
-`
+// See `server/utils/challenge-expr.ts` — one definition, five call sites.
+const IS_CHALLENGE_SQL = isChallengeSql('', 'c')
 
 // Effective rating name for a level. The stored `rated` column only carries
 // admin/sheet overrides (and the 'Challenge' pin) — every other tiered rating
@@ -46,7 +31,10 @@ const IS_CHALLENGE_SQL = `
 const EFFECTIVE_RATED_SQL = `
   CASE
     WHEN ${IS_CHALLENGE_SQL} THEN 'Challenge'
-    WHEN rated IS NOT NULL AND rated <> '' THEN rated
+    -- A stored rated of 'Challenge' is a pin, not a rating: it is one of the
+    -- inputs to the expression above, so once that says no — because the level
+    -- was unmarked — the stored word must not return through this fallback.
+    WHEN rated IS NOT NULL AND rated NOT IN ('', 'Challenge') THEN rated
     WHEN json_extract(c.info_json, '$.score') = 5 THEN 'Mythic'
     WHEN json_extract(c.info_json, '$.score') = 4 THEN 'Legendary'
     WHEN json_extract(c.info_json, '$.score') = 3 THEN 'Epic'

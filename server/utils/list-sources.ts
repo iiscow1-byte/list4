@@ -90,6 +90,17 @@ export function loadSourceRows(
     ).all(lo, hi, limit) as SourceRow[]
   }
 
+  if (source === 'ccpl') {
+    return db.prepare(
+      `SELECT NULL AS level_id, position, position AS display_position, name, gd_id,
+              NULL AS creator, NULL AS verifier, NULL AS verification_url, NULL AS gddl_tier
+         FROM ccpl_levels
+        WHERE tab = 'extreme' AND position BETWEEN ? AND ?
+        ORDER BY position ASC
+        LIMIT ?`,
+    ).all(lo, hi, limit) as SourceRow[]
+  }
+
   if (source.startsWith('gdtpl:')) {
     const slug = source.slice('gdtpl:'.length)
     return db.prepare(
@@ -135,6 +146,11 @@ export function countSourceRows(
   if (source === 'mscl') {
     return (db.prepare(
       `SELECT COUNT(*) AS n FROM mscl_levels WHERE position BETWEEN ? AND ?`,
+    ).get(lo, hi) as { n: number }).n
+  }
+  if (source === 'ccpl') {
+    return (db.prepare(
+      `SELECT COUNT(*) AS n FROM ccpl_levels WHERE tab = 'extreme' AND position BETWEEN ? AND ?`,
     ).get(lo, hi) as { n: number }).n
   }
   if (source.startsWith('gdtpl:')) {

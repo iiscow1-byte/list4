@@ -52,6 +52,8 @@ type Level = {
   position_history?: PositionHistoryEntry[]
   aredl_history?: AredlHistoryEntry[]
   challenge_rank?: number | null
+  /** Admin override: 1 when a level has been taken off the challenge list. */
+  not_challenge?: number | boolean | null
 }
 type OtherListEntry = {
   key?: string
@@ -885,6 +887,34 @@ async function deleteLevel() {
   }
 }
 
+/**
+ * Take a level off the challenge list, or put it back.
+ *
+ * Being a challenge is *inferred* — from the placement source, from a pinned
+ * `rated`, or from Geometry Dash's own metadata (unrated, zero score, Tiny or
+ * Short). That last rule is a heuristic, and a heuristic with no override
+ * leaves a level it catches by accident stuck on a list it doesn't belong on.
+ * `not_challenge` beats all three.
+ */
+const challengeBusy = ref(false)
+const challengeError = ref<string | null>(null)
+async function setChallenge(isChallenge: boolean) {
+  if (challengeBusy.value) return
+  challengeBusy.value = true
+  challengeError.value = null
+  try {
+    await $fetch(`/api/admin/levels/${props.level.position}/challenge`, {
+      method: 'POST',
+      body: { challenge: isChallenge },
+    })
+    emit('refresh')
+  } catch (e: any) {
+    challengeError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.'
+  } finally {
+    challengeBusy.value = false
+  }
+}
+
 const sendingToAwaiting = ref(false)
 const sendToAwaitingError = ref<string | null>(null)
 async function sendToAwaiting() {
@@ -1153,6 +1183,32 @@ const chartAredlSeries = computed(() =>
               #{{ level.challenge_rank.toLocaleString() }}
             </span>
           </span>
+          <!-- Beside the badge, because the badge is the thing being removed.
+               Admins only: which levels are challenges decides a whole list. -->
+          <button
+            v-if="isAdminLevel && level.challenge_rank != null"
+            type="button"
+            :disabled="challengeBusy"
+            class="text-[11px] text-zinc-600 hover:text-red-400 disabled:opacity-50 transition-colors"
+            title="Take this level off the challenge list"
+            @click="setChallenge(false)"
+          >{{ challengeBusy ? 'Saving…' : 'Unmark' }}</button>
+          <!-- Once unmarked the badge is gone, so the way back has to be its
+               own chip — otherwise the action is one-way from the UI. -->
+          <span
+            v-else-if="isAdminLevel && level.not_challenge"
+            class="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-[11px] leading-none text-zinc-500"
+          >
+            Not a challenge
+            <button
+              type="button"
+              :disabled="challengeBusy"
+              class="text-accent hover:underline disabled:opacity-50"
+              title="Put this level back on the challenge list"
+              @click="setChallenge(true)"
+            >{{ challengeBusy ? 'Saving…' : 'Undo' }}</button>
+          </span>
+          <span v-if="challengeError" class="text-[11px] text-red-400">{{ challengeError }}</span>
           <span v-if="level.placement_source" class="text-xs text-zinc-500">
             Source: {{ level.placement_source }}
           </span>
@@ -1178,12 +1234,25 @@ const chartAredlSeries = computed(() =>
           class="rounded bg-accent text-zinc-950 font-medium text-sm px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
           @click="promote"
         >{{ promoting ? 'Updating…' : 'Update' }}</button>
-        <button
-          v-else-if="isPermanent && canEdit"
-          type="button"
-          class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
-          @click="startEdit"
-        >Edit</button>
+        <!-- Edit, and next to it the one destructive action worth reaching
+             without opening the form first. Delete used to live at the bottom
+             of the edit panel, so removing a level meant opening an editor you
+             had no intention of using. -->
+        <div v-else-if="isPermanent && canEdit" class="flex items-center gap-1.5">
+          <button
+            type="button"
+            class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
+            @click="startEdit"
+          >Edit</button>
+          <button
+            v-if="isAdminLevel"
+            type="button"
+            :disabled="deleting"
+            class="rounded border border-red-900/60 text-red-400 font-medium text-sm px-3 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+            title="Remove this level from the list"
+            @click="deleteLevel"
+          >{{ deleting ? 'Removing…' : 'Remove' }}</button>
+        </div>
 
         <!-- Actions dropdown: submit record / submit opinion / suggest move -->
         <div

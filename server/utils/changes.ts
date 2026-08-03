@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { isChallengeSql } from './challenge-expr'
 
 /**
  * Record a level being added to the main list at `position`. Stored in
@@ -59,9 +59,9 @@ export type DayGroup = {
 //   2. admin/sheet has pinned rated = 'Challenge'
 //   3. GD API reports unrated (score 0) + Tiny/Short length + Tier 1+ on this list
 // Uses table aliases `l` (levels) and `c` (gd_info_cache).
-const IS_CHALLENGE_L = `(${challengeSourceSqlExpr('l.placement_source')} OR l.rated = 'Challenge' OR ((l.rated IS NULL OR l.rated = '') AND json_extract(c.info_json, '$.score') = 0 AND json_extract(c.info_json, '$.length') IN ('Tiny', 'Short') AND l.gddl_tier LIKE 'Tier %'))`
+const IS_CHALLENGE_L = isChallengeSql('l', 'c')
 // Same expression for the correlated rank-counting subquery (aliases l2/c2).
-const IS_CHALLENGE_L2 = `(${challengeSourceSqlExpr('l2.placement_source')} OR l2.rated = 'Challenge' OR ((l2.rated IS NULL OR l2.rated = '') AND json_extract(c2.info_json, '$.score') = 0 AND json_extract(c2.info_json, '$.length') IN ('Tiny', 'Short') AND l2.gddl_tier LIKE 'Tier %'))`
+const IS_CHALLENGE_L2 = isChallengeSql('l2', 'c2')
 
 export function loadChanges(
   db: DatabaseSync,
@@ -90,7 +90,9 @@ export function loadChanges(
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             l.gd_id AS level_gd_id,
             CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
-                 WHEN l.rated IS NOT NULL AND l.rated <> '' THEN l.rated
+                 -- The stored 'Challenge' is a pin feeding the expression above,
+                 -- not a rating; it must not come back through this fallback.
+                 WHEN l.rated IS NOT NULL AND l.rated NOT IN ('', 'Challenge') THEN l.rated
                  ELSE NULL
             END AS level_rated,
             CASE WHEN ${IS_CHALLENGE_L}

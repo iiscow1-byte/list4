@@ -37,11 +37,21 @@ const GDTPL_LISTS: { slug: string; label: string; hint: string; url: string }[] 
   { slug: 'cl',  label: 'CL — Challenge List', hint: 'challengelist.gd', url: 'https://challengelist.gd' },
 ]
 
+/** The ALL Challenges List sheet — the challenge counterpart to the main sheet. */
+export const CCPL_SHEET_ID = '1tl3_d5vCMIAFxHZU-2prqw7hp9-DyFC_eDzS75tVi0U'
+
 export const LIST_SOURCES: ListSource[] = [
   { key: 'all', label: 'ALL — the main list', hint: 'Placements as shown on the sheet', supportsFilters: true },
   { key: 'aredl', label: 'AREDL — All Rated Extreme Demons', hint: 'aredl.net', supportsFilters: false, url: 'https://aredl.net' },
   { key: 'gdl', label: 'GDL — Global Demonlist', hint: 'gdladder.com', supportsFilters: false, url: 'https://gdladder.com' },
   { key: 'mscl', label: 'MSCL — Super Challenge List', hint: 'mscl.dev', supportsFilters: false, url: 'https://mscl.dev' },
+  {
+    key: 'ccpl',
+    label: 'CCPL — ALL Challenges List',
+    hint: 'The project’s own challenge sheet',
+    supportsFilters: false,
+    url: `https://docs.google.com/spreadsheets/d/${CCPL_SHEET_ID}/`,
+  },
   ...GDTPL_LISTS.map((g) => ({
     key: `gdtpl:${g.slug}`,
     label: g.label,
