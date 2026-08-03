@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 type OpenVerRow = {
   id: number
@@ -17,7 +18,6 @@ const route = useRoute()
 const router = useRouter()
 
 const PAGE_SIZE = 500
-const TIER_MAX_ORD = 44
 
 const SORTS = [
   { value: 'submitted_desc', label: 'Submitted (newest)' },
@@ -31,10 +31,6 @@ const SORTS = [
 
 const TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 
-function ordToTier(ord: number): string {
-  if (ord <= 5) return `Subtier ${ord}`
-  return `Tier ${ord - 5}`
-}
 
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filtersOpen = ref(false)

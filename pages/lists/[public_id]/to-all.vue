@@ -15,6 +15,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list, base, refresh, req } = useCustomList(publicId)
+const { to } = useStandaloneList()
 // The drafts are built from the list during setup, so the list has to be here
 // by then. Without this the server rendered "every level is already on the ALL"
 // and the real rows only appeared after hydration.
@@ -234,7 +235,7 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
 
       <div v-else-if="!drafts.length" class="card px-6 py-16 text-center">
         <p class="text-sm text-zinc-400">Every level on this list is already on the ALL.</p>
-        <NuxtLink :to="base" class="text-accent hover:underline text-xs mt-2 inline-block">Back to the list →</NuxtLink>
+        <NuxtLink :to="to(base)" class="text-accent hover:underline text-xs mt-2 inline-block">Back to the list →</NuxtLink>
       </div>
 
       <template v-else>

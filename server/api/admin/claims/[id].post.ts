@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
+import { adoptClaimedRecords, renameClaimedRecords, type AdoptResult, type ClaimSource } from '~/server/utils/claim-records'
+import { invalidateLeaderboardCache } from '~/server/api/leaderboard.get'
 
 export default defineEventHandler(async (event) => {
   const me = requireAdmin(event)
@@ -16,6 +18,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'No pending claim with that id.' })
   }
 
+  // Set when approving a claim that carries records, so the response can say
+  // how many landed rather than leaving it to be discovered on the profile.
+  let adopted: AdoptResult | null = null
+
   if (action === 'approve') {
     if (claim.source === 'aredl') {
       if (!claim.aredl_player_uuid) {
@@ -30,6 +36,7 @@ export default defineEventHandler(async (event) => {
       db.prepare(`UPDATE accounts SET claimed_aredl_uuid = ? WHERE id = ?`).run(claim.aredl_player_uuid, claim.account_id)
       db.prepare(`UPDATE aredl_players SET claimed_account_id = ? WHERE uuid = ?`)
         .run(claim.account_id, claim.aredl_player_uuid)
+      adopted = adoptClaimedRecords(db, claim.account_id, 'aredl', claim.aredl_player_uuid)
     } else if (claim.source === 'gdl') {
       if (!claim.gdl_player_id) {
         throw createError({ statusCode: 400, statusMessage: 'GDL claim is missing player id.' })
@@ -44,6 +51,7 @@ export default defineEventHandler(async (event) => {
         .run(claim.gdl_player_id, claim.account_id)
       db.prepare(`UPDATE gdl_players SET claimed_account_id = ? WHERE gdl_id = ?`)
         .run(claim.account_id, claim.gdl_player_id)
+      adopted = adoptClaimedRecords(db, claim.account_id, 'gdl', claim.gdl_player_id)
     } else if (claim.source === 'pointercrate') {
       if (!claim.pointercrate_player_id) {
         throw createError({ statusCode: 400, statusMessage: 'Pointercrate claim is missing player id.' })
@@ -58,6 +66,7 @@ export default defineEventHandler(async (event) => {
         .run(claim.pointercrate_player_id, claim.account_id)
       db.prepare(`UPDATE pointercrate_players SET claimed_account_id = ? WHERE pc_id = ?`)
         .run(claim.account_id, claim.pointercrate_player_id)
+      adopted = adoptClaimedRecords(db, claim.account_id, 'pointercrate', claim.pointercrate_player_id)
     } else {
       const taken = db.prepare(
         `SELECT 1 FROM accounts WHERE claimed_player = ? COLLATE NOCASE AND id != ?`,
@@ -66,6 +75,9 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 409, statusMessage: 'That player has already been claimed by someone else.' })
       }
       db.prepare(`UPDATE accounts SET claimed_player = ? WHERE id = ?`).run(claim.player_name, claim.account_id)
+      // The profile now reads under the leaderboard name, so records an earlier
+      // claim filed under the username have to come with it.
+      renameClaimedRecords(db, claim.account_id, claim.player_name)
     }
   }
 
@@ -73,5 +85,7 @@ export default defineEventHandler(async (event) => {
     `UPDATE claim_requests SET status = ?, decided_at = datetime('now'), decided_by = ? WHERE id = ?`,
   ).run(action === 'approve' ? 'approved' : 'rejected', me.id, id)
 
-  return { ok: true }
+  if (action === 'approve') invalidateLeaderboardCache()
+
+  return { ok: true, source: claim.source as ClaimSource | 'player', adopted }
 })

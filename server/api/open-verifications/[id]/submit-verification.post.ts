@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 const ALLOWED_DIFFICULTIES = new Set([
   'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
   // Optional opinion-style overrides — same semantics as the record submit.
   let opinionTier = strOrNull(body.opinion_gddl_tier, 32)
-  if (opinionTier && !/^(Tier|Subtier) (\d{1,2})$/.test(opinionTier)) {
+  if (opinionTier && !isValidTier(opinionTier)) {
     throw createError({ statusCode: 400, statusMessage: 'opinion_gddl_tier must look like "Tier 5" or "Subtier 3".' })
   }
   let opinionDifficulty = strOrNull(body.opinion_difficulty, 32)

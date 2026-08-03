@@ -26,7 +26,7 @@ type GlobalRow = {
   points: number
   extras: { extremes?: number; pack_points?: number }
   hardest: string | null
-  claimed_account: { username: string } | null
+  claimed_account: { username: string; has_avatar?: boolean } | null
 }
 type Row = AllRow | GlobalRow
 
@@ -207,11 +207,22 @@ function sourceLabel(p: Row): string | null {
   const onlyAll = sources.length === 1 && sources[0] === 'alllist'
   return onlyAll ? null : '(External)'
 }
-/** Avatar for the members tab; global rows only have one when claimed. */
+/**
+ * The picture behind a row, whichever tab it came from.
+ *
+ * The two endpoints name the account differently — Members flattens it onto the
+ * row, Global nests it under `claimed_account` — and this only read the first
+ * shape, so the tab the page opens on showed initials for everyone. A global
+ * row has a picture exactly when the player has claimed a site account with one.
+ */
 function avatarFor(p: Row): string | null {
   const all = p as AllRow
   if (all.has_avatar && all.account_username) {
     return `/api/users/${encodeURIComponent(all.account_username)}/avatar`
+  }
+  const claimed = (p as GlobalRow).claimed_account
+  if (claimed?.has_avatar) {
+    return `/api/users/${encodeURIComponent(claimed.username)}/avatar`
   }
   return null
 }

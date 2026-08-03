@@ -454,6 +454,29 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_holder    ON records(player_name COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_records_permanent ON records(permanent)`)
 
+  // Records a claim brought in. Claiming an AREDL/GDL/Pointercrate player copies
+  // that player's mirrored records onto the account's ALL profile; these two
+  // columns are how releasing the claim takes back exactly those rows and leaves
+  // hand-submitted ones alone. See `server/utils/claim-records.ts`.
+  const recCols2 = db.prepare(`PRAGMA table_info(records)`).all() as { name: string }[]
+  if (!recCols2.some((c) => c.name === 'claim_source')) {
+    db.exec(`ALTER TABLE records ADD COLUMN claim_source TEXT`)
+  }
+  if (!recCols2.some((c) => c.name === 'claim_account_id')) {
+    db.exec(`ALTER TABLE records ADD COLUMN claim_account_id INTEGER`)
+  }
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_records_claim ON records(claim_account_id, claim_source)`,
+  )
+  // A column added by ALTER can't carry a foreign key in SQLite, so the cascade
+  // is here instead: a deleted account's claimed records go with it, exactly as
+  // releasing the claim would have done.
+  db.exec(
+    `DELETE FROM records
+      WHERE claim_account_id IS NOT NULL
+        AND claim_account_id NOT IN (SELECT id FROM accounts)`,
+  )
+
   // Sheet records are now auto-accepted; promote any leftover from earlier
   // imports that were inserted as permanent = 0. Idempotent — does nothing once
   // every sheet record is already permanent = 1.
@@ -1553,6 +1576,27 @@ function initSchema(db: DatabaseSync) {
   // to reject every submission for a field it doesn't care about.
   if (!clCols2.some((c) => c.name === 'require_record_video')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN require_record_video INTEGER NOT NULL DEFAULT 1`)
+  }
+  // Whether the list says out loud which of its levels the ALL carries: those
+  // get their tier colour, the rest go grey, and each level page prints an "on
+  // the ALL list" row. On by default, because most custom lists are read
+  // alongside the main one. A list that stands on its own turns it off and
+  // every rank badge takes a colour from where it sits, exactly as the ALL's
+  // own rows do — see `utils/custom-list-colors.ts`.
+  if (!clCols2.some((c) => c.name === 'mark_off_all')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN mark_off_all INTEGER NOT NULL DEFAULT 1`)
+  }
+
+  // Per-row overrides of the fields a linked level otherwise mirrors from the
+  // ALL. NULL means "follow the main list", which is what every existing row
+  // does and stays doing. Kept in separate columns rather than written over the
+  // mirrored ones so the two answers never get confused for each other: the
+  // list can always say what the ALL thinks *and* what it thinks.
+  const cliCols2 = db.prepare(`PRAGMA table_info(custom_list_items)`).all() as { name: string }[]
+  for (const col of ['ov_name', 'ov_creator', 'ov_difficulty', 'ov_gddl_tier', 'ov_verification_url']) {
+    if (!cliCols2.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE custom_list_items ADD COLUMN ${col} TEXT`)
+    }
   }
 
   // Full raw AREDL per-level trace (every event, including passive ±1 shifts

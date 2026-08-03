@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { useLevelPicker } from '~/composables/useLevelPicker'
 
 definePageMeta({ middleware: 'auth' })
@@ -98,7 +99,7 @@ const note = ref('')
 // Optional ratings — promoted to a real opinion if the record is approved.
 const TIER_OPTIONS = [
   '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
-  ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
+  ...Array.from({ length: TIER_MAX_NUMBER }, (_, i) => `Tier ${i + 1}`),
 ]
 const DIFFICULTY_OPTIONS = [
   '', 'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',

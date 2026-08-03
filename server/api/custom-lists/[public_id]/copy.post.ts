@@ -12,9 +12,9 @@ export default defineEventHandler((event) => {
 
   const db = getDb()
   const src = db.prepare(
-    `SELECT id, title, description, is_public, owner_account_id FROM custom_lists WHERE public_id = ?`,
+    `SELECT id, title, description, is_public, owner_account_id, mark_off_all FROM custom_lists WHERE public_id = ?`,
   ).get(publicId) as
-    { id: number; title: string; description: string | null; is_public: number; owner_account_id: number } | undefined
+    { id: number; title: string; description: string | null; is_public: number; owner_account_id: number; mark_off_all: number } | undefined
   if (!src) throw createError({ statusCode: 404, statusMessage: 'List not found' })
   if (!src.is_public && src.owner_account_id !== account.id) {
     throw createError({ statusCode: 403, statusMessage: 'This list is private.' })
@@ -30,14 +30,22 @@ export default defineEventHandler((event) => {
   db.exec('BEGIN')
   try {
     const info = db.prepare(
-      `INSERT INTO custom_lists (public_id, owner_account_id, title, description, copied_from_id)
-       VALUES (?,?,?,?,?)`,
-    ).run(newPublicId(), account.id, `${src.title} (copy)`.slice(0, 120), src.description, src.id)
+      `INSERT INTO custom_lists (public_id, owner_account_id, title, description, copied_from_id, mark_off_all)
+       VALUES (?,?,?,?,?,?)`,
+    ).run(
+      newPublicId(), account.id, `${src.title} (copy)`.slice(0, 120), src.description, src.id,
+      src.mark_off_all ?? 1,
+    )
     const newId = Number(info.lastInsertRowid)
     db.prepare(
+      // Overrides come with the copy: they are part of what the list says about
+      // its levels, and a copy that silently reverted to the ALL's video for
+      // every row would not be a copy of what was on screen.
       `INSERT INTO custom_list_items
-         (list_id, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes)
-       SELECT ?, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes
+         (list_id, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes,
+          ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url)
+       SELECT ?, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes,
+              ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url
          FROM custom_list_items WHERE list_id = ?
         ORDER BY sort_order ASC`,
     ).run(newId, src.id)

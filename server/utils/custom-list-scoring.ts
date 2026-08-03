@@ -104,11 +104,10 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
   const totalItems = ordered.length
 
   const rows = db.prepare(
-    `SELECT r.player_name, r.percent, i.id AS item_id, i.name AS level_name, i.gd_id AS level_gd_id,
-            a.username AS account_username, (a.avatar_blob IS NOT NULL) AS has_avatar
+    `SELECT r.player_name, r.percent, i.id AS item_id,
+            COALESCE(i.ov_name, i.name) AS level_name, i.gd_id AS level_gd_id
        FROM custom_list_records r
        JOIN custom_list_items i ON i.id = r.item_id
-       LEFT JOIN accounts a ON a.id = r.submitted_by
       WHERE r.list_id = ? AND r.status = 'approved'`,
   ).all(listId) as {
     player_name: string
@@ -116,8 +115,6 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
     item_id: number
     level_name: string
     level_gd_id: number | null
-    account_username: string | null
-    has_avatar: number | null
   }[]
 
   type Acc = Omit<LeaderboardRow, 'rank'>
@@ -154,9 +151,40 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
       acc.hardest_name = r.level_name
       acc.hardest_gd_id = r.level_gd_id
     }
-    if (!acc.account_username && r.account_username) {
-      acc.account_username = r.account_username
-      acc.has_avatar = !!r.has_avatar
+  }
+
+  /**
+   * The site account behind each name, resolved from the name itself.
+   *
+   * This used to come from a join on `submitted_by`, which is whoever *entered*
+   * the record — so a list where an editor adds everyone's records gave every
+   * player that editor's username and picture. The player's identity is their
+   * name: an account owns it by being called that, or by having claimed it.
+   */
+  const names = Array.from(byPlayer.values(), (a) => a.player_name)
+  if (names.length) {
+    const ph = names.map(() => '?').join(',')
+    const accounts = db.prepare(
+      `SELECT username, claimed_player, (avatar_blob IS NOT NULL) AS has_avatar
+         FROM accounts
+        WHERE banned_at IS NULL
+          AND (username COLLATE NOCASE IN (${ph}) OR claimed_player COLLATE NOCASE IN (${ph}))`,
+    ).all(...names, ...names) as
+      { username: string; claimed_player: string | null; has_avatar: number }[]
+
+    const byName = new Map<string, { username: string; has_avatar: boolean }>()
+    for (const a of accounts) {
+      const entry = { username: a.username, has_avatar: !!a.has_avatar }
+      // A claim is the stronger statement — "this leaderboard name is me" —
+      // so it wins over an account that merely happens to share the spelling.
+      if (a.claimed_player) byName.set(a.claimed_player.toLowerCase(), entry)
+      if (!byName.has(a.username.toLowerCase())) byName.set(a.username.toLowerCase(), entry)
+    }
+    for (const acc of byPlayer.values()) {
+      const hit = byName.get(acc.player_name.toLowerCase())
+      if (!hit) continue
+      acc.account_username = hit.username
+      acc.has_avatar = hit.has_avatar
     }
   }
 

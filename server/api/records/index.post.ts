@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
-import { ALLOWED_DIFFICULTIES, TIER_RE } from '~/server/utils/opinions'
+import { ALLOWED_DIFFICULTIES } from '~/server/utils/opinions'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
@@ -25,7 +26,7 @@ export default defineEventHandler(async (event) => {
 
   // Optional opinion fields piggy-backed on the record submission.
   const optTier = body?.opinion_gddl_tier ? String(body.opinion_gddl_tier).trim() : null
-  if (optTier && !TIER_RE.test(optTier)) {
+  if (optTier && !isValidTier(optTier)) {
     throw createError({ statusCode: 400, statusMessage: 'opinion_gddl_tier must look like "Tier 5" or "Subtier 3".' })
   }
   const optDifficulty = body?.opinion_difficulty ? String(body.opinion_difficulty).trim() : null

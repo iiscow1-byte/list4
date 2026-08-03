@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isChallengeSource } from '~/utils/challenge-sources'
+import { TIER_MAX_ORD } from '~/utils/tier-ordinal'
 
 type Community = {
   count: number
@@ -101,7 +102,6 @@ const canSubmitRecord = computed(() => isLoggedIn.value && !props.readonly)
 const isPermanent = computed(() => !!props.level.permanent)
 
 const showTierDecimal = useTierDecimal()
-const TIER_MAX_ORD = 44 // Subtier 0-5 → 0-5; Tier 1-39 → 6-44
 const gddlTierLabel = computed((): string | null => {
   const tier = props.level.gddl_tier
   if (!tier) return null
@@ -616,7 +616,7 @@ async function saveEdit() {
     if (Number.isInteger(newPlacement) && newPlacement > 0 && newPlacement !== curPlacement) {
       const res = await $fetch<{ to: number }>(
         `/api/admin/levels/${props.level.position}/move`,
-        { method: 'POST', body: { to_placement: newPlacement } },
+        { method: 'POST', body: { to_placement: newPlacement, keep_tier: keepTier.value } },
       )
       // Only the server knows which position that placement resolved to.
       await navigateTo(`/levels/${res.to}`)
@@ -643,6 +643,13 @@ async function saveEdit() {
 const NUDGES = [-10, -5, -1, 1, 5, 10] as const
 const movingNow = ref(false)
 
+/**
+ * A move normally rewrites the level's tier to the one its new neighbours are
+ * in — the slot is a statement about difficulty and the level now makes it.
+ * This is the opt-out, for a level parked somewhere deliberately.
+ */
+const keepTier = ref(false)
+
 function nudgePlacement(by: number) {
   const cur = Number(draftPosition.value) || (props.level.sheet_placement ?? props.level.position)
   draftPosition.value = Math.max(1, cur + by)
@@ -661,7 +668,7 @@ async function applyMoveOnly() {
   try {
     const res = await $fetch<{ to: number }>(
       `/api/admin/levels/${props.level.position}/move`,
-      { method: 'POST', body: { to_placement: Number(draftPosition.value) } },
+      { method: 'POST', body: { to_placement: Number(draftPosition.value), keep_tier: keepTier.value } },
     )
     await navigateTo(`/levels/${res.to}`)
   } catch (e: any) {
@@ -1380,6 +1387,19 @@ const chartAredlSeries = computed(() =>
               class="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors"
               @click="draftPosition = shownPlacement"
             >reset</button>
+          </div>
+
+          <!-- The list is ordered by difficulty, so the slot carries a tier.
+               Said before the move rather than reported after it, because the
+               page navigates to the level's new placement on success. -->
+          <div v-if="placementChanged" class="mt-1 flex items-center gap-2 flex-wrap">
+            <span class="text-[11px] text-zinc-600">
+              Its tier will change to whatever the levels it lands between are.
+            </span>
+            <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors">
+              <input v-model="keepTier" type="checkbox" class="accent-accent" />
+              Keep <template v-if="level.gddl_tier">{{ level.gddl_tier }}</template><template v-else>its current tier</template>
+            </label>
           </div>
         </label>
         <label class="block">

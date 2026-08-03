@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { standaloneUrl } from '~/composables/useStandaloneList'
+
 definePageMeta({ layout: 'level' })
 
 const route = useRoute()
@@ -110,6 +112,24 @@ async function webhookAction(action: 'update' | 'delete' | 'test', id: number, e
     error.value = e?.data?.statusMessage ?? 'That did not work.'
     await loadWebhooks()
   } finally { busy.value = false }
+}
+
+// --- Standalone link ---
+// Built from the browser's own origin so it's the URL people will actually
+// open; server-side there is no request origin to speak for, and this box is
+// only useful once it's on screen anyway.
+const origin = ref('')
+onMounted(() => { origin.value = window.location.origin })
+const standaloneLink = computed(() => standaloneUrl(origin.value, publicId.value))
+const standaloneCopied = ref(false)
+async function copyStandalone() {
+  try {
+    await navigator.clipboard.writeText(standaloneLink.value)
+    standaloneCopied.value = true
+    setTimeout(() => { standaloneCopied.value = false }, 1500)
+  } catch {
+    // Clipboard denied — the field is selectable, which is the fallback.
+  }
 }
 
 // --- Visibility / records / scoring ---
@@ -270,6 +290,24 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               <input
                 type="checkbox"
                 class="accent-accent mt-1"
+                :checked="!l.mark_off_all"
+                :disabled="busy"
+                @change="patch({ mark_off_all: !($event.target as HTMLInputElement).checked }, 'Presentation updated.')"
+              />
+              <span>
+                Treat this list as its own ranking
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">
+                  Off by default, where levels the ALL hasn't ranked show a grey rank badge and each
+                  level page prints its ALL placement. Turn it on and every rank gets a colour scaled
+                  to where it sits — read off the levels around it that do have a tier — and the
+                  list stops printing "On the ALL list". Nothing about the levels changes.
+                </span>
+              </span>
+            </label>
+            <label class="flex items-start gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                class="accent-accent mt-1"
                 :checked="!!l.follow_all_order"
                 :disabled="busy"
                 @change="patch({ follow_all_order: ($event.target as HTMLInputElement).checked }, 'Ordering updated.')"
@@ -283,6 +321,37 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 </span>
               </span>
             </label>
+          </section>
+
+          <!-- Standalone link -->
+          <section class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Standalone link</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                The same list, opened as its own site: no ALL header or footer, this list's bar at the
+                top, and one button back to the main list. For pinning in a Discord or linking from a
+                video description, where the list is the destination rather than a page of this site.
+              </p>
+            </div>
+            <div class="flex flex-wrap items-stretch gap-2">
+              <input
+                :value="standaloneLink"
+                readonly
+                class="flex-1 min-w-[16rem] rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-300 focus:border-accent focus:outline-none"
+                @focus="($event.target as HTMLInputElement).select()"
+              />
+              <button
+                type="button"
+                class="shrink-0 rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 hover:border-accent/60 hover:text-accent transition-colors"
+                @click="copyStandalone"
+              >{{ standaloneCopied ? 'Copied' : 'Copy' }}</button>
+              <a
+                :href="standaloneLink"
+                target="_blank"
+                rel="noopener"
+                class="shrink-0 inline-flex items-center rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 hover:border-accent/60 hover:text-accent transition-colors"
+              >Preview ↗</a>
+            </div>
           </section>
 
           <!-- Community links -->

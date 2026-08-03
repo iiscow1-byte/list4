@@ -50,8 +50,9 @@ export default defineEventHandler(async (event) => {
   if (!name) throw createError({ statusCode: 400, statusMessage: 'A level name is required.' })
 
   const already = db.prepare(
-    `SELECT 1 FROM custom_list_items WHERE list_id = ? AND LOWER(name) = LOWER(?)`,
-  ).get(list.id, name)
+    `SELECT 1 FROM custom_list_items
+      WHERE list_id = ? AND (LOWER(name) = LOWER(?) OR LOWER(ov_name) = LOWER(?))`,
+  ).get(list.id, name, name)
   if (already) throw createError({ statusCode: 400, statusMessage: `${name} is already on this list.` })
 
   const dupe = db.prepare(

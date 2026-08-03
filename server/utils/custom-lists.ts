@@ -308,7 +308,8 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.owner_account_id, cl.is_public, cl.likes, cl.copied_from_id,
             cl.accepts_records, cl.max_points, cl.min_points, cl.scored_count,
             cl.icon_url, cl.accent_color, cl.banner_url, cl.follow_all_order,
-            cl.accepts_submissions, cl.require_record_video, cl.discord_url, cl.youtube_url,
+            cl.accepts_submissions, cl.require_record_video, cl.mark_off_all,
+            cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl
@@ -318,12 +319,27 @@ export function loadList(db: DatabaseSync, listId: number) {
   ).get(listId) as any | undefined
   if (!list) return null
 
-  // `position` is the linked level's *current* ALL placement, resolved at read
-  // time so a saved list follows the level when it moves.
+  /**
+   * `position` is the linked level's *current* ALL placement, resolved at read
+   * time so a saved list follows the level when it moves.
+   *
+   * The `ov_` columns are this list's own answers, and win where they're set.
+   * They're returned alongside the effective value rather than instead of the
+   * mirrored one, so the editor can show both — "the ALL says X, this list says
+   * Y" — and clearing an override is a visible act rather than guesswork.
+   */
   const items = db.prepare(
-    `SELECT i.id, i.sort_order, i.level_id, i.name, i.gd_id, i.creator, i.difficulty,
-            i.gddl_tier, i.verification_url, i.notes, i.verifier, i.percent_to_qualify,
-            i.fps, i.game_version, l.position, l.sheet_placement
+    `SELECT i.id, i.sort_order, i.level_id, i.gd_id, i.notes, i.verifier,
+            i.percent_to_qualify, i.fps, i.game_version,
+            COALESCE(i.ov_name, i.name)                         AS name,
+            COALESCE(i.ov_creator, i.creator)                   AS creator,
+            COALESCE(i.ov_difficulty, i.difficulty)             AS difficulty,
+            COALESCE(i.ov_gddl_tier, i.gddl_tier)               AS gddl_tier,
+            COALESCE(i.ov_verification_url, i.verification_url) AS verification_url,
+            i.name AS all_name, i.creator AS all_creator, i.difficulty AS all_difficulty,
+            i.gddl_tier AS all_gddl_tier, i.verification_url AS all_verification_url,
+            i.ov_name, i.ov_creator, i.ov_difficulty, i.ov_gddl_tier, i.ov_verification_url,
+            l.position, l.sheet_placement
        FROM custom_list_items i
        LEFT JOIN levels l ON l.id = i.level_id
       WHERE i.list_id = ?

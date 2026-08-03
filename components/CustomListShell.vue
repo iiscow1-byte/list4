@@ -12,13 +12,15 @@ const props = defineProps<{
 }>()
 
 const { list, error, canEdit, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
+const { standalone } = useStandaloneList()
 </script>
 
 <template>
   <div v-if="error" class="h-full flex items-center justify-center">
     <div class="text-center">
       <p class="text-sm text-zinc-500">This list doesn't exist.</p>
-      <NuxtLink to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse custom lists →</NuxtLink>
+      <NuxtLink v-if="!standalone" to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse custom lists →</NuxtLink>
+      <NuxtLink v-else to="/" class="text-accent hover:underline text-sm mt-2 inline-block">Go to the All Levels List →</NuxtLink>
     </div>
   </div>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
+import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
 
 type LevelRow = {
   position: number
@@ -34,7 +35,6 @@ const route = useRoute()
 const router = useRouter()
 
 const PAGE_SIZE = 500
-const TIER_MAX_ORD = 44   // Subtier 0..5 → 0..5 ; Tier 1..39 → 6..44
 
 const SORTS = [
   { value: 'position',       label: 'List position (hardest first)' },
@@ -61,10 +61,6 @@ const SKILLSETS = [
   'UFO', 'Wave',
 ] as const
 
-function ordToTier(ord: number): string {
-  if (ord <= 5) return `Subtier ${ord}`
-  return `Tier ${ord - 5}`
-}
 
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filtersOpen = ref(false)
@@ -120,14 +116,6 @@ const rankByFilter = ref(false)
 const showTierDecimal = useTierDecimal()
 const showTierInList = ref(false)
 
-function tierToOrd(tier: string | null): number | null {
-  if (!tier) return null
-  const sm = tier.match(/^Subtier (\d+)$/)
-  if (sm) return Number(sm[1])
-  const tm = tier.match(/^Tier (\d+)$/)
-  if (tm) return 5 + Number(tm[1])
-  return null
-}
 
 function tierTextLabel(lvl: LevelRow): string | null {
   if (!showTierInList.value) return null

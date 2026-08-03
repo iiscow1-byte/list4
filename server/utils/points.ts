@@ -53,6 +53,14 @@ export const TIER_POINTS: Record<string, number> = {
   'Tier 39': 115000,
   'Tier 40': 175000,
   'Tier 41': 250000,
+  // Tiers 42–46 continue the ~1.45× step the top of the table already runs at.
+  // 46 is never assignable — the site's ceiling is Tier 45 — but the ramp needs
+  // one tier above the highest in use to have something to extrapolate toward.
+  'Tier 42': 360000,
+  'Tier 43': 520000,
+  'Tier 44': 750000,
+  'Tier 45': 1080000,
+  'Tier 46': 1560000,
 }
 
 type LevelRow = {

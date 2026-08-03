@@ -44,7 +44,8 @@ export default defineEventHandler(async (event) => {
 
   const itemId = Number(body?.item_id)
   const item = db.prepare(
-    `SELECT id, name, percent_to_qualify FROM custom_list_items WHERE id = ? AND list_id = ?`,
+    `SELECT id, COALESCE(ov_name, name) AS name, percent_to_qualify
+       FROM custom_list_items WHERE id = ? AND list_id = ?`,
   ).get(itemId, list.id) as { id: number; name: string; percent_to_qualify: number } | undefined
   if (!item) throw createError({ statusCode: 400, statusMessage: 'That level is not on this list.' })
 

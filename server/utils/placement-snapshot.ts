@@ -23,12 +23,19 @@ import { resyncPlacements } from './placement-sync'
  * the neighbour they currently follow instead of being swept to the bottom.
  */
 
+/**
+ * `gddl_tier` rides along because a move now rewrites it: a level dragged into
+ * a different band takes that band's tier. Without the tier in the file, a
+ * restore would put the level back and leave it labelled with the tier of the
+ * place it no longer is.
+ */
 export type SnapshotLevel = {
   id: number
   position: number
   sheet_placement: number | null
   gd_id: number | null
   name: string
+  gddl_tier: string | null
 }
 
 export type Snapshot = {
@@ -44,7 +51,7 @@ export const SNAPSHOT_FORMAT = 'all-placements'
 /** Every level and where it sits, in list order. */
 export function buildSnapshot(db: DatabaseSync): Snapshot {
   const levels = db.prepare(
-    `SELECT id, position, sheet_placement, gd_id, name
+    `SELECT id, position, sheet_placement, gd_id, name, gddl_tier
        FROM levels
       ORDER BY position ASC`,
   ).all() as SnapshotLevel[]
@@ -60,7 +67,7 @@ export function buildSnapshot(db: DatabaseSync): Snapshot {
 
 // --- CSV ---------------------------------------------------------------
 
-const CSV_HEADER = ['position', 'sheet_placement', 'level_id', 'gd_id', 'name']
+const CSV_HEADER = ['position', 'sheet_placement', 'level_id', 'gd_id', 'name', 'tier']
 
 /**
  * A cell a spreadsheet will not reinterpret.
@@ -78,7 +85,10 @@ function csvCell(value: unknown): string {
 export function snapshotToCsv(snap: Snapshot): string {
   const lines = [CSV_HEADER.join(',')]
   for (const l of snap.levels) {
-    lines.push([l.position, l.sheet_placement ?? '', l.id, l.gd_id ?? '', l.name].map(csvCell).join(','))
+    lines.push(
+      [l.position, l.sheet_placement ?? '', l.id, l.gd_id ?? '', l.name, l.gddl_tier ?? '']
+        .map(csvCell).join(','),
+    )
   }
   return lines.join('\r\n') + '\r\n'
 }
@@ -117,6 +127,8 @@ export type SnapshotEntry = {
   name: string | null
   position: number | null
   sheet_placement: number | null
+  /** Absent in an older file, which then simply leaves tiers alone. */
+  gddl_tier: string | null
   /** Position in the file, used to keep equal `position` values stable. */
   ordinal: number
 }
@@ -132,6 +144,12 @@ function intOrNull(v: unknown): number | null {
   if (v == null || v === '') return null
   const n = Number(String(v).trim())
   return Number.isInteger(n) ? n : null
+}
+
+function textOrNull(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  return s ? s.slice(0, 40) : null
 }
 
 /**
@@ -160,6 +178,7 @@ export function parseSnapshot(text: string): ParsedSnapshot {
       name: typeof l?.name === 'string' && l.name.trim() ? l.name.trim() : null,
       position: intOrNull(l?.position),
       sheet_placement: intOrNull(l?.sheet_placement),
+      gddl_tier: textOrNull(l?.gddl_tier ?? l?.tier),
       ordinal: i,
     }))
     return { entries, kind: 'json', generated_at: typeof data?.generated_at === 'string' ? data.generated_at : null }
@@ -180,6 +199,7 @@ export function parseSnapshot(text: string): ParsedSnapshot {
   const iId = col('level_id', 'id')
   const iGd = col('gd_id', 'gdid', 'level id')
   const iName = col('name', 'level', 'level_name')
+  const iTier = col('tier', 'gddl_tier', 'gddl tier')
 
   if (iId === -1 && iGd === -1 && iName === -1) {
     throw new Error('That CSV has no level_id, gd_id or name column, so its rows can\'t be matched to levels.')
@@ -202,6 +222,7 @@ export function parseSnapshot(text: string): ParsedSnapshot {
     })(),
     position: intOrNull(at(r, iPos)),
     sheet_placement: intOrNull(at(r, iPlace)),
+    gddl_tier: textOrNull(unguard(at(r, iTier))),
     ordinal: i,
   }))
   return { entries, kind: 'csv', generated_at: null }
@@ -231,12 +252,17 @@ export type RestoreResult = {
   /** Levels here the file never mentioned; they keep their neighbours. */
   untouched_extra: number
   moved: number
+  /** Levels whose tier the file also puts back. Zero for a file without tiers. */
+  retiered: number
   /** The biggest movements, for the confirmation screen. */
   sample: RestoreMove[]
   applied: boolean
 }
 
-type LevelRow = { id: number; position: number; sheet_placement: number | null; gd_id: number | null; name: string }
+type LevelRow = {
+  id: number; position: number; sheet_placement: number | null
+  gd_id: number | null; name: string; gddl_tier: string | null
+}
 
 /**
  * Match a file's rows to the levels that are actually here.
@@ -311,10 +337,17 @@ export function restoreSnapshot(
   opts: { apply: boolean; sampleSize?: number } = { apply: false },
 ): RestoreResult {
   const levels = db.prepare(
-    `SELECT id, position, sheet_placement, gd_id, name FROM levels ORDER BY position ASC`,
+    `SELECT id, position, sheet_placement, gd_id, name, gddl_tier FROM levels ORDER BY position ASC`,
   ).all() as LevelRow[]
 
   const { matched, unmatched, taken } = matchEntries(entries, levels)
+
+  // Tiers the file disagrees with. A move rewrites the tier, so a file taken
+  // before those moves carries the tiers they replaced — putting the level back
+  // without its label would only half-undo the move.
+  const tierFixes = matched
+    .filter((m) => m.entry.gddl_tier && m.entry.gddl_tier !== m.level.gddl_tier)
+    .map((m) => ({ id: m.level.id, tier: m.entry.gddl_tier! }))
 
   // The file's own ordering. `position` is what it usually carries; a
   // hand-edited file may repeat a number, so ties fall back to file order —
@@ -365,21 +398,25 @@ export function restoreSnapshot(
     }
   })
 
-  if (opts.apply && moves.length) {
+  if (opts.apply && (moves.length || tierFixes.length)) {
     const setPos = db.prepare(`UPDATE levels SET position = ? WHERE id = ?`)
+    const setTier = db.prepare(`UPDATE levels SET gddl_tier = ? WHERE id = ?`)
     db.exec('BEGIN')
     try {
       // Park everything at a unique negative position first: `position` is
       // UNIQUE, and any single-pass rewrite collides with a value another row
       // in the same batch still holds.
-      finalOrder.forEach((l, i) => setPos.run(-(i + 1), l.id))
-      finalOrder.forEach((l, i) => setPos.run(i + 1, l.id))
+      if (moves.length) {
+        finalOrder.forEach((l, i) => setPos.run(-(i + 1), l.id))
+        finalOrder.forEach((l, i) => setPos.run(i + 1, l.id))
+      }
+      for (const f of tierFixes) setTier.run(f.tier, f.id)
       db.exec('COMMIT')
     } catch (e) {
       db.exec('ROLLBACK')
       throw e
     }
-    resyncPlacements(db)
+    if (moves.length) resyncPlacements(db)
   }
 
   const sample = [...moves]
@@ -391,8 +428,9 @@ export function restoreSnapshot(
     unmatched: unmatched.length,
     untouched_extra: levels.length - matched.length,
     moved: moves.length,
+    retiered: tierFixes.length,
     sample,
-    applied: !!opts.apply && moves.length > 0,
+    applied: !!opts.apply && (moves.length > 0 || tierFixes.length > 0),
   }
 }
 
@@ -416,7 +454,7 @@ export function resetToSheetOrder(
   opts: { apply: boolean; sampleSize?: number } = { apply: false },
 ): RestoreResult {
   const levels = db.prepare(
-    `SELECT id, position, sheet_placement, sheet_rank, gd_id, name,
+    `SELECT id, position, sheet_placement, sheet_rank, gd_id, name, gddl_tier,
             COALESCE(permanent, 0) AS permanent
        FROM levels
       ORDER BY position ASC`,
@@ -471,6 +509,9 @@ export function resetToSheetOrder(
     unmatched: 0,
     untouched_extra: anchored.length,
     moved: moves.length,
+    // Tiers come from the sheet on the next import, which is where this order
+    // came from too. Nothing to put back that the importer doesn't own.
+    retiered: 0,
     sample,
     applied: !!opts.apply && moves.length > 0,
   }

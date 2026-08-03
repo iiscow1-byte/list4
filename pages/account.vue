@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { roleBadgeClass } from '~/utils/role-styles'
 
 definePageMeta({ middleware: 'auth' })
@@ -527,10 +528,68 @@ async function cancelClaim() {
   await loadPendingClaim()
 }
 
+// --- Releasing an approved claim, and pulling its records in ---
+type ClaimKind = 'player' | 'aredl' | 'gdl' | 'pointercrate'
+const CLAIM_LABELS: Record<ClaimKind, string> = {
+  player: 'ALL list', aredl: 'AREDL', gdl: 'GDL', pointercrate: 'Pointercrate',
+}
+const claimBusy = ref<ClaimKind | 'sync' | null>(null)
+const claimNote = ref<string | null>(null)
+
+/** The external claims, which are the ones that carry records. */
+const externalClaims = computed<ClaimKind[]>(() => {
+  const a = meRes.value?.account
+  if (!a) return []
+  const out: ClaimKind[] = []
+  if (a.claimed_aredl_uuid) out.push('aredl')
+  if (a.claimed_pointercrate_id) out.push('pointercrate')
+  if (a.claimed_gdl_id) out.push('gdl')
+  return out
+})
+
+async function unclaim(kind: ClaimKind) {
+  const what = kind === 'player' ? 'your ALL leaderboard name' : `your ${CLAIM_LABELS[kind]} player`
+  const extra = kind === 'player'
+    ? ''
+    : '\n\nThe records it brought here are removed from your profile. They stay on '
+      + `${CLAIM_LABELS[kind]} — claiming again brings them back.`
+  if (!confirm(`Unclaim ${what}?${extra}`)) return
+  claimBusy.value = kind
+  claimNote.value = null
+  claimError.value = null
+  try {
+    const res = await $fetch<{ name: string | null; records_removed: number }>(
+      '/api/account/claim', { method: 'DELETE', query: { source: kind } },
+    )
+    claimNote.value = res.records_removed
+      ? `Unclaimed${res.name ? ` ${res.name}` : ''}. ${res.records_removed} record(s) removed from your profile.`
+      : `Unclaimed${res.name ? ` ${res.name}` : ''}.`
+    await refreshMe()
+    await loadProfileData()
+  } catch (e: any) {
+    claimError.value = e?.data?.statusMessage ?? 'Could not unclaim that.'
+  } finally { claimBusy.value = null }
+}
+
+async function syncClaimedRecords() {
+  claimBusy.value = 'sync'
+  claimNote.value = null
+  claimError.value = null
+  try {
+    const res = await $fetch<{ added: number }>('/api/account/claim/records', { method: 'POST' })
+    claimNote.value = res.added
+      ? `${res.added} record(s) added to your profile.`
+      : 'Nothing new — your profile already has every record those accounts carry that the ALL list has.'
+    await loadProfileData()
+  } catch (e: any) {
+    claimError.value = e?.data?.statusMessage ?? 'Could not import those records.'
+  } finally { claimBusy.value = null }
+}
+
 // --- Open-verification submission (collapsible box on the account page) ---
 const TIER_OPTIONS = [
   '', 'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
-  ...Array.from({ length: 39 }, (_, i) => `Tier ${i + 1}`),
+  ...Array.from({ length: TIER_MAX_NUMBER }, (_, i) => `Tier ${i + 1}`),
 ]
 const OV_DIFFICULTY_OPTIONS = [
   '', 'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
@@ -1419,16 +1478,9 @@ function fmt(n: number | null | undefined) {
               @click="showProgress = !showProgress"
             >Post progress</button>
 
-            <NuxtLink
-              to="/records/submit"
-              class="block text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
-            >Submit record</NuxtLink>
-
-            <NuxtLink
-              to="/levels/submit"
-              class="block text-sm px-3 py-1.5 rounded border border-zinc-800 text-zinc-200 hover:bg-zinc-900 transition-colors"
-            >Submit level</NuxtLink>
-
+            <!-- Submit record / Submit level deliberately absent: both live in
+                 the header's Submit menu, on every page including this one.
+                 What's left here is what only this page offers. -->
             <button
               v-if="(!me.claimed_player || !me.claimed_aredl_uuid || !me.claimed_pointercrate_id || !me.claimed_gdl_id) && !pendingClaim"
               type="button"
@@ -1438,20 +1490,48 @@ function fmt(n: number | null | undefined) {
           </div>
 
           <!-- Claim status / inline form -->
-          <div v-if="me.claimed_player || me.claimed_aredl_uuid || me.claimed_pointercrate_id || me.claimed_gdl_id" class="mt-3 px-1 text-xs text-zinc-500 space-y-1">
-            <p v-if="me.claimed_player">
-              ALL list: <span class="text-accent font-medium">{{ me.claimed_player }}</span>
-            </p>
-            <p v-if="me.claimed_aredl_uuid">
-              AREDL: <span class="text-accent font-medium">claimed</span>
-            </p>
-            <p v-if="me.claimed_pointercrate_id">
-              Pointercrate: <span class="text-accent font-medium">claimed</span>
-            </p>
-            <p v-if="me.claimed_gdl_id">
-              GDL: <span class="text-accent font-medium">claimed</span>
-            </p>
-            <p class="text-zinc-600">Contact an admin to change.</p>
+          <div v-if="me.claimed_player || me.claimed_aredl_uuid || me.claimed_pointercrate_id || me.claimed_gdl_id" class="mt-3 px-1 text-xs text-zinc-500 space-y-1.5">
+            <div v-if="me.claimed_player" class="flex items-center gap-2">
+              <span class="flex-1 min-w-0 truncate">
+                ALL list: <span class="text-accent font-medium">{{ me.claimed_player }}</span>
+              </span>
+              <button
+                type="button" :disabled="!!claimBusy"
+                class="shrink-0 text-zinc-600 hover:text-red-400 disabled:opacity-40 transition-colors"
+                @click="unclaim('player')"
+              >Unclaim</button>
+            </div>
+            <div
+              v-for="kind in externalClaims"
+              :key="kind"
+              class="flex items-center gap-2"
+            >
+              <span class="flex-1 min-w-0 truncate">
+                {{ CLAIM_LABELS[kind] }}: <span class="text-accent font-medium">claimed</span>
+              </span>
+              <button
+                type="button" :disabled="!!claimBusy"
+                class="shrink-0 text-zinc-600 hover:text-red-400 disabled:opacity-40 transition-colors"
+                @click="unclaim(kind)"
+              >Unclaim</button>
+            </div>
+
+            <!-- Records follow the claim. Approving one imports them; this is
+                 the same thing on demand, for claims made before the site did
+                 it and for records the mirrors have picked up since. -->
+            <div v-if="externalClaims.length" class="pt-1 border-t border-zinc-900">
+              <button
+                type="button" :disabled="!!claimBusy"
+                class="text-accent hover:underline disabled:opacity-40 transition-colors"
+                @click="syncClaimedRecords"
+              >{{ claimBusy === 'sync' ? 'Importing…' : 'Import records from my claimed accounts' }}</button>
+              <p class="text-zinc-600 mt-0.5 leading-snug">
+                Their completions become records on your ALL profile, for the levels this list carries.
+              </p>
+            </div>
+
+            <p v-if="claimNote" class="text-emerald-400">{{ claimNote }}</p>
+            <p v-if="claimError" class="text-red-400">{{ claimError }}</p>
           </div>
           <div v-else-if="pendingClaim" class="mt-3 px-1 text-xs text-zinc-400">
             <p>

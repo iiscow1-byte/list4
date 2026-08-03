@@ -2,12 +2,14 @@ import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { recomputePoints } from '~/server/utils/points'
 import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
+import { tierForSlot } from '~/server/utils/move-level'
 
 const STASH = -1_000_000_000
 
 export default defineEventHandler(async (event) => {
   const account = requireMod(event)
-  const body = await readBody<{ positions?: unknown; delta?: unknown }>(event) ?? {}
+  const body = await readBody<{ positions?: unknown; delta?: unknown; keep_tier?: unknown }>(event) ?? {}
+  const keepTier = body.keep_tier === true
 
   const positions: number[] = Array.isArray(body.positions)
     ? [...new Set(body.positions.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
@@ -28,9 +30,11 @@ export default defineEventHandler(async (event) => {
 
   db.exec('BEGIN')
   let moved = 0
+  let retiered = 0
   try {
     for (const fromPos of sorted) {
-      const row = db.prepare(`SELECT id FROM levels WHERE position = ?`).get(fromPos) as { id: number } | undefined
+      const row = db.prepare(`SELECT id, gddl_tier FROM levels WHERE position = ?`)
+        .get(fromPos) as { id: number; gddl_tier: string | null } | undefined
       if (!row) continue
 
       const toPos = Math.min(Math.max(1, fromPos + delta), maxPos)
@@ -64,6 +68,16 @@ export default defineEventHandler(async (event) => {
       // Placement numbers stay with the slot, not the level — see
       // `server/utils/placement-sync.ts`.
       resyncPlacementsForMove(db, fromPos, toPos)
+
+      // …and so does the tier. A group move is the same statement about
+      // difficulty as a single one, made about several levels at once.
+      if (!keepTier) {
+        const landed = tierForSlot(db, toPos, row.id)
+        if (landed && landed !== row.gddl_tier) {
+          db.prepare(`UPDATE levels SET gddl_tier = ? WHERE id = ?`).run(landed, row.id)
+          retiered++
+        }
+      }
     }
     db.exec('COMMIT')
   } catch (e) {
@@ -72,5 +86,5 @@ export default defineEventHandler(async (event) => {
   }
 
   recomputePoints(db)
-  return { ok: true, moved }
+  return { ok: true, moved, retiered }
 })

@@ -187,6 +187,41 @@ const targetPosition = computed(() => {
 })
 const dirty = computed(() => targetPosition.value !== props.position)
 
+/** The tier the level currently has, before any of this. */
+const movingTier = computed(() => rows.value[movingIndex.value]?.gddl_tier ?? null)
+
+/**
+ * The tier the level takes by landing where it's been dragged to.
+ *
+ * Mirrors `tierForSlot` on the server — nearest tiered neighbour each side,
+ * ties to the one above — so what the dialog promises is what the move does.
+ * Computed from the rows already on screen; no extra request per drag.
+ */
+const keepTier = ref(false)
+const landingTier = computed<string | null>(() => {
+  const i = movingIndex.value
+  if (i < 0) return null
+  let above: { d: number; tier: string } | null = null
+  for (let k = i - 1; k >= 0; k--) {
+    const t = rows.value[k]?.gddl_tier
+    if (t) { above = { d: i - k, tier: t }; break }
+  }
+  let below: { d: number; tier: string } | null = null
+  for (let k = i + 1; k < rows.value.length; k++) {
+    const t = rows.value[k]?.gddl_tier
+    if (t) { below = { d: k - i, tier: t }; break }
+  }
+  if (!above && !below) return null
+  if (!above) return below!.tier
+  if (!below) return above.tier
+  if (above.tier === below.tier) return above.tier
+  return below.d < above.d ? below.tier : above.tier
+})
+/** Only worth saying when the move would actually change the label. */
+const tierChanges = computed(
+  () => dirty.value && !!landingTier.value && landingTier.value !== movingTier.value,
+)
+
 async function apply() {
   if (!dirty.value || applying.value) return
   applying.value = true
@@ -194,7 +229,7 @@ async function apply() {
   try {
     await $fetch(`/api/admin/levels/${props.position}/move`, {
       method: 'POST',
-      body: { to: targetPosition.value },
+      body: { to: targetPosition.value, keep_tier: keepTier.value },
     })
     emit('moved')
     emit('update:open', false)
@@ -315,13 +350,35 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
           </ul>
         </div>
 
-        <div class="px-4 py-3 border-t border-zinc-800 flex items-center gap-3">
+        <div class="px-4 py-3 border-t border-zinc-800 flex items-center gap-3 flex-wrap">
           <span class="text-[11px] text-zinc-500">
             <template v-if="dirty">
               Moving to list position <span class="text-accent tabular-nums font-semibold">#{{ targetPosition }}</span>
             </template>
             <template v-else>Drag the highlighted row to a new slot.</template>
           </span>
+
+          <!-- The slot carries a tier, and the level takes it on landing.
+               Shown live while dragging so it's never a surprise. -->
+          <template v-if="tierChanges">
+            <span class="text-[11px] text-zinc-500 flex items-center gap-1.5">
+              <span
+                v-if="movingTier"
+                class="px-1.5 py-0.5 rounded text-[10px] font-semibold line-through decoration-zinc-500/70"
+                :style="{ backgroundColor: tierColor(movingTier), color: textOn(tierColor(movingTier)) }"
+              >{{ movingTier }}</span>
+              <span aria-hidden="true">→</span>
+              <span
+                class="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                :style="{ backgroundColor: tierColor(landingTier), color: textOn(tierColor(landingTier)) }"
+              >{{ landingTier }}</span>
+            </span>
+            <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors">
+              <input v-model="keepTier" type="checkbox" class="accent-accent" />
+              Keep {{ movingTier ?? 'its tier' }}
+            </label>
+          </template>
+
           <span v-if="error" class="text-[11px] text-red-400">{{ error }}</span>
           <div class="ml-auto flex items-center gap-2">
             <button

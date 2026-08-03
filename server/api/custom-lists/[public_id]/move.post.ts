@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   // reordering in memory and writing back is simpler and cheaper than a
   // shifting UPDATE with a hole in the middle.
   const items = db.prepare(
-    `SELECT id, name, sort_order FROM custom_list_items
+    `SELECT id, COALESCE(ov_name, name) AS name, sort_order FROM custom_list_items
       WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
   ).all(list.id) as { id: number; name: string; sort_order: number }[]
 

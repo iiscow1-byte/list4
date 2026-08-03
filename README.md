@@ -168,10 +168,56 @@ therapist, retardant, Titanic — is ignored.
 
 `custom_lists` / `custom_list_items` back the builder. An item either points at
 an ALL level (`level_id` set — its display fields and current placement are
-resolved from `levels` at read time, so a saved list can never disagree with
-the list about a level it points at) or is fully hand-entered (`level_id`
-NULL, client values kept). Guests build against `localStorage`; saving requires
-an account and mints a random `public_id` used for share URLs.
+resolved from `levels` at read time, so a saved list follows the main list) or is
+fully hand-entered (`level_id` NULL, client values kept). Guests build against
+`localStorage`; saving requires an account and mints a random `public_id` used
+for share URLs.
+
+### A list is allowed to disagree with the ALL
+
+`custom_list_items.ov_name` / `ov_creator` / `ov_difficulty` / `ov_gddl_tier` /
+`ov_verification_url` are the list's own answers, read in preference to the
+mirrored columns and never touched by a full save. NULL — the default, and what
+every pre-existing row has — means "follow the main list".
+
+They exist because "the ALL has the wrong video for this level" and "our
+community verifies this differently" are real, and a linked row previously had
+no way to say either: the fields were read-only, because a full save re-reads
+them from `levels` and an edit would have looked like it worked and then
+silently reverted.
+
+`PATCH /api/custom-lists/:id/items/:item_id` routes a level field to its `ov_`
+column on a linked row and to the column itself on a hand-entered one. A value
+equal to what the ALL currently says **clears** the override rather than pinning
+it — otherwise opening the editor and pressing Save would quietly freeze the row
+against the main list forever. Unlinking folds any overrides down into the row's
+own fields, since "override the ALL" stops meaning anything once the row no
+longer points at it.
+
+`loadList` returns the effective value under the ordinary key, the mirrored one
+as `all_*`, and the raw override as `ov_*`, so the editor can show both answers
+and offer to go back to the ALL's.
+
+### Rank badge colours
+
+`utils/custom-list-colors.ts`. By default a custom list marks itself against the
+ALL: rows the main list carries take their tier's colour and the rest go grey,
+which is right for a list read alongside it. `custom_lists.mark_off_all = 0`
+switches to a scaled ramp — a row with no tier is coloured by the tier it *would*
+have, interpolated from the rows around it that do (the same estimator the
+placement guess uses), and a list with no tier information anywhere falls back to
+a ramp across its own length. It never invents a tier *label*, only a colour.
+The same setting hides the "On the ALL list" row on each level page.
+
+### Standalone links
+
+`?standalone=1` on any custom-list URL drops the site header and footer, promotes
+the list's own bar to being the page header, and leaves one button back to the
+ALL. `composables/useStandaloneList.ts` owns it; every in-list link is built
+through its `to()` so the flag survives navigation within the list, and links
+that leave the list deliberately don't carry it. It's a property of how someone
+arrived rather than a setting on the list, so the same list opened from the
+gallery is still an ordinary page of this site.
 
 Setting `is_public` publishes a list to the `/lists` gallery, where others can
 like it (`custom_list_likes`, with the count denormalised onto
@@ -292,15 +338,33 @@ Moderators get four ways to reposition a level, all landing on the same
 **Move now** applies just the placement change and skips the metadata PATCH, so
 a reorder doesn't have to carry a whole form save with it.
 
+### The tier goes with the slot
+
+`server/utils/move-level.ts` rewrites the moved level's `gddl_tier` to whatever
+its new neighbours are in. The list is ordered by difficulty, so the slot
+already carries a tier — a level dragged from #40,000 to #1,500 has been judged
+that much harder, and keeping the label it had at #40,000 contradicts the
+position it was just given.
+
+`tierForSlot` reads the nearest tiered level either side, ignoring the level
+being moved. Both are consulted rather than one, because a slot between two
+different tiers is a genuine boundary; there the nearer neighbour wins, and a
+tie goes to the one *above* — the band the level was placed into. A slot with no
+tiered level anywhere returns null and nothing is written.
+
+Both move tools show the change before it happens (`PlacementEditor` computes
+it live from the rows already on screen, mirroring the server rule) and offer
+`keep_tier` for the deliberate outlier. Group moves do the same thing per level.
+Restores and "reset to the sheet's order" do **not** — those are undoing moves,
+and applying the destination's tier is exactly what they exist to reverse, which
+is why placement snapshots carry `gddl_tier` too.
+
 Custom lists have the equivalent, scoped to the list: editors toggle reorder
 mode in the list nav and drag rows or type a rank, and each level page has an
 inline editor. Those go through `POST /api/custom-lists/:id/move` and
 `PATCH|DELETE /api/custom-lists/:id/items/:item_id`, which move or edit one row
 and log one changelog entry — the builder's full `PATCH` reconciles every row
-and is far more machinery than a single drag needs. On a linked row (one
-pointing at an ALL level) the name, creator, ID and video are read-only: a full
-save re-reads them from `levels`, so letting them be edited here would look
-like it worked and then silently revert.
+and is far more machinery than a single drag needs.
 
 ## Building a custom list from an imported list
 
@@ -404,10 +468,56 @@ levels    (position, name, gd_id, gddl_tier, rated, difficulty, placement_source
            points, main_skillset, verify_date, verification, pov_placement,
            year_verified, category, source_tab)
 players   (name, country, total_points, skill_points, hardest, tier)
-records   (level_id, player_id, percent, hz, video, verified)
+records   (level_id, player_id, percent, hz, video, verified,
+           claim_source, claim_account_id)
 ```
 
 `position` is the global rank in the sheet. URLs are keyed on `position` so re-imports don't break links.
+
+## Tiers
+
+`utils/tier-ordinal.ts` owns the scale. Subtier 0–5 then Tier 1–`TIER_MAX_NUMBER`
+map onto one continuous ordinal 0–`TIER_MAX_ORD`, which is what sliders,
+estimates and medians work in. The ceiling is a constant: every tier dropdown,
+filter slider, colour and point value is derived from it, so raising it is a
+one-line change plus colours and point values for the new tiers.
+
+`tierToOrd` **parses** — it reads whatever a mirror or a spreadsheet cell
+offers, and returns null for anything off the scale (`Subtier 6` especially: 6 is
+Tier 1's ordinal, so a lenient parse would silently call it that). `isValidTier`
+**guards writes** and is stricter still: it requires the canonical spelling,
+because `tier 3 ` in the database is a value no `gddl_tier = 'Tier 3'` filter,
+sort or group-by ever matches again.
+
+The sheet's own palette stops at Tier 40. Tiers 41–45 are this site's; they
+bottom out once more and then climb back through deep blue, because the red→black
+ramp has already run out of darkness and five more shades of black would be five
+tiers nobody could tell apart.
+
+## Records a claim brings with it
+
+Claiming an AREDL, GDL or Pointercrate player copies that player's mirrored
+records onto the account's ALL profile (`server/utils/claim-records.ts`). The
+site already knew everything the player had beaten and showed the profile as
+empty anyway, because a record only counts here as a row in `records` under your
+name.
+
+They are marked, not merged: `claim_source` says which claim produced a row and
+`claim_account_id` says whose, so releasing the claim takes back exactly what the
+claim gave. Records submitted here by hand are untouched, and so is the mirror —
+"removed from your profile but they still exist" has to mean the AREDL record
+survives, because it was never ours to delete.
+
+A GD id that resolves to more than one ALL level (Solo/2P, Old/Unnerfed) is
+skipped rather than guessed at: a record filed against the wrong variant is worse
+than a missing one. Adoption is idempotent, so `POST /api/account/claim/records`
+doubles as a refresh when the mirror picks up new completions.
+
+`server/utils/unclaim.ts` is the release, shared between the account owner's own
+button and the admin one — they differ only in who is allowed to ask. It clears
+the account column, frees the mirrored player's back-reference, and deletes the
+claim's records; leaving any one of those would refuse the next claim of that
+player with a row nobody can see.
 
 ## AREDL placement history
 

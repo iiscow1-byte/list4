@@ -28,7 +28,10 @@ export default defineEventHandler(async (event) => {
   if (!ids.length) throw createError({ statusCode: 400, statusMessage: 'No levels to move.' })
 
   const db = getDb()
-  const results: Array<{ level_id: number; name: string; from: number; to: number; moved: boolean; reason?: string }> = []
+  const results: Array<{
+    level_id: number; name: string; from: number; to: number; moved: boolean
+    tier_from?: string | null; tier_to?: string | null; reason?: string
+  }> = []
   let moved = 0
 
   for (const id of ids) {
@@ -45,7 +48,10 @@ export default defineEventHandler(async (event) => {
     }
     try {
       const res = moveLevel(db, row.from_position, row.to_position, account.id)
-      results.push({ level_id: id, name: row.name, from: res.from, to: res.to, moved: res.moved })
+      results.push({
+        level_id: id, name: row.name, from: res.from, to: res.to, moved: res.moved,
+        tier_from: res.tier_from ?? null, tier_to: res.tier_to ?? null,
+      })
       if (res.moved) moved++
     } catch (e: any) {
       results.push({

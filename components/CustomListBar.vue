@@ -8,6 +8,7 @@ const props = defineProps<{
   list: {
     public_id: string
     title: string
+    description?: string | null
     owner_username: string | null
     is_public: number
     likes: number
@@ -29,6 +30,9 @@ const emit = defineEmits<{ (e: 'like'): void }>()
 
 const route = useRoute()
 const base = computed(() => `/lists/${props.list.public_id}`)
+// Standalone: this bar is the page's header rather than a strip under one, so
+// it carries the identity at full size and offers the one link out.
+const { standalone, to } = useStandaloneList()
 
 /** The list route is the base path and any `/lists/:id/<number>` under it. */
 const onListTab = computed(
@@ -93,28 +97,38 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
 </script>
 
 <template>
-  <div ref="barRoot" class="border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-sm shrink-0">
-    <div class="px-4 sm:px-6 py-2.5 flex items-center gap-x-4 gap-y-2 flex-wrap">
+  <div
+    ref="barRoot"
+    class="border-b bg-zinc-950/70 backdrop-blur-sm shrink-0"
+    :class="standalone ? 'border-zinc-800' : 'border-zinc-800/80'"
+  >
+    <div
+      class="px-4 sm:px-6 flex items-center gap-x-4 gap-y-2 flex-wrap"
+      :class="standalone ? 'py-3.5' : 'py-2.5'"
+    >
       <!-- Identity -->
-      <NuxtLink :to="base" class="min-w-0 flex items-center gap-2.5 group shrink-0">
+      <NuxtLink :to="to(base)" class="min-w-0 flex items-center gap-2.5 group shrink-0">
         <img
           v-if="list.icon_url"
           :src="list.icon_url"
           alt=""
-          class="w-8 h-8 rounded-lg object-cover border border-zinc-800 shrink-0 bg-zinc-900"
+          class="rounded-lg object-cover border border-zinc-800 shrink-0 bg-zinc-900"
+          :class="standalone ? 'w-10 h-10' : 'w-8 h-8'"
           referrerpolicy="no-referrer"
         />
         <span
           v-else
-          class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-[11px] font-black shrink-0"
+          class="rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center font-black shrink-0"
+          :class="[standalone ? 'w-10 h-10 text-sm' : 'w-8 h-8 text-[11px]', list.accent_color ? '' : 'text-accent']"
           :style="list.accent_color ? { color: list.accent_color } : undefined"
-          :class="list.accent_color ? '' : 'text-accent'"
           aria-hidden="true"
         >{{ list.title.slice(0, 2).toUpperCase() }}</span>
         <span class="min-w-0">
-          <span class="block text-sm font-bold tracking-tight text-zinc-50 truncate group-hover:text-accent transition-colors">
-            {{ list.title }}
-          </span>
+          <component
+            :is="standalone ? 'h1' : 'span'"
+            class="block font-bold tracking-tight text-zinc-50 truncate group-hover:text-accent transition-colors"
+            :class="standalone ? 'text-base sm:text-lg' : 'text-sm'"
+          >{{ list.title }}</component>
           <span class="block text-[10px] text-zinc-600 truncate">
             <template v-if="list.owner_username">by {{ list.owner_username }} · </template>
             <span class="tabular-nums">{{ levelCount }}</span> level{{ levelCount === 1 ? '' : 's' }}
@@ -128,7 +142,7 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
         <NuxtLink
           v-for="t in tabs"
           :key="t.to"
-          :to="t.to"
+          :to="to(t.to)"
           class="relative whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
           :class="isActive(t)
             ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/25'
@@ -142,6 +156,22 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
         </NuxtLink>
 
         <span class="w-px h-5 bg-zinc-800 mx-1.5 shrink-0" />
+
+        <!-- Standalone mode hides the site's own header, so this is the only
+             way back to the rest of the site. It drops the flag deliberately:
+             following it means leaving the list, not viewing the ALL inside it. -->
+        <NuxtLink
+          v-if="standalone"
+          to="/"
+          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
+          title="Open the All Levels List"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+          </svg>
+          <span class="hidden sm:inline">All Levels List</span>
+          <span class="sm:hidden">ALL</span>
+        </NuxtLink>
 
         <!-- The list's own community links -->
         <a

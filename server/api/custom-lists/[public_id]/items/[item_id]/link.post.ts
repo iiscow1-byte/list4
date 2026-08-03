@@ -37,7 +37,22 @@ export default defineEventHandler(async (event) => {
   if (!row) throw createError({ statusCode: 404, statusMessage: 'That level is not on this list.' })
 
   if (body.unlink) {
-    db.prepare(`UPDATE custom_list_items SET level_id = NULL WHERE id = ?`).run(itemId)
+    // Fold any overrides down into the row's own fields on the way out.
+    // "Override the ALL" stops meaning anything once the row isn't pointing at
+    // the ALL, and leaving both sets populated would make the row show one
+    // value and store another.
+    db.prepare(
+      `UPDATE custom_list_items
+          SET level_id = NULL,
+              name             = COALESCE(ov_name, name),
+              creator          = COALESCE(ov_creator, creator),
+              difficulty       = COALESCE(ov_difficulty, difficulty),
+              gddl_tier        = COALESCE(ov_gddl_tier, gddl_tier),
+              verification_url = COALESCE(ov_verification_url, verification_url),
+              ov_name = NULL, ov_creator = NULL, ov_difficulty = NULL,
+              ov_gddl_tier = NULL, ov_verification_url = NULL
+        WHERE id = ?`,
+    ).run(itemId)
     db.prepare(`UPDATE custom_lists SET updated_at = datetime('now') WHERE id = ?`).run(list.id)
     return { ok: true, linked: false, list: loadList(db, list.id) }
   }

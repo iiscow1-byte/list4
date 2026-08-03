@@ -4,6 +4,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list, base } = useCustomList(publicId)
+const { to } = useStandaloneList()
 
 type Change = {
   id: number
@@ -81,7 +82,7 @@ useHead(() => ({ title: list.value ? `Changelog — ${list.value.title}` : 'Chan
 
               <NuxtLink
                 v-if="c.current_sort_order != null"
-                :to="`${base}/${c.current_sort_order + 1}`"
+                :to="to(`${base}/${c.current_sort_order + 1}`)"
                 class="truncate text-zinc-200 hover:text-accent transition-colors"
               >{{ c.level_name }}</NuxtLink>
               <span v-else class="truncate text-zinc-400">{{ c.level_name }}</span>

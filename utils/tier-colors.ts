@@ -2,6 +2,13 @@
  * GDDL tier → background color map, lifted from the source sheet's CSS.
  * Each tier always uses the same color in the sheet; if that ever changes we
  * regenerate this file by re-parsing the `<style>` block of any tab's HTML.
+ *
+ * The sheet's own ramp ends at Tier 40, a near-black violet. Tiers 41–45 are
+ * this site's, and continue somewhere the sheet's ramp cannot: it has already
+ * run out of darkness, so five more shades of black would be five tiers nobody
+ * could tell apart. They bottom out once more and then climb back through deep
+ * blue, which keeps consecutive tiers distinguishable and reads as what it is —
+ * a band past the end of the original scale.
  */
 export const TIER_COLORS: Record<string, string> = {
   // Subtiers (Easy → Harder), light → dark purple
@@ -53,6 +60,13 @@ export const TIER_COLORS: Record<string, string> = {
   'Tier 38': '#300636',
   'Tier 39': '#250630',
   'Tier 40': '#120118',
+
+  // Past the sheet's scale — see the note above.
+  'Tier 41': '#0a0620',
+  'Tier 42': '#0a0a30',
+  'Tier 43': '#0b1040',
+  'Tier 44': '#0c1650',
+  'Tier 45': '#0d1c62',
 }
 
 /** Lookup with graceful fallback to a neutral zinc color. */

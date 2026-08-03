@@ -29,7 +29,39 @@ type Row = {
   points: number
   extras: { extremes?: number; pack_points?: number }
   hardest: string | null
-  claimed_account: { username: string } | null
+  claimed_account: { username: string; has_avatar: boolean } | null
+}
+
+/**
+ * Attach each row's avatar flag, for the page being returned only.
+ *
+ * The claim join upstream gives a username but says nothing about whether that
+ * account has a picture, and the page rendered every row's initial instead —
+ * on the tab the leaderboard opens on. Doing it here rather than in the joins
+ * keeps it to one query over at most a page's worth of names, not tens of
+ * thousands of blob checks.
+ */
+function attachAvatars(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
+  const names = [...new Set(
+    rows.map((r) => r.claimed_account?.username).filter((u): u is string => !!u),
+  )]
+  if (!names.length) return rows
+  const ph = names.map(() => '?').join(',')
+  const withAvatar = new Set(
+    (db.prepare(
+      `SELECT username FROM accounts
+        WHERE avatar_blob IS NOT NULL AND username COLLATE NOCASE IN (${ph})`,
+    ).all(...names) as { username: string }[]).map((a) => a.username.toLowerCase()),
+  )
+  for (const r of rows) {
+    if (r.claimed_account) {
+      r.claimed_account = {
+        ...r.claimed_account,
+        has_avatar: withAvatar.has(r.claimed_account.username.toLowerCase()),
+      }
+    }
+  }
+  return rows
 }
 
 export default defineEventHandler((event) => {
@@ -77,7 +109,7 @@ export default defineEventHandler((event) => {
         points: r.total_points,
         extras: { extremes: r.extremes, pack_points: r.pack_points },
         hardest: r.hardest_name,
-        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+        claimed_account: r.claimed_username ? { username: r.claimed_username, has_avatar: false } : null,
       })
     }
   }
@@ -112,7 +144,7 @@ export default defineEventHandler((event) => {
         points: r.score,
         extras: {},
         hardest: r.hardest_name,
-        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+        claimed_account: r.claimed_username ? { username: r.claimed_username, has_avatar: false } : null,
       })
     }
   }
@@ -147,7 +179,7 @@ export default defineEventHandler((event) => {
         points: r.points,
         extras: {},
         hardest: r.hardest_name,
-        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+        claimed_account: r.claimed_username ? { username: r.claimed_username, has_avatar: false } : null,
       })
     }
   }
@@ -241,7 +273,7 @@ export default defineEventHandler((event) => {
         points: r.points,
         extras: { extremes: r.extremes },
         hardest: r.hardest,
-        claimed_account: r.claimed_username ? { username: r.claimed_username } : null,
+        claimed_account: r.claimed_username ? { username: r.claimed_username, has_avatar: false } : null,
       })
     }
   }
@@ -308,8 +340,8 @@ export default defineEventHandler((event) => {
     const visible = search
       ? mergedRows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
       : mergedRows
-    return { total: visible.length, items: visible.slice(offset, offset + limit) }
+    return { total: visible.length, items: attachAvatars(db, visible.slice(offset, offset + limit)) }
   }
 
-  return { total: rows.length, items: rows.slice(offset, offset + limit) }
+  return { total: rows.length, items: attachAvatars(db, rows.slice(offset, offset + limit)) }
 })

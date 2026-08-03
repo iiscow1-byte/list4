@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const row = db.prepare(
-    `SELECT id, name, sort_order FROM custom_list_items WHERE id = ? AND list_id = ?`,
+    `SELECT id, COALESCE(ov_name, name) AS name, sort_order FROM custom_list_items WHERE id = ? AND list_id = ?`,
   ).get(itemId, list.id) as { id: number; name: string; sort_order: number } | undefined
   if (!row) throw createError({ statusCode: 404, statusMessage: 'That level is not on this list.' })
 

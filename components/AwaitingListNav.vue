@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
+import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 type AwaitingRow = {
   id: number
@@ -18,7 +19,6 @@ const route = useRoute()
 const router = useRouter()
 
 const PAGE_SIZE = 500
-const TIER_MAX_ORD = 44
 
 const SORTS = [
   { value: 'tier_desc',      label: 'Tier (hardest first)' },
@@ -42,10 +42,6 @@ function tierNameToOrd(name: string): number | null {
   return null
 }
 
-function ordToTier(ord: number): string {
-  if (ord <= 5) return `Subtier ${ord}`
-  return `Tier ${ord - 5}`
-}
 
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filtersOpen = ref(false)

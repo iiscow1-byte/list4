@@ -1,26 +1,71 @@
 /**
  * Tiers as numbers, so they can be compared and interpolated.
  *
- * The scale runs Subtier 0…5 then Tier 1…39, which is one continuous ordering
- * even though it's written as two words. Mapping it to 0…44 lets "halfway
+ * The scale runs Subtier 0…5 then Tier 1…45, which is one continuous ordering
+ * even though it's written as two words. Mapping it to 0…50 lets "halfway
  * between Subtier 4 and Tier 2" be an ordinary average.
+ *
+ * The top used to be Tier 39, which is where the source sheet's own palette
+ * stops. The list has since needed room above it, so the ceiling is a named
+ * constant — everything that draws a tier slider, clamps an estimate or offers
+ * a tier dropdown reads it from here rather than repeating the number.
  */
 
-/** `Subtier 3` → 3, `Tier 1` → 6, `Tier 39` → 44. Null for anything else. */
+/** The highest tier the site will name. */
+export const TIER_MAX_NUMBER = 45
+/** …as an ordinal, which is what sliders and estimates work in. */
+export const TIER_MAX_ORD = 5 + TIER_MAX_NUMBER
+
+/**
+ * `Subtier 3` → 3, `Tier 1` → 6, `Tier 45` → 50. Null for anything else.
+ *
+ * Out-of-range labels are null rather than clamped, because a label off the end
+ * of the scale is not a tier that happens to be extreme — it is something we
+ * can't read. `Subtier 6` in particular has to be rejected: 6 is Tier 1's
+ * ordinal, so a lenient parse would silently call it that.
+ */
 export function tierToOrd(tier: string | null | undefined): number | null {
   if (!tier) return null
   const s = tier.trim().match(/^Subtier (\d{1,2})$/i)
-  if (s) return Number(s[1])
+  if (s) {
+    const n = Number(s[1])
+    return n <= 5 ? n : null
+  }
   const t = tier.trim().match(/^Tier (\d{1,2})$/i)
-  if (t) return 5 + Number(t[1])
+  if (t) {
+    const n = Number(t[1])
+    return n >= 1 && n <= TIER_MAX_NUMBER ? 5 + n : null
+  }
   return null
 }
 
 /** The inverse. Clamped to the real range so a wild average can't escape it. */
 export function ordToTier(ord: number): string {
-  const n = Math.max(0, Math.min(44, Math.round(ord)))
+  const n = Math.max(0, Math.min(TIER_MAX_ORD, Math.round(ord)))
   return n <= 5 ? `Subtier ${n}` : `Tier ${n - 5}`
 }
+
+/**
+ * Is this exactly a tier the site has, spelled the way the site spells it?
+ *
+ * Stricter than `tierToOrd` on purpose. That one *parses* — it reads whatever a
+ * mirror or a spreadsheet cell offers. This one guards writes, and `tier 3 `
+ * going into the database would be a value that no `gddl_tier = 'Tier 3'`
+ * filter, sort or group-by ever matches again.
+ */
+export function isValidTier(tier: string | null | undefined): boolean {
+  if (typeof tier !== 'string') return false
+  const s = tier.match(/^Subtier ([0-5])$/)
+  if (s) return true
+  const t = tier.match(/^Tier ([1-9]\d?)$/)
+  return !!t && Number(t[1]) <= TIER_MAX_NUMBER
+}
+
+/** Every tier the site knows, hardest first — for dropdowns and pickers. */
+export const ALL_TIERS: string[] = [
+  ...Array.from({ length: TIER_MAX_NUMBER }, (_, i) => `Tier ${TIER_MAX_NUMBER - i}`),
+  'Subtier 5', 'Subtier 4', 'Subtier 3', 'Subtier 2', 'Subtier 1', 'Subtier 0',
+]
 
 /**
  * Estimating where a level belongs from the levels around it.

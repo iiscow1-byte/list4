@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
+import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 // `gd_id` and `verification_url` come back from /api/levels along with the
 // rest; they were simply missing from this type, so callers that wanted to
@@ -32,13 +33,8 @@ const emit = defineEmits<{
 }>()
 
 const COMPARE_PAGE_SIZE = 500
-const TIER_MAX_ORD = 44
 const RATINGS = ['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
 
-function ordToTier(ord: number): string {
-  if (ord <= 5) return `Subtier ${ord}`
-  return `Tier ${ord - 5}`
-}
 
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')

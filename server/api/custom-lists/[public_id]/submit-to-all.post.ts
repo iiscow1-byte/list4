@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 /**
  * Submit several of a custom list's levels to the ALL list in one go.
@@ -109,7 +110,7 @@ export default defineEventHandler(async (event) => {
       if (!verificationUrl) { push('Needs a verification video link.'); continue }
 
       const gddlTier = strOrNull(r.gddl_tier, 32)
-      if (gddlTier && !/^(Tier|Subtier) (\d{1,2})$/.test(gddlTier)) {
+      if (gddlTier && !isValidTier(gddlTier)) {
         push('Tier must look like "Tier 5" or "Subtier 3".'); continue
       }
       const difficulty = strOrNull(r.difficulty, 32)

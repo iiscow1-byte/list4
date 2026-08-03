@@ -13,7 +13,65 @@ import { resyncPlacementsForMove } from './placement-sync'
  */
 const STASH = -1_000_000_000
 
-export type MoveResult = { from: number; to: number; moved: boolean }
+export type MoveResult = {
+  from: number
+  to: number
+  moved: boolean
+  /** Set only when the move changed the level's tier. */
+  tier_from?: string | null
+  tier_to?: string | null
+}
+
+/**
+ * The tier a level takes by landing in a slot.
+ *
+ * The list is ordered by difficulty, so a slot already *means* a tier — the one
+ * its neighbours are in. A level dragged from #4,000 to #300 has been judged
+ * that much harder, and leaving it labelled with the tier it had at #4,000
+ * contradicts the position it was just given. This reads the tier back off the
+ * destination and hands it to the level.
+ *
+ * Both neighbours are consulted rather than just one, because a slot between
+ * two different tiers is genuinely a boundary. There the nearer neighbour wins,
+ * and a tie goes to the one above: the level was placed *below* it, which is
+ * the neighbour whose band it was moved into.
+ *
+ * Levels with no tier either side (the bottom of an unrated stretch) return
+ * null — an absent answer, not a guess.
+ */
+export function tierForSlot(
+  db: DatabaseSync,
+  position: number,
+  excludeLevelId: number,
+): string | null {
+  const above = db.prepare(
+    `SELECT position, gddl_tier FROM levels
+      WHERE position < ? AND id != ? AND gddl_tier IS NOT NULL AND gddl_tier != ''
+      ORDER BY position DESC LIMIT 1`,
+  ).get(position, excludeLevelId) as { position: number; gddl_tier: string } | undefined
+  const below = db.prepare(
+    `SELECT position, gddl_tier FROM levels
+      WHERE position > ? AND id != ? AND gddl_tier IS NOT NULL AND gddl_tier != ''
+      ORDER BY position ASC LIMIT 1`,
+  ).get(position, excludeLevelId) as { position: number; gddl_tier: string } | undefined
+
+  if (!above && !below) return null
+  if (!above) return below!.gddl_tier
+  if (!below) return above.gddl_tier
+  if (above.gddl_tier === below.gddl_tier) return above.gddl_tier
+
+  const distAbove = position - above.position
+  const distBelow = below.position - position
+  return distBelow < distAbove ? below.gddl_tier : above.gddl_tier
+}
+
+export type MoveOptions = {
+  /**
+   * Leave `gddl_tier` alone. For the rare deliberate outlier — a level parked
+   * where the curators want it that isn't the difficulty of its neighbours.
+   */
+  keepTier?: boolean
+}
 
 /**
  * Move whatever sits at `fromPos` to `toPos`, shifting the rows in between.
@@ -25,16 +83,20 @@ export function moveLevel(
   fromPos: number,
   toPos: number,
   accountId: number | null,
+  opts: MoveOptions = {},
 ): MoveResult {
   if (fromPos === toPos) return { from: fromPos, to: toPos, moved: false }
 
-  const existing = db.prepare(`SELECT id FROM levels WHERE position = ?`)
-    .get(fromPos) as { id: number } | undefined
+  const existing = db.prepare(`SELECT id, gddl_tier FROM levels WHERE position = ?`)
+    .get(fromPos) as { id: number; gddl_tier: string | null } | undefined
   if (!existing) throw new Error('No level sits at that position.')
 
   const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
   const target = Math.max(1, Math.min(toPos, maxPos))
   if (target === fromPos) return { from: fromPos, to: fromPos, moved: false }
+
+  let tierFrom: string | null = null
+  let tierTo: string | null = null
 
   db.exec('BEGIN')
   try {
@@ -61,7 +123,19 @@ export function moveLevel(
     // 4. Placement numbers belong to slots, not to levels.
     resyncPlacementsForMove(db, fromPos, target)
 
-    // 5. Already moved today? Update that entry so the changelog shows one
+    // 5. So does the tier — the slot is a statement about difficulty, and the
+    //    level now makes it. Read after the shift, so the neighbours are the
+    //    ones it actually ended up between.
+    if (!opts.keepTier) {
+      const landed = tierForSlot(db, target, existing.id)
+      if (landed && landed !== existing.gddl_tier) {
+        db.prepare(`UPDATE levels SET gddl_tier = ? WHERE id = ?`).run(landed, existing.id)
+        tierFrom = existing.gddl_tier
+        tierTo = landed
+      }
+    }
+
+    // 6. Already moved today? Update that entry so the changelog shows one
     //    condensed #X → #Y rather than N hops.
     const existingToday = db.prepare(
       `SELECT id FROM position_history
@@ -89,5 +163,7 @@ export function moveLevel(
     throw e
   }
 
-  return { from: fromPos, to: target, moved: true }
+  return tierTo
+    ? { from: fromPos, to: target, moved: true, tier_from: tierFrom, tier_to: tierTo }
+    : { from: fromPos, to: target, moved: true }
 }

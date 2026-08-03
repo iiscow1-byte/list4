@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 type PendingLevel = {
   id: number
@@ -83,7 +84,6 @@ let flagsSaveDebounce: ReturnType<typeof setTimeout> | null = null
 let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
 
 // --- Pending-list filters ---
-const TIER_MAX_ORD = 44
 const PENDING_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 type DifficultyFilter = 'all' | 'extreme' | 'non-extreme'
 type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc' | 'list_position'
@@ -130,10 +130,6 @@ function tierOrd(label: string | null): number | null {
   const t = label.match(/^Tier (\d{1,2})$/)
   if (t) return 5 + Number(t[1])
   return null
-}
-function ordToTier(ord: number): string {
-  if (ord <= 5) return `Subtier ${ord}`
-  return `Tier ${ord - 5}`
 }
 
 const filteredItems = computed<PendingLevel[]>(() => {

@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
-import { ALLOWED_DIFFICULTIES, TIER_RE, lookupLevel } from '~/server/utils/opinions'
+import { ALLOWED_DIFFICULTIES, lookupLevel } from '~/server/utils/opinions'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 function strOrNull(v: unknown, max = 1000): string | null {
   if (v == null) return null
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const gddlTier = strOrNull(body.gddl_tier, 32)
-  if (gddlTier && !TIER_RE.test(gddlTier)) {
+  if (gddlTier && !isValidTier(gddlTier)) {
     throw createError({ statusCode: 400, statusMessage: 'gddl_tier must look like "Tier 5" or "Subtier 3".' })
   }
 

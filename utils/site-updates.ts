@@ -22,6 +22,26 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.7.0',
+    date: '2026-08-03',
+    title: 'Moves that carry the tier, claims that carry the records',
+    tags: ['List', 'Profiles', 'Custom lists', 'Fixes'],
+    changes: [
+      'Moving a level now sets its tier to the one it lands in. The list is ordered by difficulty, so a slot already means a tier — a level dragged from #40,000 to #1,500 was being judged that much harder and kept the old label anyway. Both move tools say what the tier will become before you press the button, and offer to keep the old one.',
+      'Claiming an AREDL, GDL or Pointercrate player brings that player\'s records onto your ALL profile — the site already mirrored them and showed your profile as empty.',
+      'You can unclaim an account, and so can admins. The records the claim brought are removed from your profile; the ones on AREDL are untouched, and claiming again brings them back. Records you submitted here yourself are never affected.',
+      'New button on your account page: import records from your claimed accounts, for claims made before this existed and for records the mirrors have picked up since.',
+      'The list supports tiers above 39, up to Tier 45. Every tier picker, filter, slider and colour follows from one number now, so the next raise is a one-line change.',
+      'New custom-list setting: treat the list as its own ranking. Rank badges take a colour scaled to where they sit instead of going grey for levels the ALL hasn\'t ranked, and the list stops printing "On the ALL list".',
+      'Custom lists can now disagree with the ALL about a level: its video, name, creator or tier. Set one and the row keeps it; clear it and the row follows the main list again, which is what it does by default.',
+      'New standalone link for a custom list, in its settings: the same list with no ALL header or footer, its own bar at the top, and one button back. For pinning in a Discord or a video description.',
+      'Fixed: the leaderboard showed the wrong picture — or none at all. The tab it opens on never asked for avatars, and a custom list where an editor enters everyone\'s records gave every player the editor\'s name and picture.',
+      'Fixed: the community tier on a level page never appeared, however many people had rated it. Every rating was being read as an unparseable number.',
+      'Placement backups now carry tiers, so restoring one puts back the tiers the moves it is undoing had replaced.',
+      'The account page no longer repeats Submit record and Submit level — both are in the header\'s Submit menu, on every page.',
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-08-02',
     title: 'Imports you can watch, and levels that can go back to the sheet',

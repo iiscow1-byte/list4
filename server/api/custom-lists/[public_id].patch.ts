@@ -20,6 +20,7 @@ export default defineEventHandler(async (event) => {
     banner_url?: string
     accepts_submissions?: boolean
     require_record_video?: boolean
+    mark_off_all?: boolean
     discord_url?: string
     youtube_url?: string
     max_points?: number
@@ -88,6 +89,10 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.require_record_video === 'boolean') {
       db.prepare(`UPDATE custom_lists SET require_record_video = ? WHERE id = ?`)
         .run(body.require_record_video ? 1 : 0, row.id)
+    }
+    if (typeof body?.mark_off_all === 'boolean') {
+      db.prepare(`UPDATE custom_lists SET mark_off_all = ? WHERE id = ?`)
+        .run(body.mark_off_all ? 1 : 0, row.id)
     }
     // Social links are rendered as anchors on a public page, so only http(s)
     // URLs are stored — a javascript: value here would be a stored XSS.

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { marksOffAll } from '~/utils/custom-list-colors'
+
 /**
  * A custom list, as a full list site: nav on the left, the selected level in
  * the middle, its records on the right — the same three-panel shape the main
@@ -9,6 +11,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list, error, refresh, canEdit, base, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(publicId)
+const { standalone, to } = useStandaloneList()
 
 /**
  * `rank` is optional: `/lists/:id` opens the list at its top level and
@@ -37,8 +40,8 @@ function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
   if (!list.value?.items.length) return
-  if (e.key === 'ArrowLeft' && rank.value > 1) navigateTo(`${base.value}/${rank.value - 1}`)
-  if (e.key === 'ArrowRight' && rank.value < list.value.items.length) navigateTo(`${base.value}/${rank.value + 1}`)
+  if (e.key === 'ArrowLeft' && rank.value > 1) navigateTo(to(`${base.value}/${rank.value - 1}`))
+  if (e.key === 'ArrowRight' && rank.value < list.value.items.length) navigateTo(to(`${base.value}/${rank.value + 1}`))
 }
 onMounted(() => window.addEventListener('keydown', onKey))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
@@ -48,7 +51,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   <div v-if="error" class="h-full flex items-center justify-center">
     <div class="text-center">
       <p class="text-sm text-zinc-500">This list doesn't exist.</p>
-      <NuxtLink to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse custom lists →</NuxtLink>
+      <NuxtLink v-if="!standalone" to="/lists" class="text-accent hover:underline text-sm mt-2 inline-block">Browse custom lists →</NuxtLink>
+      <NuxtLink v-else to="/" class="text-accent hover:underline text-sm mt-2 inline-block">Go to the All Levels List →</NuxtLink>
     </div>
   </div>
 
@@ -69,6 +73,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :can-edit="canEdit"
         :api-base="`/api/custom-lists/${publicId}`"
         :follow-all-order="!!list.follow_all_order"
+        :mark-off-all="marksOffAll(list)"
         class="hidden md:flex"
         @changed="refresh"
       />
@@ -81,6 +86,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :can-edit="canEdit"
         :api-base="`/api/custom-lists/${publicId}`"
         :follow-all-order="!!list.follow_all_order"
+        :mark-off-all="marksOffAll(list)"
         @changed="refresh"
       />
       <CustomListRecords

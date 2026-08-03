@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { youtubeIdFrom } from '~/utils/level-thumbs'
-import { estimateForItem } from '~/utils/tier-ordinal'
+import { estimateForItem, ALL_TIERS } from '~/utils/tier-ordinal'
 
 /** Centre panel of a custom list: the selected level in full. */
 const props = defineProps<{
@@ -17,10 +17,13 @@ const props = defineProps<{
   items?: any[]
   /** The list derives its order from ALL placements — rank isn't editable. */
   followAllOrder?: boolean
+  /** The list says which of its levels the ALL carries. Off = it stands alone. */
+  markOffAll?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
+const { to } = useStandaloneList()
 
 // ---------- inline editor ----------
 const open = ref(false)
@@ -28,14 +31,30 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const saved = ref(false)
 
-/** Linked rows take their level fields from the ALL list on every full save. */
+/**
+ * A linked row mirrors the ALL list, and can now disagree with it: each of its
+ * level fields is editable, and a value that differs from the main list's is
+ * stored as this list's own answer. `overrides` is what the row currently
+ * disagrees about, which is what the editor labels.
+ */
 const linked = computed(() => props.item?.level_id != null)
+const OVERRIDABLE = ['name', 'creator', 'gddl_tier', 'verification_url'] as const
+const overrides = computed(() => {
+  const i = props.item
+  if (!i || !linked.value) return new Set<string>()
+  return new Set(OVERRIDABLE.filter((k) => i[`ov_${k}`] != null))
+})
+/** What the ALL currently says, for the "revert" hint next to an override. */
+function allValue(key: string): string | null {
+  return props.item?.[`all_${key}`] ?? null
+}
 
 const draft = reactive({
   rank: '',
   name: '',
   creator: '',
   gd_id: '',
+  gddl_tier: '',
   verification_url: '',
   verifier: '',
   percent_to_qualify: '',
@@ -51,6 +70,7 @@ function seed() {
   draft.name = i.name ?? ''
   draft.creator = i.creator ?? ''
   draft.gd_id = i.gd_id != null ? String(i.gd_id) : ''
+  draft.gddl_tier = i.gddl_tier ?? ''
   draft.verification_url = i.verification_url ?? ''
   draft.verifier = i.verifier ?? ''
   draft.percent_to_qualify = String(i.percent_to_qualify ?? 100)
@@ -59,6 +79,11 @@ function seed() {
   draft.notes = i.notes ?? ''
   error.value = null
   saved.value = false
+}
+
+/** Put a field back to whatever the main list says. */
+function followAll(key: 'name' | 'creator' | 'gddl_tier' | 'verification_url') {
+  draft[key] = allValue(key) ?? ''
 }
 watch(() => props.item?.id, seed, { immediate: true })
 watch(open, (v) => { if (v) seed() })
@@ -69,19 +94,22 @@ async function save() {
   error.value = null
   saved.value = false
   try {
+    // The level fields go up on every row now. On a linked row the server
+    // stores anything that differs from the ALL as this list's own answer, and
+    // treats a value equal to the ALL's as "no opinion" — so leaving the form
+    // untouched and pressing Save doesn't quietly pin the row.
     const body: Record<string, unknown> = {
       verifier: draft.verifier,
       percent_to_qualify: Number(draft.percent_to_qualify),
       fps: draft.fps,
       game_version: draft.game_version,
       notes: draft.notes,
+      name: draft.name,
+      creator: draft.creator,
+      gddl_tier: draft.gddl_tier,
+      verification_url: draft.verification_url,
     }
-    if (!linked.value) {
-      body.name = draft.name
-      body.creator = draft.creator
-      body.gd_id = draft.gd_id
-      body.verification_url = draft.verification_url
-    }
+    if (!linked.value) body.gd_id = draft.gd_id
     await $fetch(`${props.apiBase}/items/${props.item.id}`, { method: 'PATCH', body })
 
     // Rank travels through the move endpoint, which renumbers the whole list.
@@ -94,7 +122,7 @@ async function save() {
         body: { item_id: props.item.id, to_rank: wanted },
       })
       emit('changed')
-      await navigateTo(`${props.listPath}/${Math.max(1, Math.min(props.totalItems, wanted))}`)
+      await navigateTo(to(`${props.listPath}/${Math.max(1, Math.min(props.totalItems, wanted))}`))
       return
     }
     saved.value = true
@@ -114,7 +142,7 @@ async function remove() {
   try {
     await $fetch(`${props.apiBase}/items/${props.item.id}`, { method: 'DELETE' })
     emit('changed')
-    await navigateTo(props.listPath)
+    await navigateTo(to(props.listPath))
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? 'Could not remove that level.'
   } finally {
@@ -241,12 +269,12 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         <nav class="flex items-center gap-1.5 pt-1">
           <NuxtLink
             v-if="item.rank > 1"
-            :to="`${listPath}/${item.rank - 1}`"
+            :to="to(`${listPath}/${item.rank - 1}`)"
             class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
           >← Harder</NuxtLink>
           <NuxtLink
             v-if="item.rank < totalItems"
-            :to="`${listPath}/${item.rank + 1}`"
+            :to="to(`${listPath}/${item.rank + 1}`)"
             class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
           >Easier →</NuxtLink>
         </nav>
@@ -268,21 +296,52 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <input v-model="draft.percent_to_qualify" inputmode="numeric" :class="field" />
         </label>
 
+        <!-- The level's own fields. Editable on a linked row too: what this
+             list says about a level is allowed to differ from the ALL, and the
+             chip below each one says when it does. -->
         <label class="block">
           <span :class="label">Name</span>
-          <input v-model="draft.name" :class="field" :disabled="linked" />
+          <input v-model="draft.name" :class="field" />
+          <button
+            v-if="linked && overrides.has('name')" type="button"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            @click="followAll('name')"
+          >The ALL says “{{ allValue('name') }}” — follow it</button>
         </label>
         <label class="block">
           <span :class="label">Creator</span>
-          <input v-model="draft.creator" :class="field" :disabled="linked" />
+          <input v-model="draft.creator" :class="field" />
+          <button
+            v-if="linked && overrides.has('creator')" type="button"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            @click="followAll('creator')"
+          >The ALL says “{{ allValue('creator') ?? '—' }}” — follow it</button>
         </label>
         <label class="block">
           <span :class="label">Level ID</span>
           <input v-model="draft.gd_id" inputmode="numeric" :class="field" :disabled="linked" />
+          <span v-if="linked" class="text-[10px] text-zinc-600">From the linked ALL level</span>
         </label>
         <label class="block">
+          <span :class="label">Tier</span>
+          <select v-model="draft.gddl_tier" :class="field">
+            <option value="">— none —</option>
+            <option v-for="t in ALL_TIERS" :key="t" :value="t">{{ t }}</option>
+          </select>
+          <button
+            v-if="linked && overrides.has('gddl_tier')" type="button"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            @click="followAll('gddl_tier')"
+          >The ALL says {{ allValue('gddl_tier') ?? 'no tier' }} — follow it</button>
+        </label>
+        <label class="block sm:col-span-2">
           <span :class="label">Verification video</span>
-          <input v-model="draft.verification_url" :class="field" :disabled="linked" />
+          <input v-model="draft.verification_url" :class="field" placeholder="https://youtube.com/watch?v=…" />
+          <button
+            v-if="linked && overrides.has('verification_url')" type="button"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            @click="followAll('verification_url')"
+          >The ALL uses a different video — follow it</button>
         </label>
 
         <label class="block">
@@ -310,7 +369,11 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
               <NuxtLink :to="`/levels/${item.position}`" class="text-accent hover:underline tabular-nums">
                 #{{ item.sheet_placement ?? item.position }} on the ALL list
               </NuxtLink>
-              — its name, creator, ID and video follow the main list, so those fields are read-only here.
+              — its fields follow the main list until you change one here.
+              <template v-if="overrides.size">
+                This list has its own
+                {{ [...overrides].map((k) => k === 'gddl_tier' ? 'tier' : k === 'verification_url' ? 'video' : k).join(', ') }}.
+              </template>
             </p>
             <button
               type="button"
@@ -335,7 +398,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
                 class="text-[11px] text-zinc-400 hover:text-accent transition-colors"
               >Not on the ALL yet? Submit it →</NuxtLink>
               <NuxtLink
-                :to="`${listPath}/to-all`"
+                :to="to(`${listPath}/to-all`)"
                 class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
               >Submit several at once →</NuxtLink>
             </div>
@@ -421,7 +484,11 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Game version</dt>
           <dd class="text-zinc-200">{{ item.game_version }}</dd>
         </div>
-        <div v-if="item.position">
+        <!-- Hidden when the list has turned off marking levels against the ALL:
+             a list that stands on its own doesn't keep pointing at the main
+             one. Editors still see the link inside the editor, where it's about
+             which level this row *is* rather than about presenting the list. -->
+        <div v-if="item.position && markOffAll !== false">
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">On the ALL list</dt>
           <dd>
             <NuxtLink :to="`/levels/${item.position}`" class="text-accent hover:underline tabular-nums">

@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 
 export const ALLOWED_DIFFICULTIES = new Set([
   'Auto', 'Easy', 'Normal', 'Hard', 'Harder', 'Insane',
@@ -28,16 +29,22 @@ export function lookupLevelById(db: DatabaseSync, kind: ListKind, levelId: numbe
 }
 
 /**
- * Order tiers for median: Subtier 0..5 < Tier 1..40. Returns a sortable index,
- * or null for unknown labels.
+ * Order tiers for median: Subtier 0..5 < Tier 1..TIER_MAX_NUMBER. Returns a
+ * sortable index, or null for unknown labels.
+ *
+ * The number is capture group 2 — group 1 is the word "Tier" or "Subtier".
+ * Reading group 1 as the number made every ordinal NaN, which survived the
+ * `!= null` filter downstream and came back out of `tierFromOrdinal` as null,
+ * so the community tier on every level silently never appeared.
  */
 export function tierOrdinal(label: string | null): number | null {
   if (!label) return null
   const m = label.match(TIER_RE)
   if (!m) return null
-  const n = Number(m[1])
-  if (m[1] === 'Subtier') return n // 0..5
-  return 100 + n // Tier N => 101..140 (well above any Subtier)
+  const n = Number(m[2])
+  if (!Number.isFinite(n)) return null
+  if (m[1] === 'Subtier') return n <= 5 ? n : null // 0..5
+  return n >= 1 && n <= TIER_MAX_NUMBER ? 100 + n : null
 }
 
 /** Inverse of tierOrdinal — only used to render the picked median label. */
@@ -47,7 +54,7 @@ export function tierFromOrdinal(ord: number): string | null {
     return null
   }
   const n = ord - 100
-  if (n >= 1 && n <= 40) return `Tier ${n}`
+  if (n >= 1 && n <= TIER_MAX_NUMBER) return `Tier ${n}`
   return null
 }
 

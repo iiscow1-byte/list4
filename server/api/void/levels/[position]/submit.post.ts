@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
-import { ALLOWED_DIFFICULTIES, TIER_RE } from '~/server/utils/opinions'
+import { ALLOWED_DIFFICULTIES } from '~/server/utils/opinions'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 /**
  * Submit a void level to the pending list by providing a tier and difficulty
@@ -16,7 +17,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<Record<string, unknown>>(event)
 
   const gddlTier = body?.gddl_tier ? String(body.gddl_tier).trim() : ''
-  if (!gddlTier || !TIER_RE.test(gddlTier)) {
+  if (!gddlTier || !isValidTier(gddlTier)) {
     throw createError({ statusCode: 400, statusMessage: 'A valid GDDL tier is required (e.g. "Tier 15" or "Subtier 3").' })
   }
   const difficulty = body?.difficulty ? String(body.difficulty).trim() : ''

@@ -116,10 +116,15 @@ async function loadClaims() {
 
 // --- Accounts tab state ---
 type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
+type ClaimKind = 'player' | 'aredl' | 'gdl' | 'pointercrate'
 type AdminUser = {
   id: number; username: string; role: Role
   claimed_player: string | null; created_at: string
   banned_at: string | null; banned_reason: string | null
+  claimed_aredl_uuid: string | null; claimed_aredl_name: string | null
+  claimed_gdl_id: number | null; claimed_gdl_name: string | null
+  claimed_pointercrate_id: number | null; claimed_pointercrate_name: string | null
+  claimed_records: { aredl: number; gdl: number; pointercrate: number }
 }
 const users = ref<AdminUser[]>([])
 const userSearch = ref('')
@@ -514,7 +519,7 @@ type RestoreResult = {
   generated_at?: string | null
   backup?: string | null
   matched: number; unmatched: number; untouched_extra: number
-  moved: number; sample: RestoreMove[]; applied: boolean
+  moved: number; retiered?: number; sample: RestoreMove[]; applied: boolean
 }
 
 const snapshotBusy = ref<'json' | 'csv' | null>(null)
@@ -876,6 +881,42 @@ async function setClaim(u: AdminUser) {
     flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
   }
 }
+
+/** The external claims a user holds, with what releasing each would cost them. */
+const CLAIM_LABELS: Record<ClaimKind, string> = {
+  player: 'ALL list', aredl: 'AREDL', gdl: 'GDL', pointercrate: 'Pointercrate',
+}
+function externalClaims(u: AdminUser): { kind: ClaimKind; name: string; records: number }[] {
+  const out: { kind: ClaimKind; name: string; records: number }[] = []
+  if (u.claimed_aredl_uuid) {
+    out.push({ kind: 'aredl', name: u.claimed_aredl_name ?? 'AREDL player', records: u.claimed_records?.aredl ?? 0 })
+  }
+  if (u.claimed_pointercrate_id) {
+    out.push({ kind: 'pointercrate', name: u.claimed_pointercrate_name ?? 'Pointercrate player', records: u.claimed_records?.pointercrate ?? 0 })
+  }
+  if (u.claimed_gdl_id) {
+    out.push({ kind: 'gdl', name: u.claimed_gdl_name ?? 'GDL player', records: u.claimed_records?.gdl ?? 0 })
+  }
+  return out
+}
+
+async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: number) {
+  const cost = records
+    ? `\n\n${records} record(s) come off their ALL profile. The ${CLAIM_LABELS[kind]} records themselves are untouched.`
+    : ''
+  if (!confirm(`Release ${u.username}'s ${CLAIM_LABELS[kind]} claim on ${name}?${cost}`)) return
+  try {
+    const res = await $fetch<{ records_removed: number }>('/api/admin/set-claim', {
+      method: 'POST', body: { username: u.username, unclaim: kind },
+    })
+    flash('ok', res.records_removed
+      ? `Released. ${res.records_removed} record(s) removed from ${u.username}'s profile.`
+      : `Released ${u.username}'s ${CLAIM_LABELS[kind]} claim.`)
+    await Promise.all([loadClaims(), loadUsers()])
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
 </script>
 
 <template>
@@ -1132,6 +1173,10 @@ async function setClaim(u: AdminUser) {
               <p v-if="restorePreview.untouched_extra > 0" class="text-[11px] text-zinc-600 mt-1">
                 {{ restorePreview.untouched_extra.toLocaleString() }} level(s) here aren't in the file — each keeps the neighbour it currently follows.
               </p>
+              <p v-if="restorePreview.retiered" class="text-[11px] text-zinc-500 mt-1">
+                {{ restorePreview.retiered.toLocaleString() }} level(s) also get their tier back — moving a level
+                rewrites its tier, so the file carries the ones those moves replaced.
+              </p>
               <ul v-if="restorePreview.sample.length" class="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
                 <li v-for="m in restorePreview.sample" :key="m.level_id" class="text-[11px] text-zinc-500 flex gap-2">
                   <span class="tabular-nums text-zinc-400 shrink-0">#{{ m.from_position.toLocaleString() }} → #{{ m.to_position.toLocaleString() }}</span>
@@ -1140,10 +1185,14 @@ async function setClaim(u: AdminUser) {
               </ul>
               <button
                 type="button"
-                :disabled="restoreBusy || restorePreview.moved === 0"
+                :disabled="restoreBusy || (restorePreview.moved === 0 && !restorePreview.retiered)"
                 class="mt-3 rounded bg-amber-500 text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-amber-400 disabled:opacity-40 transition-colors"
                 @click="applyRestore"
-              >{{ restorePreview.moved === 0 ? 'Nothing to restore' : `Restore ${restorePreview.moved.toLocaleString()} placement(s)` }}</button>
+              >
+                <template v-if="restorePreview.moved === 0 && !restorePreview.retiered">Nothing to restore</template>
+                <template v-else-if="restorePreview.moved === 0">Restore {{ restorePreview.retiered!.toLocaleString() }} tier(s)</template>
+                <template v-else>Restore {{ restorePreview.moved.toLocaleString() }} placement(s)</template>
+              </button>
             </div>
 
             <p v-if="restoreDone" class="mt-2 text-xs text-emerald-400">{{ restoreDone }}</p>
@@ -1426,6 +1475,24 @@ async function setClaim(u: AdminUser) {
                 <div class="text-[11px] text-zinc-500 mt-0.5">{{ u.created_at }}</div>
                 <div v-if="u.banned_at && u.banned_reason" class="text-[11px] text-red-300/80 mt-0.5 truncate" :title="u.banned_reason">
                   Reason: {{ u.banned_reason }}
+                </div>
+                <!-- External claims. Each carries records onto the ALL profile,
+                     so releasing one says up front what it takes back. -->
+                <div v-if="externalClaims(u).length" class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span
+                    v-for="c in externalClaims(u)"
+                    :key="c.kind"
+                    class="text-[11px] text-zinc-500 inline-flex items-center gap-1.5"
+                  >
+                    <span class="text-zinc-600">{{ CLAIM_LABELS[c.kind] }}</span>
+                    <span class="text-zinc-300">{{ c.name }}</span>
+                    <span v-if="c.records" class="tabular-nums text-zinc-600">· {{ c.records }} rec</span>
+                    <button
+                      type="button"
+                      class="text-zinc-600 hover:text-red-400 transition-colors"
+                      @click="unclaimFor(u, c.kind, c.name, c.records)"
+                    >unclaim</button>
+                  </span>
                 </div>
               </div>
               <div class="flex items-center gap-2">

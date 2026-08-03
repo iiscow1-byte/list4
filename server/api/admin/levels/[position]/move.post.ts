@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(fromPos) || fromPos <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Bad source position.' })
   }
-  const body = await readBody<{ to?: number; to_placement?: number }>(event) ?? {}
+  const body = await readBody<{ to?: number; to_placement?: number; keep_tier?: boolean }>(event) ?? {}
   const db = getDb()
 
   // The UI shows the sheet's placement numbers, not internal positions — the
@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
 
   let result
   try {
-    result = moveLevel(db, fromPos, toPos, account.id)
+    result = moveLevel(db, fromPos, toPos, account.id, { keepTier: body.keep_tier === true })
   } catch (e: any) {
     throw createError({ statusCode: 404, statusMessage: e?.message ?? 'No such level.' })
   }
@@ -57,5 +57,11 @@ export default defineEventHandler(async (event) => {
   // recompute points across the whole list after the structural change.
   if (result.moved) recomputePoints(db)
 
-  return { ok: true, from: result.from, to: result.to }
+  return {
+    ok: true,
+    from: result.from,
+    to: result.to,
+    tier_from: result.tier_from ?? null,
+    tier_to: result.tier_to ?? null,
+  }
 })

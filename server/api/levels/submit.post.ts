@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { isValidTier } from '~/utils/tier-ordinal'
 
 const ALLOWED_TAGS = new Set(['old', 'uldm', 'buffed', 'nerfed'])
 const ALLOWED_DIFFICULTIES = new Set([
@@ -42,7 +43,7 @@ export default defineEventHandler(async (event) => {
   if (!verifyDate) throw createError({ statusCode: 400, statusMessage: 'Verification date is required.' })
 
   let gddlTier = strOrNull(body.gddl_tier, 32)
-  if (gddlTier && !/^(Tier|Subtier) (\d{1,2})$/.test(gddlTier)) {
+  if (gddlTier && !isValidTier(gddlTier)) {
     throw createError({ statusCode: 400, statusMessage: 'gddl_tier must look like "Tier 5" or "Subtier 3".' })
   }
 

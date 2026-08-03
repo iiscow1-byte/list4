@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { LIST_SOURCES, findListSource } from '~/utils/list-source-catalog'
+import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 
 /**
  * Admin tool: spin a custom list out of a slice of any list the site imports.
@@ -11,12 +12,12 @@ import { LIST_SOURCES, findListSource } from '~/utils/list-source-catalog'
 const { loadFrom } = useListBuilder()
 const router = useRouter()
 
+// Ascending tiers then the subtiers, which is the order this dropdown has
+// always read in. Derived from `TIER_MAX_NUMBER` so raising the ceiling adds
+// the new tiers here without anyone remembering to.
 const TIERS = [
-  '', 'Tier 1', 'Tier 2', 'Tier 3', 'Tier 4', 'Tier 5', 'Tier 6', 'Tier 7', 'Tier 8',
-  'Tier 9', 'Tier 10', 'Tier 11', 'Tier 12', 'Tier 13', 'Tier 14', 'Tier 15', 'Tier 16',
-  'Tier 17', 'Tier 18', 'Tier 19', 'Tier 20', 'Tier 21', 'Tier 22', 'Tier 23', 'Tier 24',
-  'Tier 25', 'Tier 26', 'Tier 27', 'Tier 28', 'Tier 29', 'Tier 30', 'Tier 31', 'Tier 32',
-  'Tier 33', 'Tier 34', 'Tier 35', 'Tier 36', 'Tier 37', 'Tier 38', 'Tier 39',
+  '',
+  ...Array.from({ length: TIER_MAX_NUMBER }, (_, i) => `Tier ${i + 1}`),
   'Subtier 0', 'Subtier 1', 'Subtier 2', 'Subtier 3', 'Subtier 4', 'Subtier 5',
 ]
 const RATINGS = ['', 'Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic']

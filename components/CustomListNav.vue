@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
+import { textOn } from '~/utils/tier-colors'
+import { listRowColors } from '~/utils/custom-list-colors'
 
 /**
  * Left panel of a custom list: every level on the list, searchable, with
@@ -21,6 +22,8 @@ export type CustomItem = {
   verification_url: string | null
   percent_to_qualify: number
   records: { id: number }[]
+  position?: number | null
+  sheet_placement?: number | null
 }
 
 const props = defineProps<{
@@ -33,11 +36,29 @@ const props = defineProps<{
   apiBase?: string
   /** The list derives its order from ALL placements — manual moves are off. */
   followAllOrder?: boolean
+  /** Grey out levels the ALL doesn't carry, rather than colouring by rank. */
+  markOffAll?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 const search = ref('')
 const scrollEl = ref<HTMLElement | null>(null)
+const { to } = useStandaloneList()
+
+/**
+ * Rank-badge colours, computed for the whole list at once — under the scaled
+ * mode a row's colour depends on the rows around it, so this can't be a
+ * per-row call without re-deriving the anchors 250 times.
+ */
+const rowColor = computed(() => {
+  const colors = listRowColors(props.items, props.markOffAll !== false)
+  const byId = new Map<number, string>()
+  props.items.forEach((item, i) => byId.set(item.id, colors[i]!))
+  return byId
+})
+function colorOf(item: CustomItem): string {
+  return rowColor.value.get(item.id) ?? '#27272a'
+}
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -207,7 +228,7 @@ async function remove(item: CustomItem) {
           />
 
           <NuxtLink
-            :to="`${listPath}/${lvl.rank}`"
+            :to="to(`${listPath}/${lvl.rank}`)"
             class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 py-1.5 text-sm rounded-lg group transition-all"
             :class="[
               lvl.id === activeId
@@ -242,7 +263,7 @@ async function remove(item: CustomItem) {
               v-else
               class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
               :class="editing && !followAllOrder ? 'cursor-text ring-1 ring-inset ring-white/20' : ''"
-              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
+              :style="{ backgroundColor: colorOf(lvl), color: textOn(colorOf(lvl)) }"
               :title="editing && !followAllOrder ? 'Click to type a rank' : undefined"
               @click.prevent.stop="editing && !followAllOrder && startRankEdit(lvl)"
             >{{ lvl.rank }}</span>
