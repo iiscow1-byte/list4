@@ -39,14 +39,20 @@ export type Account = {
   pronouns: string | null
   discord_handle: string | null
   youtube_url: string | null
+  gd_username: string | null
   favorite_level_id: number | null
   favorite_level_note: string | null
   /** The record a player pins to their profile as their hardest completion. */
   hardest_record_id: number | null
   /** Which pick paints the profile header. */
-  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none' | 'custom'
   /** Free-choice header level, used when `banner_choice` is 'level'. */
   banner_level_id: number | null
+  /** Staff-only decorations — a cover image, and an emoji / badge by the name. */
+  banner_image_url: string | null
+  name_emoji: string | null
+  name_badge: string | null
+  name_badge_color: string | null
 }
 
 export function createSession(accountId: number): string {
@@ -86,7 +92,8 @@ export function getCurrentAccount(event: H3Event): Account | null {
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
             a.pronouns, a.discord_handle, a.youtube_url, a.gd_username,
             a.favorite_level_id, a.favorite_level_note,
-            a.hardest_record_id, a.banner_choice, a.banner_level_id
+            a.hardest_record_id, a.banner_choice, a.banner_level_id,
+            a.banner_image_url, a.name_emoji, a.name_badge, a.name_badge_color
        FROM sessions s
        JOIN accounts a ON a.id = s.account_id
       WHERE s.token = ?`,
@@ -119,13 +126,23 @@ export function getCurrentAccount(event: H3Event): Account | null {
     youtube_url: row.youtube_url,
     favorite_level_id: row.favorite_level_id ?? null,
     favorite_level_note: row.favorite_level_note ?? null,
-    // These three were queried but never returned, so every caller saw
-    // `undefined`: the account settings form re-defaulted the banner and the
-    // pinned completion each time it opened, and a PATCH that omitted them
-    // fell back to `undefined ?? null` and cleared them.
+    // These were queried but never returned, so every caller saw `undefined`:
+    // the account settings form re-defaulted the banner and the pinned
+    // completion each time it opened, and a PATCH that omitted them fell back
+    // to `undefined ?? null` and cleared them.
+    //
+    // `gd_username` was the one still missing, and it was worse than a reset:
+    // `undefined` cannot be bound to a SQLite parameter, so any PATCH that
+    // didn't send it returned a 500. The settings form always sends every
+    // field, which is the only reason nobody hit it.
+    gd_username: row.gd_username ?? null,
     hardest_record_id: row.hardest_record_id ?? null,
     banner_choice: row.banner_choice ?? 'hardest',
     banner_level_id: row.banner_level_id ?? null,
+    banner_image_url: row.banner_image_url ?? null,
+    name_emoji: row.name_emoji ?? null,
+    name_badge: row.name_badge ?? null,
+    name_badge_color: row.name_badge_color ?? null,
   }
 }
 

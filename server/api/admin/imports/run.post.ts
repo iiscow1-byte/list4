@@ -14,7 +14,7 @@ import { importLl } from '~/server/db/import-ll'
 import { importTcl } from '~/server/db/import-tcl'
 import { importSfl } from '~/server/db/import-sfl'
 import { importMscl } from '~/server/db/import-mscl'
-import { importCcpl } from '~/server/db/import-ccpl'
+import { importAcs } from '~/server/db/import-acs'
 import { importAredl } from '~/server/db/import-aredl'
 import { importAredlHistory } from '~/server/db/import-aredl-history'
 import { importPointercrate } from '~/server/db/import-pointercrate'
@@ -39,7 +39,7 @@ const RUNNERS: Record<string, (report: ProgressReporter) => Promise<void>> = {
   'tcl':           async (r) => { await importTcl(r) },
   'sfl':           async (r) => { await importSfl(r) },
   'mscl':          async (r) => { await importMscl(r) },
-  'ccpl':          async (r) => { await importCcpl(r) },
+  'acs':          async (r) => { await importAcs(r) },
   'aredl':         async (r) => { await importAredl(r) },
   'aredl-history': async (r) => { await importAredlHistory(r) },
   'pointercrate':  async (r) => { await importPointercrate(r) },

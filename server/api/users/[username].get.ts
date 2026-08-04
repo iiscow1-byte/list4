@@ -14,7 +14,8 @@ export default defineEventHandler((event) => {
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
             pronouns, discord_handle, youtube_url, gd_username,
             favorite_level_id, favorite_level_note,
-            hardest_record_id, banner_choice, banner_level_id
+            hardest_record_id, banner_choice, banner_level_id,
+            banner_image_url, name_emoji, name_badge, name_badge_color
        FROM accounts WHERE username = ? COLLATE NOCASE`,
   ).get(username) as any
   if (!acc) throw createError({ statusCode: 404, statusMessage: 'No such user.' })

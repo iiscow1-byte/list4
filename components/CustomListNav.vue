@@ -46,6 +46,8 @@ const props = defineProps<{
   showPoints?: boolean
   showRecords?: boolean
   compact?: boolean
+  /** Named bands, ordered by `from_rank`. Empty when the list defines none. */
+  tiers?: { id: number; name: string; color: string | null; from_rank: number }[]
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
@@ -65,7 +67,41 @@ const rowColor = computed(() => {
   props.items.forEach((item, i) => byId.set(item.id, colors[i]!))
   return byId
 })
+/**
+ * The tier a rank falls in, and whether it starts there.
+ *
+ * Walked once into a map rather than searched per row: a 250-level list with a
+ * dozen tiers would otherwise do three thousand comparisons per render. A tier
+ * owns every rank from its own up to the next one's.
+ */
+const tierByRank = computed(() => {
+  const defs = [...(props.tiers ?? [])].sort((a, b) => a.from_rank - b.from_rank)
+  const map = new Map<number, { name: string; color: string | null; first: boolean }>()
+  if (!defs.length) return map
+  const total = props.items.length
+  for (let i = 0; i < defs.length; i++) {
+    const d = defs[i]!
+    const end = i + 1 < defs.length ? defs[i + 1]!.from_rank - 1 : total
+    for (let rank = d.from_rank; rank <= end; rank++) {
+      map.set(rank, { name: d.name, color: d.color, first: rank === d.from_rank })
+    }
+  }
+  return map
+})
+/** The heading to print above a row, when a tier starts at it. */
+function tierHeadingFor(item: CustomItem) {
+  // Only in list order — under a search or a filter the row above isn't the
+  // rank above, so a "tier starts here" heading would be describing nothing.
+  if (search.value.trim()) return null
+  const t = tierByRank.value.get(item.rank)
+  return t?.first ? t : null
+}
+
 function colorOf(item: CustomItem): string {
+  // A list that defines its own tiers is stating what each band is; that beats
+  // a colour derived from the ALL's tiers or from the row's position.
+  const own = tierByRank.value.get(item.rank)?.color
+  if (own) return own
   return rowColor.value.get(item.id) ?? '#27272a'
 }
 
@@ -218,9 +254,18 @@ async function remove(item: CustomItem) {
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
       <ul class="p-1.5 space-y-1" :class="{ 'opacity-60 pointer-events-none': busy }">
+        <template v-for="lvl in filtered" :key="lvl.id">
+        <li v-if="tierHeadingFor(lvl)" class="pt-2 first:pt-0">
+          <div class="flex items-center gap-2 px-1.5 pb-1">
+            <span
+              class="text-[10px] uppercase tracking-widest font-semibold truncate"
+              :style="tierHeadingFor(lvl)!.color ? { color: tierHeadingFor(lvl)!.color! } : undefined"
+              :class="tierHeadingFor(lvl)!.color ? '' : 'text-zinc-400'"
+            >{{ tierHeadingFor(lvl)!.name }}</span>
+            <span class="flex-1 h-px bg-zinc-800" aria-hidden="true" />
+          </div>
+        </li>
         <li
-          v-for="lvl in filtered"
-          :key="lvl.id"
           :data-item="lvl.id"
           :draggable="canReorder && !(lvl.id in rankDraft)"
           class="relative"
@@ -310,6 +355,7 @@ async function remove(item: CustomItem) {
             >✕</button>
           </NuxtLink>
         </li>
+        </template>
         <li v-if="!filtered.length" class="px-3 py-8 text-xs text-zinc-500 text-center">No matches.</li>
       </ul>
     </div>

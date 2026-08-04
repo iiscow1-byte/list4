@@ -488,12 +488,15 @@ is an identity, not a link, and the gdbrowser address is derived from it.
 level ID should go to the same destination from every one of the eight or so
 spots that render one, and two of them used to go nowhere at all.
 
-## The challenges sheet (CCPL)
+## The challenges sheet (ACS)
 
-`server/db/import-ccpl.ts` reads the project's own **ALL CHALLENGES LIST**
-sheet, the only Google Sheet the site reads besides the main one. `CCPL` was
-already in `utils/challenge-sources.ts`, so a level promoted from it is
-classified as a challenge by placement source alone.
+`server/db/import-acs.ts` reads the project's own **ALL CHALLENGES LIST**
+sheet, the only Google Sheet the site reads besides the main one. `ACS` is
+registered in `utils/challenge-sources.ts`, so a level promoted from it is
+classified as a challenge by placement source alone. It shipped for one version
+as `ccpl` — the wrong name twice over, since CCPL is already a different list on
+that same list of sources; `server/db/index.ts` renames the table, the columns
+and the stored `placement_source` in place.
 
 Two things about the sheet shape the importer:
 
@@ -507,13 +510,22 @@ digit integers, and the placement column is the one whose values best match 1,
 different mapping in the log rather than as silently empty data.
 
 **Over half the rows have no level ID** (520 of 940). `gd_id` therefore can't be
-the key or a requirement; `ccpl_levels` is keyed on `(tab, position)`.
+the key or a requirement; `acs_levels` is keyed on `(tab, position)`.
 
 Rows are upserted and stale ones removed afterwards by `fetched_at`, *not*
-cleared first. `pending_levels.from_ccpl_id` points at these ids: wiping the
+cleared first. `pending_levels.from_acs_id` points at these ids: wiping the
 table gave every surviving row a new id, the pending rows' conflict target
 stopped matching, and a second import queued all 262 of them a second time.
 Three consecutive runs now hold at 940 rows / 258 merged / 262 pending.
+
+### Every importer needs a marker in both branches
+
+`/api/admin/levels/pending` splits one table into two queues: `gdl_import` is
+"came from an importer", `submitted` is everything else. Both are built from the
+same list of marker columns, in one place, because they are complements — when
+ACS was missing from it, its 262 rows vanished from the imported queue *and*
+turned up in the user-submissions queue, since "not from any importer" is how
+that side is defined.
 
 ## Challenges, and unmarking one
 

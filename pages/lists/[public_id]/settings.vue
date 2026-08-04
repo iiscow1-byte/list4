@@ -7,8 +7,19 @@ const route = useRoute()
 const router = useRouter()
 const publicId = computed(() => String(route.params.public_id))
 const {
-  list, canEdit, canManage, editors, base, pendingCount, liked, toggleLike, refresh,
+  req, list, canEdit, canManage, editors, base, pendingCount, liked, toggleLike, refresh,
 } = useCustomList(publicId)
+
+/**
+ * Wait for the shared list fetch before the watchers below run.
+ *
+ * They are `{ immediate: true }`, which fires them during setup — before that
+ * fetch has resolved — and a watcher does not run a second time inside SSR's
+ * single render pass. Every field seeded that way therefore shipped blank from
+ * the server and only filled in once the browser hydrated: the community links
+ * and, once it existed, the whole tier editor.
+ */
+await req
 
 const { loadFrom } = useListBuilder()
 
@@ -214,6 +225,40 @@ const DISPLAY_SETTINGS: {
   { key: 'show_editors', label: 'Show the list’s editors', hint: 'Who runs the list, in the header and beside the records.' },
 ]
 
+/**
+ * The list's own tiers.
+ *
+ * Each owns every rank from its start until the next one begins, so the only
+ * thing to edit is a name, a colour and where it starts — the bands follow the
+ * list as levels move rather than needing to be redrawn.
+ */
+type TierDraft = { name: string; color: string; from_rank: number }
+const tierDrafts = ref<TierDraft[]>([])
+watch(list, (l) => {
+  tierDrafts.value = ((l as any)?.tiers ?? []).map((t: any) => ({
+    name: t.name, color: t.color ?? '#f4c430', from_rank: t.from_rank,
+  }))
+}, { immediate: true })
+
+function addTier() {
+  const last = tierDrafts.value[tierDrafts.value.length - 1]
+  // A new tier starts after the previous one so two never collide on save.
+  tierDrafts.value.push({
+    name: '', color: '#f4c430',
+    from_rank: last ? last.from_rank + 1 : 1,
+  })
+}
+function removeTier(i: number) {
+  tierDrafts.value.splice(i, 1)
+}
+async function saveTiers() {
+  const tiers = tierDrafts.value
+    .filter((t) => t.name.trim())
+    .map((t) => ({ name: t.name.trim(), color: t.color, from_rank: Number(t.from_rank) || 1 }))
+    .sort((a, b) => a.from_rank - b.from_rank)
+  await patch({ tiers }, tiers.length ? 'Tiers saved.' : 'Tiers cleared.')
+}
+
 useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Settings' }))
 </script>
 
@@ -352,6 +397,72 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">{{ d.hint }}</span>
               </span>
             </label>
+          </section>
+
+          <!-- Tiers -->
+          <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Tiers</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                Split the list into named bands. A tier runs from its starting rank until the
+                next one begins, so they follow the list as levels move. Leave this empty for
+                a plain ranking.
+              </p>
+            </div>
+
+            <ul v-if="tierDrafts.length" class="space-y-2">
+              <li v-for="(t, i) in tierDrafts" :key="i" class="flex items-end gap-2 flex-wrap">
+                <label class="block flex-1 min-w-[9rem]">
+                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">Name</span>
+                  <input
+                    v-model="t.name"
+                    maxlength="40"
+                    placeholder="Extreme"
+                    class="mt-0.5 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block w-24">
+                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">From rank</span>
+                  <input
+                    v-model.number="t.from_rank"
+                    type="number"
+                    min="1"
+                    class="mt-0.5 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </label>
+                <label class="block">
+                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">Colour</span>
+                  <input
+                    v-model="t.color"
+                    type="color"
+                    class="mt-0.5 h-[34px] w-14 rounded border border-zinc-800 bg-zinc-900 cursor-pointer"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="rounded-lg border border-zinc-800 text-zinc-600 text-[11px] px-2 py-1.5 hover:border-red-900 hover:text-red-400 transition-colors"
+                  @click="removeTier(i)"
+                >Remove</button>
+              </li>
+            </ul>
+            <p v-else class="text-xs text-zinc-600">No tiers — the list is one plain ranking.</p>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 py-1.5 hover:border-accent/60 hover:text-accent transition-colors"
+                @click="addTier"
+              >Add a tier</button>
+              <button
+                type="button"
+                :disabled="busy"
+                class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                @click="saveTiers"
+              >{{ busy ? 'Saving…' : 'Save tiers' }}</button>
+              <span class="text-[11px] text-zinc-600">
+                Two tiers can't start at the same rank — the first one wins.
+              </span>
+            </div>
           </section>
 
           <!-- Visibility -->

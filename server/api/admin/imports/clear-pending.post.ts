@@ -12,8 +12,8 @@ const SELECTORS: Record<string, { sql: string; params?: any[] }> = {
   'gdl': {
     sql: `from_gdl_id IS NOT NULL AND status = 'pending'`,
   },
-  'ccpl': {
-    sql: `from_ccpl_id IS NOT NULL AND status = 'pending'`,
+  'acs': {
+    sql: `from_acs_id IS NOT NULL AND status = 'pending'`,
   },
   'tsl': {
     sql: `status = 'pending' AND from_gdtpl_id IN (SELECT id FROM gdtpl_levels WHERE list_slug = 'tsl')`,

@@ -4,13 +4,13 @@ import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimat
 import { getTierCurve } from '../utils/tier-curve.ts'
 
 /**
- * CCPL — the **ALL CHALLENGES LIST** sheet.
+ * ACS — the **ALL CHALLENGES LIST** sheet.
  *
  * A Google Sheet rather than an API, read the same way the main ALL sheet is:
  * one CSV per tab through the gviz endpoint, which needs no key as long as the
  * document is link-readable.
  *
- * `CCPL` is already one of `utils/challenge-sources.ts`'s challenge sources, so
+ * `ACS` is registered in `utils/challenge-sources.ts`, so
  * a level promoted from here is classified as a challenge by placement source
  * alone — no separate flag, and the challenge sub-ranking picks it up for free.
  *
@@ -30,7 +30,7 @@ import { getTierCurve } from '../utils/tier-curve.ts'
  * are logged on every run, so a layout change shows up as a different mapping
  * in the log rather than as silently empty data.
  */
-const SHEET_ID = process.env.CCPL_SHEET_ID
+const SHEET_ID = process.env.ACS_SHEET_ID
   || '1tl3_d5vCMIAFxHZU-2prqw7hp9-DyFC_eDzS75tVi0U'
 
 /** The tabs worth importing. `creation stuff` and `Progression?` are notes. */
@@ -163,7 +163,7 @@ export type CcplRow = {
   position: number
   gd_id: number | null
   name: string
-  ccpl_tier: string | null
+  acs_tier: string | null
   skillset: string | null
   comparable: string | null
   source: string | null
@@ -181,11 +181,11 @@ async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRo
   const data = rows.slice(headerIdx + 1)
   const cols = resolveColumns(header, data)
   if (!cols) {
-    console.warn(`[ccpl]   ${label}: no "Level Name" column — skipping`)
+    console.warn(`[acs]   ${label}: no "Level Name" column — skipping`)
     return []
   }
   console.log(
-    `[ccpl]   ${label}: name@${cols.name} id@${cols.gdId ?? '-'} placement@${cols.placement ?? '-'}`
+    `[acs]   ${label}: name@${cols.name} id@${cols.gdId ?? '-'} placement@${cols.placement ?? '-'}`
     + ` tier@${cols.tier ?? '-'} source@${cols.source ?? '-'}`,
   )
 
@@ -211,7 +211,7 @@ async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRo
       position,
       gd_id,
       name,
-      ccpl_tier: get(r, cols.tier),
+      acs_tier: get(r, cols.tier),
       skillset: get(r, cols.skillset),
       comparable: get(r, cols.comparable),
       source: get(r, cols.source),
@@ -221,9 +221,9 @@ async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRo
   return out
 }
 
-const PLACEMENT_SOURCE = 'CCPL'
+const PLACEMENT_SOURCE = 'ACS'
 
-export async function importCcpl(report?: ProgressReporter): Promise<void> {
+export async function importAcs(report?: ProgressReporter): Promise<void> {
   const t0 = Date.now()
   const db = getDb()
   const now = new Date().toISOString()
@@ -231,53 +231,53 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
   report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length })
   const all: CcplRow[] = []
   for (const [i, t] of TABS.entries()) {
-    console.log(`[ccpl] Fetching ${t.label}…`)
+    console.log(`[acs] Fetching ${t.label}…`)
     const rows = await fetchTab(t.gid, t.label, t.tab)
-    console.log(`[ccpl]   ${rows.length} levels`)
+    console.log(`[acs]   ${rows.length} levels`)
     all.push(...rows)
     report?.({ phase: 'Fetching the sheet', done: i + 1, total: TABS.length })
   }
 
   if (!all.length) {
-    console.warn('[ccpl] nothing returned — leaving existing data alone')
+    console.warn('[acs] nothing returned — leaving existing data alone')
     return
   }
 
   const insOwn = db.prepare(`
-    INSERT INTO ccpl_levels
-      (tab, position, gd_id, name, ccpl_tier, skillset, comparable, source, aredl_note, fetched_at)
+    INSERT INTO acs_levels
+      (tab, position, gd_id, name, acs_tier, skillset, comparable, source, aredl_note, fetched_at)
     VALUES (?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(tab, position) DO UPDATE SET
-      gd_id = excluded.gd_id, name = excluded.name, ccpl_tier = excluded.ccpl_tier,
+      gd_id = excluded.gd_id, name = excluded.name, acs_tier = excluded.acs_tier,
       skillset = excluded.skillset, comparable = excluded.comparable,
       source = excluded.source, aredl_note = excluded.aredl_note,
       fetched_at = excluded.fetched_at
   `)
   const findLevel = db.prepare(`SELECT id FROM levels WHERE gd_id = ?`)
-  const setPosition = db.prepare(`UPDATE levels SET ccpl_position = ? WHERE id = ?`)
+  const setPosition = db.prepare(`UPDATE levels SET acs_position = ? WHERE id = ?`)
 
   let merged = 0
-  let ccplOnly = 0
+  let acsOnly = 0
 
   report?.({ phase: 'Writing levels', done: 0, total: all.length })
   db.exec('BEGIN')
   try {
     // Levels dropped from the sheet stop advertising a rank they no longer
-    // hold. `ccpl_levels` rows are *upserted* rather than cleared first,
-    // because `pending_levels.from_ccpl_id` points at these ids: wiping the
+    // hold. `acs_levels` rows are *upserted* rather than cleared first,
+    // because `pending_levels.from_acs_id` points at these ids: wiping the
     // table gave every surviving row a new id, the pending rows' conflict
     // target stopped matching, and a second import queued all of them again.
     // Stale rows are removed after the upserts instead, by `fetched_at`.
-    db.exec(`UPDATE levels SET ccpl_position = NULL WHERE ccpl_position IS NOT NULL`)
+    db.exec(`UPDATE levels SET acs_position = NULL WHERE acs_position IS NOT NULL`)
 
     for (const r of all) {
       insOwn.run(
-        r.tab, r.position, r.gd_id, r.name, r.ccpl_tier,
+        r.tab, r.position, r.gd_id, r.name, r.acs_tier,
         r.skillset, r.comparable, r.source, r.aredl_note, now,
       )
-      if (!r.gd_id) { ccplOnly++; continue }
+      if (!r.gd_id) { acsOnly++; continue }
       const existing = findLevel.get(r.gd_id) as { id: number } | undefined
-      if (!existing) { ccplOnly++; continue }
+      if (!existing) { acsOnly++; continue }
       // Only the ranked tab's numbers are a ranking worth publishing.
       if (r.tab === 'extreme' && r.position < 100_000) setPosition.run(r.position, existing.id)
       merged++
@@ -287,22 +287,22 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
     // sheet no longer has. Promoted rows are kept as the record of where a
     // level came from.
     const dropped = db.prepare(
-      `DELETE FROM ccpl_levels WHERE promoted_to_position IS NULL AND fetched_at != ?`,
+      `DELETE FROM acs_levels WHERE promoted_to_position IS NULL AND fetched_at != ?`,
     ).run(now).changes
-    if (dropped) console.log(`[ccpl]   ${dropped} rows no longer on the sheet`)
+    if (dropped) console.log(`[acs]   ${dropped} rows no longer on the sheet`)
 
     db.exec('COMMIT')
   } catch (err) {
     db.exec('ROLLBACK')
     throw err
   }
-  console.log(`[ccpl]   ${all.length} rows; ${merged} merged into the ALL, ${ccplOnly} CCPL-only`)
+  console.log(`[acs]   ${all.length} rows; ${merged} merged into the ALL, ${acsOnly} ACS-only`)
 
   // --- Queue the levels the ALL doesn't have for review ---
   report?.({ phase: 'Matching against the ALL', done: 0, total: null })
   const onlyHere = db.prepare(
     `SELECT p.id, p.gd_id, p.position, p.name
-       FROM ccpl_levels p
+       FROM acs_levels p
        LEFT JOIN levels l ON l.gd_id = p.gd_id
       WHERE l.id IS NULL
         AND p.gd_id IS NOT NULL
@@ -314,7 +314,7 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
   const anchors = buildAnchors(
     (db.prepare(
       `SELECT p.position AS source_pos, l.position AS all_pos, l.gddl_tier AS tier
-         FROM ccpl_levels p
+         FROM acs_levels p
          JOIN levels l ON l.gd_id = p.gd_id
         WHERE p.tab = 'extreme' AND p.position < 100000
         ORDER BY p.position ASC`,
@@ -325,9 +325,9 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
   const insPending = db.prepare(
     `INSERT INTO pending_levels
        (gd_id, name, difficulty, notes, placement_source, placement_estimate,
-        gddl_tier, gddl_tier_estimated, status, submitted_at, from_ccpl_id)
+        gddl_tier, gddl_tier_estimated, status, submitted_at, from_acs_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-     ON CONFLICT(from_ccpl_id) WHERE from_ccpl_id IS NOT NULL DO UPDATE SET
+     ON CONFLICT(from_acs_id) WHERE from_acs_id IS NOT NULL DO UPDATE SET
        placement_estimate = excluded.placement_estimate,
        gddl_tier = CASE
          WHEN pending_levels.gddl_tier_estimated = 1 OR pending_levels.gddl_tier IS NULL
@@ -352,7 +352,7 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
     try {
       for (const lv of onlyHere.slice(i, i + BATCH)) {
         const est = estimateForSourcePosition(anchors, lv.position, curve)
-        // A CCPL rank that happens to equal the estimate is a coincidence of
+        // An ACS rank that happens to equal the estimate is a coincidence of
         // the two lists being similar lengths near the top, not a placement.
         const placement = est.placement === lv.position ? null : est.placement
         const result = insPending.run(
@@ -372,15 +372,15 @@ export async function importCcpl(report?: ProgressReporter): Promise<void> {
   }
 
   console.log(
-    `[ccpl] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s — `
+    `[acs] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s — `
     + `${merged} merged, ${queued} queued for review.`,
   )
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv)
-  && process.argv[1] && /import-ccpl\.ts$/.test(process.argv[1])
+  && process.argv[1] && /import-acs\.ts$/.test(process.argv[1])
 if (isCli) {
-  importCcpl().catch((err) => {
+  importAcs().catch((err) => {
     console.error(err)
     process.exit(1)
   })

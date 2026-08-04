@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
     min_points?: number
     scored_count?: number
     packs?: { name?: string; color?: string; item_ids?: number[] }[]
+    tiers?: { name?: string; color?: string; from_rank?: number }[]
   }>(event)
 
   const db = getDb()
@@ -142,6 +143,33 @@ export default defineEventHandler(async (event) => {
     }
 
     if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items, account.id)
+
+    /**
+     * Tiers, replaced wholesale like packs.
+     *
+     * De-duplicated on `from_rank` before insert rather than left to the UNIQUE
+     * constraint: two tiers claiming rank 1 is a plausible thing to type, and
+     * failing the whole save over it would lose the rest of the edit. The first
+     * one wins, which is the one nearer the top of the editor.
+     */
+    if (Array.isArray(body?.tiers)) {
+      db.prepare(`DELETE FROM custom_list_tiers WHERE list_id = ?`).run(row.id)
+      const insTier = db.prepare(
+        `INSERT INTO custom_list_tiers (list_id, name, color, from_rank) VALUES (?,?,?,?)`,
+      )
+      const seen = new Set<number>()
+      for (const t of body.tiers.slice(0, 40)) {
+        const name = String(t?.name ?? '').trim().slice(0, 40)
+        if (!name) continue
+        assertClean(name, 'Tier names')
+        const rank = Math.max(1, Math.min(MAX_ITEMS, Math.round(Number(t?.from_rank))))
+        if (!Number.isFinite(rank) || seen.has(rank)) continue
+        seen.add(rank)
+        const raw = String(t?.color ?? '').trim()
+        const color = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : null
+        insTier.run(row.id, name, color, rank)
+      }
+    }
 
     // Packs are replaced wholesale; item ids are filtered to this list so a
     // stale client can't attach someone else's rows.

@@ -229,6 +229,33 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE accounts ADD COLUMN banner_level_id INTEGER REFERENCES levels(id) ON DELETE SET NULL`)
   }
 
+  /**
+   * Staff decorations on an account.
+   *
+   * All three are staff-only and all three are *presentation*: a custom cover
+   * image instead of level art, and a short emoji plus a free-text badge beside
+   * the name. Kept on `accounts` rather than in a side table because every one
+   * of them is one value per account and every reader of a name already has the
+   * account row in hand.
+   *
+   * `banner_image_url` is rendered as an <img src> on a public page, so the
+   * write path enforces http(s) — a javascript: value here would be stored XSS.
+   * `name_badge_color` is a hex literal interpolated into a style attribute and
+   * is validated the same way the custom-list accent is.
+   */
+  if (!accCols.some((c) => c.name === 'banner_image_url')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN banner_image_url TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'name_emoji')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN name_emoji TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'name_badge')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN name_badge TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'name_badge_color')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN name_badge_color TEXT`)
+  }
+
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_creator   ON levels(creator COLLATE NOCASE)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_permanent ON levels(permanent)`)
   // gd_id is how every mirror (AREDL, GDL, CCL, …) is matched back to a level
@@ -1066,20 +1093,50 @@ function initSchema(db: DatabaseSync) {
   if (!has('mscl_position')) db.exec(`ALTER TABLE levels ADD COLUMN mscl_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_mscl_position ON levels(mscl_position)`)
 
-  // --- CCPL (the ALL CHALLENGES LIST sheet) ---
-  // A Google Sheet rather than an API, so `import-ccpl.ts` reads it as CSV per
+  // --- ACS (the ALL CHALLENGES LIST sheet) ---
+  //
+  // Shipped for one version as `ccpl`, which was the wrong name twice over: it
+  // is the project's own sheet, and CCPL is already a different list's name in
+  // `utils/challenge-sources.ts`. Renamed in place rather than left to make a
+  // second empty table beside the populated one.
+  // Live PRAGMA reads, not the cached `has()` snapshot taken at the top of this
+  // function: a rename here changes what the later ADD COLUMN guards see, and a
+  // stale snapshot would have them try to add a column that now exists.
+  const tableExists = (name: string) => !!db.prepare(
+    `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`,
+  ).get(name)
+  const columnExists = (table: string, col: string) =>
+    (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[])
+      .some((c) => c.name === col)
+
+  if (tableExists('ccpl_levels') && !tableExists('acs_levels')) {
+    db.exec(`ALTER TABLE ccpl_levels RENAME TO acs_levels`)
+    if (columnExists('acs_levels', 'ccpl_tier')) {
+      db.exec(`ALTER TABLE acs_levels RENAME COLUMN ccpl_tier TO acs_tier`)
+    }
+    console.log('[db] renamed ccpl_levels to acs_levels')
+  }
+  if (columnExists('levels', 'ccpl_position') && !columnExists('levels', 'acs_position')) {
+    db.exec(`ALTER TABLE levels RENAME COLUMN ccpl_position TO acs_position`)
+  }
+  if (columnExists('pending_levels', 'from_ccpl_id') && !columnExists('pending_levels', 'from_acs_id')) {
+    db.exec(`ALTER TABLE pending_levels RENAME COLUMN from_ccpl_id TO from_acs_id`)
+    db.exec(`UPDATE pending_levels SET placement_source = 'ACS' WHERE placement_source = 'CCPL'`)
+  }
+
+  // A Google Sheet rather than an API, so `import-acs.ts` reads it as CSV per
   // tab. Keyed on (tab, position) because that is what the sheet actually
   // guarantees: over half its rows carry no level ID at all, so `gd_id` can be
   // neither the key nor required. Rows the ALL doesn't have live here until a
   // curator promotes them, the same as every other mirror.
   db.exec(`
-    CREATE TABLE IF NOT EXISTS ccpl_levels (
+    CREATE TABLE IF NOT EXISTS acs_levels (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       tab            TEXT    NOT NULL,
       position       INTEGER NOT NULL,
       gd_id          INTEGER,
       name           TEXT    NOT NULL,
-      ccpl_tier      TEXT,
+      acs_tier      TEXT,
       skillset       TEXT,
       comparable     TEXT,
       source         TEXT,
@@ -1088,12 +1145,12 @@ function initSchema(db: DatabaseSync) {
       fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(tab, position)
     );
-    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_gd_id    ON ccpl_levels(gd_id);
-    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_position ON ccpl_levels(tab, position);
-    CREATE INDEX IF NOT EXISTS idx_ccpl_levels_promoted ON ccpl_levels(promoted_to_position);
+    CREATE INDEX IF NOT EXISTS idx_acs_levels_gd_id    ON acs_levels(gd_id);
+    CREATE INDEX IF NOT EXISTS idx_acs_levels_position ON acs_levels(tab, position);
+    CREATE INDEX IF NOT EXISTS idx_acs_levels_promoted ON acs_levels(promoted_to_position);
   `)
-  if (!has('ccpl_position')) db.exec(`ALTER TABLE levels ADD COLUMN ccpl_position INTEGER`)
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_ccpl_position ON levels(ccpl_position)`)
+  if (!columnExists('levels', 'acs_position')) db.exec(`ALTER TABLE levels ADD COLUMN acs_position INTEGER`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_acs_position ON levels(acs_position)`)
 
   /**
    * An explicit "this is not a challenge" override.
@@ -1151,13 +1208,13 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_gdtpl
              ON pending_levels(from_gdtpl_id) WHERE from_gdtpl_id IS NOT NULL`)
 
-  // Same idea for the CCPL sheet: one pending row per sheet row, so re-running
+  // Same idea for the ACS sheet: one pending row per sheet row, so re-running
   // the import refreshes estimates instead of queueing duplicates.
-  if (!pcols.some((c) => c.name === 'from_ccpl_id')) {
-    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_ccpl_id INTEGER`)
+  if (!columnExists('pending_levels', 'from_acs_id')) {
+    db.exec(`ALTER TABLE pending_levels ADD COLUMN from_acs_id INTEGER`)
   }
-  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_ccpl
-             ON pending_levels(from_ccpl_id) WHERE from_ccpl_id IS NOT NULL`)
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_levels_from_acs
+             ON pending_levels(from_acs_id) WHERE from_acs_id IS NOT NULL`)
 
   // Sheet-pending origin marker. Levels imported from the source sheet's
   // "Pending List" tab go through the same admin "Imported levels" review
@@ -1439,6 +1496,22 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN copied_from_id INTEGER`)
   }
   db.exec(`
+    -- Named bands a custom list divides itself into.
+    --
+    -- A tier owns every rank from from_rank until the next tier starts, so
+    -- inserting or removing a level re-bands the list automatically; storing a
+    -- range per tier would need rewriting on every reorder. from_rank is unique
+    -- per list so two tiers can't claim the same boundary.
+    CREATE TABLE IF NOT EXISTS custom_list_tiers (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id    INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      name       TEXT    NOT NULL,
+      color      TEXT,
+      from_rank  INTEGER NOT NULL,
+      UNIQUE(list_id, from_rank)
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_list_tiers_list ON custom_list_tiers(list_id, from_rank);
+
     CREATE TABLE IF NOT EXISTS custom_list_likes (
       list_id    INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
       account_id INTEGER NOT NULL REFERENCES accounts(id)     ON DELETE CASCADE,

@@ -52,6 +52,10 @@ function startEdit() {
   favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
   hardestRecordId.value = me.value.hardest_record_id ?? null
   bannerChoice.value = me.value.banner_choice ?? 'hardest'
+  bannerImageUrl.value = (me.value as any).banner_image_url ?? ''
+  nameEmoji.value = (me.value as any).name_emoji ?? ''
+  nameBadge.value = (me.value as any).name_badge ?? ''
+  nameBadgeColor.value = (me.value as any).name_badge_color ?? ''
   bannerLevelId.value = me.value.banner_level_id ?? null
   bannerLevelDisplay.value = profileData.value?.banner_level ?? null
   profileError.value = null
@@ -72,6 +76,10 @@ function cancelEdit() {
     favoriteLevelNote.value = profileData.value?.favorite_level_note ?? ''
     hardestRecordId.value = me.value.hardest_record_id ?? null
     bannerChoice.value = me.value.banner_choice ?? 'hardest'
+  bannerImageUrl.value = (me.value as any).banner_image_url ?? ''
+  nameEmoji.value = (me.value as any).name_emoji ?? ''
+  nameBadge.value = (me.value as any).name_badge ?? ''
+  nameBadgeColor.value = (me.value as any).name_badge_color ?? ''
     bannerLevelId.value = me.value.banner_level_id ?? null
     bannerLevelDisplay.value = profileData.value?.banner_level ?? null
   }
@@ -90,6 +98,14 @@ async function saveProfile() {
       favorite_level_note: favoriteLevelNote.value.trim() || null,
       hardest_record_id: hardestRecordId.value ?? null,
       banner_choice: bannerChoice.value,
+      // Sent only by staff. The server ignores them from anyone else, so this
+      // is tidiness rather than the guard.
+      ...(isStaffAccount.value ? {
+        banner_image_url: bannerImageUrl.value.trim(),
+        name_emoji: nameEmoji.value.trim(),
+        name_badge: nameBadge.value.trim(),
+        name_badge_color: nameBadgeColor.value.trim(),
+      } : {}),
       banner_level_id: bannerLevelId.value ?? null,
     } })
     await refreshMe()
@@ -695,7 +711,20 @@ const favoriteLevelPickerOpen = ref(false)
 // Chosen from the account's own approved records, so the options are exactly
 // what the server will accept — no free-text level id to get wrong.
 const hardestRecordId = ref<number | null>(null)
-const bannerChoice = ref<'hardest' | 'favorite' | 'level' | 'none'>('hardest')
+const bannerChoice = ref<'hardest' | 'favorite' | 'level' | 'none' | 'custom'>('hardest')
+
+/**
+ * Staff decorations. Only shown to staff, and only *accepted* from staff — the
+ * server checks the role, because hiding a control is not a permission check.
+ */
+const isStaffAccount = computed(() => {
+  const r = me.value?.role
+  return r === 'admin' || r === 'owner' || r === 'developer'
+})
+const bannerImageUrl = ref('')
+const nameEmoji = ref('')
+const nameBadge = ref('')
+const nameBadgeColor = ref('')
 
 // A free-choice header level. Separate from the favourite and the hardest
 // completion because those two say something about the account — a backdrop
@@ -754,7 +783,11 @@ type ProfileData = {
   favorite_level: ShowcaseLevel | null
   favorite_level_note: string | null
   hardest_completion: ShowcaseLevel | null
-  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none' | 'custom'
+  banner_image_url?: string | null
+  name_emoji?: string | null
+  name_badge?: string | null
+  name_badge_color?: string | null
   banner_level: ShowcaseLevel | null
 }
 /**
@@ -782,11 +815,21 @@ watch(() => me.value?.bio, loadProfileData)
  * While the edit form is open it follows the draft, so picking a banner shows
  * you the result before you save.
  */
+/** The staff cover image, when that's the chosen banner. Live while editing. */
+const bannerImage = computed<string | null>(() => {
+  const d = profileData.value
+  if (!d) return null
+  const choice = editing.value ? bannerChoice.value : d.banner_choice
+  if (choice !== 'custom') return null
+  const url = editing.value ? bannerImageUrl.value.trim() : (d.banner_image_url ?? '')
+  return /^https?:\/\//i.test(url) ? url : null
+})
+
 const bannerLevel = computed<ShowcaseLevel | null>(() => {
   const d = profileData.value
   if (!d) return null
   const choice = editing.value ? bannerChoice.value : d.banner_choice
-  if (choice === 'none') return null
+  if (choice === 'none' || choice === 'custom') return null
   if (choice === 'level') {
     return editing.value
       ? (bannerLevelDisplay.value as ShowcaseLevel | null)
@@ -863,8 +906,17 @@ function fmt(n: number | null | undefined) {
          backdrop follows the edit form live. -->
     <header class="relative">
       <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
+        <template v-if="bannerImage">
+          <img
+            :src="bannerImage"
+            alt=""
+            referrerpolicy="no-referrer"
+            class="absolute inset-0 w-full h-full object-cover opacity-70"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-zinc-950/60 to-zinc-950" aria-hidden="true" />
+        </template>
         <LevelThumbBg
-          v-if="bannerLevel"
+          v-else-if="bannerLevel"
           :key="bannerLevel.gd_id ?? bannerLevel.name"
           :gd-id="bannerLevel.gd_id"
           :video-url="bannerLevel.video ?? bannerLevel.verification_url"
@@ -1252,6 +1304,7 @@ function fmt(n: number | null | undefined) {
                         { v: 'hardest', l: 'Hardest completion' },
                         { v: 'favorite', l: 'Favourite level' },
                         { v: 'level', l: 'Any level' },
+                        ...(isStaffAccount ? [{ v: 'custom', l: 'Image' }] : []),
                         { v: 'none', l: 'Plain' },
                       ]"
                       :key="opt.v"
@@ -1285,6 +1338,76 @@ function fmt(n: number | null | undefined) {
                     <p class="text-[11px] text-zinc-600 mt-1.5">
                       Any level on the list — you don't need a record on it.
                     </p>
+                  </div>
+
+                  <!-- Staff only, and enforced on the server rather than by
+                       this v-if. -->
+                  <div
+                    v-if="isStaffAccount && bannerChoice === 'custom'"
+                    class="mt-2 rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"
+                  >
+                    <input
+                      v-model="bannerImageUrl"
+                      type="url"
+                      placeholder="https://…/background.png"
+                      class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    />
+                    <p class="text-[11px] text-zinc-600 mt-1.5">
+                      A direct image link. Wide works best — the header is about 1500&times;220.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Name decorations, staff only -->
+                <div v-if="isStaffAccount" class="block sm:col-span-2">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name decorations</span>
+                  <p class="text-[11px] text-zinc-600 mt-0.5">
+                    Shown beside your name wherever it appears. Staff only.
+                  </p>
+                  <div class="mt-1.5 grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
+                    <label class="block">
+                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Emoji</span>
+                      <input
+                        v-model="nameEmoji"
+                        maxlength="16"
+                        placeholder="👑"
+                        class="mt-0.5 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    </label>
+                    <label class="block">
+                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Badge</span>
+                      <input
+                        v-model="nameBadge"
+                        maxlength="24"
+                        placeholder="Founder"
+                        class="mt-0.5 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    </label>
+                    <label class="block">
+                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Colour</span>
+                      <input
+                        :value="nameBadgeColor || '#f4c430'"
+                        type="color"
+                        class="mt-0.5 h-[34px] w-14 rounded border border-zinc-800 bg-zinc-900 cursor-pointer"
+                        @input="nameBadgeColor = ($event.target as HTMLInputElement).value"
+                      />
+                    </label>
+                  </div>
+                  <div class="mt-2 flex items-center gap-2 flex-wrap text-[11px] text-zinc-600">
+                    <span>Preview:</span>
+                    <UserName
+                      :username="me?.username ?? 'you'"
+                      :emoji="nameEmoji"
+                      :badge="nameBadge"
+                      :badge-color="nameBadgeColor"
+                      :role="me?.role !== 'user' ? me?.role : null"
+                    />
+                    <button
+                      v-if="nameEmoji || nameBadge"
+                      type="button"
+                      class="text-zinc-600 hover:text-red-400 transition-colors"
+                      @click="nameEmoji = ''; nameBadge = ''"
+                    >clear</button>
                   </div>
                 </div>
               </div>

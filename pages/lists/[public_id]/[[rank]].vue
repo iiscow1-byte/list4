@@ -110,6 +110,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :show-points="on(list.show_points)"
         :show-records="on(list.show_records)"
         :compact="!!list.compact_rows"
+        :tiers="list.tiers ?? []"
         class="hidden md:flex"
         @changed="refresh"
       />

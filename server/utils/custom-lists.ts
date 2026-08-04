@@ -400,6 +400,20 @@ export function loadList(db: DatabaseSync, listId: number) {
     records: byItem.get(i.id) ?? [],
   }))
 
+  /**
+   * The list's own tiers, if it defines any.
+   *
+   * Each owns every rank from `from_rank` until the next one starts, so the
+   * bands follow the list as levels are added and removed rather than needing
+   * to be redrawn. Returned ordered, which is what lets the client walk them
+   * once instead of searching per row.
+   */
+  const tiers = db.prepare(
+    `SELECT id, name, color, from_rank
+       FROM custom_list_tiers WHERE list_id = ?
+      ORDER BY from_rank ASC, id ASC`,
+  ).all(listId) as { id: number; name: string; color: string | null; from_rank: number }[]
+
   const packs = db.prepare(
     `SELECT p.id, p.name, p.color, p.sort_order
        FROM custom_list_packs p
@@ -415,5 +429,5 @@ export function loadList(db: DatabaseSync, listId: number) {
     p.item_ids = packItems.filter((pi) => pi.pack_id === p.id).map((pi) => pi.item_id)
   }
 
-  return { ...list, items: withExtras, packs }
+  return { ...list, items: withExtras, packs, tiers }
 }

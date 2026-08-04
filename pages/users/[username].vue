@@ -46,7 +46,11 @@ const { data, error, refresh } = await useFetch<{
   favorite_level: ShowcaseLevel | null
   favorite_level_note: string | null
   hardest_completion: ShowcaseLevel | null
-  banner_choice: 'hardest' | 'favorite' | 'level' | 'none'
+  banner_choice: 'hardest' | 'favorite' | 'level' | 'none' | 'custom'
+  banner_image_url?: string | null
+  name_emoji?: string | null
+  name_badge?: string | null
+  name_badge_color?: string | null
   banner_level: ShowcaseLevel | null
 }>(() => `/api/users/${encodeURIComponent(username.value)}`, { watch: [username] })
 
@@ -76,6 +80,28 @@ const avatarUrl = computed(() =>
  * starts on that default and most set a favourite long before they pin a
  * completion.
  */
+/**
+ * A staff-set cover image, when the account has chosen one. Checked before the
+ * level picks below because it is a deliberate override of them, not a
+ * fallback: `banner_choice` says which one paints the header.
+ */
+/**
+ * The custom badge's colour. Re-validated rather than trusted: the write path
+ * already refuses anything that isn't a hex literal, and this value ends up in
+ * a style attribute, so it gets a second gate on the way out.
+ */
+const nameBadgeStyle = computed(() => {
+  const hex = data.value?.account?.name_badge_color
+  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return undefined
+  return { backgroundColor: `${hex}22`, borderColor: `${hex}66`, color: hex }
+})
+
+const bannerImage = computed<string | null>(() => {
+  const d = data.value?.account
+  if (!d || d.banner_choice !== 'custom') return null
+  return d.banner_image_url || null
+})
+
 const bannerLevel = computed<ShowcaseLevel | null>(() => {
   const d = data.value
   if (!d) return null
@@ -143,8 +169,17 @@ function openFollowList(mode: 'followers' | 'following') {
     <!-- Header: the profile's cover, painted with whichever level they pinned -->
     <header class="relative">
       <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
+        <template v-if="bannerImage">
+          <img
+            :src="bannerImage"
+            alt=""
+            referrerpolicy="no-referrer"
+            class="absolute inset-0 w-full h-full object-cover opacity-70"
+          />
+          <div class="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-zinc-950/60 to-zinc-950" aria-hidden="true" />
+        </template>
         <LevelThumbBg
-          v-if="bannerLevel"
+          v-else-if="bannerLevel"
           :key="bannerLevel.gd_id ?? bannerLevel.name"
           :gd-id="bannerLevel.gd_id"
           :video-url="bannerLevel.video ?? bannerLevel.verification_url"
@@ -188,6 +223,15 @@ function openFollowList(mode: 'followers' | 'following') {
           <div class="flex-1 min-w-0 pb-1">
             <div class="flex items-center gap-2 flex-wrap">
               <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ data.account.username }}</h1>
+              <span v-if="data.account.name_emoji" class="text-2xl leading-none" aria-hidden="true">
+                {{ data.account.name_emoji }}
+              </span>
+              <span
+                v-if="data.account.name_badge"
+                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border font-semibold"
+                :class="nameBadgeStyle ? '' : 'border-zinc-700 bg-zinc-800 text-zinc-300'"
+                :style="nameBadgeStyle"
+              >{{ data.account.name_badge }}</span>
               <span
                 v-if="data.account.role !== 'user'"
                 class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"

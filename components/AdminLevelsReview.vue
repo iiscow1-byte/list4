@@ -37,6 +37,8 @@ type PendingLevel = {
   rated: string | null
   from_gdl_id: number | null
   from_gdtpl_id: number | null
+  from_acs_id?: number | null
+  acs_position?: number | null
   from_sheet_pending: number
   gdtpl_list_slug: string | null
   gdtpl_position: number | null
@@ -121,6 +123,9 @@ const IMPORT_SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: 'sfl',   label: 'SFL' },
   { value: 'ddl',   label: 'DDL' },
   { value: 'cl',    label: 'CL' },
+  // The project's own challenge sheet. Keyed on its own marker column rather
+  // than a gdtpl slug, so it needs its own branch in the matcher below.
+  { value: 'acs',   label: 'ACS' },
 ]
 const importSourceOptions = IMPORT_SOURCE_OPTIONS
 
@@ -162,6 +167,7 @@ const filteredItems = computed<PendingLevel[]>(() => {
       const f = importSourceFilter.value
       if (f === 'sheet')      { if (!r.from_sheet_pending) return false }
       else if (f === 'gdl')   { if (!r.from_gdl_id)        return false }
+      else if (f === 'acs')   { if (!r.from_acs_id)        return false }
       else                    { if (slug !== f)            return false }
     }
     return true
@@ -964,6 +970,7 @@ watch(preview, (p) => {
                 <span class="text-zinc-700" aria-hidden="true"> · </span>
                 <template v-if="r.from_gdl_id">GDL import</template>
                 <template v-else-if="r.from_gdtpl_id">{{ (r.gdtpl_list_slug ?? 'list').toUpperCase() }} import</template>
+                <template v-else-if="r.from_acs_id">ACS import</template>
                 <template v-else-if="r.from_sheet_pending">Sheet pending<template v-if="r.placement_source"> · {{ r.placement_source }}</template></template>
                 <template v-else>by {{ r.submitter ?? 'unknown' }}</template>
                 <span class="text-zinc-700" aria-hidden="true"> · </span>
@@ -1002,6 +1009,9 @@ watch(preview, (p) => {
                 </template>
                 <template v-else-if="selected.from_gdtpl_id">
                   Imported from {{ (selected.gdtpl_list_slug ?? 'list').toUpperCase() }}<template v-if="selected.gdtpl_position"> · placement #{{ selected.gdtpl_position }}</template> · {{ selected.submitted_at }}
+                </template>
+                <template v-else-if="selected.from_acs_id">
+                  Imported from the ALL Challenges Sheet<template v-if="selected.acs_position"> · placement #{{ selected.acs_position }}</template> · {{ selected.submitted_at }}
                 </template>
                 <template v-else-if="selected.from_sheet_pending">
                   Imported from sheet pending list<template v-if="selected.placement_source"> · source: {{ selected.placement_source }}</template> · {{ selected.submitted_at }}

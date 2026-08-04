@@ -9,7 +9,7 @@ export default defineEventHandler((event) => {
   const pendingCounts = {
     sheet: (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`).get() as { n: number }).n,
     gdl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_gdl_id IS NOT NULL AND status = 'pending'`).get() as { n: number }).n,
-    ccpl:  (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_ccpl_id IS NOT NULL AND status = 'pending'`).get() as { n: number }).n,
+    acs:  (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_acs_id IS NOT NULL AND status = 'pending'`).get() as { n: number }).n,
     tsl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
                         WHERE p.status = 'pending' AND p.from_gdtpl_id IN
                               (SELECT id FROM gdtpl_levels WHERE list_slug = 'tsl')`).get() as { n: number }).n,

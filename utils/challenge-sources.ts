@@ -3,6 +3,8 @@
 // usually uppercase but admins editing through the UI may type whatever.
 export const CHALLENGE_SOURCES = [
   '1SCL', 'CCPL', 'GDSRSH', 'TCL', 'SFCL', 'TSCL', '2PCL', 'CCL', 'WSCL', 'MSCL',
+  // The project's own challenge sheet — see `server/db/import-acs.ts`.
+  'ACS',
 ] as const
 
 const CHALLENGE_SOURCE_SET = new Set<string>(CHALLENGE_SOURCES)

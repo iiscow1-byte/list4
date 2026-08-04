@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { requireAccount } from '~/server/utils/auth'
+import { requireAccount, isAdminRole } from '~/server/utils/auth'
 import { isGdUsername } from '~/utils/gd-links'
 import { assertClean } from '~/server/utils/profanity-guard'
 
@@ -99,20 +99,80 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const BANNERS = new Set(['hardest', 'favorite', 'level', 'none'])
+  /**
+   * Staff decorations: a custom cover image, and an emoji plus a badge beside
+   * the name.
+   *
+   * Gated on role rather than hidden in the UI, because hiding a control is not
+   * a permission check — the request is what has to be refused. A demoted admin
+   * keeps whatever they already set; taking it away is a moderation action, not
+   * something a profile save should do silently.
+   */
+  const isStaff = isAdminRole(me.role)
+  const cur = getDb().prepare(
+    `SELECT banner_image_url, name_emoji, name_badge, name_badge_color FROM accounts WHERE id = ?`,
+  ).get(me.id) as {
+    banner_image_url: string | null; name_emoji: string | null
+    name_badge: string | null; name_badge_color: string | null
+  }
+
+  let banner_image_url = cur.banner_image_url
+  let name_emoji = cur.name_emoji
+  let name_badge = cur.name_badge
+  let name_badge_color = cur.name_badge_color
+
+  if (isStaff) {
+    if ('banner_image_url' in body) {
+      const url = clamp(body.banner_image_url, 500)
+      // Rendered as an <img src> on a public page.
+      if (url && !/^https?:\/\//i.test(url)) {
+        throw createError({ statusCode: 400, statusMessage: 'The background must be an http:// or https:// image link.' })
+      }
+      banner_image_url = url
+    }
+    if ('name_emoji' in body) {
+      // Short by design: this sits inline with a username in list rows, and a
+      // long string here pushes everything beside it off the row.
+      const raw = clamp(body.name_emoji, 16)
+      if (raw && [...raw].length > 3) {
+        throw createError({ statusCode: 400, statusMessage: 'Up to three emoji.' })
+      }
+      name_emoji = raw
+    }
+    if ('name_badge' in body) {
+      const raw = clamp(body.name_badge, 24)
+      // It goes next to a name on public pages under the site's own styling,
+      // so it is held to the same standard the username is.
+      if (raw) assertClean(raw, 'Name badges')
+      name_badge = raw
+    }
+    if ('name_badge_color' in body) {
+      const hex = clamp(body.name_badge_color, 7)
+      // Interpolated into a style attribute, so only a hex literal is stored.
+      name_badge_color = hex && /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : null
+    }
+  }
+
+  const BANNERS = new Set(['hardest', 'favorite', 'level', 'none', 'custom'])
   let banner_choice = 'banner_choice' in body && BANNERS.has(String(body.banner_choice))
     ? String(body.banner_choice)
     : ((me as any).banner_choice ?? 'hardest')
   // Asking for a level banner without a level would render a plain header while
   // the setting claimed otherwise, so keep the two honest with each other.
   if (banner_choice === 'level' && banner_level_id == null) banner_choice = 'none'
+  if (banner_choice === 'custom' && !banner_image_url) banner_choice = 'none'
 
   getDb().prepare(
     `UPDATE accounts SET bio = ?, country = ?, subdivision = ?, pronouns = ?, discord_handle = ?, youtube_url = ?,
      gd_username = ?, favorite_level_id = ?, favorite_level_note = ?, hardest_record_id = ?, banner_choice = ?,
-     banner_level_id = ? WHERE id = ?`,
+     banner_level_id = ?, banner_image_url = ?, name_emoji = ?, name_badge = ?, name_badge_color = ?
+     WHERE id = ?`,
   ).run(next.bio, next.country, next.subdivision, next.pronouns, next.discord_handle, next.youtube_url,
-    next.gd_username, favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, banner_level_id, me.id)
+    next.gd_username, favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, banner_level_id,
+    banner_image_url, name_emoji, name_badge, name_badge_color, me.id)
 
-  return { ok: true, ...next, favorite_level_id, hardest_record_id, banner_choice, banner_level_id }
+  return {
+    ok: true, ...next, favorite_level_id, hardest_record_id, banner_choice, banner_level_id,
+    banner_image_url, name_emoji, name_badge, name_badge_color,
+  }
 })

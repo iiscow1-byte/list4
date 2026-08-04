@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { CCPL_SHEET_ID } from '~/utils/list-source-catalog'
+import { ACS_SHEET_ID } from '~/utils/list-source-catalog'
 
 /**
  * Where else a level is ranked.
@@ -56,7 +56,7 @@ type LevelRow = {
   pointercrate_position: number | null
   challenge_list_position: number | null
   mscl_position: number | null
-  ccpl_position?: number | null
+  acs_position?: number | null
 }
 
 /**
@@ -109,13 +109,13 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
     })
   }
-  if (level.ccpl_position != null) {
+  if (level.acs_position != null) {
     out.push({
-      key: 'ccpl',
-      list: 'CCPL — ALL Challenges List',
-      badge: 'CCPL',
-      position: level.ccpl_position,
-      url: `https://docs.google.com/spreadsheets/d/${CCPL_SHEET_ID}/`,
+      key: 'acs',
+      list: 'ACS — ALL Challenges Sheet',
+      badge: 'ACS',
+      position: level.acs_position,
+      url: `https://docs.google.com/spreadsheets/d/${ACS_SHEET_ID}/`,
     })
   }
   if (level.mscl_position != null) {

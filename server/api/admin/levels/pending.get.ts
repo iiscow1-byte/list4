@@ -9,9 +9,20 @@ export default defineEventHandler((event) => {
   // list-importer source (GDL, plus every GDListTemplate-based list mirrored
   // via from_gdtpl_id — TSL etc.). Splitting the queues keeps each tab focused
   // on the rows that match its workflow.
+  //
+  // Every importer's marker column has to appear in *both* branches. Miss one
+  // and its rows vanish from the imported queue and simultaneously turn up in
+  // the user-submissions queue, because "not from any importer" is how that
+  // side is defined — which is exactly what happened to the challenge sheet.
+  const IMPORTED = [
+    'p.from_gdl_id IS NOT NULL',
+    'p.from_gdtpl_id IS NOT NULL',
+    'p.from_acs_id IS NOT NULL',
+    'p.from_sheet_pending = 1',
+  ]
   const sourceFilter = source === 'gdl_import'
-    ? 'AND (p.from_gdl_id IS NOT NULL OR p.from_gdtpl_id IS NOT NULL OR p.from_sheet_pending = 1)'
-    : 'AND p.from_gdl_id IS NULL AND p.from_gdtpl_id IS NULL AND p.from_sheet_pending = 0'
+    ? `AND (${IMPORTED.join(' OR ')})`
+    : `AND NOT (${IMPORTED.join(' OR ')})`
   const db = getDb()
   // Potential-duplicate detection: an imported level whose name (case-
   // insensitive) matches an existing ALL-list level with a different gd_id.
@@ -28,14 +39,17 @@ export default defineEventHandler((event) => {
               p.from_open_verification_id, p.from_void_level_id, p.same_as_above,
               p.duplicate_of_id, p.is_alternate, p.alternate_of_id, p.rated,
               p.tentative_placement, p.from_gdl_id, p.from_gdtpl_id, p.from_sheet_pending,
+              p.from_acs_id,
               g.list_slug AS gdtpl_list_slug,
               g.position AS gdtpl_position,
+              acs.position AS acs_position,
               a.username AS submitter,
               dup.position AS potential_duplicate_position,
               dup.name     AS potential_duplicate_name
        FROM pending_levels p
        LEFT JOIN accounts a ON a.id = p.submitted_by
        LEFT JOIN gdtpl_levels g ON g.id = p.from_gdtpl_id
+       LEFT JOIN acs_levels acs ON acs.id = p.from_acs_id
        LEFT JOIN levels dup ON dup.id = (
          SELECT l.id FROM levels l
           WHERE l.name = p.name COLLATE NOCASE
