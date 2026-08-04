@@ -1153,17 +1153,28 @@ function initSchema(db: DatabaseSync) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_acs_position ON levels(acs_position)`)
 
   /**
-   * An explicit "this is not a challenge" override.
+   * The two editorial overrides for "is this a challenge?".
    *
    * Whether a level is a challenge is otherwise *inferred* — from its placement
    * source, from `rated = 'Challenge'`, or from Geometry Dash's own metadata
    * (unrated, zero score, Tiny or Short). Inference has no way to be told it is
-   * wrong, so a level the heuristic caught by accident had no way off the
-   * challenge list. This column is checked by every one of those expressions
-   * and beats all of them.
+   * wrong in either direction, so a level the heuristic caught by accident had
+   * no way off the challenge list, and one it missed had no way on.
+   *
+   * `not_challenge` takes a level off; `force_challenge` puts one on. Both are
+   * site-owned: no importer writes them, which is what separates them from
+   * `rated = 'Challenge'` — that one is sheet-owned, and an admin marking a
+   * level with it would have the next import quietly undo the decision.
+   *
+   * They are written together by the one endpoint that sets them, so "both at
+   * once" never occurs; if it somehow did, `not_challenge` wins, because taking
+   * a level off a public list is the safer of the two to honour.
    */
   if (!has('not_challenge')) {
     db.exec(`ALTER TABLE levels ADD COLUMN not_challenge INTEGER NOT NULL DEFAULT 0`)
+  }
+  if (!columnExists('levels', 'force_challenge')) {
+    db.exec(`ALTER TABLE levels ADD COLUMN force_challenge INTEGER NOT NULL DEFAULT 0`)
   }
 
   if (!has('gdl_position')) db.exec(`ALTER TABLE levels ADD COLUMN gdl_position INTEGER`)

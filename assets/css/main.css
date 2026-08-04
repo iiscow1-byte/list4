@@ -78,6 +78,20 @@
   .card {
     @apply rounded-xl border border-zinc-800 bg-zinc-950/70;
   }
+  /*
+   * A strip that scrolls sideways without a scrollbar under it.
+   *
+   * For the tab rows on narrow screens: they can overflow, but a 10px bar
+   * drawn under a 34px-tall row is a third of its height, and the site's
+   * scrollbars are deliberately visible everywhere else.
+   */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /*

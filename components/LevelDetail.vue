@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isChallengeSource } from '~/utils/challenge-sources'
 import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_ORD } from '~/utils/tier-ordinal'
 
@@ -54,6 +53,8 @@ type Level = {
   challenge_rank?: number | null
   /** Admin override: 1 when a level has been taken off the challenge list. */
   not_challenge?: number | boolean | null
+  /** Admin override: 1 when a level has been put on it by hand. */
+  force_challenge?: number | boolean | null
 }
 type OtherListEntry = {
   key?: string
@@ -157,11 +158,13 @@ const tags = computed<Tag[]>(() => {
   if (gddlTierLabel.value) list.push({ label: gddlTierLabel.value })
   if (props.level.difficulty) list.push({ label: props.level.difficulty })
   if (props.level.main_skillset) list.push({ label: props.level.main_skillset })
-  // Use the source-overridden label so the chip stays consistent with the
-  // Rated tile when a challenge-source forces the rating.
-  const sourceForced = isChallengeSource(props.level.placement_source)
-  if (sourceForced) list.push({ label: 'Challenge' })
-  else if (props.level.rated) list.push({ label: props.level.rated })
+  // `challenge_rank` is the server's answer, computed with the same expression
+  // the challenge list itself uses — so this chip, the Rated tile and that list
+  // agree even when an admin has marked or unmarked the level by hand. A stored
+  // `rated` of 'Challenge' is an *input* to that expression, never an answer:
+  // printing it here would put the word back on a level just unmarked.
+  if (props.level.challenge_rank != null) list.push({ label: 'Challenge' })
+  else if (props.level.rated && props.level.rated !== 'Challenge') list.push({ label: props.level.rated })
   if (props.level.placement_source) list.push({ label: props.level.placement_source })
   if (props.level.same_as_above) {
     const dup = props.level.duplicate_of
@@ -434,20 +437,16 @@ type GdInfo = {
   password: string | null
 }
 const SCORE_LABELS = ['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
-const isChallengeTier = computed(
-  () => !!props.level.gddl_tier && /^Tier \d+$/.test(props.level.gddl_tier),
-)
 const ratedLabel = computed(() => {
-  // Source-driven Challenge override: certain placement_source values pin the
-  // rating to Challenge regardless of what the GD API or `rated` column says.
-  if (isChallengeSource(props.level.placement_source)) return 'Challenge'
-  if (props.level.rated === 'Challenge') return 'Challenge'
+  // Deliberately not re-derived here. The server already answered this with
+  // `challenge_rank`, using one expression that reads the placement source, the
+  // `rated` pin, Geometry Dash's own metadata *and* both editorial overrides.
+  // The copy that used to live here knew about the first three only, so a level
+  // an admin had taken off the challenge list still said "Challenge" in this
+  // tile, and one they had put on didn't.
+  if (props.level.challenge_rank != null) return 'Challenge'
   if (!infoData.value) return null
-  const { score, length } = infoData.value
-  if (score === 0 && (length === 'Tiny' || length === 'Short') && isChallengeTier.value) {
-    return 'Challenge'
-  }
-  return SCORE_LABELS[score]
+  return SCORE_LABELS[infoData.value.score]
 })
 
 const displayedDifficulty = computed(() => {
@@ -888,13 +887,15 @@ async function deleteLevel() {
 }
 
 /**
- * Take a level off the challenge list, or put it back.
+ * Put a level on the challenge list, or take it off.
  *
- * Being a challenge is *inferred* — from the placement source, from a pinned
- * `rated`, or from Geometry Dash's own metadata (unrated, zero score, Tiny or
- * Short). That last rule is a heuristic, and a heuristic with no override
- * leaves a level it catches by accident stuck on a list it doesn't belong on.
- * `not_challenge` beats all three.
+ * Being a challenge is otherwise *inferred* — from the placement source, from a
+ * pinned `rated`, or from Geometry Dash's own metadata (unrated, zero score,
+ * Tiny or Short). That last rule is a heuristic, and a heuristic with no
+ * override is wrong in both directions: a level it catches by accident is stuck
+ * on a list it doesn't belong on, and a challenge that doesn't fit the usual
+ * shape can't get onto one it does. The two override columns beat all three
+ * rules, and this is the only thing that writes them.
  */
 const challengeBusy = ref(false)
 const challengeError = ref<string | null>(null)
@@ -1170,7 +1171,7 @@ const chartAredlSeries = computed(() =>
              amber to say what it is: this list's own ranking, not another
              site's. The tooltip supplies the "of what" a bare #12 can't. -->
         <div
-          v-if="level.challenge_rank != null || level.placement_source"
+          v-if="level.challenge_rank != null || level.placement_source || isAdminLevel"
           class="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2"
         >
           <span
@@ -1190,7 +1191,9 @@ const chartAredlSeries = computed(() =>
             type="button"
             :disabled="challengeBusy"
             class="text-[11px] text-zinc-600 hover:text-red-400 disabled:opacity-50 transition-colors"
-            title="Take this level off the challenge list"
+            :title="level.force_challenge
+              ? 'Marked as a challenge by an admin — take it back off the challenge list'
+              : 'Take this level off the challenge list'"
             @click="setChallenge(false)"
           >{{ challengeBusy ? 'Saving…' : 'Unmark' }}</button>
           <!-- Once unmarked the badge is gone, so the way back has to be its
@@ -1208,6 +1211,20 @@ const chartAredlSeries = computed(() =>
               @click="setChallenge(true)"
             >{{ challengeBusy ? 'Saving…' : 'Undo' }}</button>
           </span>
+          <!-- The other direction. The rules that decide this catch the usual
+               shape of a challenge — short, unrated, tiered — and miss the ones
+               that don't look like one, which until now had no way on at all. -->
+          <button
+            v-else-if="isAdminLevel"
+            type="button"
+            :disabled="challengeBusy"
+            class="inline-flex items-center gap-1.5 rounded-full border border-zinc-800 px-2.5 py-1 text-[11px] leading-none text-zinc-500 hover:border-amber-900/60 hover:text-amber-400 disabled:opacity-50 transition-colors"
+            title="Put this level on the challenge list"
+            @click="setChallenge(true)"
+          >
+            <span class="text-[13px] leading-none" aria-hidden="true">+</span>
+            {{ challengeBusy ? 'Saving…' : 'Mark as challenge' }}
+          </button>
           <span v-if="challengeError" class="text-[11px] text-red-400">{{ challengeError }}</span>
           <span v-if="level.placement_source" class="text-xs text-zinc-500">
             Source: {{ level.placement_source }}

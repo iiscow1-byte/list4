@@ -11,9 +11,13 @@ export default defineEventHandler((event) => {
   }
 
   const db = getDb()
+  // The name decorations come along because a comment prints the same name the
+  // rest of the site does — through `UserName` — and a component that renders
+  // them everywhere except here would be the thing that looks broken.
   const items = db.prepare(
     `SELECT c.id, c.account_id, c.body, c.created_at,
             a.username, a.role,
+            a.name_emoji, a.name_badge, a.name_badge_color,
             (a.avatar_blob IS NOT NULL) AS has_avatar
        FROM comments c
        JOIN accounts a ON a.id = c.account_id
@@ -29,6 +33,9 @@ export default defineEventHandler((event) => {
     created_at: string
     username: string
     role: string
+    name_emoji: string | null
+    name_badge: string | null
+    name_badge_color: string | null
     has_avatar: number
   }[]
 

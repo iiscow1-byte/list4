@@ -3,7 +3,15 @@
  * The strip under the site header on every custom-list page: the list's
  * identity plus its own navigation. Keeps a custom list feeling like its own
  * site while staying inside the surrounding chrome.
+ *
+ * Three slots, in one row on a wide screen and two on a narrow one: who the
+ * list is, where you can go in it, and what you can do to it. Everything used
+ * to sit in a single wrapping flex row, which on a phone folded nine tabs and
+ * seven buttons into a ragged block four lines tall — so the tabs now get their
+ * own scrolling row below the title, and the buttons stay with the title.
  */
+import type { ListTab } from './CustomListTabs.vue'
+
 const props = defineProps<{
   list: {
     public_id: string
@@ -47,15 +55,20 @@ const unlinkedCount = computed(
   () => (props.list.items ?? []).filter((i: any) => i.level_id == null).length,
 )
 
-const tabs = computed(() => [
+/**
+ * The two submission tabs say what they take, not what the act is called.
+ * "Suggest" and "Submit" sat next to each other meaning two different things,
+ * and the shorter word was the one for levels.
+ */
+const tabs = computed<ListTab[]>(() => [
   { to: base.value, label: 'List', active: onListTab.value },
   { to: `${base.value}/leaderboard`, label: 'Leaderboard' },
   ...(props.list.packs?.length ? [{ to: `${base.value}/packs`, label: 'Packs' }] : []),
   { to: `${base.value}/changelog`, label: 'Changelog' },
   ...(props.list.accepts_submissions || props.canEdit
-    ? [{ to: `${base.value}/suggest`, label: 'Suggest', badge: props.suggestionCount }]
+    ? [{ to: `${base.value}/suggest`, label: 'Submit Level', badge: props.suggestionCount }]
     : []),
-  ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit' }] : []),
+  ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit Record' }] : []),
   // Only worth showing when there's actually something the ALL doesn't have.
   ...(props.canEdit && unlinkedCount.value > 0
     ? [{ to: `${base.value}/to-all`, label: 'To the ALL', badge: unlinkedCount.value }]
@@ -92,10 +105,6 @@ async function toggleFullscreen() {
   } catch { /* denied or unsupported — the button just does nothing */ }
 }
 
-function isActive(t: { to: string; active?: boolean }) {
-  return t.active ?? route.path === t.to
-}
-
 const levelCount = computed(() => props.list.items?.length ?? 0)
 
 /**
@@ -107,7 +116,11 @@ const levelCount = computed(() => props.list.items?.length ?? 0)
  */
 const staffOpen = ref(false)
 const staffRoot = ref<HTMLElement | null>(null)
-const showStaff = computed(() => props.list.show_editors !== 0 && (props.staff?.length ?? 0) > 0)
+const staffList = computed(() => props.staff ?? [])
+const showStaff = computed(() => props.list.show_editors !== 0 && staffList.value.length > 0)
+const ownerName = computed(
+  () => staffList.value.find((p) => p.role === 'owner')?.username ?? props.list.owner_username,
+)
 
 function onDocClick(e: MouseEvent) {
   if (!staffOpen.value) return
@@ -133,13 +146,20 @@ watch(() => route.fullPath, () => { staffOpen.value = false })
  * Reordering and adding levels is the most common thing an editor does, and it
  * was three clicks away behind Settings → Levels → Open in builder, on a page
  * that is otherwise about webhooks and permissions.
+ *
+ * Not offered in standalone mode. That mode is the list as its own site, and
+ * the builder is a page of *this* one: following it would drop the reader out
+ * of the thing they came for, into chrome the link deliberately hides.
  */
 const { loadFrom } = useListBuilder()
 const router = useRouter()
+const showBuilder = computed(() => !!props.canEdit && !standalone.value)
 async function openInBuilder() {
   loadFrom(props.list as any)
   await router.push('/builder')
 }
+
+const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 transition-colors'
 </script>
 
 <template>
@@ -149,11 +169,11 @@ async function openInBuilder() {
     :class="standalone ? 'border-zinc-800' : 'border-zinc-800/80'"
   >
     <div
-      class="px-4 sm:px-6 flex items-center gap-x-4 gap-y-2 flex-wrap"
-      :class="standalone ? 'py-3.5' : 'py-2.5'"
+      class="px-4 sm:px-6 flex items-center gap-3"
+      :class="standalone ? 'py-3' : 'py-2.5'"
     >
       <!-- Identity -->
-      <NuxtLink :to="to(base)" class="min-w-0 flex items-center gap-2.5 group shrink-0">
+      <NuxtLink :to="to(base)" class="min-w-0 flex items-center gap-2.5 group shrink">
         <img
           v-if="list.icon_url"
           :src="list.icon_url"
@@ -176,37 +196,22 @@ async function openInBuilder() {
             :class="standalone ? 'text-base sm:text-lg' : 'text-sm'"
           >{{ list.title }}</component>
           <span class="block text-[10px] text-zinc-600 truncate">
-            <template v-if="list.owner_username">by {{ list.owner_username }} · </template>
+            <template v-if="ownerName">by {{ ownerName }} · </template>
             <span class="tabular-nums">{{ levelCount }}</span> level{{ levelCount === 1 ? '' : 's' }}
             <template v-if="!list.is_public"> · <span class="text-amber-400">private</span></template>
           </span>
         </span>
       </NuxtLink>
 
-      <!-- Tabs -->
-      <nav class="flex items-center gap-0.5 ml-auto overflow-x-auto">
-        <NuxtLink
-          v-for="t in tabs"
-          :key="t.to"
-          :to="to(t.to)"
-          class="relative whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-          :class="isActive(t)
-            ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/25'
-            : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900'"
-        >
-          {{ t.label }}
-          <span
-            v-if="t.badge"
-            class="ml-1 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 rounded-full bg-red-500 text-[9px] tabular-nums font-semibold text-white align-middle"
-          >{{ t.badge }}</span>
-        </NuxtLink>
+      <!-- Tabs, inline once there's room for them beside the title -->
+      <CustomListTabs :tabs="tabs" class="hidden lg:flex min-w-0 ml-2" />
 
-        <span class="w-px h-5 bg-zinc-800 mx-1.5 shrink-0" />
-
+      <!-- Actions -->
+      <div class="ml-auto flex items-center gap-1 shrink-0">
         <!-- Straight to the builder. The most common editing job was three
              clicks deep inside a settings page about webhooks. -->
         <button
-          v-if="canEdit"
+          v-if="showBuilder"
           type="button"
           class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
           title="Open this list in the builder — add, remove and reorder levels"
@@ -222,19 +227,19 @@ async function openInBuilder() {
         <div v-if="showStaff" ref="staffRoot" class="relative shrink-0">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border px-1.5 py-1 text-xs transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-lg border pl-1.5 pr-2 py-1 text-xs transition-colors"
             :class="staffOpen
               ? 'border-accent/50 text-accent bg-accent/10'
               : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
             :aria-expanded="staffOpen"
-            title="List editors"
+            :title="`${staffList.length} list editor${staffList.length === 1 ? '' : 's'}`"
             @click.stop="staffOpen = !staffOpen"
           >
             <!-- Overlapping avatars: says "these people" without the space a
                  list of names would need in a bar that already scrolls. -->
             <span class="flex items-center -space-x-1.5">
               <span
-                v-for="p in (staff ?? []).slice(0, 3)"
+                v-for="p in staffList.slice(0, 3)"
                 :key="p.id"
                 class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 border border-zinc-950 flex items-center justify-center"
               >
@@ -246,35 +251,32 @@ async function openInBuilder() {
                 <span v-else class="text-[8px] font-bold uppercase text-zinc-500">{{ p.username.charAt(0) }}</span>
               </span>
             </span>
-            <span v-if="(staff?.length ?? 0) > 3" class="tabular-nums text-[10px]">+{{ (staff?.length ?? 0) - 3 }}</span>
+            <span v-if="staffList.length > 3" class="tabular-nums text-[10px]">+{{ staffList.length - 3 }}</span>
+            <span class="hidden sm:inline">Editors</span>
+            <svg
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"
+              class="w-2.5 h-2.5 transition-transform" :class="staffOpen ? 'rotate-180' : ''"
+              aria-hidden="true"
+            ><path d="m6 9 6 6 6-6" /></svg>
           </button>
 
           <div
             v-if="staffOpen"
-            class="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden"
+            class="absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden"
           >
-            <p class="px-3 py-2 text-[10px] uppercase tracking-widest text-zinc-500 font-semibold border-b border-zinc-900">
-              List editors
+            <p class="px-3 py-2 flex items-baseline gap-2 border-b border-zinc-900">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">List editors</span>
+              <span class="ml-auto text-[10px] tabular-nums text-zinc-600">{{ staffList.length }}</span>
             </p>
-            <CustomListStaff :staff="staff ?? []" variant="compact" />
+            <CustomListStaff :staff="staffList" />
+            <p class="px-3 py-2 text-[10px] leading-snug text-zinc-600 border-t border-zinc-900">
+              They decide this list's order and review what's submitted to it.
+            </p>
           </div>
         </div>
 
-        <!-- Standalone mode hides the site's own header, so this is the only
-             way back to the rest of the site. It drops the flag deliberately:
-             following it means leaving the list, not viewing the ALL inside it. -->
-        <NuxtLink
-          v-if="standalone"
-          to="/"
-          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
-          title="Open the All Levels List"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
-            <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-          </svg>
-          <span class="hidden sm:inline">All Levels List</span>
-          <span class="sm:hidden">ALL</span>
-        </NuxtLink>
+        <span class="w-px h-5 bg-zinc-800 mx-0.5 shrink-0" aria-hidden="true" />
 
         <!-- The list's own community links -->
         <a
@@ -282,7 +284,7 @@ async function openInBuilder() {
           :href="list.discord_url"
           target="_blank"
           rel="noopener noreferrer"
-          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
+          :class="[iconBtn, 'hover:text-[#5865F2]']"
           aria-label="Discord"
           title="Discord"
         >
@@ -295,7 +297,7 @@ async function openInBuilder() {
           :href="list.youtube_url"
           target="_blank"
           rel="noopener noreferrer"
-          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-red-500 hover:bg-zinc-900 transition-colors"
+          :class="[iconBtn, 'hover:text-red-500']"
           aria-label="YouTube"
           title="YouTube"
         >
@@ -306,7 +308,7 @@ async function openInBuilder() {
 
         <button
           type="button"
-          class="shrink-0 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+          :class="[iconBtn, 'hidden sm:inline-flex hover:text-zinc-100']"
           :aria-pressed="isFullscreen"
           :aria-label="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
           :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
@@ -331,7 +333,31 @@ async function openInBuilder() {
           <span aria-hidden="true">{{ liked ? '★' : '☆' }}</span>
           <span class="tabular-nums">{{ list.likes }}</span>
         </button>
-      </nav>
+
+        <!-- Standalone mode hides the site's own header, so this is the only
+             way back to the rest of the site. It drops the flag deliberately:
+             following it means leaving the list, not viewing the ALL inside it. -->
+        <template v-if="standalone">
+          <span class="w-px h-5 bg-zinc-800 mx-0.5 shrink-0" aria-hidden="true" />
+          <NuxtLink
+            to="/"
+            class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
+            title="Open the All Levels List"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
+            <span class="hidden sm:inline">All Levels List</span>
+            <span class="sm:hidden">ALL</span>
+          </NuxtLink>
+        </template>
+      </div>
+    </div>
+
+    <!-- …and on their own row below it when there isn't. Full width, so nine
+         tabs scroll sideways instead of wrapping into a block. -->
+    <div class="lg:hidden border-t border-zinc-900">
+      <CustomListTabs :tabs="tabs" variant="row" />
     </div>
   </div>
 </template>

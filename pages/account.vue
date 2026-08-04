@@ -1651,9 +1651,13 @@ function fmt(n: number | null | undefined) {
           @refresh="loadProfileData()"
         />
 
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Comments on your profile</h2>
-          <CommentSection kind="profile" :target-id="me.id" />
+        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+          <CommentSection
+            kind="profile"
+            :target-id="me.id"
+            variant="open"
+            title="Comments on your profile"
+          />
         </section>
       </main>
 

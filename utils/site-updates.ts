@@ -22,6 +22,25 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.11.0',
+    date: '2026-08-04',
+    title: 'A level can be made a challenge, and the forms say what they take',
+    tags: ['Admin', 'Profiles', 'Custom lists', 'Submissions', 'Fixes'],
+    changes: [
+      'Admin: a level can be marked as a challenge, from the level page, in one click. Taking one off has been possible since 1.9; putting one on had to be inferred, and the rules that infer it miss any challenge that does not look like the usual one — short, unrated, tiered.',
+      'A profile\'s Completed, Verified and Created levels are one card with tabs instead of three lists printed in full. Only the tabs with something in them are offered, long ones open at twenty-five rows with the rest a click away, and there is a filter box once scrolling is the alternative.',
+      'Profile comments are a section rather than a heading with a collapsed control under it also called "Comments". Each comment carries its author\'s avatar and whatever decorations their name has.',
+      'Custom lists: "Suggest" is Submit Level and "Submit" is Submit Record. The two sat next to each other meaning different things, and the shorter word was the one for levels.',
+      'Custom lists: the list\'s own header keeps its tabs on one row and its buttons on another when the screen is narrow, rather than folding nine tabs and seven buttons into a ragged block. The Editors button is on every page of a list now, not only the level view, and says what it opens.',
+      'Custom lists: a level\'s creator and verifier are labelled credits rather than one grey line reading "by X · verified by X" — which, for a level with only a verifier, started with the word "verified".',
+      'A list read as its own site no longer offers the Builder button. It leads out of the list, into chrome that mode exists to hide.',
+      'Submitting a level: the form is five titled sections, difficulty is open rather than folded away, and the submit bar names the first thing still missing and jumps to it instead of counting.',
+      'Fixed: profile comments were fetched only after the page reached the browser, so the card arrived headed "Comments 0" with an empty body.',
+      'Fixed: a level\'s rating tile and its chip worked out "is this a challenge?" for themselves, from an older set of rules than the challenge list uses. A level an admin had taken off it still said Challenge in both.',
+      'Fixed: a profile\'s level lists numbered every row by its internal position rather than its placement on the list, which differ wherever the sheet leaves a gap.',
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-08-03',
     title: 'ACS, staff decorations, and tiers on a custom list',

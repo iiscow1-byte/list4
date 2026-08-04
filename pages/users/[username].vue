@@ -438,9 +438,13 @@ function openFollowList(mode: 'followers' | 'following') {
             @refresh="refresh()"
           />
 
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Comments</h2>
-            <CommentSection kind="profile" :target-id="data.account.id" />
+          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+            <CommentSection
+              kind="profile"
+              :target-id="data.account.id"
+              variant="open"
+              :title="`Comments on ${data.account.username}'s profile`"
+            />
           </section>
         </main>
 

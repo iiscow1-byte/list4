@@ -26,9 +26,9 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   is_alternate: 'bool',
   alternate_of_id: 'int',
   tentative_placement: 'bool',
-  // `not_challenge` is deliberately absent: it is an editorial override no
-  // importer writes, and this endpoint refuses non-permanent levels. It has its
-  // own route — `challenge.post.ts`.
+  // `not_challenge` and `force_challenge` are deliberately absent: they are
+  // editorial overrides no importer writes, and this endpoint refuses
+  // non-permanent levels. They have their own route — `challenge.post.ts`.
 }
 
 function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string | number | null {

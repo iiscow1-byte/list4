@@ -11,7 +11,7 @@ const props = defineProps<{
   title?: string
 }>()
 
-const { list, error, canEdit, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
+const { list, error, canEdit, editors, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
 const { standalone } = useStandaloneList()
 </script>
 
@@ -25,8 +25,13 @@ const { standalone } = useStandaloneList()
   </div>
 
   <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950">
+    <!-- The roster travels with the bar. Without it the Editors button existed
+         on the list view and vanished on every other tab, which reads as the
+         list having lost its staff rather than the page having forgotten to
+         pass them. -->
     <CustomListBar
       :list="list"
+      :staff="editors"
       :can-edit="canEdit"
       :pending-count="pendingCount"
       :suggestion-count="suggestionCount"

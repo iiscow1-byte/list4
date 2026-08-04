@@ -70,11 +70,17 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Same shape as the GET, decorations included: the client pushes this row
+  // straight into the list it just rendered, so anything missing here shows up
+  // as your own comment losing what everyone else's has until a reload.
   return {
     id: commentId,
     account_id: me.id,
     username: me.username,
     role: me.role,
+    name_emoji: me.name_emoji ?? null,
+    name_badge: me.name_badge ?? null,
+    name_badge_color: me.name_badge_color ?? null,
     has_avatar: me.has_avatar,
     body: text,
     created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),

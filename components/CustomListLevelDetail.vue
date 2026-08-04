@@ -26,6 +26,14 @@ const emit = defineEmits<{ (e: 'changed'): void }>()
 const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
 const { to } = useStandaloneList()
 
+/** Who made it and who beat it first, in that order, skipping what's unknown. */
+const credits = computed(() => {
+  const out: { label: string; value: string }[] = []
+  if (props.item?.creator) out.push({ label: 'Creator', value: String(props.item.creator) })
+  if (props.item?.verifier) out.push({ label: 'Verifier', value: String(props.item.verifier) })
+  return out
+})
+
 // ---------- inline editor ----------
 const open = ref(false)
 const busy = ref(false)
@@ -266,11 +274,24 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           >{{ open ? 'Close editor' : 'Edit level' }}</button>
         </div>
         <h1 class="text-2xl sm:text-4xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ item.name }}</h1>
-        <p class="text-sm text-zinc-300">
-          <template v-if="item.creator">by {{ item.creator }}</template>
-          <template v-if="item.creator && item.verifier"> · </template>
-          <template v-if="item.verifier">verified by {{ item.verifier }}</template>
-        </p>
+        <!-- Credits.
+             Was one grey line reading "by X · verified by X", which had two
+             problems over a level's artwork: the two names were the same size
+             and colour as the word joining them, so neither read as a name, and
+             a level with only a verifier printed a sentence starting "verified
+             by" with nothing before it. Each credit is now its own chip with
+             its own label, and a missing one leaves no trace. -->
+        <div v-if="item.creator || item.verifier" class="flex flex-wrap items-center gap-2">
+          <span
+            v-for="c in credits"
+            :key="c.label"
+            class="inline-flex items-baseline gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-2.5 py-1 backdrop-blur-sm max-w-full"
+            :title="`${c.label}: ${c.value}`"
+          >
+            <span class="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">{{ c.label }}</span>
+            <span class="text-sm text-zinc-100 truncate">{{ c.value }}</span>
+          </span>
+        </div>
         <!-- Step through the list without going back to the nav -->
         <nav class="flex items-center gap-1.5 pt-1">
           <NuxtLink

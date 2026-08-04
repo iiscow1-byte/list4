@@ -84,19 +84,19 @@ async function submit() {
     })
     notice.value = res.status === 'approved'
       ? `${name.value.trim()} added to the list.`
-      : 'Suggestion sent — an editor will review it.'
+      : 'Sent — an editor will review it.'
     name.value = ''; gdId.value = ''; creator.value = ''
     verifier.value = ''; videoUrl.value = ''; rank.value = ''; note.value = ''
     await Promise.all([load(), refresh()])
   } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? 'Could not send that suggestion.'
+    error.value = e?.data?.statusMessage ?? 'Could not send that level.'
   } finally { submitting.value = false }
 }
 
 const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'
 const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 
-useHead(() => ({ title: list.value ? `Suggest a level — ${list.value.title}` : 'Suggest' }))
+useHead(() => ({ title: list.value ? `Submit a level — ${list.value.title}` : 'Submit a level' }))
 </script>
 
 <template>
@@ -104,7 +104,7 @@ useHead(() => ({ title: list.value ? `Suggest a level — ${list.value.title}` :
     <template #default="{ list: l }">
       <div class="flex items-baseline justify-between gap-3 mb-3">
         <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
-          {{ canModerate ? 'Suggested levels' : 'Suggest a level' }}
+          {{ canModerate ? 'Submitted levels' : 'Submit a level' }}
         </h2>
         <span v-if="notice" class="text-[11px] text-emerald-400">{{ notice }}</span>
       </div>
@@ -156,21 +156,21 @@ useHead(() => ({ title: list.value ? `Suggest a level — ${list.value.title}` :
         </li>
       </ul>
       <p v-else-if="canModerate" class="card px-6 py-10 text-center text-sm text-zinc-400 mb-5">
-        No suggestions waiting.
+        No levels waiting.
       </p>
 
       <!-- Form -->
       <div v-if="!l.accepts_submissions && !canEdit" class="card px-6 py-10 text-center">
-        <p class="text-sm text-zinc-400">This list isn't taking level suggestions.</p>
+        <p class="text-sm text-zinc-400">This list isn't taking level submissions.</p>
       </div>
       <div v-else-if="!me" class="card px-6 py-10 text-center">
         <p class="text-sm text-zinc-400">
-          <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink> to suggest a level.
+          <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink> to submit a level.
         </p>
       </div>
       <form v-else class="card p-4 sm:p-5 grid gap-3 sm:grid-cols-2" @submit.prevent="submit">
         <p class="sm:col-span-2 text-xs text-zinc-500">
-          {{ canEdit ? 'As an editor, what you add here goes straight onto the list.' : 'An editor will review your suggestion.' }}
+          {{ canEdit ? 'As an editor, what you add here goes straight onto the list.' : 'An editor will review it before it goes on the list.' }}
         </p>
         <label class="block sm:col-span-2">
           <span :class="label">Level name *</span>
@@ -204,7 +204,7 @@ useHead(() => ({ title: list.value ? `Suggest a level — ${list.value.title}` :
           <button
             type="submit" :disabled="submitting || !name.trim()"
             class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-40 transition-colors"
-          >{{ submitting ? 'Sending…' : canEdit ? 'Add to list' : 'Suggest level' }}</button>
+          >{{ submitting ? 'Sending…' : canEdit ? 'Add to list' : 'Submit level' }}</button>
           <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
         </div>
       </form>

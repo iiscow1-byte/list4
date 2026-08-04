@@ -258,7 +258,11 @@ A published list runs like a real demonlist rather than a static ranking.
 `/lists/:public_id` is a tabbed site: **List** (ranked levels with points,
 records, and an expandable per-level panel showing the verification embed,
 level ID, percent to qualify, FPS and game version), **Leaderboard**,
-**Packs**, **Submit a record**, and a **Queue** the owner moderates.
+**Packs**, **Submit Level**, **Submit Record**, and a **Queue** the owner
+moderates. The two submission tabs are named for what they take: they were
+"Suggest" and "Submit", sat next to each other, and the shorter word was the one
+for levels. The routes keep their original names (`/suggest`, `/submit`) so
+links already shared still resolve.
 
 - **Records** (`custom_list_records`) are submitted by any logged-in user and
   land as `pending` for the list owner to accept or reject — inbox messages go
@@ -291,7 +295,11 @@ empty list and fell through. Serving both from one route removes the window in
 which that can happen.
 
 The secondary pages share `components/CustomListShell.vue` (list bar, scrolling
-body, not-found and loading states) so each is just its own content.
+body, not-found and loading states) so each is just its own content. Anything
+the bar shows has to be passed by *both* that shell and the list view, or it
+appears on one tab and vanishes on the next — which is what happened to the
+editor roster: present on the level view, absent everywhere else, reading as a
+list that had lost its staff.
 
 - **Editors.** Owners can appoint collaborators from **Settings → Editors**.
   Editors change the list's levels and settings and moderate its records;
@@ -527,7 +535,7 @@ ACS was missing from it, its 262 rows vanished from the imported queue *and*
 turned up in the user-submissions queue, since "not from any importer" is how
 that side is defined.
 
-## Challenges, and unmarking one
+## Challenges, and marking one either way
 
 Whether a level is a challenge is **inferred** three ways — see
 `server/utils/challenge-expr.ts`, which is the single definition all of them
@@ -535,18 +543,38 @@ share. It appeared in five places across four files before that, each with its
 own table aliases, and the copy in `/api/stats` had already lost the "Tier 1+"
 clause the others carry.
 
-`levels.not_challenge` is the override, and it beats all three rules. It has its
-own endpoint rather than a field on the metadata PATCH, because that endpoint
-refuses any level that isn't `permanent` — correct for sheet-owned metadata the
-next import would overwrite, wrong for an editorial decision no importer
-touches. Routing it there would have forced an admin to freeze a level against
-all future imports just to correct which list it appears on.
+Two columns override those rules: `levels.not_challenge` takes a level off the
+challenge list and `levels.force_challenge` puts one on. Both directions are
+needed because the third rule is a heuristic — unrated, zero score, Tiny or
+Short, tiered — which catches ordinary levels by accident *and* misses any
+challenge that doesn't fit the shape. `not_challenge` wins a contradiction; the
+one endpoint that writes them writes both every time, so a contradiction never
+arises from the UI.
 
-One trap worth knowing: `rated = 'Challenge'` is a **pin**, not a rating. It is
-an *input* to the expression above, so the "fall back to the stored rating"
-branch has to exclude it — otherwise an unmarked level's stored word comes back
-as the answer and it stays on the challenge list, in the filters and in the
-stats, which is exactly what happened.
+They have their own endpoint rather than a field on the metadata PATCH, because
+that endpoint refuses any level that isn't `permanent` — correct for sheet-owned
+metadata the next import would overwrite, wrong for an editorial decision no
+importer touches. Routing them there would have forced an admin to freeze a
+level against all future imports just to correct which list it appears on.
+
+Marking deliberately does **not** go through `rated = 'Challenge'`, which is the
+obvious-looking way to do it. That column is imported from the sheet, and
+`applyRatedFromSheet` clears any 'Challenge' the sheet doesn't also say, so an
+admin's decision would have held until the next import and then quietly undone
+itself.
+
+Two traps worth knowing:
+
+- `rated = 'Challenge'` is a **pin**, not a rating. It is an *input* to the
+  expression above, so the "fall back to the stored rating" branch has to
+  exclude it — otherwise an unmarked level's stored word comes back as the
+  answer and it stays on the challenge list, in the filters and in the stats,
+  which is exactly what happened.
+- The client must not re-derive any of this. `LevelDetail` had its own copy of
+  the first three rules for the rating tile and the chip beside the title, knew
+  about neither override, and so contradicted the list it was describing. The
+  server sends `challenge_rank`, computed with the one expression; that is the
+  answer.
 
 ## Where else a level is ranked
 
