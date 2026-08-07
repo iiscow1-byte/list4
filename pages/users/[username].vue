@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { roleBadgeClass } from '~/utils/role-styles'
 import { gdUserUrl } from '~/utils/gd-links'
 import { tierColor, textOn } from '~/utils/tier-colors'
 
@@ -224,6 +223,9 @@ function openFollowList(mode: 'followers' | 'following') {
           <div class="flex-1 min-w-0 pb-1">
             <div class="flex items-center gap-2 flex-wrap">
               <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ data.account.username }}</h1>
+              <!-- Where they're from, beside the name rather than only in the
+                   small print under it. -->
+              <CountryFlag :country="data.account.country" class="shrink-0" />
               <span v-if="data.account.name_emoji" class="text-2xl leading-none" aria-hidden="true">
                 {{ data.account.name_emoji }}
               </span>
@@ -233,19 +235,18 @@ function openFollowList(mode: 'followers' | 'following') {
                 :class="nameBadgeStyle ? '' : 'border-zinc-700 bg-zinc-800 text-zinc-300'"
                 :style="nameBadgeStyle"
               >{{ data.account.name_badge }}</span>
-              <span
-                v-if="data.account.role !== 'user'"
-                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
-                :class="roleBadgeClass(data.account.role)"
-              >{{ data.account.role }}</span>
+              <RoleBadge :role="data.account.role" />
               <span v-if="data.account.pronouns" class="text-xs text-zinc-500">{{ data.account.pronouns }}</span>
             </div>
             <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span v-if="data.account.claimed_player">
                 playing as <span class="text-zinc-300">{{ data.account.claimed_player }}</span>
               </span>
-              <span v-if="data.account.subdivision || data.account.country">
-                <span v-if="data.account.subdivision">{{ data.account.subdivision }}, </span>{{ data.account.country }}
+              <span v-if="data.account.subdivision || data.account.country" class="inline-flex items-center gap-1">
+                <span v-if="data.account.subdivision">{{ data.account.subdivision }}<template v-if="data.account.country">,</template></span>
+                <!-- The name, not the code: `US` is what's stored, "United
+                     States" is what a reader wants. -->
+                <CountryFlag :country="data.account.country" size="sm" with-name />
               </span>
               <span v-if="joined">joined {{ joined }}</span>
             </p>

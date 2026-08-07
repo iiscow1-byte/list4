@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { roleBadgeClass } from '~/utils/role-styles'
 
 type AllRow = {
   rank: number
@@ -345,11 +344,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
                          (Aredl, Pointercrate): they are list mirrors, not site
                          identities, so the site-role chip would be misleading. -->
                     <template v-if="!sourceLabel(p)">
-                      <span
-                        v-if="(p as AllRow).badge"
-                        class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
-                        :class="roleBadgeClass((p as AllRow).badge!)"
-                      >{{ (p as AllRow).badge }}</span>
+                      <RoleBadge :role="(p as AllRow).badge" size="sm" />
                     </template>
                     <template v-else>
                       <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">{{ sourceLabel(p) }}</span>

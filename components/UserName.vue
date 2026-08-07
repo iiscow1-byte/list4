@@ -4,7 +4,6 @@
 // the instance, and `<component :is>` then renders a literal `<NuxtLink>`
 // element: the name still shows, styled, and is silently not a link.
 import { NuxtLink } from '#components'
-import { roleBadgeClass } from '~/utils/role-styles'
 
 /**
  * A username, with whatever the account has earned or been given beside it.
@@ -67,10 +66,6 @@ const chip = computed(() =>
       :style="badgeStyle"
     >{{ badge }}</span>
 
-    <span
-      v-if="role"
-      class="shrink-0 rounded uppercase tracking-widest leading-none"
-      :class="[chip, roleBadgeClass(role)]"
-    >{{ role }}</span>
+    <RoleBadge :role="role" :size="size === 'sm' ? 'sm' : 'md'" />
   </span>
 </template>

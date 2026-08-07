@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { isChallengeSql } from './challenge-expr'
 
 export type PlayerStats = {
   name: string
@@ -19,7 +20,13 @@ export type LevelRow = {
   sheet_placement?: number | null
 }
 
-export type CompletedLevel = LevelRow & { percent: number; main_skillset: string | null; record_id: number }
+export type CompletedLevel = LevelRow & {
+  percent: number
+  main_skillset: string | null
+  record_id: number
+  /** 1 when the level is a challenge — the same rule the challenge list uses. */
+  is_challenge: number
+}
 
 export function getPlayerStats(db: DatabaseSync, name: string): PlayerStats | null {
   return db.prepare(
@@ -32,11 +39,17 @@ export function getCompletedLevels(db: DatabaseSync, playerName: string): Comple
   // Sheet records are auto-accepted (permanent = 1) on import, and approved
   // user submissions are also permanent = 1, so a single filter covers both.
   // Pending user submissions (permanent = 0) stay hidden.
+  // `is_challenge` comes from the one expression the challenge list uses, so a
+  // profile's split between levels and challenges can't drift from the list
+  // those challenges are on. The cache join is what that expression reads
+  // Geometry Dash's own metadata out of.
   return db.prepare(
     `SELECT l.position, l.sheet_placement, l.name, l.points, l.gddl_tier, l.gd_id,
-            l.main_skillset, r.percent, r.id AS record_id, r.video
+            l.main_skillset, r.percent, r.id AS record_id, r.video,
+            ${isChallengeSql('l', 'c')} AS is_challenge
        FROM records r
        JOIN levels l ON l.id = r.level_id
+       LEFT JOIN gd_info_cache c ON c.gd_id = l.gd_id
       WHERE r.player_name = ? COLLATE NOCASE AND r.permanent = 1
       ORDER BY l.position ASC`,
   ).all(playerName) as CompletedLevel[]

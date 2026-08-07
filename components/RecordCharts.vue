@@ -8,9 +8,45 @@ type CompletedLevel = {
   gddl_tier: string | null
   main_skillset: string | null
   percent: number
+  /** 1 for a challenge — decided server-side, see `server/utils/profile.ts`. */
+  is_challenge?: number | boolean | null
 }
 
 const props = defineProps<{ completed: CompletedLevel[] }>()
+
+/**
+ * How much of what someone has beaten is challenges.
+ *
+ * The two are different games — a challenge is under thirty seconds and a
+ * level is not — so "300 completions" says much less than the split does. A
+ * ring rather than a pie: with two slices the interesting number is one
+ * percentage, and a ring has somewhere to put it.
+ */
+const CHALLENGE_COLOR = '#f59e0b'
+const LEVEL_COLOR = '#60a5fa'
+
+const split = computed(() => {
+  const total = props.completed.length
+  const challenges = props.completed.reduce((n, l) => n + (l.is_challenge ? 1 : 0), 0)
+  const levels = total - challenges
+  return {
+    total,
+    challenges,
+    levels,
+    challengePct: total ? challenges / total : 0,
+    levelPct: total ? levels / total : 0,
+  }
+})
+
+/**
+ * The ring, as one dashed circle over another.
+ *
+ * Two arcs of a two-slice chart are the same arc drawn from opposite ends, so
+ * this is a background ring in one colour and a foreground stroke covering the
+ * levels' share of it — no arc maths, and nothing to get wrong at 0 % or 100 %.
+ */
+const RING_C = 2 * Math.PI * 54
+const ringDash = computed(() => `${(split.value.levelPct * RING_C).toFixed(2)} ${RING_C.toFixed(2)}`)
 
 // --- Skillset pie ---
 // Stable color order; recycled if there are more skillsets than colors. Picked
@@ -116,6 +152,59 @@ const tierBars = computed(() => {
 
 <template>
   <div class="space-y-4">
+    <!-- Levels vs challenges -->
+    <section v-if="split.total" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
+        Levels vs challenges
+        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ split.total }} beaten</span>
+      </h2>
+      <div class="flex items-center gap-3">
+        <svg
+          viewBox="0 0 128 128"
+          class="w-[104px] h-[104px] shrink-0"
+          role="img"
+          :aria-label="`${Math.round(split.levelPct * 100)} percent levels, ${Math.round(split.challengePct * 100)} percent challenges`"
+        >
+          <circle cx="64" cy="64" r="54" fill="none" :stroke="CHALLENGE_COLOR" stroke-width="16" />
+          <circle
+            cx="64" cy="64" r="54" fill="none"
+            :stroke="LEVEL_COLOR"
+            stroke-width="16"
+            :stroke-dasharray="ringDash"
+            transform="rotate(-90 64 64)"
+          />
+          <text
+            x="64" y="60"
+            text-anchor="middle"
+            class="fill-zinc-100 font-bold"
+            style="font-size: 22px"
+          >{{ Math.round(split.levelPct * 100) }}%</text>
+          <text
+            x="64" y="76"
+            text-anchor="middle"
+            class="fill-zinc-500"
+            style="font-size: 9px; letter-spacing: 0.1em"
+          >LEVELS</text>
+        </svg>
+
+        <ul class="flex-1 min-w-0 space-y-1.5">
+          <li
+            v-for="row in [
+              { label: 'Levels', n: split.levels, pct: split.levelPct, color: LEVEL_COLOR },
+              { label: 'Challenges', n: split.challenges, pct: split.challengePct, color: CHALLENGE_COLOR },
+            ]"
+            :key="row.label"
+            class="flex items-center gap-2 text-xs"
+          >
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: row.color }" />
+            <span class="flex-1 truncate text-zinc-200">{{ row.label }}</span>
+            <span class="tabular-nums text-zinc-500">{{ row.n.toLocaleString() }}</span>
+            <span class="tabular-nums text-zinc-600 w-9 text-right">{{ Math.round(row.pct * 100) }}%</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <!-- Skillset pie -->
     <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">

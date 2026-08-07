@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { roleBadgeClass } from '~/utils/role-styles'
 
 const props = defineProps<{
   target: string
@@ -121,11 +120,7 @@ async function openFollowers() {
                   <span v-else>{{ f.username.charAt(0).toUpperCase() }}</span>
                 </div>
                 <span class="text-sm text-zinc-200 font-medium">{{ f.username }}</span>
-                <span
-                  v-if="f.role !== 'user'"
-                  class="text-[9px] uppercase tracking-widest px-1 py-0.5 rounded ml-auto"
-                  :class="roleBadgeClass(f.role)"
-                >{{ f.role }}</span>
+                <RoleBadge :role="f.role" size="sm" class="ml-auto" />
               </NuxtLink>
             </li>
           </ul>

@@ -22,6 +22,19 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.14.0',
+    date: '2026-08-04',
+    title: 'Flags, a split of what you have beaten, and badges that tell roles apart',
+    tags: ['Profiles', 'The list', 'Fixes'],
+    changes: [
+      'Pick your country from a list in your profile settings, and its flag sits beside your name. It was a text box, where "UK", "U.K." and "england" are three different countries as far as the site is concerned.',
+      'Your profile shows how much of what you have beaten is levels and how much is challenges, as a ring. The two are different games — a challenge is under thirty seconds — so the split says something a completion count can\'t.',
+      'Role badges are one shape everywhere instead of seven hand-written ones, and each says what the role actually does when you hover it.',
+      'Fixed: Owner and Admin badges were the same colour. Owner was amber and Admin was the site accent, and the site accent is that amber — the two most consequential roles on the site were indistinguishable. Admin is violet now, and no site badge uses the accent, which on a custom list\'s pages is that list\'s own colour.',
+      'The Global Demonlist is demonlist.org, not gdladder.com. The importer has been reading its new home all along; only the places naming it were out of date.',
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-08-04',
     title: 'One move is one changelog entry',

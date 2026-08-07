@@ -1509,7 +1509,10 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <div class="min-w-0">
                 <div class="flex items-baseline gap-2 flex-wrap">
                   <NuxtLink :to="`/users/${u.username}`" class="font-medium text-zinc-100 hover:text-accent">{{ u.username }}</NuxtLink>
-                  <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded" :class="roleBadgeClass(u.role)">{{ u.role }}</span>
+                  <!-- The admin table is the one place a plain `user` is worth
+                       printing: it is a column of roles, and a blank cell there
+                       reads as missing data rather than as "no role". -->
+                  <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0" :class="roleBadgeClass(u.role)">{{ u.role }}</span>
                   <span
                     v-if="u.banned_at"
                     class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border bg-red-950/40 text-red-300 border-red-900/60"

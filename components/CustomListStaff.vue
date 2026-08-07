@@ -21,14 +21,14 @@ export type ListStaff = {
 
 defineProps<{ staff: ListStaff[] }>()
 
-const ROLE_LABEL: Record<ListStaff['role'], string> = {
-  owner: 'Owner',
-  editor: 'Editor',
-}
-const ROLE_TONE: Record<ListStaff['role'], string> = {
-  owner: 'border-accent/40 bg-accent/10 text-accent',
-  editor: 'border-zinc-800 bg-zinc-900 text-zinc-400',
-}
+/**
+ * Owner and editor here are roles *on this list*, not on the site, and they
+ * come from the same table as the site's — see `utils/role-styles.ts`. Keeping
+ * them apart matters: "Owner" of a list and "Owner" of the All Levels List are
+ * different jobs, so they say different things when you hover them, and the
+ * list's owner wears the list's own colour while the site's wears amber.
+ */
+const listRole = (role: ListStaff['role']) => (role === 'owner' ? 'list-owner' : 'list-editor')
 </script>
 
 <template>
@@ -37,7 +37,7 @@ const ROLE_TONE: Record<ListStaff['role'], string> = {
       <NuxtLink
         :to="`/users/${encodeURIComponent(p.username)}`"
         class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg group hover:bg-zinc-900 transition-colors"
-        :title="`${p.username} — ${ROLE_LABEL[p.role].toLowerCase()} of this list`"
+        :title="`${p.username} — ${p.role} of this list`"
       >
         <span class="w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">
           <img
@@ -52,10 +52,7 @@ const ROLE_TONE: Record<ListStaff['role'], string> = {
         <span class="min-w-0 flex-1 truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">
           {{ p.username }}
         </span>
-        <span
-          class="shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded border leading-none"
-          :class="ROLE_TONE[p.role]"
-        >{{ ROLE_LABEL[p.role] }}</span>
+        <RoleBadge :role="listRole(p.role)" size="sm" />
       </NuxtLink>
     </li>
   </ul>

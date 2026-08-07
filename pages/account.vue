@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { gdUserUrl, isGdUsername } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
-import { roleBadgeClass } from '~/utils/role-styles'
+import { allCountries, normalizeCountry } from '~/utils/countries'
+
+/** Every country, by name. Built once — see `utils/countries.ts`. */
+const countryOptions = allCountries()
 
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Account — All Levels List' })
@@ -29,7 +32,9 @@ const profileSaved = ref(false)
 watch(me, (val) => {
   if (val && !editing.value) {
     profile.bio = val.bio ?? ''
-    profile.country = val.country ?? ''
+    // A value typed when this was a free-text box becomes its code, so the
+    // picker opens on the country the profile already claims instead of blank.
+    profile.country = normalizeCountry(val.country) ?? ''
     profile.subdivision = val.subdivision ?? ''
     profile.pronouns = val.pronouns ?? ''
     profile.discord_handle = val.discord_handle ?? ''
@@ -41,7 +46,7 @@ watch(me, (val) => {
 function startEdit() {
   if (!me.value) return
   profile.bio = me.value.bio ?? ''
-  profile.country = me.value.country ?? ''
+  profile.country = normalizeCountry(me.value.country) ?? ''
   profile.subdivision = me.value.subdivision ?? ''
   profile.pronouns = me.value.pronouns ?? ''
   profile.discord_handle = me.value.discord_handle ?? ''
@@ -65,7 +70,7 @@ function startEdit() {
 function cancelEdit() {
   if (me.value) {
     profile.bio = me.value.bio ?? ''
-    profile.country = me.value.country ?? ''
+    profile.country = normalizeCountry(me.value.country) ?? ''
     profile.subdivision = me.value.subdivision ?? ''
     profile.pronouns = me.value.pronouns ?? ''
     profile.discord_handle = me.value.discord_handle ?? ''
@@ -971,19 +976,19 @@ function fmt(n: number | null | undefined) {
           <div class="flex-1 min-w-0 pb-1">
             <div class="flex items-center gap-2 flex-wrap">
               <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ me.username }}</h1>
-              <span
-                v-if="me.role !== 'user'"
-                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded"
-                :class="roleBadgeClass(me.role)"
-              >{{ me.role }}</span>
+              <!-- Follows the picker live while editing, so the flag you're
+                   choosing is the flag you can see. -->
+              <CountryFlag :country="editing ? profile.country : me.country" class="shrink-0" />
+              <RoleBadge :role="me.role" />
               <span v-if="me.pronouns" class="text-xs text-zinc-500">{{ me.pronouns }}</span>
             </div>
             <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span v-if="me.claimed_player">
                 playing as <span class="text-zinc-300">{{ me.claimed_player }}</span>
               </span>
-              <span v-if="me.subdivision || me.country">
-                <span v-if="me.subdivision">{{ me.subdivision }}, </span>{{ me.country }}
+              <span v-if="me.subdivision || me.country" class="inline-flex items-center gap-1">
+                <span v-if="me.subdivision">{{ me.subdivision }}<template v-if="me.country">,</template></span>
+                <CountryFlag :country="me.country" size="sm" with-name />
               </span>
               <span v-if="joined">joined {{ joined }}</span>
             </p>
@@ -1127,7 +1132,7 @@ function fmt(n: number | null | undefined) {
             <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
               <div v-if="me.country">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
-                <dd class="text-zinc-100">{{ me.country }}</dd>
+                <dd class="text-zinc-100"><CountryFlag :country="me.country" size="sm" with-name /></dd>
               </div>
               <div v-if="me.subdivision">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
@@ -1179,14 +1184,21 @@ function fmt(n: number | null | undefined) {
                 />
               </label>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- A list rather than a text box: the value draws a flag and
+                     is meant to be comparable between profiles, and "UK",
+                     "U.K." and "england" are three countries to a database. -->
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
-                  <input
-                    v-model="profile.country"
-                    maxlength="64"
-                    placeholder="e.g. United States"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
+                  <div class="mt-1 flex items-center gap-2">
+                    <CountryFlag v-if="profile.country" :country="profile.country" class="shrink-0" />
+                    <select
+                      v-model="profile.country"
+                      class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    >
+                      <option value="">— none —</option>
+                      <option v-for="c in countryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
+                    </select>
+                  </div>
                 </label>
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>

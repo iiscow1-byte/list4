@@ -43,7 +43,10 @@ export const ACS_SHEET_ID = '1tl3_d5vCMIAFxHZU-2prqw7hp9-DyFC_eDzS75tVi0U'
 export const LIST_SOURCES: ListSource[] = [
   { key: 'all', label: 'ALL — the main list', hint: 'Placements as shown on the sheet', supportsFilters: true },
   { key: 'aredl', label: 'AREDL — All Rated Extreme Demons', hint: 'aredl.net', supportsFilters: false, url: 'https://aredl.net' },
-  { key: 'gdl', label: 'GDL — Global Demonlist', hint: 'gdladder.com', supportsFilters: false, url: 'https://gdladder.com' },
+  // demonlist.org, not gdladder.com: the Global Demonlist moved, and the
+  // importer has been reading `api.demonlist.org` all along — only the places
+  // that *say* where it lives were still pointing at the old domain.
+  { key: 'gdl', label: 'GDL — Global Demonlist', hint: 'demonlist.org', supportsFilters: false, url: 'https://demonlist.org' },
   { key: 'mscl', label: 'MSCL — Super Challenge List', hint: 'mscl.dev', supportsFilters: false, url: 'https://mscl.dev' },
   {
     key: 'acs',

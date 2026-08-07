@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { roleBadgeClass } from '~/utils/role-styles'
 
 /**
  * The people behind a follower / following count.
@@ -152,14 +151,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                 <span class="flex-1 min-w-0 truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">
                   {{ r.name }}
                 </span>
-                <span
-                  v-if="r.role && r.role !== 'user'"
-                  class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded"
-                  :class="roleBadgeClass(r.role)"
-                >{{ r.role }}</span>
+                <RoleBadge :role="r.role" size="sm" />
                 <!-- A followed name with no account behind it: still a real
                      follow, just not a member here. -->
-                <span v-else-if="!r.username" class="shrink-0 text-[10px] text-zinc-600">player</span>
+                <span
+                  v-if="!r.username"
+                  class="shrink-0 text-[10px] text-zinc-600"
+                >player</span>
               </NuxtLink>
             </li>
           </ul>

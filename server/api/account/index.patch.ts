@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount, isAdminRole } from '~/server/utils/auth'
 import { isGdUsername } from '~/utils/gd-links'
+import { normalizeCountry } from '~/utils/countries'
 import { assertClean } from '~/server/utils/profanity-guard'
 
 function clamp(val: unknown, max: number): string | null {
@@ -15,13 +16,23 @@ export default defineEventHandler(async (event) => {
 
   const next = {
     bio: 'bio' in body ? clamp(body.bio, 1000) : me.bio,
-    country: 'country' in body ? clamp(body.country, 64) : me.country,
+    // Stored as an ISO code, so the flag beside a profile is derivable and two
+    // people from the same country say so identically. A name still resolves —
+    // the field was a text box, and "United States" means `US` — and anything
+    // else is refused below rather than stored as a country nobody can match.
+    country: 'country' in body ? normalizeCountry(clamp(body.country, 64)) : me.country,
     subdivision: 'subdivision' in body ? clamp(body.subdivision, 64) : me.subdivision,
     pronouns: 'pronouns' in body ? clamp(body.pronouns, 64) : me.pronouns,
     discord_handle: 'discord_handle' in body ? clamp(body.discord_handle, 64) : me.discord_handle,
     youtube_url: 'youtube_url' in body ? clamp(body.youtube_url, 500) : me.youtube_url,
     gd_username: 'gd_username' in body ? clamp(body.gd_username, 20) : (me as any).gd_username,
     favorite_level_note: 'favorite_level_note' in body ? clamp(body.favorite_level_note, 500) : me.favorite_level_note,
+  }
+
+  // Something was sent for the country and it wasn't one. Refused rather than
+  // quietly cleared: clearing looks identical to a save that worked.
+  if ('country' in body && clamp(body.country, 64) && !next.country) {
+    throw createError({ statusCode: 400, statusMessage: 'Pick a country from the list.' })
   }
 
   if (next.youtube_url) {

@@ -72,9 +72,9 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       list: 'GDL',
       badge: 'GDL',
       position: level.gdl_position,
-      // gdladder keys its level pages on its own ids, which the ALL row doesn't
-      // carry — the list's front page is the honest destination.
-      url: 'https://gdladder.com',
+      // The Global Demonlist keys its level pages on its own ids, which the ALL
+      // row doesn't carry — the list's front page is the honest destination.
+      url: 'https://demonlist.org',
     })
   }
   if (level.aredl_position != null) {

@@ -794,12 +794,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 <NuxtLink :to="`/users/${encodeURIComponent(e.username)}`" class="flex-1 truncate text-zinc-200 hover:text-accent transition-colors">
                   {{ e.username }}
                 </NuxtLink>
-                <span
-                  class="shrink-0 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border"
-                  :class="e.role === 'owner'
-                    ? 'border-accent/40 bg-accent/10 text-accent'
-                    : 'border-zinc-800 bg-zinc-900 text-zinc-400'"
-                >{{ e.role === 'owner' ? 'Owner' : 'Editor' }}</span>
+                <RoleBadge :role="e.role === 'owner' ? 'list-owner' : 'list-editor'" size="sm" />
                 <button
                   v-if="canManage && e.role !== 'owner'"
                   type="button"

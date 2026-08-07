@@ -161,7 +161,7 @@ const VARIANTS: { id: ListVariant; hint: string }[] = [
 ]
 const EXTERNAL_VARIANTS: { id: ListVariant; hint: string }[] = [
   { id: 'AREDL', hint: 'Ranked by aredl.net' },
-  { id: 'GDL', hint: 'Ranked by gdladder.com' },
+  { id: 'GDL', hint: 'Ranked by demonlist.org' },
   { id: 'CL', hint: 'Ranked by challengelist.gd' },
 ]
 
