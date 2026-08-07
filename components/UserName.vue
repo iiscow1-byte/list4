@@ -1,4 +1,9 @@
 <script setup lang="ts">
+// Imported rather than resolved by name. `resolveComponent('NuxtLink')` inside
+// a template expression returns the *string* when the name isn't registered on
+// the instance, and `<component :is>` then renders a literal `<NuxtLink>`
+// element: the name still shows, styled, and is silently not a link.
+import { NuxtLink } from '#components'
 import { roleBadgeClass } from '~/utils/role-styles'
 
 /**
@@ -47,7 +52,7 @@ const chip = computed(() =>
 <template>
   <span class="inline-flex items-center gap-1.5 min-w-0">
     <component
-      :is="to ? resolveComponent('NuxtLink') : 'span'"
+      :is="to ? NuxtLink : 'span'"
       :to="to ?? undefined"
       class="truncate"
       :class="to ? 'hover:text-accent transition-colors' : ''"

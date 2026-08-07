@@ -16,10 +16,17 @@ const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list, base, refresh, req } = useCustomList(publicId)
 const { to } = useStandaloneList()
+// The ALL's measured tier-to-placement shape — see `useTierCurve`.
+const tierCurve = useTierCurve()
 // The drafts are built from the list during setup, so the list has to be here
 // by then. Without this the server rendered "every level is already on the ALL"
 // and the real rows only appeared after hydration.
-await req
+//
+// The curve is awaited for a sharper reason: each draft's estimate is *copied*
+// into an editable field, so whatever the curve says at this moment is the
+// number the submitter sends. Estimating without it here and with it in the
+// importer is the same level getting two different answers out of one formula.
+await Promise.all([req, tierCurve.ready])
 
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
@@ -37,9 +44,6 @@ type Draft = {
   selected: boolean
   basis: string | null
 }
-
-// The ALL's measured tier-to-placement shape — see `useTierCurve`.
-const tierCurve = useTierCurve()
 
 const drafts = ref<Draft[]>([])
 

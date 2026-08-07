@@ -1141,6 +1141,7 @@ function initSchema(db: DatabaseSync) {
       comparable     TEXT,
       source         TEXT,
       aredl_note     TEXT,
+      verification_url TEXT,
       promoted_to_position INTEGER,
       fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(tab, position)
@@ -1151,6 +1152,12 @@ function initSchema(db: DatabaseSync) {
   `)
   if (!columnExists('levels', 'acs_position')) db.exec(`ALTER TABLE levels ADD COLUMN acs_position INTEGER`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_acs_position ON levels(acs_position)`)
+  // The verification video, taken from the hyperlink on the level's name — the
+  // sheet keeps it there rather than in a column of its own, and no CSV export
+  // of a Google Sheet carries a hyperlink. See `server/utils/xlsx.ts`.
+  if (!columnExists('acs_levels', 'verification_url')) {
+    db.exec(`ALTER TABLE acs_levels ADD COLUMN verification_url TEXT`)
+  }
 
   /**
    * The two editorial overrides for "is this a challenge?".

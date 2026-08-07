@@ -140,6 +140,55 @@ type ListVariant = 'Classic' | 'Rated' | 'Challenge' | 'AREDL' | 'GDL' | 'CL'
 const listVariant = ref<ListVariant>('Classic')
 const externalList = ref('')
 
+/**
+ * The list you are reading, as a menu.
+ *
+ * These three are not filters — they are three different lists that happen to
+ * come out of one table, each renumbered from 1 — and they were reachable only
+ * from a radio group inside the advanced-search dialog, behind a funnel icon,
+ * under the heading "List variants". The name of the current one was printed at
+ * the top of the panel as plain text, which is exactly where someone would try
+ * to click to change it.
+ *
+ * The external rankings stay in the same menu rather than a second control:
+ * they set the same `listVariant`, so a menu that couldn't show one couldn't
+ * display the current state either.
+ */
+const VARIANTS: { id: ListVariant; hint: string }[] = [
+  { id: 'Classic', hint: 'Every level, in list order' },
+  { id: 'Challenge', hint: 'Challenges only, renumbered from 1' },
+  { id: 'Rated', hint: 'Rated levels only, renumbered from 1' },
+]
+const EXTERNAL_VARIANTS: { id: ListVariant; hint: string }[] = [
+  { id: 'AREDL', hint: 'Ranked by aredl.net' },
+  { id: 'GDL', hint: 'Ranked by gdladder.com' },
+  { id: 'CL', hint: 'Ranked by challengelist.gd' },
+]
+
+const variantOpen = ref(false)
+const variantRoot = ref<HTMLElement | null>(null)
+
+function onVariantDocClick(e: MouseEvent) {
+  if (!variantOpen.value) return
+  if (!variantRoot.value?.contains(e.target as Node)) variantOpen.value = false
+}
+function onVariantEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape') variantOpen.value = false
+}
+onMounted(() => {
+  document.addEventListener('click', onVariantDocClick)
+  document.addEventListener('keydown', onVariantEsc)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onVariantDocClick)
+  document.removeEventListener('keydown', onVariantEsc)
+})
+
+function pickVariant(v: ListVariant) {
+  variantOpen.value = false
+  if (v !== listVariant.value) applyVariant(v)
+}
+
 function applyVariant(v: ListVariant) {
   listVariant.value = v
   for (const r of RATINGS) ratingSet[r] = false
@@ -505,9 +554,91 @@ watch(
       <span class="text-[11px] text-accent leading-snug flex-1">{{ pickModeHint ?? '← Click a level to place current level below it' }}</span>
     </div>
     <div class="p-3 border-b border-zinc-800/80 shrink-0">
-      <div class="flex items-center gap-2 mb-2.5 px-1">
-        <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ listVariant }}</span>
-        <span class="text-[10px] text-zinc-600 tabular-nums ml-auto">{{ total.toLocaleString() }}</span>
+      <div class="flex items-center gap-2 mb-2.5">
+        <!-- Which list this is, and how to read a different one -->
+        <div ref="variantRoot" class="relative">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] uppercase tracking-widest font-semibold transition-colors"
+            :class="variantOpen
+              ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/30'
+              : 'text-accent hover:bg-accent/10'"
+            :aria-expanded="variantOpen"
+            aria-haspopup="menu"
+            title="Read a different list"
+            @click.stop="variantOpen = !variantOpen"
+          >
+            {{ listVariant }}
+            <svg
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round"
+              class="w-2.5 h-2.5 transition-transform" :class="variantOpen ? 'rotate-180' : ''"
+              aria-hidden="true"
+            ><path d="m6 9 6 6 6-6" /></svg>
+          </button>
+
+          <div
+            v-if="variantOpen"
+            role="menu"
+            class="absolute left-0 top-full mt-1.5 w-60 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden py-1"
+          >
+            <button
+              v-for="v in VARIANTS"
+              :key="v.id"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="listVariant === v.id"
+              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors"
+              :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
+              @click="pickVariant(v.id)"
+            >
+              <span
+                class="mt-0.5 w-3 shrink-0 text-[10px] leading-none"
+                :class="listVariant === v.id ? 'text-accent' : 'text-transparent'"
+                aria-hidden="true"
+              >✓</span>
+              <span class="min-w-0">
+                <span class="block text-xs font-medium" :class="listVariant === v.id ? 'text-accent' : 'text-zinc-200'">{{ v.id }}</span>
+                <span class="block text-[10px] text-zinc-600 leading-snug">{{ v.hint }}</span>
+              </span>
+            </button>
+
+            <p class="mt-1 px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest text-zinc-600 font-semibold border-t border-zinc-900">
+              Ranked by another list
+            </p>
+            <button
+              v-for="v in EXTERNAL_VARIANTS"
+              :key="v.id"
+              type="button"
+              role="menuitemradio"
+              :aria-checked="listVariant === v.id"
+              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors"
+              :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
+              @click="pickVariant(v.id)"
+            >
+              <span
+                class="mt-0.5 w-3 shrink-0 text-[10px] leading-none"
+                :class="listVariant === v.id ? 'text-accent' : 'text-transparent'"
+                aria-hidden="true"
+              >✓</span>
+              <span class="min-w-0">
+                <span class="block text-xs font-medium" :class="listVariant === v.id ? 'text-accent' : 'text-zinc-200'">{{ v.id }}</span>
+                <span class="block text-[10px] text-zinc-600 leading-snug">{{ v.hint }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- The count says what it counts, and goes where the rest of the
+             numbers are. In pick mode it stays plain text: that panel is a
+             modal for choosing a level, and a link out of it loses the pick. -->
+        <NuxtLink
+          v-if="!pickMode"
+          to="/about?tab=stats"
+          class="ml-auto text-[10px] text-zinc-600 hover:text-accent transition-colors tabular-nums px-1"
+          title="Stats for the whole list"
+        >{{ total.toLocaleString() }} levels</NuxtLink>
+        <span v-else class="ml-auto text-[10px] text-zinc-600 tabular-nums px-1">{{ total.toLocaleString() }} levels</span>
       </div>
 
       <div class="flex items-stretch gap-1.5">
@@ -582,60 +713,12 @@ watch(
           <div class="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-0 flex-1 overflow-hidden">
             <!-- Left column: general filters -->
             <div class="p-4 space-y-4 text-xs overflow-y-auto md:border-r border-zinc-800">
-              <!-- List variants -->
-              <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">List variants</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="v in (['Classic', 'Challenge', 'Rated'] as const)"
-                    :key="v"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-                    :class="listVariant === v
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input type="radio" :value="v" :checked="listVariant === v" class="sr-only" @change="applyVariant(v)" />
-                    {{ v }}
-                  </label>
-                </div>
-              </div>
-
-              <!-- External list rankings -->
-              <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Ranked by external list</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-                    :class="listVariant === 'AREDL'
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                    title="Levels ranked on AREDL, sorted by their AREDL position"
-                  >
-                    <input type="radio" value="AREDL" :checked="listVariant === 'AREDL'" class="sr-only" @change="applyVariant('AREDL')" />
-                    AREDL
-                  </label>
-                  <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-                    :class="listVariant === 'GDL'
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                    title="Levels ranked on the Global Demon List, sorted by their GDL position"
-                  >
-                    <input type="radio" value="GDL" :checked="listVariant === 'GDL'" class="sr-only" @change="applyVariant('GDL')" />
-                    GDL
-                  </label>
-                  <label
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-                    :class="listVariant === 'CL'
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                    title="Levels ranked on the Challenge List, sorted by their CL position"
-                  >
-                    <input type="radio" value="CL" :checked="listVariant === 'CL'" class="sr-only" @change="applyVariant('CL')" />
-                    CL
-                  </label>
-                </div>
-              </div>
+              <!-- The list variants used to live here, as two radio groups.
+                   They aren't filters: each is a different list, renumbered
+                   from 1, and this dialog is for narrowing the one you're
+                   already reading. They're the dropdown on the panel header
+                   now — visible without opening anything, next to the name of
+                   the variant it changes. -->
 
               <!-- Tier range -->
               <div>

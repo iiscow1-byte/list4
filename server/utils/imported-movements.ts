@@ -154,6 +154,18 @@ export function sharedWithAll(db: DatabaseSync, source: string): SharedRow[] {
         ORDER BY m.position ASC`,
     ).all() as SharedRow[])
   }
+  if (source === 'acs') {
+    // Only the ranked tab, and only its real placements: the importer parks
+    // unranked rows past 100,000 so they can't collide with rank 1, and a
+    // parked row has no opinion about ordering to disagree with.
+    return dropAmbiguous(db.prepare(
+      `SELECT a.position AS source_position, ${SHARED_COLS}
+         FROM acs_levels a
+         JOIN levels l ON l.gd_id = a.gd_id
+        WHERE a.tab = 'extreme' AND a.position < 100000 AND a.gd_id IS NOT NULL
+        ORDER BY a.position ASC`,
+    ).all() as SharedRow[])
+  }
   if (source.startsWith('gdtpl:')) {
     return dropAmbiguous(db.prepare(
       `SELECT g.position AS source_position, ${SHARED_COLS}

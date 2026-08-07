@@ -25,6 +25,11 @@ type PendingLevel = {
   submitted_at: string
   submitter: string | null
   placement_estimate: number | null
+  /** The two levels the estimate would land between — see `pending.get.ts`. */
+  est_above_name?: string | null
+  est_above_position?: number | null
+  est_below_name?: string | null
+  est_below_position?: number | null
   comparison_level_id: number | null
   comparison_level_name: string | null
   from_open_verification_id: number | null
@@ -701,6 +706,39 @@ async function saveEdit() {
     editSaving.value = false
   }
 }
+/**
+ * What an estimate sits between, in words.
+ *
+ * An imported level arrives carrying a number and nothing else, and a bare
+ * "#4,312" out of fifty thousand is not something anyone can agree or disagree
+ * with. The two levels that would end up either side of it are — they are the
+ * comparison the reviewer was going to make by hand anyway.
+ */
+type EstimateNeighbour = { name: string; position: number | null }
+function estimateNeighbours(r: PendingRow | null): {
+  above: EstimateNeighbour | null
+  below: EstimateNeighbour | null
+} {
+  return {
+    above: r?.est_above_name ? { name: r.est_above_name, position: r.est_above_position ?? null } : null,
+    below: r?.est_below_name ? { name: r.est_below_name, position: r.est_below_position ?? null } : null,
+  }
+}
+
+/** The same thing as one string, for the queue row's tooltip. */
+function estimateTitle(r: PendingRow): string {
+  const head = isImported.value
+    ? `Estimated placement #${r.placement_estimate?.toLocaleString()}`
+    : `Placement the submitter estimated: #${r.placement_estimate?.toLocaleString()}`
+  const { above, below } = estimateNeighbours(r)
+  const at = (n: EstimateNeighbour) =>
+    n.position != null ? `${n.name} (#${n.position.toLocaleString()})` : n.name
+  if (above && below) return `${head} — between ${at(above)} and ${at(below)}`
+  if (above) return `${head} — just below ${at(above)}`
+  if (below) return `${head} — just above ${at(below)}`
+  return head
+}
+
 watch(preview, (p) => {
   if (!p) return
   const above = p.above[p.above.length - 1]
@@ -961,7 +999,7 @@ watch(preview, (p) => {
                 <span
                   v-if="r.placement_estimate != null"
                   class="shrink-0 px-1.5 py-px rounded border border-zinc-700 bg-zinc-900/80 text-zinc-400 tabular-nums"
-                  title="Placement the submitter estimated"
+                  :title="estimateTitle(r)"
                 >~#{{ r.placement_estimate }}</span>
               </div>
 
@@ -1275,15 +1313,40 @@ watch(preview, (p) => {
             :disabled="goesToVoid && false"
             class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
           />
-          <div class="flex items-center gap-2 mt-1">
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
             <p
               v-if="selected?.placement_estimate != null"
               class="text-[10px] text-accent"
             >
-              Submitter estimated #{{ selected.placement_estimate }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
+              <template v-if="isImported">Estimated</template>
+              <template v-else>Submitter estimated</template>
+              #{{ selected.placement_estimate.toLocaleString() }}<span v-if="selected.comparison_level_name"> (compared to {{ selected.comparison_level_name }})</span>.
             </p>
             <p v-if="placementSaved" class="text-[10px] text-emerald-400">Saved</p>
           </div>
+          <!-- …and what that number means: the levels it would land between.
+               A placement out of fifty thousand is only reviewable next to its
+               neighbours. -->
+          <p
+            v-if="selected?.placement_estimate != null && (estimateNeighbours(selected).above || estimateNeighbours(selected).below)"
+            class="text-[10px] text-zinc-500 mt-1 leading-snug"
+          >
+            <template v-if="estimateNeighbours(selected).above && estimateNeighbours(selected).below">Between</template>
+            <template v-else-if="estimateNeighbours(selected).above">Just below</template>
+            <template v-else>Just above</template>
+            <template v-for="(n, i) in [estimateNeighbours(selected).above, estimateNeighbours(selected).below].filter(Boolean)" :key="i">
+              <span v-if="i > 0" class="text-zinc-600"> and </span>
+              <a
+                v-if="n!.position"
+                :href="`/levels/${n!.position}`"
+                target="_blank"
+                rel="noopener"
+                class="text-zinc-300 hover:text-accent transition-colors"
+              >{{ n!.name }}</a>
+              <span v-else class="text-zinc-300">{{ n!.name }}</span>
+              <span v-if="n!.position != null" class="text-zinc-600 tabular-nums"> #{{ n!.position.toLocaleString() }}</span>
+            </template>
+          </p>
           <p class="text-[10px] text-zinc-500 mt-1">
             <template v-if="goesToVoid">Position in the void list (no difficulty opinion).</template>
             <template v-else>Position in the main list. Existing levels at and below shift down by one.</template>

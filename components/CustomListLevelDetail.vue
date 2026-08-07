@@ -1,4 +1,8 @@
 <script setup lang="ts">
+// See the note in `UserName.vue`: resolving this by name from inside a template
+// expression yields the string, and the credit renders as a literal
+// `<NuxtLink>` element that looks right and doesn't navigate.
+import { NuxtLink } from '#components'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { youtubeIdFrom } from '~/utils/level-thumbs'
 import { gdLevelUrl } from '~/utils/gd-links'
@@ -26,12 +30,18 @@ const emit = defineEmits<{ (e: 'changed'): void }>()
 const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
 const { to } = useStandaloneList()
 
-/** Who made it and who beat it first, in that order, skipping what's unknown. */
-const credits = computed(() => {
-  const out: { label: string; value: string }[] = []
-  if (props.item?.creator) out.push({ label: 'Creator', value: String(props.item.creator) })
-  if (props.item?.verifier) out.push({ label: 'Verifier', value: String(props.item.verifier) })
-  return out
+/**
+ * "Everything else by this creator", as a link.
+ *
+ * The nav's search already matches on creator; this hands it the name rather
+ * than making someone retype it, and stays on the level being read so the
+ * filter is something you can glance at and undo. `q` is the nav's search box —
+ * see `CustomListNav`.
+ */
+const creatorHref = computed(() => {
+  const c = props.item?.creator
+  if (!c) return null
+  return to(`${props.listPath}/${props.item.rank}?q=${encodeURIComponent(String(c))}`)
 })
 
 // ---------- inline editor ----------
@@ -275,23 +285,30 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         </div>
         <h1 class="text-2xl sm:text-4xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ item.name }}</h1>
         <!-- Credits.
-             Was one grey line reading "by X · verified by X", which had two
-             problems over a level's artwork: the two names were the same size
-             and colour as the word joining them, so neither read as a name, and
-             a level with only a verifier printed a sentence starting "verified
-             by" with nothing before it. Each credit is now its own chip with
-             its own label, and a missing one leaves no trace. -->
-        <div v-if="item.creator || item.verifier" class="flex flex-wrap items-center gap-2">
-          <span
-            v-for="c in credits"
-            :key="c.label"
-            class="inline-flex items-baseline gap-2 rounded-lg border border-zinc-800/80 bg-zinc-950/60 px-2.5 py-1 backdrop-blur-sm max-w-full"
-            :title="`${c.label}: ${c.value}`"
-          >
-            <span class="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">{{ c.label }}</span>
-            <span class="text-sm text-zinc-100 truncate">{{ c.value }}</span>
-          </span>
-        </div>
+             A sentence, because that is what it is — but one where the two
+             names carry the weight and the words joining them get out of the
+             way. It read "by X · verified by X" in a single flat grey, so
+             neither name looked like a name; boxing each in a labelled chip
+             fixed that and cost the line its readability. A level with only a
+             verifier still starts at "verified by", with nothing dangling
+             before it. -->
+        <p v-if="item.creator || item.verifier" class="flex flex-wrap items-baseline gap-x-1.5 text-sm text-zinc-500">
+          <template v-if="item.creator">
+            <span>by</span>
+            <component
+              :is="creatorHref ? NuxtLink : 'span'"
+              :to="creatorHref ?? undefined"
+              class="font-medium text-zinc-100 drop-shadow-sm"
+              :class="creatorHref ? 'hover:text-accent transition-colors' : ''"
+              :title="creatorHref ? `Show everything by ${item.creator} on this list` : undefined"
+            >{{ item.creator }}</component>
+          </template>
+          <span v-if="item.creator && item.verifier" aria-hidden="true" class="text-zinc-700">·</span>
+          <template v-if="item.verifier">
+            <span>verified by</span>
+            <span class="font-medium text-zinc-100 drop-shadow-sm">{{ item.verifier }}</span>
+          </template>
+        </p>
         <!-- Step through the list without going back to the nav -->
         <nav class="flex items-center gap-1.5 pt-1">
           <NuxtLink

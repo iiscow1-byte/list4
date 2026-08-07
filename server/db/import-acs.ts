@@ -2,6 +2,7 @@ import { getDb } from './index.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
 import { buildAnchors, estimateForSourcePosition } from '../utils/import-estimates.ts'
 import { getTierCurve } from '../utils/tier-curve.ts'
+import { unzip, readSharedStrings, linkedColumn } from '../utils/xlsx.ts'
 
 /**
  * ACS — the **ALL CHALLENGES LIST** sheet.
@@ -29,6 +30,16 @@ import { getTierCurve } from '../utils/tier-curve.ts'
  * the placement is the column that best matches the sequence 1, 2, 3, … Both
  * are logged on every run, so a layout change shows up as a different mapping
  * in the log rather than as silently empty data.
+ *
+ * ## The verification videos
+ *
+ * They are not in a column. Each level's video is the **hyperlink on its name**,
+ * and no text export of a Google Sheet carries a hyperlink — not CSV, not TSV,
+ * not the gviz JSON. The workbook export does, so the sheet is fetched a second
+ * time as .xlsx and read for the links on the name column (see
+ * `server/utils/xlsx.ts`). The two exports are joined on row number and checked
+ * against each other's text for that cell, so a sheet edited between the two
+ * requests loses a video rather than borrowing the wrong one.
  */
 const SHEET_ID = process.env.ACS_SHEET_ID
   || '1tl3_d5vCMIAFxHZU-2prqw7hp9-DyFC_eDzS75tVi0U'
@@ -41,6 +52,16 @@ const TABS: { gid: string; tab: string; label: string }[] = [
 
 const csvUrl = (gid: string) =>
   `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`
+
+/**
+ * The whole workbook, for the one thing the CSV can't carry: hyperlinks.
+ *
+ * Each level's verification video is a link *on its name*, not a cell of its
+ * own. `gviz` returns cell values, so every one of those links was invisible to
+ * this importer — 927 videos the sheet had and the ALL didn't.
+ */
+const workbookUrl = () =>
+  `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`
 
 /** Minimal RFC-4180 reader: quoted fields, doubled quotes, embedded newlines. */
 export function parseCsv(text: string): string[][] {
@@ -168,9 +189,55 @@ export type CcplRow = {
   comparable: string | null
   source: string | null
   aredl_note: string | null
+  verification_url: string | null
 }
 
-async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRow[]> {
+/**
+ * Videos linked from the level names of one tab, keyed by sheet row.
+ *
+ * The two exports have to be joined on something, and row number alone is a
+ * guess: the CSV's rows line up with the workbook's today, and would line up
+ * with something else entirely the day a row is inserted between two exports.
+ * So the workbook's own text for the cell comes back with the link, and the
+ * caller only takes a URL when that text is the name it already read. A
+ * mismatch costs one video; a wrong match would credit a level with someone
+ * else's verification.
+ */
+export type NameLinks = Map<number, { text: string; url: string }>
+
+/** The workbook, parsed once and read per tab. */
+type Workbook = { entries: Map<string, Buffer>; shared: string[] }
+
+async function fetchWorkbook(): Promise<Workbook> {
+  const res = await fetch(workbookUrl())
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching the workbook`)
+  const entries = unzip(Buffer.from(await res.arrayBuffer()))
+  return { entries, shared: readSharedStrings(entries) }
+}
+
+/**
+ * One tab's name-column links, keyed by sheet row.
+ *
+ * The name column index comes from the CSV header, so this can only be read
+ * once that tab's columns are resolved — the same index means the same column
+ * in both exports.
+ */
+function nameLinksFor(wb: Workbook | null, label: string, nameCol: number): NameLinks {
+  const map: NameLinks = new Map()
+  if (!wb) return map
+  for (const cell of linkedColumn(wb.entries, label, nameCol, wb.shared)) {
+    if (!/^https?:\/\//i.test(cell.url)) continue
+    map.set(cell.row, { text: cell.text, url: cell.url })
+  }
+  return map
+}
+
+async function fetchTab(
+  gid: string,
+  label: string,
+  tab: string,
+  wb: Workbook | null,
+): Promise<CcplRow[]> {
   const res = await fetch(csvUrl(gid), { headers: { Accept: 'text/csv' } })
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${label}`)
   const rows = parseCsv(await res.text())
@@ -189,13 +256,26 @@ async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRo
     + ` tier@${cols.tier ?? '-'} source@${cols.source ?? '-'}`,
   )
 
+  const links = nameLinksFor(wb, label, cols.name)
+  let videos = 0
+  let mismatched = 0
+
   const get = (r: string[], c: number | null) => (c == null ? null : clean(r[c]) || null)
   const out: CcplRow[] = []
   let fallbackPos = 0
 
-  for (const r of data) {
+  for (const [i, r] of data.entries()) {
     const name = clean(r[cols.name])
     if (!name) continue
+
+    // `data` starts one row after the header, and sheet rows are 1-based.
+    const sheetRow = headerIdx + i + 2
+    const link = links.get(sheetRow)
+    let verification_url: string | null = null
+    if (link) {
+      if (link.text === name) { verification_url = link.url; videos++ }
+      else mismatched++
+    }
 
     // A row the sheet hasn't ranked still belongs in the mirror — it just
     // can't claim a placement, so it gets one past the end of the real ones
@@ -216,7 +296,14 @@ async function fetchTab(gid: string, label: string, tab: string): Promise<CcplRo
       comparable: get(r, cols.comparable),
       source: get(r, cols.source),
       aredl_note: get(r, cols.aredl),
+      verification_url,
     })
+  }
+  if (links.size) {
+    console.log(
+      `[acs]   ${label}: ${videos} verification videos from linked names`
+      + (mismatched ? ` (${mismatched} skipped — the workbook and the CSV disagree about that row)` : ''),
+    )
   }
   return out
 }
@@ -228,14 +315,25 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
   const db = getDb()
   const now = new Date().toISOString()
 
-  report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length })
+  report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length + 1 })
+  // The workbook is only needed for the links on the names. A sheet that has
+  // none, or an export that fails, is a sheet without videos — not a failed
+  // import, so this degrades rather than throwing.
+  let wb: Workbook | null = null
+  try {
+    wb = await fetchWorkbook()
+  } catch (err) {
+    console.warn(`[acs] could not read the workbook for verification links: ${(err as Error).message}`)
+  }
+  report?.({ phase: 'Fetching the sheet', done: 1, total: TABS.length + 1 })
+
   const all: CcplRow[] = []
   for (const [i, t] of TABS.entries()) {
     console.log(`[acs] Fetching ${t.label}…`)
-    const rows = await fetchTab(t.gid, t.label, t.tab)
+    const rows = await fetchTab(t.gid, t.label, t.tab, wb)
     console.log(`[acs]   ${rows.length} levels`)
     all.push(...rows)
-    report?.({ phase: 'Fetching the sheet', done: i + 1, total: TABS.length })
+    report?.({ phase: 'Fetching the sheet', done: i + 2, total: TABS.length + 1 })
   }
 
   if (!all.length) {
@@ -245,12 +343,14 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
 
   const insOwn = db.prepare(`
     INSERT INTO acs_levels
-      (tab, position, gd_id, name, acs_tier, skillset, comparable, source, aredl_note, fetched_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
+      (tab, position, gd_id, name, acs_tier, skillset, comparable, source, aredl_note,
+       verification_url, fetched_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(tab, position) DO UPDATE SET
       gd_id = excluded.gd_id, name = excluded.name, acs_tier = excluded.acs_tier,
       skillset = excluded.skillset, comparable = excluded.comparable,
       source = excluded.source, aredl_note = excluded.aredl_note,
+      verification_url = excluded.verification_url,
       fetched_at = excluded.fetched_at
   `)
   const findLevel = db.prepare(`SELECT id FROM levels WHERE gd_id = ?`)
@@ -273,7 +373,7 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
     for (const r of all) {
       insOwn.run(
         r.tab, r.position, r.gd_id, r.name, r.acs_tier,
-        r.skillset, r.comparable, r.source, r.aredl_note, now,
+        r.skillset, r.comparable, r.source, r.aredl_note, r.verification_url, now,
       )
       if (!r.gd_id) { acsOnly++; continue }
       const existing = findLevel.get(r.gd_id) as { id: number } | undefined
@@ -301,14 +401,14 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
   // --- Queue the levels the ALL doesn't have for review ---
   report?.({ phase: 'Matching against the ALL', done: 0, total: null })
   const onlyHere = db.prepare(
-    `SELECT p.id, p.gd_id, p.position, p.name
+    `SELECT p.id, p.gd_id, p.position, p.name, p.verification_url
        FROM acs_levels p
        LEFT JOIN levels l ON l.gd_id = p.gd_id
       WHERE l.id IS NULL
         AND p.gd_id IS NOT NULL
         AND p.promoted_to_position IS NULL
         AND p.position < 100000`,
-  ).all() as { id: number; gd_id: number; position: number; name: string }[]
+  ).all() as { id: number; gd_id: number; position: number; name: string; verification_url: string | null }[]
 
   const curve = getTierCurve(db)
   const anchors = buildAnchors(
@@ -325,10 +425,13 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
   const insPending = db.prepare(
     `INSERT INTO pending_levels
        (gd_id, name, difficulty, notes, placement_source, placement_estimate,
-        gddl_tier, gddl_tier_estimated, status, submitted_at, from_acs_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+        gddl_tier, gddl_tier_estimated, verification_url, status, submitted_at, from_acs_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
      ON CONFLICT(from_acs_id) WHERE from_acs_id IS NOT NULL DO UPDATE SET
        placement_estimate = excluded.placement_estimate,
+       -- Fills a blank, never overwrites: a reviewer who found the video
+       -- themselves has the better link, and the sheet may not have one at all.
+       verification_url = COALESCE(pending_levels.verification_url, excluded.verification_url),
        gddl_tier = CASE
          WHEN pending_levels.gddl_tier_estimated = 1 OR pending_levels.gddl_tier IS NULL
            THEN excluded.gddl_tier
@@ -358,7 +461,8 @@ export async function importAcs(report?: ProgressReporter): Promise<void> {
         const result = insPending.run(
           lv.gd_id, lv.name, 'Extreme Demon',
           `Imported from the ALL Challenges List · placement #${lv.position}`,
-          PLACEMENT_SOURCE, placement, est.tier, est.tier ? 1 : 0, now, lv.id,
+          PLACEMENT_SOURCE, placement, est.tier, est.tier ? 1 : 0,
+          lv.verification_url, now, lv.id,
         )
         if (result.changes > 0) queued++
       }

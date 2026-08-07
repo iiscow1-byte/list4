@@ -43,6 +43,26 @@ export default defineEventHandler((event) => {
               g.list_slug AS gdtpl_list_slug,
               g.position AS gdtpl_position,
               acs.position AS acs_position,
+              -- What the estimate sits between. An imported level arrives with
+              -- a number and nothing else, and "#4,312" is not reviewable: the
+              -- question a curator is actually asking is "harder than what,
+              -- easier than what". These are the two levels that would end up
+              -- either side of it, read from the slot the estimate names.
+              --
+              -- Numbered by position, not by the sheet placement, because that
+              -- is the number space the estimate itself is in and the one the
+              -- placement box takes. The two differ by however many slots the
+              -- sheet skips, so mixing them prints a level "above" the estimate
+              -- carrying the estimate's own number.
+              -- (No backticks in here: this is a template literal.)
+              (SELECT l2.name FROM levels l2 WHERE l2.position < p.placement_estimate
+                ORDER BY l2.position DESC LIMIT 1) AS est_above_name,
+              (SELECT l2.position FROM levels l2 WHERE l2.position < p.placement_estimate
+                ORDER BY l2.position DESC LIMIT 1) AS est_above_position,
+              (SELECT l2.name FROM levels l2 WHERE l2.position >= p.placement_estimate
+                ORDER BY l2.position ASC LIMIT 1) AS est_below_name,
+              (SELECT l2.position FROM levels l2 WHERE l2.position >= p.placement_estimate
+                ORDER BY l2.position ASC LIMIT 1) AS est_below_position,
               a.username AS submitter,
               dup.position AS potential_duplicate_position,
               dup.name     AS potential_duplicate_name

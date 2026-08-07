@@ -520,6 +520,30 @@ different mapping in the log rather than as silently empty data.
 **Over half the rows have no level ID** (520 of 940). `gd_id` therefore can't be
 the key or a requirement; `acs_levels` is keyed on `(tab, position)`.
 
+### The verification videos are hyperlinks, so the sheet is read twice
+
+Each level's video is the **link on its name**, not a cell. No text export of a
+Google Sheet carries a hyperlink — not `gviz` CSV, not TSV, not the JSON
+endpoint — and `pubhtml` needs the document to be published, which this one
+isn't. The workbook export does carry them, so the importer fetches
+`export?format=xlsx` as well and reads the links off the name column with
+`server/utils/xlsx.ts`: a zip reader and three regexes, no dependency.
+
+The two exports are joined on **row number and cell text**. Row number alone is
+a guess that happens to be right until someone inserts a row between the two
+requests; so the workbook's own text for that cell comes back with the link, and
+a URL is only taken when it matches the name the CSV already read. A mismatch
+costs one video — the last run reported exactly that, `928 verification videos
+from linked names (1 skipped)` — where a wrong match would credit a level with
+someone else's verification.
+
+Two things in that reader are worth not re-deriving. Cell values arrive three
+ways (shared-string index, inline string, literal) and a level name can be any
+of them. And the attribute run in `<c …>` must be matched **lazily**: greedy, it
+eats the `/` of a self-closing `<c r="D5"/>`, matches the `>` branch instead, and
+swallows every cell up to the next `</c>` — which on this sheet meant every
+level name, since each is preceded by an empty spacer column.
+
 Rows are upserted and stale ones removed afterwards by `fetched_at`, *not*
 cleared first. `pending_levels.from_acs_id` points at these ids: wiping the
 table gave every surviving row a new id, the pending rows' conflict target
@@ -602,6 +626,12 @@ The Challenge List is read from `levels.challenge_list_position` and excluded
 from the `gdtpl_levels` query, because the CL importer writes both and the
 column is the cleaned one. Miss that and the level is listed twice.
 
+The **ACS is deliberately not here**, though `levels.acs_position` is imported
+and used everywhere else. This panel answers "where else is this level ranked",
+and the ACS is not somewhere else: it is this project's own working sheet, where
+challenges are staged before they land on the ALL. Listing it beside GDL and
+AREDL presented the ALL citing itself as an independent second opinion.
+
 Measured over the whole list: 3,041 levels are on exactly one other list, 952 on
 two, 146 on three — including 206 that two GDListTemplate lists both carry
 (`CCL #2 · SFL #1`, `EDI #711 · TSL #1`). The panel's existing rule that a
@@ -662,6 +692,22 @@ produces an estimate that gets *harder* further down the list.
 `/api/levels/tier-curve` serves it to the browser, cached both ends; the
 importers read it straight from the database. Absent, every caller falls back to
 the old row-spaced answer rather than to no answer.
+
+That fallback is also how the two sides drifted apart. `useTierCurve` used to
+copy the fetch into `useState` from a `{ immediate: true }` watcher — which runs
+during setup, before the fetch resolves, and does not run again inside SSR's
+single render pass. So the server rendered every estimate on every custom-list
+page with an *empty* curve while the importers, reading the same numbers out of
+the database, used the real one: one formula, two answers, decided by which side
+of the wire it ran on. On a list anchored at #50 and #30,000 the row in the wide
+gap came out **Tier 11 instead of Tier 1**.
+
+It is a `computed` over the fetch now, so the value is in the server-rendered
+payload. A page that *snapshots* an estimate into an editable field — `to-all`
+builds one draft per level — must additionally `await` the curve, because a
+snapshot is taken once and keeps whatever the curve said at that instant;
+`useTierCurve().ready` is that promise. Anything that merely *reads* the curve in
+a `computed` needs nothing.
 
 ## Records a claim brings with it
 
@@ -782,6 +828,12 @@ or four thousand.
 
 - Computed on request (cached 60 s for the badge), never stored — the answer
   changes every time a level moves or a list is re-imported.
+- Which lists appear comes from `LIST_SOURCES`, but the rows come from
+  `sharedWithAll`, and a source in the first without a branch in the second is
+  simply absent from the tab with nothing to say so. That is what had happened to
+  the ACS: 258 levels shared with the ALL, 93 of them ordered differently, and no
+  way to see any of it. Its branch reads the ranked tab only — the importer parks
+  unranked rows past 100,000, and a parked row has no ordering to disagree with.
 - "Keep" records a deliberate disagreement in `imported_movement_dismissals`,
   against the rank that list gives the level *now*. If the source list re-ranks
   it, the suggestion comes back.
@@ -842,6 +894,7 @@ server/api/leaderboard.get.ts           reads players table directly
 server/db/index.ts                      DB connection + schema
 server/db/import.ts                     Google Sheet importer (CSV per tab)
 server/db/import-aredl-history.ts       AREDL placement history → converted ALL placements
+server/utils/xlsx.ts                    minimal .xlsx reader — hyperlinks a CSV export drops
 ```
 
 ## Deploying to Railway

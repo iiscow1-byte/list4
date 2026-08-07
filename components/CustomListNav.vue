@@ -51,7 +51,22 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
-const search = ref('')
+/**
+ * The search box, seeded from `?q=` in the URL.
+ *
+ * That is how a creator's name on a level page filters this panel to their
+ * other levels: the link carries the name, the box picks it up, and clearing
+ * the box undoes it. Watched rather than only read once, because moving between
+ * levels of the same list keeps this component mounted — a second such link
+ * would otherwise change the URL and nothing else.
+ *
+ * Typing deliberately does *not* write back to the URL: a router replace per
+ * keystroke, on a page whose route is the level you're reading, is a fight
+ * nobody asked for.
+ */
+const route = useRoute()
+const search = ref(String(route.query.q ?? ''))
+watch(() => route.query.q, (q) => { search.value = String(q ?? '') })
 const scrollEl = ref<HTMLElement | null>(null)
 const { to } = useStandaloneList()
 
@@ -103,6 +118,19 @@ function colorOf(item: CustomItem): string {
   const own = tierByRank.value.get(item.rank)?.color
   if (own) return own
   return rowColor.value.get(item.id) ?? '#27272a'
+}
+
+/**
+ * A row's link, carrying the current filter with it.
+ *
+ * Without this, clicking the first result of a filter drops `?q=` and the panel
+ * you were reading down snaps back to the whole list — which makes filtering to
+ * a creator useless for its main purpose, reading their levels one after
+ * another.
+ */
+function rowHref(rank: number) {
+  const q = search.value.trim()
+  return to(`${props.listPath}/${rank}${q ? `?q=${encodeURIComponent(q)}` : ''}`)
 }
 
 const filtered = computed(() => {
@@ -282,7 +310,7 @@ async function remove(item: CustomItem) {
           />
 
           <NuxtLink
-            :to="to(`${listPath}/${lvl.rank}`)"
+            :to="rowHref(lvl.rank)"
             class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 text-sm rounded-lg group transition-all"
             :class="[
               compact ? 'py-1' : 'py-1.5',

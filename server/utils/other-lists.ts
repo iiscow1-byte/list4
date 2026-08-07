@@ -1,5 +1,4 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { ACS_SHEET_ID } from '~/utils/list-source-catalog'
 
 /**
  * Where else a level is ranked.
@@ -56,7 +55,6 @@ type LevelRow = {
   pointercrate_position: number | null
   challenge_list_position: number | null
   mscl_position: number | null
-  acs_position?: number | null
 }
 
 /**
@@ -109,15 +107,14 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
     })
   }
-  if (level.acs_position != null) {
-    out.push({
-      key: 'acs',
-      list: 'ACS — ALL Challenges Sheet',
-      badge: 'ACS',
-      position: level.acs_position,
-      url: `https://docs.google.com/spreadsheets/d/${ACS_SHEET_ID}/`,
-    })
-  }
+  // The ACS is deliberately absent.
+  //
+  // `levels.acs_position` is still imported and still drives the challenge
+  // queue, but this panel answers "where else is this level ranked", and the
+  // ACS is not somewhere else — it is this project's own working sheet, the
+  // place challenges are staged before they land here. Printing it beside GDL
+  // and AREDL claimed a second, independent ranking agreed with us, when what
+  // it actually showed was the ALL citing itself.
   if (level.mscl_position != null) {
     out.push({
       key: 'mscl',

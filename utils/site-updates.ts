@@ -22,6 +22,23 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.12.0',
+    date: '2026-08-04',
+    title: 'The challenge sheet brings its videos, and the list you are reading is a menu',
+    tags: ['Imports', 'Admin', 'Custom lists', 'The list', 'Fixes'],
+    changes: [
+      'The name of the list at the top of the main panel is a dropdown: Classic, Challenge and Rated, plus the three external rankings. They were radio buttons inside the advanced-search dialog, behind a funnel icon — the name of the one you were reading sat right where you would try to click to change it, and did nothing.',
+      'The level count beside it says "levels", and opens the stats page.',
+      'ACS import: each level\'s verification video comes across with it. The sheet keeps the video as a link on the level\'s name rather than in a column, and no text export of a Google Sheet carries a link — 928 of them were invisible to the importer.',
+      'The ACS is in Imported Movements, so the 93 levels it orders differently to the ALL can be read and acted on like every other list\'s.',
+      'The ACS is no longer listed among a level\'s rankings on other lists. It is this project\'s own working sheet, so printing it there was the ALL citing itself as a second opinion.',
+      'Imported levels say what their estimated placement sits between — the two levels that would end up either side of it — rather than a bare number out of fifty thousand.',
+      'Custom lists: a level\'s creator and verifier read as a sentence again, with the two names carrying the weight rather than the words joining them. The creator\'s name filters the list to their other levels.',
+      'Fixed: a level submitted from a custom list was tiered by a different formula from the one the importers use. The browser was estimating without the list\'s measured tier curve, which put a level in a wide gap out by as much as ten tiers.',
+      'Fixed: names rendered through the shared name component — comments, and now custom-list credits — were not links. They resolved to an element the browser does not know, which looks right and does nothing.',
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-08-04',
     title: 'A level can be made a challenge, and the forms say what they take',
