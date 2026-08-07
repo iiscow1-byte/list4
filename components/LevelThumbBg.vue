@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {
   levelThumbUrl, levelThumbSrcset, videoThumbUrl, videoThumbUrlMax,
-  isKnownThumbMiss, rememberThumbMiss, THUMB_SIZES, type ThumbRes,
+  isKnownThumbMiss, rememberThumbMiss,
+  isKnownMaxresMiss, rememberMaxresMiss, youtubeIdFrom,
+  THUMB_SIZES, type ThumbRes,
 } from '~/utils/level-thumbs'
 
 /**
@@ -62,14 +64,22 @@ type Stage = 'primary' | 'videoMax' | 'video' | 'done'
 const stage = ref<Stage>('primary')
 const loaded = ref(false)
 
+const videoId = computed(() => youtubeIdFrom(props.videoUrl))
 const videoMaxUrl = computed(() =>
   res.value === 'small' ? null : videoThumbUrlMax(props.videoUrl),
 )
 const videoUrl = computed(() => videoThumbUrl(props.videoUrl, res.value))
 
-/** The first video stage worth trying, or 'done' when there is no video. */
+/**
+ * The first video stage worth trying, or 'done' when there is no video.
+ *
+ * A video already known to have no HD thumbnail skips straight past that stage,
+ * the same way a level known to have no community image skips 'primary'. Only
+ * consulted on the client: the cache is localStorage, and a server render that
+ * read it would produce markup the browser then has to correct.
+ */
 function firstVideoStage(): Stage {
-  if (videoMaxUrl.value) return 'videoMax'
+  if (videoMaxUrl.value && !(import.meta.client && isKnownMaxresMiss(videoId.value))) return 'videoMax'
   return videoUrl.value ? 'video' : 'done'
 }
 
@@ -132,7 +142,9 @@ function onError() {
     return
   }
   if (stage.value === 'videoMax') {
-    // Not uploaded in HD — the common case, not an error.
+    // Not uploaded in HD — the common case, not an error. Remembered so the
+    // next render of this video doesn't spend the same 404 again.
+    rememberMaxresMiss(videoId.value)
     stage.value = videoUrl.value ? 'video' : 'done'
     return
   }

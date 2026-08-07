@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_ORD } from '~/utils/tier-ordinal'
+import { splitSources, isChallengeSource } from '~/utils/challenge-sources'
+import { sourceUrlByName } from '~/utils/list-source-catalog'
 
 type Community = {
   count: number
@@ -165,7 +167,9 @@ const tags = computed<Tag[]>(() => {
   // printing it here would put the word back on a level just unmarked.
   if (props.level.challenge_rank != null) list.push({ label: 'Challenge' })
   else if (props.level.rated && props.level.rated !== 'Challenge') list.push({ label: props.level.rated })
-  if (props.level.placement_source) list.push({ label: props.level.placement_source })
+  // The source is deliberately not a tag. It has its own row directly above
+  // this one, and printing it in both put the same word on screen twice — as a
+  // raw `A|B` string in one of them.
   if (props.level.same_as_above) {
     const dup = props.level.duplicate_of
     list.push({
@@ -437,6 +441,34 @@ type GdInfo = {
   password: string | null
 }
 const SCORE_LABELS = ['Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
+/**
+ * Where this level's placement came from, as one chip per list.
+ *
+ * `placement_source` holds free text — "EDI", "Challenge List", "LoERL" — and
+ * a level tagged with several holds them pipe-separated. The page used to print
+ * the column verbatim after the word "Source:", so a multi-source level read
+ * `Source: AREDL|ACS`, and the one-source case was a bare run of grey text
+ * indistinguishable from the sentence around it.
+ *
+ * A source that is one of the challenge lists is tinted like the challenge
+ * badge it sits beside, because it is the *reason* for that badge.
+ *
+ * "All Levels List" is dropped: it is what the submit form stores for a level
+ * that came from here, and naming this site as a source on this site's own page
+ * is a row of chrome that says nothing.
+ */
+const sourceChips = computed(() => {
+  const seen = new Set<string>()
+  const out: { name: string; url: string | null; challenge: boolean }[] = []
+  for (const name of splitSources(props.level.placement_source)) {
+    const key = name.toLowerCase()
+    if (seen.has(key) || key === 'all levels list') continue
+    seen.add(key)
+    out.push({ name, url: sourceUrlByName(name), challenge: isChallengeSource(name) })
+  }
+  return out
+})
+
 const ratedLabel = computed(() => {
   // Deliberately not re-derived here. The server already answered this with
   // `challenge_rank`, using one expression that reads the placement source, the
@@ -536,7 +568,9 @@ const creditRows = computed<CreditRow[]>(() => {
 
 const infoRows = computed<CreditRow[]>(() => {
   const rows: CreditRow[] = []
-  if (props.level.placement_source) rows.push({ label: 'Source list',   value: props.level.placement_source })
+  // Comma-joined, not the stored pipes: this row is prose, and `A|B` is storage.
+  const sources = splitSources(props.level.placement_source)
+  if (sources.length) rows.push({ label: sources.length > 1 ? 'Source lists' : 'Source list', value: sources.join(', ') })
   if (props.level.verification)     rows.push({ label: 'Verification',  value: props.level.verification })
   if (props.level.year_verified)    rows.push({ label: 'Year verified', value: String(props.level.year_verified) })
   if (props.level.submitter)        rows.push({ label: 'Submitted by',  value: props.level.submitter })
@@ -1171,7 +1205,7 @@ const chartAredlSeries = computed(() =>
              amber to say what it is: this list's own ranking, not another
              site's. The tooltip supplies the "of what" a bare #12 can't. -->
         <div
-          v-if="level.challenge_rank != null || level.placement_source || isAdminLevel"
+          v-if="level.challenge_rank != null || sourceChips.length || isAdminLevel"
           class="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2"
         >
           <span
@@ -1226,8 +1260,39 @@ const chartAredlSeries = computed(() =>
             {{ challengeBusy ? 'Saving…' : 'Mark as challenge' }}
           </button>
           <span v-if="challengeError" class="text-[11px] text-red-400">{{ challengeError }}</span>
-          <span v-if="level.placement_source" class="text-xs text-zinc-500">
-            Source: {{ level.placement_source }}
+
+          <!-- Where the placement came from. One chip per list, linked when the
+               site knows where that list lives — see `sourceUrlByName`. -->
+          <span v-if="sourceChips.length" class="inline-flex items-center gap-1.5 flex-wrap">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-600">From</span>
+            <template v-for="s in sourceChips" :key="s.name">
+              <a
+                v-if="s.url"
+                :href="s.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none transition-colors"
+                :class="s.challenge
+                  ? 'border-amber-900/50 bg-amber-950/30 text-amber-500/90 hover:border-amber-700/60 hover:text-amber-300'
+                  : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
+                :title="s.challenge
+                  ? `${s.name} is a challenge list — which is why this level is one`
+                  : `Placed from ${s.name}`"
+              >
+                {{ s.name }}
+                <span class="text-[9px] opacity-60" aria-hidden="true">↗</span>
+              </a>
+              <span
+                v-else
+                class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] leading-none"
+                :class="s.challenge
+                  ? 'border-amber-900/50 bg-amber-950/30 text-amber-500/90'
+                  : 'border-zinc-800 bg-zinc-900/60 text-zinc-400'"
+                :title="s.challenge
+                  ? `${s.name} is a challenge list — which is why this level is one`
+                  : `Placed from ${s.name}`"
+              >{{ s.name }}</span>
+            </template>
           </span>
         </div>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">

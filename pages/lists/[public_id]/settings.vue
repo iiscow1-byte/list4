@@ -168,6 +168,43 @@ async function patch(body: Record<string, unknown>, msg: string) {
   } finally { busy.value = false }
 }
 
+/**
+ * Colours worth offering without opening a picker.
+ *
+ * Deliberately a small set, and all of them readable as text on this site's
+ * near-black background — which is what the value is used for. The site's own
+ * amber is first and is what a list gets when it chooses nothing.
+ */
+const LIST_COLOR_PRESETS: { name: string; hex: string }[] = [
+  { name: 'Amber', hex: '#f4c430' },
+  { name: 'Red', hex: '#ef4444' },
+  { name: 'Pink', hex: '#ec4899' },
+  { name: 'Purple', hex: '#a855f7' },
+  { name: 'Blue', hex: '#3b82f6' },
+  { name: 'Cyan', hex: '#22d3ee' },
+  { name: 'Green', hex: '#22c55e' },
+  { name: 'Lime', hex: '#a3e635' },
+  { name: 'Slate', hex: '#94a3b8' },
+]
+
+/**
+ * A hex typed by hand. Accepts it with or without the `#`, and puts the box
+ * back to the stored value when it isn't one — the server would refuse it
+ * anyway, and a box left holding `blue` after a save that didn't happen is
+ * the kind of thing people take for a bug in the save.
+ */
+function onHexTyped(el: HTMLInputElement) {
+  const raw = el.value.trim()
+  if (!raw) { patch({ accent_color: '' }, 'List colour cleared.'); return }
+  const hex = raw.startsWith('#') ? raw : `#${raw}`
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) {
+    el.value = list.value?.accent_color ?? ''
+    error.value = 'A colour looks like #f4c430.'
+    return
+  }
+  patch({ accent_color: hex.toLowerCase() }, 'List colour updated.')
+}
+
 async function editInBuilder() {
   if (!list.value) return
   loadFrom(list.value as any)
@@ -308,36 +345,84 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 An icon and colour so the list reads as yours. Paste a direct image link.
               </p>
             </div>
-            <div class="grid gap-3 sm:grid-cols-2">
-              <label class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Icon URL</span>
-                <input
-                  type="url"
-                  :value="l.icon_url ?? ''"
+            <label class="block">
+              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Icon URL</span>
+              <input
+                type="url"
+                :value="l.icon_url ?? ''"
+                :disabled="busy"
+                placeholder="https://…/icon.png"
+                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                @change="patch({ icon_url: ($event.target as HTMLInputElement).value }, 'Icon updated.')"
+              />
+            </label>
+
+            <!-- The list's colour.
+                 Was a bare swatch in a two-column grid, which said nothing
+                 about what it changes; the colour it sets is the whole list's
+                 accent — its tabs, its rank numbers, its links. A row of
+                 presets, because most people want *a* colour rather than a
+                 particular one, and a hex box for the people who want theirs. -->
+            <div>
+              <div class="flex items-baseline gap-2 flex-wrap">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">List colour</span>
+                <span class="text-[11px] text-zinc-600">
+                  Tints the tabs, rank numbers and links on every page of this list.
+                </span>
+              </div>
+
+              <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                <button
+                  v-for="p in LIST_COLOR_PRESETS"
+                  :key="p.hex"
+                  type="button"
                   :disabled="busy"
-                  placeholder="https://…/icon.png"
-                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  @change="patch({ icon_url: ($event.target as HTMLInputElement).value }, 'Icon updated.')"
+                  class="w-7 h-7 rounded-lg border transition-transform disabled:opacity-40"
+                  :class="(l.accent_color || '').toLowerCase() === p.hex
+                    ? 'border-zinc-100 scale-110'
+                    : 'border-zinc-700 hover:scale-110'"
+                  :style="{ backgroundColor: p.hex }"
+                  :title="p.name"
+                  :aria-label="p.name"
+                  :aria-pressed="(l.accent_color || '').toLowerCase() === p.hex"
+                  @click="patch({ accent_color: p.hex }, `List colour set to ${p.name.toLowerCase()}.`)"
                 />
-              </label>
-              <label class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Accent colour</span>
-                <div class="mt-1 flex items-center gap-2">
+
+                <span class="w-px h-6 bg-zinc-800 mx-1" aria-hidden="true" />
+
+                <label
+                  class="relative w-7 h-7 rounded-lg border border-zinc-700 overflow-hidden cursor-pointer"
+                  :style="{ backgroundColor: l.accent_color || '#f4c430' }"
+                  title="Pick any colour"
+                >
                   <input
                     type="color"
                     :value="l.accent_color || '#f4c430'"
                     :disabled="busy"
-                    class="h-8 w-12 rounded border border-zinc-800 bg-zinc-900 cursor-pointer"
-                    @change="patch({ accent_color: ($event.target as HTMLInputElement).value }, 'Accent colour updated.')"
+                    class="absolute -inset-2 w-[200%] h-[200%] cursor-pointer opacity-0"
+                    @change="patch({ accent_color: ($event.target as HTMLInputElement).value }, 'List colour updated.')"
                   />
-                  <button
-                    type="button"
-                    class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
-                    :disabled="busy"
-                    @click="patch({ accent_color: '' }, 'Accent colour cleared.')"
-                  >Reset</button>
-                </div>
-              </label>
+                </label>
+
+                <input
+                  type="text"
+                  :value="l.accent_color ?? ''"
+                  :disabled="busy"
+                  placeholder="#f4c430"
+                  maxlength="7"
+                  spellcheck="false"
+                  class="w-24 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs tabular-nums placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  @change="onHexTyped(($event.target as HTMLInputElement))"
+                />
+
+                <button
+                  v-if="l.accent_color"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                  :disabled="busy"
+                  @click="patch({ accent_color: '' }, 'List colour cleared.')"
+                >Reset</button>
+              </div>
             </div>
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Banner URL</span>

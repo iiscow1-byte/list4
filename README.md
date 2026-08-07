@@ -131,9 +131,21 @@ broken image.
 
 Both sources are plain `<img>` loads straight from a CDN — the server never
 proxies an image, so none of this costs request time. Misses are memoised in
-memory and in `localStorage` (7-day TTL, capped at 4,000 ids, written behind a
+memory and in `localStorage` (7-day TTL, capped at 4,000 keys, written behind a
 1s debounce), so a level known to have no community thumbnail skips straight to
 the video fallback on later renders instead of re-requesting a 404.
+
+**Both** misses are memoised, which is newer: `lv:<gd id>` for the community
+image and `yt:<video id>` for `maxresdefault`. The second matters more than it
+looks. Most of this list was verified long before HD uploads were routine, so
+that 404 is the common case rather than an edge one, and every large thumbnail
+whose level has no community image was paying for it on every render of every
+page. One request ever, now.
+
+`sizes` is worth getting right at each call site, since it is what the browser
+actually measures against. A showcase card 350 px wide asking for `100vw` is
+told to fetch a full-width image for a third of the screen — which is what the
+profile and account cards were doing with a `620px` claim and a `high` ceiling.
 
 ## Profanity
 
@@ -208,6 +220,20 @@ have, interpolated from the rows around it that do (the same estimator the
 placement guess uses), and a list with no tier information anywhere falls back to
 a ramp across its own length. It never invents a tier *label*, only a colour.
 The same setting hides the "On the ALL list" row on each level page.
+
+### The list's own colour
+
+`custom_lists.accent_color` is one hex, and `listAccentStyle` turns it into
+`--c-accent` on the list's root element. Tailwind resolves `accent` through that
+variable, so setting it re-themes every `text-accent` / `bg-accent` inside —
+tabs, rank numbers, links, the like button — and nothing outside. Only a hex
+literal is ever stored or applied, at both ends: the value lands in a style
+attribute, so anything else is an injection vector rather than a colour.
+
+It has to be applied by *both* list roots. It was on the level view only, so a
+list with a colour reverted to the site's amber the moment you opened its
+leaderboard — which reads as the colour not having saved. One helper, used by
+`[[rank]].vue`, `CustomListShell` and the gallery card.
 
 ### Standalone links
 
@@ -345,6 +371,37 @@ Moderators get four ways to reposition a level, all landing on the same
 
 **Move now** applies just the placement change and skips the metadata PATCH, so
 a reorder doesn't have to carry a whole form save with it.
+
+### One move is one changelog entry
+
+A move shifts every level it passes, and the list has to be told which of those
+levels *moved* and which merely got out of the way. This has been wrong twice,
+in the same place, for two different reasons.
+
+Absolute position was the first answer and is useless: inserting one level at
+the top changes every position below it, so a single new level would write
+54,000 changelog entries. Rank *among the levels that were already on the list*
+fixed that — insertions and removals leave it untouched.
+
+But rank among survivors still changes for everything a moved level passes.
+Promote one from #500 to #100 and its rank drops 400 while each of the 400 it
+overtook gains one, so a single promotion wrote 401 entries: one up, four
+hundred down. Nobody moved those four hundred levels.
+
+The real question is which levels moved *relative to each other*, and the answer
+is everything outside the **longest increasing subsequence** of the new order
+read in the old order's sequence (`utils/lis.ts`, shared with imported
+movements, which asks the same question of two different lists). That
+subsequence is the largest group still in agreement — the list's backbone — and
+what is left is the smallest set of movements that explains the difference. For
+the promotion above it is one entry.
+
+`survivorsThatMoved` is that decision with no database in it, so it can be
+checked against a made-up before and after directly.
+
+Manual moves never had the problem: `moveLevel` writes one history row for the
+level it moved and nothing for the range it shifted. This was only ever the
+sheet importer, which sees a whole new ordering and has to work out what changed.
 
 ### The tier goes with the slot
 

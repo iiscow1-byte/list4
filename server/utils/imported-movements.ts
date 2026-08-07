@@ -1,5 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { LIST_SOURCES, sourceLabel, sourceShortLabel } from '~/utils/list-source-catalog'
+// Shared with the sheet importer's changelog, which asks the same question of a
+// different pair of orderings. Relative, because that importer also runs
+// standalone where `~` doesn't resolve — see `utils/lis.ts`.
+import { longestIncreasingRun } from '../../utils/lis.ts'
+
+export { longestIncreasingRun }
 
 /** "CCL" out of "CCL — Consistency Challenge List", for the per-row wording. */
 function sourceShortName(key: string): string {
@@ -178,35 +184,6 @@ export function sharedWithAll(db: DatabaseSync, source: string): SharedRow[] {
   return []
 }
 
-/**
- * Indices of the longest strictly-increasing subsequence of `values`.
- * Patience sorting with predecessor links — O(n log n), which matters because
- * the biggest imported list shares four thousand levels with the ALL.
- */
-export function longestIncreasingRun(values: number[]): number[] {
-  if (!values.length) return []
-  // tails[k] = index of the smallest possible tail of an increasing run of
-  // length k+1; prev[i] = the index before i in the run ending at i.
-  const tails: number[] = []
-  const prev: number[] = new Array(values.length).fill(-1)
-
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i]!
-    let lo = 0, hi = tails.length
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1
-      if (values[tails[mid]!]! < v) lo = mid + 1
-      else hi = mid
-    }
-    prev[i] = lo > 0 ? tails[lo - 1]! : -1
-    tails[lo] = i
-  }
-
-  const out: number[] = []
-  for (let i = tails[tails.length - 1]!; i !== -1; i = prev[i]!) out.push(i)
-  return out.reverse()
-}
-
 type Dismissal = { level_id: number; source_position: number }
 
 function loadDismissals(db: DatabaseSync, source: string): Map<number, number> {
@@ -382,7 +359,19 @@ export function importedMovementSummary(db: DatabaseSync, force = false): Source
   const value: SourceSummary[] = []
   for (const src of LIST_SOURCES) {
     if (src.key === 'all') continue
-    const { items, shared } = computeImportedMovements(db, src.key)
+    // One source per iteration, and one source that can't be read — a mirror
+    // table that doesn't exist yet on a database part-way through its
+    // migrations — must not take the whole tab down with it. Logged rather
+    // than swallowed: an empty picker with a quiet console is worse than a
+    // short one with a reason in it.
+    let items: ImportedMovement[]
+    let shared: number
+    try {
+      ({ items, shared } = computeImportedMovements(db, src.key))
+    } catch (err) {
+      console.warn(`[imported-movements] skipping ${src.key}: ${(err as Error).message}`)
+      continue
+    }
     if (shared === 0) continue
     value.push({
       key: src.key,

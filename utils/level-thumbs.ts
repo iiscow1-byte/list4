@@ -16,15 +16,18 @@
  */
 export type ThumbRes = 'high' | 'medium' | 'small'
 
-const MISS_KEY = 'als:thumb-miss:v1'
+// v2 because the keys are now prefixed — `lv:<gd id>` for the community
+// thumbnail and `yt:<video id>` for YouTube's HD one. A v1 store holds bare
+// numeric keys; abandoning it costs one re-request per level, once.
+const MISS_KEY = 'als:thumb-miss:v2'
 const MISS_TTL_MS = 7 * 24 * 60 * 60 * 1000
 /** Cap the stored set so a long browsing session can't grow it without bound. */
 const MISS_MAX = 4000
 
-/** gd_id → epoch ms when we learned it has no levelthumbs image. */
-let missCache: Map<number, number> | null = null
+/** `lv:`/`yt:` key → epoch ms when we learned that image doesn't exist. */
+let missCache: Map<string, number> | null = null
 
-function loadMisses(): Map<number, number> {
+function loadMisses(): Map<string, number> {
   if (missCache) return missCache
   missCache = new Map()
   if (typeof localStorage === 'undefined') return missCache
@@ -32,8 +35,8 @@ function loadMisses(): Map<number, number> {
     const raw = localStorage.getItem(MISS_KEY)
     if (raw) {
       const cutoff = Date.now() - MISS_TTL_MS
-      for (const [id, at] of Object.entries(JSON.parse(raw) as Record<string, number>)) {
-        if (at > cutoff) missCache.set(Number(id), at)
+      for (const [key, at] of Object.entries(JSON.parse(raw) as Record<string, number>)) {
+        if (at > cutoff) missCache.set(key, at)
       }
     }
   } catch { /* corrupt or unavailable — start empty */ }
@@ -64,12 +67,33 @@ function schedulePersist() {
 
 export function isKnownThumbMiss(gdId: number | null | undefined): boolean {
   if (!gdId) return false
-  return loadMisses().has(Number(gdId))
+  return loadMisses().has(`lv:${Number(gdId)}`)
 }
 
 export function rememberThumbMiss(gdId: number | null | undefined): void {
   if (!gdId) return
-  loadMisses().set(Number(gdId), Date.now())
+  loadMisses().set(`lv:${Number(gdId)}`, Date.now())
+  schedulePersist()
+}
+
+/**
+ * The same memo for YouTube's `maxresdefault`, keyed by video id.
+ *
+ * That file only exists for videos uploaded in HD and YouTube 404s for the
+ * rest — so every large thumbnail whose level has no community image and whose
+ * verification predates HD spends a wasted round trip, on every render, on
+ * every page. Remembering the 404 makes it one request ever, and it is the
+ * common case rather than an edge one: most of this list was verified years
+ * before HD uploads were routine.
+ */
+export function isKnownMaxresMiss(videoId: string | null | undefined): boolean {
+  if (!videoId) return false
+  return loadMisses().has(`yt:${videoId}`)
+}
+
+export function rememberMaxresMiss(videoId: string | null | undefined): void {
+  if (!videoId) return
+  loadMisses().set(`yt:${videoId}`, Date.now())
   schedulePersist()
 }
 

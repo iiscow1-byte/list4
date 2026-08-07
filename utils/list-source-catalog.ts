@@ -79,6 +79,31 @@ export function findListSource(key: string): ListSource | undefined {
   return LIST_SOURCES.find((s) => s.key === key)
 }
 
+/**
+ * The site a free-text source *name* refers to, when this catalogue knows it.
+ *
+ * `levels.placement_source` is whatever the sheet or an admin typed — "EDI",
+ * "Challenge List", "LoERL" — not a key. Matching is deliberately exact against
+ * a catalogue entry's short name ("EDI") or its full one ("Challenge List"),
+ * ignoring case and punctuation, and returns null otherwise: a level's source
+ * chip linking to the wrong list is worse than one that doesn't link at all,
+ * and plenty of the names on the sheet belong to lists this site never mirrors.
+ */
+export function sourceUrlByName(name: string | null | undefined): string | null {
+  if (!name) return null
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const n = norm(name)
+  if (!n) return null
+  for (const s of LIST_SOURCES) {
+    if (!s.url) continue
+    const [short, full] = s.label.split(' — ')
+    if (norm(short ?? '') === n) return s.url
+    if (full && norm(full) === n) return s.url
+    if (norm(s.label) === n) return s.url
+  }
+  return null
+}
+
 export function isKnownSource(key: string): boolean {
   return !!findListSource(key)
 }

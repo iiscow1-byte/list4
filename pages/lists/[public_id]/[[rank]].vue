@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { marksOffAll } from '~/utils/custom-list-colors'
+import { marksOffAll, listAccentStyle } from '~/utils/custom-list-colors'
 
 /**
  * A custom list, as a full list site: nav on the left, the selected level in
@@ -16,21 +16,8 @@ const {
 } = useCustomList(publicId)
 const { standalone, to } = useStandaloneList()
 
-/**
- * The list's own accent, applied to the whole list root.
- *
- * `accent_color` has been storable since 1.3 and only ever tinted the fallback
- * icon. Tailwind's `accent` resolves through `--c-accent`, so setting that one
- * variable on this element re-themes every `text-accent` / `bg-accent` inside
- * it — tabs, rank numbers, links — and nothing outside it.
- */
-const accentStyle = computed(() => {
-  const hex = list.value?.accent_color
-  const m = typeof hex === 'string' ? hex.match(/^#([0-9a-f]{6})$/i) : null
-  if (!m) return undefined
-  const n = parseInt(m[1]!, 16)
-  return { '--c-accent': `${(n >> 16) & 0xff} ${(n >> 8) & 0xff} ${n & 0xff}` }
-})
+/** The list's own colour, applied to the whole list root — see `listAccentStyle`. */
+const accentStyle = computed(() => listAccentStyle(list.value))
 
 /** Presentation flags, defaulting to what the list looked like before they existed. */
 const on = (v: unknown) => v == null || !!v

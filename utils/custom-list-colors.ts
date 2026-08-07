@@ -87,3 +87,31 @@ export function marksOffAll(list: { mark_off_all?: number | boolean | null } | n
   // Absent means the older default, which is to mark.
   return list?.mark_off_all == null ? true : !!list.mark_off_all
 }
+
+/** `#rrggbb` → `"r g b"`, the triplet form Tailwind's colour variables take. */
+export function hexToRgbTriplet(hex: string | null | undefined): string | null {
+  const m = typeof hex === 'string' ? hex.trim().match(/^#([0-9a-f]{6})$/i) : null
+  if (!m) return null
+  const n = parseInt(m[1]!, 16)
+  return `${(n >> 16) & 0xff} ${(n >> 8) & 0xff} ${n & 0xff}`
+}
+
+/**
+ * A list's own colour, as a style binding for its root element.
+ *
+ * `accent_color` has been storable since 1.3. Tailwind resolves `accent`
+ * through `--c-accent`, so setting that one variable on an element re-themes
+ * every `text-accent` / `bg-accent` inside it — tabs, rank numbers, links — and
+ * nothing outside it.
+ *
+ * Shared because it was applied on exactly one of a list's pages. A list with a
+ * colour was itself on the level view and reverted to the site's amber the
+ * moment you opened its leaderboard, which reads as the colour not having
+ * saved. One definition, used by both roots.
+ */
+export function listAccentStyle(
+  list: { accent_color?: string | null } | null | undefined,
+): Record<string, string> | undefined {
+  const rgb = hexToRgbTriplet(list?.accent_color)
+  return rgb ? { '--c-accent': rgb } : undefined
+}

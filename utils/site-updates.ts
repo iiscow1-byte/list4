@@ -22,6 +22,20 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.13.0',
+    date: '2026-08-04',
+    title: 'One move is one changelog entry',
+    tags: ['The list', 'Custom lists', 'Performance', 'Fixes'],
+    changes: [
+      'Fixed: moving a level up the list wrote a changelog entry for every level it passed. Promote something four hundred places and the day read as one level up and four hundred down — the four hundred hadn\'t moved, the list had closed up behind the one that did. The changelog now records the smallest set of levels whose movement explains the new order, which for that promotion is one.',
+      'Custom lists: a list\'s colour is a proper control — nine presets, any colour you like, or a hex you type — and it now applies on every page of the list rather than only the first one, and on its card in the gallery.',
+      'A level says where its placement came from as a chip per list, linked to that list where the site knows it, and tinted when the source is a challenge list — which is the reason for the Challenge badge beside it. It used to be the stored column printed after the word "Source:", which for a level tagged with two lists read "AREDL|ACS".',
+      'The list builder page is a header and the builder, rather than a hero the height of a phone screen with a button to collapse it and somewhere to remember that you had.',
+      'Faster: a level whose verification video has no HD thumbnail is remembered, so pages stop asking YouTube for one on every visit. Most of this list was verified long before HD uploads were routine, so that request was failing on nearly every large thumbnail.',
+      'Profile and account showcase cards no longer reach for a 1920px image to paint a 350px card at a quarter opacity.',
+    ],
+  },
+  {
     version: '1.12.0',
     date: '2026-08-04',
     title: 'The challenge sheet brings its videos, and the list you are reading is a menu',

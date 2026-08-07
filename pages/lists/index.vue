@@ -7,6 +7,8 @@
  * you haven't published, since those are invisible in Discover by definition
  * and were previously only reachable from the builder.
  */
+import { listAccentStyle } from '~/utils/custom-list-colors'
+
 type CustomList = {
   public_id: string
   title: string
@@ -17,6 +19,8 @@ type CustomList = {
   item_count: number
   liked_by_me: boolean
   cover_gd_ids: number[]
+  accent_color: string | null
+  icon_url: string | null
   /** Only present in the "mine" view. */
   is_public?: number
 }
@@ -200,10 +204,15 @@ useHead({ title: 'Custom lists — All Levels List' })
     </p>
 
     <ul v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <!-- A list's own colour, on its card. The same `--c-accent` swap the list
+           itself uses, so a list you recognise by its colour is recognisable
+           here too — the like button, the "Open →" link and the rule under the
+           cover all follow it. -->
       <li
         v-for="l in shown"
         :key="l.public_id"
         class="card overflow-hidden flex flex-col group"
+        :style="listAccentStyle(l)"
       >
         <NuxtLink :to="`/lists/${l.public_id}`" class="relative block h-24 overflow-hidden bg-zinc-900">
           <div class="absolute inset-0 flex">
@@ -220,7 +229,23 @@ useHead({ title: 'Custom lists — All Levels List' })
             v-if="l.is_public === 0"
             class="absolute top-2 right-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-400"
           >Private</span>
-          <h2 class="absolute bottom-2 left-3 right-3 font-semibold text-zinc-50 truncate drop-shadow">{{ l.title }}</h2>
+          <h2 class="absolute bottom-2 left-3 right-3 flex items-center gap-1.5 font-semibold text-zinc-50 drop-shadow">
+            <img
+              v-if="l.icon_url"
+              :src="l.icon_url"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              referrerpolicy="no-referrer"
+              class="w-5 h-5 rounded shrink-0 object-cover border border-white/10"
+            />
+            <span class="truncate">{{ l.title }}</span>
+          </h2>
+          <span
+            v-if="l.accent_color"
+            class="absolute inset-x-0 bottom-0 h-0.5 bg-accent"
+            aria-hidden="true"
+          />
         </NuxtLink>
 
         <div class="p-3 flex-1 flex flex-col gap-2">

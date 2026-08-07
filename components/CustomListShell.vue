@@ -4,6 +4,8 @@
  * submit, queue, settings): the list bar, a scrolling body, and the
  * not-found / loading states. Keeps those pages down to their own content.
  */
+import { listAccentStyle } from '~/utils/custom-list-colors'
+
 const props = defineProps<{
   publicId: string
   /** Constrains the content column; the list view opts out with its own grid. */
@@ -13,6 +15,9 @@ const props = defineProps<{
 
 const { list, error, canEdit, editors, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
 const { standalone } = useStandaloneList()
+
+/** The list's colour, on every one of its pages rather than just the first. */
+const accentStyle = computed(() => listAccentStyle(list.value))
 </script>
 
 <template>
@@ -24,7 +29,7 @@ const { standalone } = useStandaloneList()
     </div>
   </div>
 
-  <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950">
+  <div v-else-if="list" data-list-root class="h-full flex flex-col min-h-0 bg-zinc-950" :style="accentStyle">
     <!-- The roster travels with the bar. Without it the Editors button existed
          on the list view and vanished on every other tab, which reads as the
          list having lost its staff rather than the page having forgotten to

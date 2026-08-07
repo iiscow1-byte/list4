@@ -1,6 +1,16 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 
+/**
+ * The page around the list builder.
+ *
+ * The builder itself is untouched — everything here is the frame it sits in.
+ * That frame used to open with a hero the height of a phone screen, which is
+ * why it had a collapse button and why the collapse had to be remembered in
+ * localStorage: a heading nobody wants to read twice was sitting on top of the
+ * thing the page exists for. A header that is already small needs none of that
+ * machinery, so there is none.
+ */
 type Stats = {
   totalLevels: number
   totalListPoints: number
@@ -28,6 +38,9 @@ const { data: changes } = await useFetch<Changes>('/api/changes/recent', {
   query: { days: 7, limit: 40 },
 })
 
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
+
 // Flatten the newest few changes for the "Latest movement" rail.
 const recent = computed(() => {
   const out: Change[] = []
@@ -49,86 +62,71 @@ function shortTier(tier: string | null): string | null {
   return tier
 }
 
-/**
- * The intro collapses, and the choice sticks.
- *
- * It's a first-visit explanation sitting above the thing the page is for, so
- * everyone after their first visit is scrolling past it. Remembered in
- * localStorage rather than reset each load — a preference nobody has to
- * re-express is the point of having one.
- */
-const HERO_KEY = 'all:builder-hero'
-const heroOpen = ref(true)
-onMounted(() => {
-  try { heroOpen.value = localStorage.getItem(HERO_KEY) !== 'closed' } catch { /* private mode */ }
-})
-function setHeroOpen(open: boolean) {
-  heroOpen.value = open
-  try { localStorage.setItem(HERO_KEY, open ? 'open' : 'closed') } catch { /* private mode */ }
+/** Which way a change went, as one small labelled chip. */
+function movement(c: Change): { label: string; tone: string; title: string } {
+  if (c.kind === 'add' || c.from_position == null) {
+    return {
+      label: 'New',
+      tone: 'border-emerald-900/60 bg-emerald-950/60 text-emerald-300',
+      title: 'Added to the list',
+    }
+  }
+  const places = Math.abs(c.to_position - c.from_position)
+  const up = c.to_position < c.from_position
+  return {
+    label: `${up ? '▲' : '▼'} ${places.toLocaleString()}`,
+    tone: up
+      ? 'border-sky-900/60 bg-sky-950/60 text-sky-300'
+      : 'border-amber-900/60 bg-amber-950/60 text-amber-300',
+    title: `Moved ${up ? 'up' : 'down'} ${places.toLocaleString()} place${places === 1 ? '' : 's'}`,
+  }
 }
 
 useHead({ title: 'Build your own list — All Levels List' })
 </script>
 
 <template>
-  <div class="container-wide py-8 space-y-8">
-    <!-- Hero. Collapsible, and it stays collapsed: it's an introduction, and
-         anyone building a list has read it once and wants the builder at the
-         top of the page instead. -->
-    <header class="relative overflow-hidden rounded-2xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-950">
-      <div class="absolute -top-24 -right-16 w-80 h-80 rounded-full bg-accent/10 blur-3xl pointer-events-none" aria-hidden="true" />
-
-      <button
-        type="button"
-        class="relative w-full flex items-start justify-between gap-4 text-left px-6 pt-6 sm:px-10 sm:pt-8"
-        :class="heroOpen ? 'pb-0' : 'pb-6 sm:pb-8'"
-        :aria-expanded="heroOpen"
-        @click="setHeroOpen(!heroOpen)"
-      >
-        <div class="min-w-0">
-          <p class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-2">All Levels List</p>
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-50">Build your own list</h1>
-          <p v-if="!heroOpen && stats" class="mt-2 text-xs text-zinc-500 tabular-nums">
-            {{ stats.totalLevels.toLocaleString() }} levels ranked · tap to read more
-          </p>
-        </div>
-        <span
-          class="shrink-0 mt-1 w-8 h-8 rounded-lg border border-zinc-800 bg-zinc-950/60 text-zinc-500 flex items-center justify-center transition-transform"
-          :class="heroOpen ? 'rotate-180' : ''"
-          aria-hidden="true"
-        >▾</span>
-      </button>
-
-      <div v-if="heroOpen" class="relative max-w-2xl px-6 pb-8 sm:px-10 sm:pb-10">
-        <p class="mt-3 text-sm sm:text-base text-zinc-400 leading-relaxed">
-          Drag levels straight out of the ALL list, or add your own. Reorder them however you like,
-          then save and share it with a link.
-        </p>
-        <div class="mt-5 flex flex-wrap gap-2">
+  <div class="container-wide py-8 space-y-6">
+    <!-- One row: what this is, and the two or three places worth going from
+         here. Everything it used to say about dragging levels around is said
+         better by the builder sitting directly underneath it. -->
+    <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div class="min-w-0">
+        <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">All Levels List</p>
+        <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">Build your own list</h1>
+        <p class="mt-1 text-sm text-zinc-500 max-w-2xl">
+          Pull levels out of the ALL or add your own, order them however you like, then save and
+          share it with a link.
           <NuxtLink
-            to="/levels/1"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
-          >Browse the ALL list →</NuxtLink>
-          <NuxtLink
-            to="/changelog"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
-          >Changelog</NuxtLink>
-          <NuxtLink
-            to="/about"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
-          >About & stats</NuxtLink>
-        </div>
-        <p v-if="stats" class="mt-4 text-[11px] text-zinc-600 tabular-nums">
-          {{ stats.totalLevels.toLocaleString() }} levels ranked
+            v-if="stats"
+            to="/about?tab=stats"
+            class="text-zinc-600 hover:text-accent transition-colors tabular-nums"
+          >{{ stats.totalLevels.toLocaleString() }} levels to choose from.</NuxtLink>
         </p>
       </div>
+
+      <nav class="flex flex-wrap items-center gap-1.5 shrink-0">
+        <NuxtLink
+          to="/levels/1"
+          class="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+        >Browse the ALL</NuxtLink>
+        <NuxtLink
+          v-if="me"
+          to="/lists?view=mine"
+          class="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+        >My lists</NuxtLink>
+        <NuxtLink
+          to="/lists"
+          class="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+        >Browse lists</NuxtLink>
+      </nav>
     </header>
 
     <!-- The builder -->
     <ListBuilder />
 
     <!-- Latest movement -->
-    <section v-if="recent.length" class="space-y-3">
+    <section v-if="recent.length" class="space-y-2.5">
       <div class="flex items-baseline justify-between gap-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Latest movement</h2>
         <NuxtLink to="/changelog" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">Full changelog →</NuxtLink>
@@ -140,17 +138,10 @@ useHead({ title: 'Build your own list — All Levels List' })
           class="flex items-center gap-2 rounded-lg border border-zinc-800/70 bg-zinc-950/60 px-3 py-2 text-sm"
         >
           <span
-            v-if="c.kind === 'add'"
-            class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
-          >New</span>
-          <span
-            v-else-if="c.from_position != null && c.to_position < c.from_position"
-            class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
-          >▲</span>
-          <span
-            v-else
-            class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
-          >▼</span>
+            class="shrink-0 w-14 text-center text-[9px] uppercase tracking-wider tabular-nums px-1.5 py-px rounded border leading-none"
+            :class="movement(c).tone"
+            :title="movement(c).title"
+          >{{ movement(c).label }}</span>
           <NuxtLink :to="`/levels/${c.level_position}`" class="truncate flex-1 text-zinc-200 hover:text-accent transition-colors">
             {{ c.level_name }}
           </NuxtLink>
@@ -158,6 +149,7 @@ useHead({ title: 'Build your own list — All Levels List' })
             v-if="c.level_gddl_tier"
             class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold leading-none"
             :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
+            :title="c.level_gddl_tier"
           >{{ shortTier(c.level_gddl_tier) }}</span>
           <span class="shrink-0 tabular-nums text-xs text-zinc-400">#{{ c.to_placement ?? c.to_position }}</span>
         </li>

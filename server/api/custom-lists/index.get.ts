@@ -15,7 +15,7 @@ export default defineEventHandler((event) => {
 
   const lists = db.prepare(
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.likes, cl.is_public,
-            cl.created_at, cl.updated_at,
+            cl.created_at, cl.updated_at, cl.accent_color, cl.icon_url,
             a.username AS owner_username,
             (SELECT COUNT(*) FROM custom_list_items i WHERE i.list_id = cl.id) AS item_count,
             (SELECT 1 FROM custom_list_likes k WHERE k.list_id = cl.id AND k.account_id = ?) AS liked_by_me

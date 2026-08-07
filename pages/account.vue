@@ -911,16 +911,22 @@ function fmt(n: number | null | undefined) {
             :src="bannerImage"
             alt=""
             referrerpolicy="no-referrer"
+            fetchpriority="high"
+            decoding="async"
             class="absolute inset-0 w-full h-full object-cover opacity-70"
           />
           <div class="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-zinc-950/60 to-zinc-950" aria-hidden="true" />
         </template>
+        <!-- The cover is full-bleed, so `100vw` is honest and `high` is worth
+             it — and it is the same URL the profile page paints, so a visit to
+             either one warms the other's cache. -->
         <LevelThumbBg
           v-else-if="bannerLevel"
           :key="bannerLevel.gd_id ?? bannerLevel.name"
           :gd-id="bannerLevel.gd_id"
           :video-url="bannerLevel.video ?? bannerLevel.verification_url"
           res="high"
+          sizes="100vw"
           priority
           img-class="opacity-60 scale-105"
           overlay-class="bg-gradient-to-b from-zinc-950/40 via-zinc-950/70 to-zinc-950"
@@ -1066,8 +1072,8 @@ function fmt(n: number | null | undefined) {
             <LevelThumbBg
               :gd-id="profileData.hardest_completion.gd_id"
               :video-url="profileData.hardest_completion.video ?? profileData.hardest_completion.verification_url"
-              res="high"
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 620px"
+              res="medium"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 460px"
               img-class="opacity-25 group-hover:opacity-40"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />
@@ -1095,8 +1101,8 @@ function fmt(n: number | null | undefined) {
             <LevelThumbBg
               :gd-id="profileData.favorite_level.gd_id"
               :video-url="profileData.favorite_level.verification_url"
-              res="high"
-              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 620px"
+              res="medium"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 460px"
               img-class="opacity-25 group-hover:opacity-40"
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />

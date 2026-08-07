@@ -2,6 +2,9 @@ import { getDb } from './index.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
 import { recomputePoints } from '../utils/points.ts'
 import { repairSandwichedTiers } from '../utils/tier-repair.ts'
+// Relative, not `~`: this file also runs standalone under
+// `node --experimental-strip-types`, where Nuxt's alias doesn't exist.
+import { longestIncreasingRun } from '../../utils/lis.ts'
 
 const SHEET_BASE_URL =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
@@ -892,13 +895,61 @@ function applySheetOrder(
  * Every level's absolute position moves whenever rows are inserted above it,
  * so absolute position is useless as a "did this move?" signal — a single new
  * level at the top would otherwise generate 54,000 changelog entries. What
- * matters is a level's rank *among the levels that were already on the list*:
- * insertions and removals leave that untouched, so a change to it means the
- * curators genuinely re-ranked the level against its peers.
+ * matters is a level's order *among the levels that were already on the list*:
+ * insertions and removals leave that untouched.
+ *
+ * That alone is not enough, and this is the part that was wrong. Rank among
+ * survivors still changes for *everything a moved level passes*: promote one
+ * level from #500 to #100 and its rank drops by 400 — while the 400 levels it
+ * overtook each gain one. Comparing ranks reported all 401 as movement, so the
+ * changelog for a single promotion read as one level up and four hundred down.
+ *
+ * The question is really "which levels moved *relative to each other*", and the
+ * answer is the set outside the **longest increasing subsequence** of the new
+ * order read in the old order's sequence. That subsequence is the largest group
+ * still in agreement — the list's backbone — and everything else is a level
+ * whose movement is what changed. For the promotion above it is one entry, which
+ * is what a reader of the changelog would have written by hand.
  *
  * Newly imported levels get an "added" entry (from_position NULL), which is
  * what the changelog renders as "Added".
+ *
+ * `survivorsThatMoved` is the decision on its own, with no database in it, so
+ * it can be checked against a made-up before/after directly.
  */
+export function survivorsThatMoved(
+  oldPositions: Map<number, number>,
+  newPositions: Map<number, number>,
+  newIds: Set<number> = new Set(),
+): number[] {
+  // Survivors: on the list before this run and still on it now.
+  const survivors = [...newPositions.keys()].filter((id) => !newIds.has(id) && oldPositions.has(id))
+
+  // Survivors in the order the list had them before, and where each one sits in
+  // the new order. Ranks rather than raw positions on both sides, so a run of
+  // insertions above them doesn't register as everything below moving.
+  const byOldOrder = survivors
+    .slice()
+    .sort((a, b) => oldPositions.get(a)! - oldPositions.get(b)!)
+
+  const newRank = new Map<number, number>()
+  survivors
+    .slice()
+    .sort((a, b) => newPositions.get(a)! - newPositions.get(b)!)
+    .forEach((id, i) => newRank.set(id, i))
+
+  // The backbone: the longest run of levels still in the same order relative to
+  // one another. Everything outside it is a level that genuinely moved.
+  const backbone = new Set(longestIncreasingRun(byOldOrder.map((id) => newRank.get(id)!)))
+
+  return byOldOrder.filter((id, i) => {
+    if (backbone.has(i)) return false
+    // A level can be outside the backbone and still land on the number it
+    // started from, when everything around it shuffled instead.
+    return oldPositions.get(id) !== newPositions.get(id)
+  })
+}
+
 function recordSheetMovements(
   db: ReturnType<typeof getDb>,
   args: {
@@ -909,21 +960,6 @@ function recordSheetMovements(
 ): void {
   const { oldPositions, newPositions, newIds } = args
 
-  // Survivors: on the list before this run and still on it now.
-  const survivors = [...newPositions.keys()].filter((id) => !newIds.has(id) && oldPositions.has(id))
-
-  const oldRank = new Map<number, number>()
-  survivors
-    .slice()
-    .sort((a, b) => oldPositions.get(a)! - oldPositions.get(b)!)
-    .forEach((id, i) => oldRank.set(id, i))
-
-  const newRank = new Map<number, number>()
-  survivors
-    .slice()
-    .sort((a, b) => newPositions.get(a)! - newPositions.get(b)!)
-    .forEach((id, i) => newRank.set(id, i))
-
   const ins = db.prepare(
     `INSERT INTO position_history (level_id, from_position, to_position, changed_by, source)
      VALUES (?, ?, ?, NULL, 'all')`,
@@ -933,8 +969,7 @@ function recordSheetMovements(
   let adds = 0
   db.exec('BEGIN')
   try {
-    for (const id of survivors) {
-      if (oldRank.get(id) === newRank.get(id)) continue
+    for (const id of survivorsThatMoved(oldPositions, newPositions, newIds)) {
       ins.run(id, oldPositions.get(id)!, newPositions.get(id)!)
       moves++
     }

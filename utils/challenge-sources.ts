@@ -9,13 +9,31 @@ export const CHALLENGE_SOURCES = [
 
 const CHALLENGE_SOURCE_SET = new Set<string>(CHALLENGE_SOURCES)
 
-export function isChallengeSource(source: string | null | undefined): boolean {
-  if (!source) return false
-  return CHALLENGE_SOURCE_SET.has(source.trim().toUpperCase())
+/**
+ * A level can be tagged with several sources, stored pipe-separated — the
+ * level editor writes `AREDL|ACS`. So the test is per part, not on the whole
+ * string: matching the column outright meant one challenge list among several
+ * sources counted for nothing, and the level quietly stayed off the challenge
+ * ranking. Nothing on the sheet is multi-source today, which is the only reason
+ * that has never been visible.
+ */
+export function splitSources(source: string | null | undefined): string[] {
+  if (!source) return []
+  return source.split('|').map((s) => s.trim()).filter(Boolean)
 }
 
-/** SQL fragment matching `placement_source` against the challenge source list. */
+export function isChallengeSource(source: string | null | undefined): boolean {
+  return splitSources(source).some((s) => CHALLENGE_SOURCE_SET.has(s.toUpperCase()))
+}
+
+/**
+ * SQL fragment matching `placement_source` against the challenge source list.
+ *
+ * Wrapping the column in pipes and stripping spaces makes one LIKE per source
+ * match a whole part and only a whole part: `|ACS|` matches `ACS` and
+ * `AREDL|ACS`, and never `ACSX`.
+ */
 export function challengeSourceSqlExpr(column = 'placement_source'): string {
-  const list = CHALLENGE_SOURCES.map((s) => `'${s}'`).join(', ')
-  return `UPPER(COALESCE(${column}, '')) IN (${list})`
+  const haystack = `REPLACE(UPPER('|' || COALESCE(${column}, '') || '|'), ' ', '')`
+  return `(${CHALLENGE_SOURCES.map((s) => `${haystack} LIKE '%|${s}|%'`).join(' OR ')})`
 }
