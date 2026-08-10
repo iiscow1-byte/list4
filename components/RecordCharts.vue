@@ -153,11 +153,10 @@ const tierBars = computed(() => {
 <template>
   <div class="space-y-4">
     <!-- Levels vs challenges -->
-    <section v-if="split.total" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
-        Levels vs challenges
-        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ split.total }} beaten</span>
-      </h2>
+    <!-- These three used `rounded-md … p-3` while every other box in the same
+         sidebar used `rounded-xl … p-4`, so the corners disagreed down the
+         length of the column. `ProfilePanel` is that shell, once. -->
+    <ProfilePanel v-if="split.total" title="Levels vs challenges" :note="`${split.total} beaten`">
       <!-- Stacked, not side by side.
            The ring and the legend shared a 260px column, which left the labels
            about seventy pixels: "Challenges" rendered as "Ch…", and the word
@@ -209,14 +208,10 @@ const tierBars = computed(() => {
           </li>
         </ul>
       </div>
-    </section>
+    </ProfilePanel>
 
     <!-- Skillset pie -->
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
-        Skillsets
-        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ skillsetSlices.total }} record{{ skillsetSlices.total === 1 ? '' : 's' }}</span>
-      </h2>
+    <ProfilePanel title="Skillsets" :note="`${skillsetSlices.total} record${skillsetSlices.total === 1 ? '' : 's'}`">
       <div v-if="skillsetSlices.total === 0" class="text-xs text-zinc-600 px-1 py-3 text-center">No records yet.</div>
       <template v-else>
         <svg viewBox="0 0 180 180" class="block w-full max-w-[180px] mx-auto" role="img" aria-label="Skillset distribution">
@@ -254,14 +249,10 @@ const tierBars = computed(() => {
           </li>
         </ul>
       </template>
-    </section>
+    </ProfilePanel>
 
     <!-- Tier bars -->
-    <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2 flex items-baseline gap-2">
-        Difficulty tiers
-        <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ tierBars.list.reduce((s, r) => s + r.n, 0) }} tiered</span>
-      </h2>
+    <ProfilePanel title="Difficulty tiers" :note="`${tierBars.list.reduce((s, r) => s + r.n, 0)} tiered`">
       <div v-if="tierBars.list.length === 0" class="text-xs text-zinc-600 px-1 py-3 text-center">No tiered records.</div>
       <ul v-else class="space-y-0.5">
         <li v-for="row in tierBars.list" :key="row.tier" class="flex items-center gap-2 text-[11px]">
@@ -281,6 +272,6 @@ const tierBars = computed(() => {
           <span class="tabular-nums text-zinc-400 w-7 text-right">{{ row.n }}</span>
         </li>
       </ul>
-    </section>
+    </ProfilePanel>
   </div>
 </template>

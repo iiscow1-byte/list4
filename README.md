@@ -629,6 +629,81 @@ icon. `utils/social-links.ts` is one table of service, field, placeholder, host
 list, icon and handle-extractor, so the settings form and the profile can't end
 up knowing about different sets of them.
 
+## Badges
+
+`utils/badge-styles.ts` is the whole visual vocabulary: `BADGE_BASE` (shape),
+`BADGE_TONE` (ten named colours) and `BADGE_SIZE` (two). `components/Badge.vue`
+draws it. Nothing else on the site should be inventing a chip.
+
+The split between base and tone is the load-bearing part. The border *width*
+lives in the base and a tone supplies only `border-<colour>/40`, so a tone can
+never change a badge's shape — which is how the dozens of hand-written chips
+drifted into four text sizes, five paddings and two opinions about whether a
+badge has a border in the first place. Put two of those next to each other in a
+leaderboard row and the mismatch reads as sloppiness rather than as meaning,
+which is the opposite of what a badge is for.
+
+There is one escape hatch, `hexBadgeStyle`, for a colour a *person* chose — a
+clan's colour, a staff-set name badge. It re-validates the hex on the way out
+even though every write path already refuses anything else, because this value
+lands in a `style` attribute and deserves two gates rather than one. Anything
+that isn't `#rrggbb` returns `undefined` and the caller falls back to a tone, so
+a bad colour degrades to a plain badge rather than to an unstyled one.
+
+Built on it: `RoleBadge` (below), `NameBadge` (the staff-set free-text chip,
+which had three copies — including the account page's live *preview*, which is
+the worst place for a copy to drift) and `ClanTag`.
+
+### Clan tags look different on purpose
+
+`components/ClanTag.vue` is the one badge that deliberately breaks the pattern.
+A role chip is the site talking *about* an account; a clan tag is part of how a
+player writes their own name — `[TSK] Wolfy` is the form this community already
+uses — so it reads as a prefix rather than as an annotation. Brackets instead of
+an uppercase pill, tighter tracking, a squarer corner, the clan's own colour
+rather than one from the tone palette, and the brackets dimmed against the tag
+so the letters that identify the clan are what the eye lands on.
+
+It appears wherever a name does: the leaderboard (rows and podium), a level's
+records, the followed-activity feed, comments, follower and following lists, the
+custom-list records panel, both profile headers and the site header. That is
+nine surfaces, and none of them pays for it per row: `clanTagsForPlayers` in
+`server/utils/clans.ts` resolves a whole page of names in one query, chunked at
+400 placeholders because SQLite's default host-parameter ceiling is 999 and the
+leaderboard hands it up to 2,000 names.
+
+Two things it gets right that are easy to get wrong:
+
+- **The name it matches on** is `COALESCE(claimed_player, username)` — the name
+  the records are filed under, and the name being printed. Matching on the
+  username would silently lose the tag for exactly the people who have claimed a
+  leaderboard identity.
+- **`:link="false"` inside another link.** A row in the leaderboard is already
+  an anchor; a nested anchor is invalid markup and swallows the outer one's
+  click, so the tag renders as a plain span there.
+
+The clan is attached in `/api/auth/me` rather than inside `getCurrentAccount`,
+because that function's return type is what every write path binds its
+parameters from and a field that exists only to be printed has no business
+travelling through an `UPDATE`.
+
+## A level's records
+
+`components/LevelRecords.vue` is the right-hand column of the list page, and
+`utils/level-records.ts` holds the rule it sorts by — out of the component
+because the rule is the interesting part, and a rule living inside a `<template>`'s
+sibling script is a rule nothing can check.
+
+Records arrive from three places (the ALL's own `records` table, AREDL and
+Pointercrate) and used to render back to back, each array sorted within itself,
+so **a 60% attempt on the sheet sat above a verified 100% from AREDL**. Percent
+decides now; the source only breaks ties, using the same ALL > AREDL > PC
+priority the endpoint already dedups by, because the ALL row carries the most
+editorial metadata (the hz and the video the submitter chose).
+
+`sortRecords` returns a new array. Sorting the `records` prop in place is
+something Vue will happily let you do and then re-render around.
+
 ## Roles, and the badges for them
 
 `utils/role-styles.ts` holds every role the site draws — the four site ones
@@ -655,6 +730,35 @@ Two rules worth keeping:
   a site badge painted with it would change colour depending on which page it
   was printed on. The one badge that *should* is the list's own owner, which is
   why `list-owner` keeps it.
+
+## Comparing against challenges when submitting
+
+`utils/challenge-compare.ts` is one function and it exists because the two
+behaviours it sits between are one character apart: *follow the checkbox* and
+*overrule the user*.
+
+A challenge and a level of the same tier are not comparable things — one is
+under thirty seconds and the other is not — so somebody who has just ticked
+"Challenge" on the submit form and then opens Compare is looking for other
+challenges. They were shown the whole 54,000-level list and had to know to find
+the rating dropdown, three clicks from the box they had just ticked. Ticking it
+now points the drawer at challenges only, ranked among themselves (`C#12`), with
+the list position kept in a quieter column because that is what the placement
+estimate is filled in from. Picking a challenge as the comparison ticks the box.
+
+The rule owns exactly two states, `''` and `'Challenge'`. If somebody has chosen
+"Rated" by hand that is an answer to a different question, and the checkbox
+leaves it alone.
+
+Two smaller things the drawer has to get right:
+
+- **Browsing for context must not drop challenge mode.** Clicking a level
+  re-opens the list centred on it with the filters cleared; clearing the
+  challenge filter there put the challenge back in the middle of 54,000 levels,
+  which is exactly the context that isn't wanted.
+- **The filter can change while the drawer is closed**, and the watcher that
+  reloads deliberately only fires for a visible list. So `openCompare` compares
+  what is loaded against what is wanted and reloads if they differ.
 
 ## Setup
 

@@ -22,6 +22,23 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.17.0',
+    date: '2026-08-09',
+    title: 'Clan tags, one badge, and records worth reading',
+    tags: ['Community', 'Profiles', 'UI', 'Submissions'],
+    changes: [
+      'Your clan tag now shows beside your name wherever your name appears — the leaderboard, a level\'s records, comments, follower lists, your profile and the site header — instead of only on the clans page.',
+      'A clan tag is deliberately shaped unlike every other badge: brackets and the clan\'s own colour, the way the community already writes it, so it reads as part of a name rather than as a label the site stuck on.',
+      'Every badge on the site now comes from one definition. They had drifted into four text sizes, five paddings and two opinions about whether a chip has a border, which reads as sloppiness when two of them sit side by side.',
+      'A level\'s records are sorted by what the record is rather than by which list it was imported from. A 60% attempt used to sit above a verified 100% simply because the sheet was read first.',
+      'Record rows link to the player, draw their country as a flag instead of a bare "GB", and say when a record is a verification or was set on mobile.',
+      'The profile header stopped printing the country twice — a flag beside the name and a second flag with its name underneath — and reads "Kent, United Kingdom" once.',
+      'Every box on a profile is the same box: the charts used one corner radius and everything else another, in the same column.',
+      '"Of the list" now draws the share it is describing as a bar under the number.',
+      'Submitting a level: ticking Challenge points the comparison drawer at challenges only, ranked among themselves, rather than at all 54,000 levels. Picking a challenge as your comparison ticks the box.',
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-08-08',
     title: 'Clans, and a much faster list',

@@ -27,6 +27,7 @@ type Comment = {
   name_emoji?: string | null
   name_badge?: string | null
   name_badge_color?: string | null
+  clan?: { tag: string; name: string; color: string | null } | null
   body: string
   created_at: string
 }
@@ -209,6 +210,7 @@ function avatarOf(username: string) {
               :badge="c.name_badge"
               :badge-color="c.name_badge_color"
               :role="c.role !== 'user' ? c.role : null"
+              :clan="c.clan"
               :to="`/users/${encodeURIComponent(c.username)}`"
             />
             <span class="ml-auto shrink-0 text-[11px] text-zinc-600 tabular-nums">{{ relative(c.created_at) }}</span>

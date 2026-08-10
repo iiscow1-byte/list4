@@ -1,5 +1,8 @@
 <script setup lang="ts">
 
+/** Enough of a clan to print its tag — attached per page by the endpoint. */
+type ClanTagInfo = { tag: string; name: string; color: string | null }
+
 type AllRow = {
   rank: number
   source?: undefined
@@ -13,6 +16,7 @@ type AllRow = {
   badge: string | null
   account_username?: string | null
   has_avatar?: boolean
+  clan?: ClanTagInfo | null
 }
 type GlobalSource = 'aredl' | 'pointercrate' | 'gdl' | 'alllist'
 type GlobalRow = {
@@ -26,6 +30,7 @@ type GlobalRow = {
   extras: { extremes?: number; pack_points?: number }
   hardest: string | null
   claimed_account: { username: string; has_avatar?: boolean } | null
+  clan?: ClanTagInfo | null
 }
 type Row = AllRow | GlobalRow
 
@@ -42,6 +47,7 @@ type FeedItem = {
   start_percent?: number | null
   end_percent?: number | null
   video_url?: string | null
+  clan?: ClanTagInfo | null
 }
 
 const { data: meRes } = useCurrentUser()
@@ -310,7 +316,13 @@ useHead({ title: 'Leaderboard — All Levels List' })
                   <span v-else class="text-lg font-black uppercase text-zinc-500">{{ p!.player.charAt(0) }}</span>
                 </span>
                 <span class="rank-badge shrink-0" :class="rankClass(p!.rank)">#{{ p!.rank }}</span>
-                <span class="text-sm font-semibold text-zinc-100 truncate w-full group-hover:text-accent transition-colors">{{ p!.player }}</span>
+                <span class="flex items-center justify-center gap-1.5 w-full min-w-0">
+                  <!-- `link` is off inside the podium card, which is already a
+                       link — an anchor inside an anchor is invalid markup and
+                       swallows the card's own click. -->
+                  <ClanTag v-if="p!.clan" :tag="p!.clan.tag" :name="p!.clan.name" :color="p!.clan.color" size="sm" :link="false" />
+                  <span class="text-sm font-semibold text-zinc-100 truncate group-hover:text-accent transition-colors">{{ p!.player }}</span>
+                </span>
                 <span class="text-xs tabular-nums text-amber-300">{{ fmt(p!.points) }} pts</span>
                 <span v-if="p!.hardest" class="text-[10px] text-zinc-600 truncate w-full">{{ p!.hardest }}</span>
               </NuxtLink>
@@ -339,7 +351,8 @@ useHead({ title: 'Leaderboard — All Levels List' })
                 </span>
                 <div class="flex-1 min-w-0">
                   <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
-                    <span>{{ p.player }}</span>
+                    <ClanTag v-if="p.clan" :tag="p.clan.tag" :name="p.clan.name" :color="p.clan.color" size="sm" :link="false" />
+                    <span class="truncate">{{ p.player }}</span>
                     <!-- Role badge intentionally excluded from external-list rows
                          (Aredl, Pointercrate): they are list mirrors, not site
                          identities, so the site-role chip would be misleading. -->
@@ -347,12 +360,13 @@ useHead({ title: 'Leaderboard — All Levels List' })
                       <RoleBadge :role="(p as AllRow).badge" size="sm" />
                     </template>
                     <template v-else>
-                      <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 shrink-0">{{ sourceLabel(p) }}</span>
-                      <span
+                      <Badge tone="quiet" size="sm" title="Imported from another list">{{ sourceLabel(p) }}</Badge>
+                      <Badge
                         v-if="(p as GlobalRow).claimed_account"
-                        class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300 shrink-0"
+                        tone="emerald"
+                        size="sm"
                         :title="`Claimed by @${(p as GlobalRow).claimed_account!.username}`"
-                      >Claimed</span>
+                      >Claimed</Badge>
                     </template>
                   </div>
                   <div class="text-[11px] text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
@@ -445,6 +459,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
         <ol v-else-if="feed.length" class="divide-y divide-zinc-900 rounded-xl border border-zinc-800/70 bg-zinc-950 overflow-hidden">
           <li v-for="(item, idx) in feed" :key="`${item.kind}-${idx}-${item.at}`" class="px-3 py-2.5 text-xs">
             <div class="flex items-baseline gap-2">
+              <ClanTag v-if="item.clan" :tag="item.clan.tag" :name="item.clan.name" :color="item.clan.color" size="sm" />
               <NuxtLink
                 :to="item.actor_username ? `/users/${encodeURIComponent(item.actor_username)}` : `/users/by-player/${encodeURIComponent(item.actor)}`"
                 class="font-medium text-zinc-200 hover:text-accent transition-colors truncate"

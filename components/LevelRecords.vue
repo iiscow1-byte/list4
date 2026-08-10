@@ -1,5 +1,27 @@
 <script setup lang="ts">
-type Record = {
+import { recordSource, recordSourceBadge, sortRecords } from '~/utils/level-records'
+
+/**
+ * Everybody who has beaten this level, in the list's right-hand column.
+ *
+ * Three things were wrong with it, and they were all the same thing: the panel
+ * treated a record as a row of text rather than as a person.
+ *
+ * - **The names weren't links.** This is the densest list of player names on the
+ *   site and none of them went anywhere, on a site whose whole point is those
+ *   players' profiles.
+ * - **The country was a bare two-letter code** — `US`, `GB` — while every other
+ *   place the site prints a country draws the flag.
+ * - **The order was by import source**, so the site's own records came first,
+ *   then AREDL's, then Pointercrate's, each sorted separately. A 60% attempt on
+ *   the sheet sat above a verified 100% from AREDL. Percent decides now, and
+ *   the source only breaks ties.
+ *
+ * The type is `LevelRecord` rather than `Record` because the old name shadowed
+ * TypeScript's built-in `Record<K, V>` for the whole file — which is fine until
+ * the day somebody wants a map in here and gets an incomprehensible error.
+ */
+type LevelRecord = {
   id?: number
   player: string
   country: string | number | null
@@ -9,10 +31,13 @@ type Record = {
   source?: 'all' | 'aredl' | 'pointercrate'
   is_verification?: number | null
   is_legacy?: number | null
+  mobile?: number | null
   demon_position?: number | null
+  achieved_at?: string | null
+  clan?: { tag: string; name: string; color: string | null } | null
 }
 
-const props = defineProps<{ records: Record[] }>()
+const props = defineProps<{ records: LevelRecord[] }>()
 const emit = defineEmits<{ (e: 'refresh'): void }>()
 
 const { data: meRes } = useCurrentUser()
@@ -24,26 +49,35 @@ const isAdmin = computed(() => {
 type Filter = 'all' | 'site' | 'aredl' | 'pointercrate'
 const filter = ref<Filter>('all')
 
-const hasSite = computed(() => props.records.some((r) => !r.source || r.source === 'all'))
-const hasAredl = computed(() => props.records.some((r) => r.source === 'aredl'))
-const hasPc = computed(() => props.records.some((r) => r.source === 'pointercrate'))
-// Filter chip row only renders when at least two sources are present.
-const showFilter = computed(() => [hasSite.value, hasAredl.value, hasPc.value].filter(Boolean).length >= 2)
+/** Which bucket a row belongs to. A missing source is the site's own list. */
+const bucket = recordSource
 
-const visibleChips = computed<[Filter, string][]>(() => {
-  const out: [Filter, string][] = [['all', 'All']]
-  if (hasSite.value) out.push(['site', 'ALL'])
-  if (hasAredl.value) out.push(['aredl', 'AREDL'])
-  if (hasPc.value) out.push(['pointercrate', 'PC'])
+const counts = computed(() => {
+  const out = { site: 0, aredl: 0, pointercrate: 0 }
+  for (const r of props.records) out[bucket(r)]++
   return out
 })
 
-const filtered = computed(() => {
-  if (filter.value === 'site') return props.records.filter((r) => !r.source || r.source === 'all')
-  if (filter.value === 'aredl') return props.records.filter((r) => r.source === 'aredl')
-  if (filter.value === 'pointercrate') return props.records.filter((r) => r.source === 'pointercrate')
-  return props.records
+/** The chip row only renders when at least two sources are present. */
+const visibleChips = computed<{ value: Filter; label: string; count: number }[]>(() => {
+  const out: { value: Filter; label: string; count: number }[] = [
+    { value: 'all', label: 'All', count: props.records.length },
+  ]
+  if (counts.value.site) out.push({ value: 'site', label: 'ALL', count: counts.value.site })
+  if (counts.value.aredl) out.push({ value: 'aredl', label: 'AREDL', count: counts.value.aredl })
+  if (counts.value.pointercrate) out.push({ value: 'pointercrate', label: 'PC', count: counts.value.pointercrate })
+  return out
 })
+const showFilter = computed(() => visibleChips.value.length >= 3)
+
+/** Sorted by what the record *is*, not by where it was imported from. */
+const filtered = computed(() => sortRecords(
+  filter.value === 'all'
+    ? props.records
+    : props.records.filter((r) => bucket(r) === filter.value),
+))
+
+const sourceBadge = recordSourceBadge
 
 const deletingId = ref<number | null>(null)
 async function deleteRecord(id: number) {
@@ -61,72 +95,90 @@ async function deleteRecord(id: number) {
 <template>
   <aside class="flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800/80 shrink-0">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">
+      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2 flex items-baseline gap-1.5">
         Records
-        <span class="ml-1 tabular-nums text-zinc-600">{{ props.records.length }}</span>
+        <!-- The total was printed here while the list below was filtered, so
+             the heading disagreed with what was under it. It says what you are
+             looking at, and how many there are in all when those differ. -->
+        <span class="tabular-nums text-zinc-600">{{ filtered.length }}</span>
+        <span
+          v-if="filtered.length !== records.length"
+          class="tabular-nums text-zinc-700"
+        >of {{ records.length }}</span>
       </h2>
       <div v-if="showFilter" class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
         <button
-          v-for="[val, label] in visibleChips"
-          :key="val"
+          v-for="chip in visibleChips"
+          :key="chip.value"
           type="button"
-          class="px-2.5 py-1 text-[10px] font-medium transition-colors"
-          :class="filter === val ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="filter = val"
-        >{{ label }}</button>
+          class="px-2.5 py-1 text-[10px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
+          :class="filter === chip.value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
+          :title="`${chip.count} record${chip.count === 1 ? '' : 's'}`"
+          @click="filter = chip.value"
+        >
+          {{ chip.label }}
+          <span class="tabular-nums ml-1 opacity-60">{{ chip.count }}</span>
+        </button>
       </div>
     </div>
+
     <div class="flex-1 min-h-0 overflow-y-auto">
-      <div v-if="filtered.length === 0" class="p-6 text-center text-sm text-zinc-600">
-        No records
+      <div v-if="records.length === 0" class="p-6 text-center text-sm text-zinc-600">
+        No records yet.
       </div>
+      <div v-else-if="filtered.length === 0" class="p-6 text-center text-sm text-zinc-600">
+        Nothing from that list.
+        <button type="button" class="block mx-auto mt-1 text-xs text-accent hover:underline" @click="filter = 'all'">
+          Show all {{ records.length }}
+        </button>
+      </div>
+
       <ul v-else class="divide-y divide-zinc-900">
         <li
           v-for="(r, idx) in filtered"
           :key="`${r.source ?? 'all'}-${r.player}-${r.percent}-${idx}`"
-          class="px-3 py-2.5 hover:bg-zinc-900/60 transition-colors group"
+          class="px-3 py-2 hover:bg-zinc-900/60 transition-colors group"
         >
-          <!-- Line 1: player name · video link · percent · delete -->
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="text-sm font-medium truncate">{{ r.player }}</span>
-            <div class="flex items-center gap-2 shrink-0">
-              <a
-                v-if="r.video"
-                :href="r.video"
-                target="_blank"
-                rel="noopener"
-                class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
-              >video ↗</a>
-              <span class="tabular-nums text-xs text-amber-300">{{ r.percent }}%</span>
-              <button
-                v-if="isAdmin && r.id && (!r.source || r.source === 'all')"
-                type="button"
-                :disabled="deletingId != null"
-                class="text-[10px] text-zinc-500 hover:text-red-400 disabled:opacity-30 transition-colors leading-none"
-                title="Remove record"
-                @click="deleteRecord(r.id!)"
-              >✕</button>
-            </div>
+          <!-- Line 1: who, and how far they got -->
+          <div class="flex items-baseline gap-2">
+            <CountryFlag :country="typeof r.country === 'number' ? String(r.country) : r.country" size="sm" class="self-center" />
+            <NuxtLink
+              :to="`/users/by-player/${encodeURIComponent(r.player)}`"
+              class="text-sm font-medium truncate text-zinc-200 hover:text-accent transition-colors min-w-0"
+              :title="r.player"
+            >{{ r.player }}</NuxtLink>
+            <ClanTag v-if="r.clan" :tag="r.clan.tag" :name="r.clan.name" :color="r.clan.color" size="sm" class="self-center" />
+            <span
+              class="ml-auto tabular-nums text-xs shrink-0"
+              :class="r.percent >= 100 ? 'text-amber-300' : 'text-zinc-400'"
+            >{{ r.percent }}%</span>
           </div>
-          <!-- Line 2: country · hz · source badge (consistent for all records) -->
-          <div class="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-500">
-            <span v-if="r.country" class="uppercase">{{ r.country }}</span>
-            <span v-if="r.hz" class="tabular-nums">{{ r.hz }}hz</span>
-            <span
-              v-if="!r.source || r.source === 'all'"
-              class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
-              title="ALL list record"
-            >ALL</span>
-            <span
-              v-if="r.source === 'aredl'"
-              class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
-              :title="r.is_verification ? 'Verified on AREDL' : 'Imported from AREDL'"
-            >AREDL</span>
-            <span
-              v-if="r.source === 'pointercrate'"
-              class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400"
-              :title="r.is_legacy ? 'From Pointercrate Legacy' : (r.is_verification ? 'Verifier on Pointercrate' : 'Imported from Pointercrate')"
-            >PC{{ r.is_legacy ? ' Legacy' : '' }}</span>
+
+          <!-- Line 2: where it came from, and what else is known about it -->
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
+            <Badge tone="quiet" size="sm" :title="sourceBadge(r).title">{{ sourceBadge(r).label }}</Badge>
+            <Badge v-if="r.is_verification" tone="emerald" size="sm" title="This is the level's verification">Verifier</Badge>
+            <Badge v-if="r.mobile" tone="sky" size="sm" title="Beaten on mobile">Mobile</Badge>
+            <span v-if="r.hz" class="tabular-nums shrink-0">{{ r.hz }}hz</span>
+            <a
+              v-if="r.video"
+              :href="r.video"
+              target="_blank"
+              rel="noopener"
+              class="ml-auto shrink-0 text-zinc-500 hover:text-accent transition-colors"
+            >video ↗</a>
+            <!-- Hidden until the row is hovered or the button is focused: it is
+                 a destructive control on every row of a long list, and it has
+                 to stay reachable from the keyboard. -->
+            <button
+              v-if="isAdmin && r.id && bucket(r) === 'site'"
+              type="button"
+              :disabled="deletingId != null"
+              class="shrink-0 text-[10px] leading-none text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
+              :class="r.video ? '' : 'ml-auto'"
+              title="Remove this record"
+              @click="deleteRecord(r.id!)"
+            >✕</button>
           </div>
         </li>
       </ul>

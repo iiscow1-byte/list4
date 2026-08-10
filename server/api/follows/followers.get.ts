@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { attachClans } from '~/server/utils/clans'
 
 /**
  * Who follows a profile. `name` mirrors `following.get.ts` so one component can
@@ -21,5 +22,13 @@ export default defineEventHandler((event) => {
       LIMIT ${MAX}`,
   ).all(target) as { username: string; role: string; has_avatar: number }[]
 
-  return { items: items.map((r) => ({ ...r, name: r.username, has_avatar: !!r.has_avatar })) }
+  // The tag prints beside the name here for the same reason it does on a
+  // leaderboard row: this is a list of people, and that is part of their name.
+  return {
+    items: attachClans(
+      db,
+      items.map((r) => ({ ...r, name: r.username, has_avatar: !!r.has_avatar })),
+      'name',
+    ),
+  }
 })

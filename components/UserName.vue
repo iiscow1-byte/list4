@@ -13,11 +13,13 @@ import { NuxtLink } from '#components'
  * its own idea of what goes next to it. A decoration added to the account was
  * therefore visible in exactly the place somebody remembered to change.
  *
- * The order is fixed: name, then emoji, then the custom badge, then the role.
- * Emoji sit closest to the name because they read as part of it; the role chip
- * is last because it is the site's statement rather than the account's.
+ * The order is fixed, and it is an order of *ownership*. The clan tag comes
+ * first because it is a prefix somebody has chosen to write their name with,
+ * the way the community already writes it. Then the name, then the emoji, which
+ * reads as part of the name. Then the staff-set badge, then the role chip last,
+ * because that one is the site's statement rather than the account's.
  */
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   username: string
   /** Staff-set emoji, up to three. */
   emoji?: string | null
@@ -27,29 +29,28 @@ const props = withDefaults(defineProps<{
   badgeColor?: string | null
   /** `moderator` / `admin` / `owner` / `developer`, when it should be shown. */
   role?: string | null
+  /** The clan this account is in, when the caller knows it. */
+  clan?: { tag: string; name?: string | null; color?: string | null } | null
   /** Wrap the name in a link to the profile. */
   to?: string | null
   /** Smaller type, for dense rows. */
   size?: 'sm' | 'md'
-}>(), { size: 'md' })
-
-const badgeStyle = computed(() => {
-  const hex = props.badgeColor
-  // Only a hex literal reaches a style attribute — the write path enforces the
-  // same rule, and this is the second gate rather than the only one.
-  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return undefined
-  return { backgroundColor: `${hex}22`, borderColor: `${hex}66`, color: hex }
-})
-
-const chip = computed(() =>
-  props.size === 'sm'
-    ? 'text-[9px] px-1 py-0.5'
-    : 'text-[10px] px-1.5 py-0.5',
-)
+  /** `false` when this sits inside another link — a nested anchor is invalid. */
+  clanLink?: boolean
+}>(), { size: 'md', clanLink: true })
 </script>
 
 <template>
   <span class="inline-flex items-center gap-1.5 min-w-0">
+    <ClanTag
+      v-if="clan"
+      :tag="clan.tag"
+      :name="clan.name"
+      :color="clan.color"
+      :size="size"
+      :link="clanLink"
+    />
+
     <component
       :is="to ? NuxtLink : 'span'"
       :to="to ?? undefined"
@@ -59,13 +60,8 @@ const chip = computed(() =>
 
     <span v-if="emoji" class="shrink-0 leading-none" aria-hidden="true">{{ emoji }}</span>
 
-    <span
-      v-if="badge"
-      class="shrink-0 rounded border font-semibold uppercase tracking-wider leading-none"
-      :class="[chip, badgeStyle ? '' : 'border-zinc-700 bg-zinc-800 text-zinc-300']"
-      :style="badgeStyle"
-    >{{ badge }}</span>
+    <NameBadge :label="badge" :color="badgeColor" :size="size" />
 
-    <RoleBadge :role="role" :size="size === 'sm' ? 'sm' : 'md'" />
+    <RoleBadge :role="role" :size="size" />
   </span>
 </template>

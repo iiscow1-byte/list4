@@ -369,14 +369,22 @@ export function loadList(db: DatabaseSync, listId: number) {
     })
   }
 
+  // The clan joins through the submitting account: a custom list's records are
+  // submitted by a site account, so that account's clan is the one to print.
   const recordsByItem = db.prepare(
     `SELECT r.id, r.item_id, r.player_name, r.percent, r.hz, r.video, r.mobile,
-            a.username AS account_username
+            a.username AS account_username,
+            cl.tag AS clan_tag, cl.name AS clan_name, cl.color AS clan_color
        FROM custom_list_records r
        LEFT JOIN accounts a ON a.id = r.submitted_by
+       LEFT JOIN clan_members cm ON cm.account_id = a.id
+       LEFT JOIN clans        cl ON cl.id = cm.clan_id
       WHERE r.list_id = ? AND r.status = 'approved'
       ORDER BY r.percent DESC, r.player_name COLLATE NOCASE ASC`,
-  ).all(listId) as any[]
+  ).all(listId).map((r: any) => ({
+    ...r,
+    clan: r.clan_tag ? { tag: r.clan_tag, name: r.clan_name, color: r.clan_color } : null,
+  })) as any[]
 
   const byItem = new Map<number, any[]>()
   for (const r of recordsByItem) {

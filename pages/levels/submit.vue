@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { challengeCompareFilter, compareTargetPage } from '~/utils/challenge-compare'
 import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { tierColor, textOn } from '~/utils/tier-colors'
@@ -76,7 +77,7 @@ const notes = ref('')
 // would sit from its neighbours and passes it here; the form used to drop it on
 // the floor and make the submitter guess a number out of 54,000 again.
 const placementEstimate = ref<string>(/^\d{1,7}$/.test(q('placement_estimate', 8)) ? q('placement_estimate', 8) : '')
-const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null } | null>(null)
+const comparisonLevel = ref<{ position: number; name: string; gddl_tier: string | null; difficulty: string | null; challenge_rank?: number | null } | null>(null)
 const sameAsAbove = ref(false)
 const isAlternate = ref(false)
 const isChallenge = ref(false)
@@ -97,13 +98,34 @@ const error = ref<string | null>(null)
 const success = ref(false)
 
 // --- Level comparison drawer ---
-type ListLevel = { id?: number; position: number; name: string; gddl_tier: string | null; difficulty: string | null }
+type ListLevel = {
+  id?: number; position: number; name: string
+  gddl_tier: string | null; difficulty: string | null
+  /** 1-based rank among challenges only, when this level is one. */
+  challenge_rank?: number | null
+}
 const COMPARE_PAGE_SIZE = 500
 const compareOpen = ref(false)
 const compareMode = ref<'search' | 'browse'>('search')
 const compareSearch = ref('')
 const compareExternalList = ref('')      // '' | 'aredl' | 'gdl'
 const compareRatingFilter = ref('')     // '' | 'Unrated' | 'Rated' | 'Challenge'
+/**
+ * The comparison drawer follows the Challenge checkbox.
+ *
+ * A challenge and a level of the same tier are not comparable things — one is
+ * under thirty seconds and the other is not — so somebody who has just said
+ * "this is a challenge" and then opens Compare is looking for other challenges.
+ * They were shown the whole 54,000-level list and had to know to find the rating
+ * dropdown, which is three clicks away from the checkbox they just ticked.
+ *
+ * The dropdown is still there and still wins if it is changed by hand; ticking
+ * the box again re-asserts challenge mode.
+ */
+const compareChallengeMode = computed(() => compareRatingFilter.value === 'Challenge')
+/** What the loaded page window was fetched with, so a stale window is reloaded. */
+let compareLoadedKey = ''
+const compareKey = computed(() => `${compareExternalList.value}|${compareRatingFilter.value}`)
 const compareItems = ref<ListLevel[]>([])
 const compareLoading = ref(false)
 const comparePicked = ref<ListLevel | null>(null)
@@ -134,7 +156,12 @@ async function jumpCompareToPosition(pos: number) {
   compareSearch.value = ''
   compareMode.value = 'browse'
   resetCompareList()
-  const targetPage = Math.max(1, Math.ceil(pos / COMPARE_PAGE_SIZE))
+  // No challenge rank to go on — a shortcut only ever resolves a list position
+  // — so in challenge mode this starts at the top. See `compareTargetPage`.
+  const targetPage = compareTargetPage(
+    { challengeMode: compareChallengeMode.value, position: pos, challengeRank: null },
+    COMPARE_PAGE_SIZE,
+  )
   await loadComparePage(targetPage, 'append')
   await nextTick()
   compareScrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
@@ -230,6 +257,7 @@ async function loadComparePage(page: number, where: 'append' | 'prepend') {
       if (el) el.scrollTop = prevTop + (el.scrollHeight - prevHeight)
     }
     compareInitialized.value = true
+    compareLoadedKey = compareKey.value
   } finally {
     compareLoading.value = false
   }
@@ -264,17 +292,23 @@ async function pickCompareItem(lvl: ListLevel) {
   compareMode.value = 'browse'
   if (compareDebounce) { clearTimeout(compareDebounce); compareDebounce = null }
 
-  // Clear all filters without triggering the filter watcher's reload
+  // Clear the filters without triggering the filter watcher's reload — except
+  // the challenge one, which is the shape of the list being browsed rather than
+  // a filter on it. Dropping it here put a challenge back in the middle of
+  // 54,000 levels, which is precisely the context that isn't wanted.
   suppressFilterReload = true
   compareExternalList.value = ''
-  compareRatingFilter.value = ''
+  if (!compareChallengeMode.value) compareRatingFilter.value = ''
   if (compareSearch.value !== '') {
     suppressSearchReload = true
     compareSearch.value = ''
   }
 
   resetCompareList()
-  const targetPage = Math.max(1, Math.ceil(lvl.position / COMPARE_PAGE_SIZE))
+  const targetPage = compareTargetPage(
+    { challengeMode: compareChallengeMode.value, position: lvl.position, challengeRank: lvl.challenge_rank },
+    COMPARE_PAGE_SIZE,
+  )
   await loadComparePage(targetPage, 'append')
   await nextTick()
   scrollToPickedInList()
@@ -290,7 +324,17 @@ function openCompare() {
   compareOpen.value = true
   comparePicked.value = comparisonLevel.value
   compareMode.value = 'search'
-  if (!compareInitialized.value) loadComparePage(1, 'append')
+  // The checkbox may have been ticked while this was closed, in which case the
+  // filter watcher deliberately did nothing — it only reloads a visible list.
+  // So the drawer checks on the way in whether what is loaded still matches.
+  suppressFilterReload = true
+  compareRatingFilter.value = isChallenge.value
+    ? challengeCompareFilter(true, compareRatingFilter.value)
+    : compareRatingFilter.value
+  if (!compareInitialized.value || compareLoadedKey !== compareKey.value) {
+    resetCompareList()
+    loadComparePage(1, 'append')
+  }
 }
 function closeCompare() {
   compareOpen.value = false
@@ -312,6 +356,12 @@ watch([compareExternalList, compareRatingFilter], () => {
   compareMode.value = 'search'
   resetCompareList()
   loadComparePage(1, 'append')
+})
+
+// Ticking Challenge puts the drawer in challenge mode; unticking takes it out.
+// The rule itself is `utils/challenge-compare.ts`, where it can be checked.
+watch(isChallenge, (on) => {
+  compareRatingFilter.value = challengeCompareFilter(on, compareRatingFilter.value)
 })
 watch(compareOpen, async (open) => {
   await nextTick()
@@ -341,6 +391,10 @@ function confirmCompare() {
   const lvl = comparePicked.value
   if (!lvl) return
   comparisonLevel.value = lvl
+  // A challenge picked as the comparison says this one is a challenge too —
+  // the checkbox is the thing that decides where the level is ranked, so it
+  // follows the pick rather than needing to be remembered separately.
+  if (lvl.challenge_rank != null && showChallenge.value) isChallenge.value = true
   if (lvl.gddl_tier) gddlTier.value = lvl.gddl_tier
   if (lvl.difficulty) difficulty.value = lvl.difficulty
   placementEstimate.value = String(lvl.position)
@@ -813,14 +867,21 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                comes before them rather than being mentioned underneath. -->
           <div class="rounded-lg border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5 flex items-center gap-3">
             <span class="text-[11px] text-zinc-500 flex-1">
-              Not sure where it fits? Pick a level you'd call about as hard, and its tier,
-              demon level and placement are filled in from that.
+              <template v-if="isChallenge">
+                Not sure where it fits? Compare it against
+                <span class="text-amber-300">other challenges</span> — the list opens on
+                challenges only, ranked among themselves.
+              </template>
+              <template v-else>
+                Not sure where it fits? Pick a level you'd call about as hard, and its tier,
+                demon level and placement are filled in from that.
+              </template>
             </span>
             <button
               type="button"
               class="shrink-0 rounded-lg border border-accent/60 text-accent hover:bg-accent/10 text-xs px-3 py-1.5 transition-colors"
               @click="openCompare"
-            >Compare</button>
+            >{{ isChallenge ? 'Compare challenges' : 'Compare' }}</button>
           </div>
 
           <div
@@ -828,6 +889,11 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             class="rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-xs flex items-center gap-2"
           >
             <span class="text-zinc-400 shrink-0">About as hard as</span>
+            <span
+              v-if="comparisonLevel.challenge_rank != null && isChallenge"
+              class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-amber-500/15 text-amber-300 border border-amber-500/40"
+              title="Rank among challenges"
+            >C#{{ comparisonLevel.challenge_rank }}</span>
             <span class="text-zinc-100 font-medium truncate">#{{ comparisonLevel.position }} {{ comparisonLevel.name }}</span>
             <span v-if="comparisonLevel.gddl_tier" class="text-zinc-500 shrink-0">· {{ comparisonLevel.gddl_tier }}</span>
             <span v-if="comparisonLevel.difficulty" class="text-zinc-500 shrink-0 hidden sm:inline">· {{ comparisonLevel.difficulty }}</span>
@@ -846,10 +912,11 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
               <select v-model="difficulty" :class="field">
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
               </select>
-              <label v-if="showChallenge" class="mt-2 flex items-center gap-2 cursor-pointer select-none">
+              <label v-if="showChallenge" class="mt-2 flex items-center gap-2 cursor-pointer select-none flex-wrap">
                 <input v-model="isChallenge" type="checkbox" class="accent-accent" />
                 <span :class="label">Challenge</span>
                 <span class="text-[11px] text-zinc-600">Under 30 seconds</span>
+                <span v-if="isChallenge" class="text-[11px] text-amber-300/80">— Compare now shows challenges only</span>
               </label>
             </div>
           </div>
@@ -1054,10 +1121,16 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
         <div class="absolute inset-0 bg-black/60" @click="closeCompare" />
         <aside class="relative flex flex-col w-full sm:w-[420px] h-full bg-zinc-950 border-r border-zinc-800 shadow-2xl">
           <header class="p-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
-            <div class="flex flex-col">
-              <span class="text-xs uppercase tracking-widest text-accent font-semibold">Level comparison</span>
+            <div class="flex flex-col min-w-0">
+              <span class="text-xs uppercase tracking-widest text-accent font-semibold flex items-center gap-2">
+                {{ compareChallengeMode ? 'Challenge comparison' : 'Level comparison' }}
+                <Badge v-if="compareChallengeMode" tone="amber" size="sm" title="Following the Challenge checkbox">Challenges only</Badge>
+              </span>
               <span class="text-[11px] text-zinc-500">
-                <template v-if="compareMode === 'search'">Search, then click a level to browse nearby placements.</template>
+                <template v-if="compareChallengeMode">
+                  Challenges only, ranked among themselves. Pick one about as hard as yours.
+                </template>
+                <template v-else-if="compareMode === 'search'">Search, then click a level to browse nearby placements.</template>
                 <template v-else>Pick a level whose tier and rank match yours.</template>
               </span>
             </div>
@@ -1105,6 +1178,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                   v-model="compareRatingFilter"
                   class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] text-zinc-300 focus:border-accent focus:outline-none"
                   :class="compareRatingFilter ? 'border-accent/60 text-accent bg-accent/10' : ''"
+                  :title="compareChallengeMode ? 'Set by the Challenge checkbox — change it here to browse everything' : undefined"
                 >
                   <option value="">All</option>
                   <option value="Unrated">Unrated</option>
@@ -1135,13 +1209,23 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                   :class="comparePicked?.position === lvl.position ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
                   @click="pickCompareItem(lvl)"
                 >
+                  <!-- In challenge mode the number that matters is the rank
+                       among challenges, not the level's place in a list of
+                       54,000 that mostly isn't challenges. The list position
+                       is still printed, quietly, because that is what the
+                       placement estimate below is filled in with. -->
                   <span
                     class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
                     :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
                   >
-                    #{{ lvl.position }}
+                    <template v-if="compareChallengeMode && lvl.challenge_rank != null">C#{{ lvl.challenge_rank }}</template>
+                    <template v-else>#{{ lvl.position }}</template>
                   </span>
                   <span class="truncate flex-1">{{ lvl.name }}</span>
+                  <span
+                    v-if="compareChallengeMode && lvl.challenge_rank != null"
+                    class="text-[10px] opacity-50 shrink-0 tabular-nums"
+                  >#{{ lvl.position }}</span>
                   <span v-if="lvl.gddl_tier" class="text-[10px] opacity-70 shrink-0">{{ lvl.gddl_tier }}</span>
                 </button>
               </li>
@@ -1159,7 +1243,12 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
           <footer class="p-3 border-t border-zinc-800 shrink-0 flex items-center gap-2">
             <div class="text-[11px] text-zinc-400 truncate flex-1">
               <template v-if="comparePicked">
-                Selected: <span class="text-zinc-100 font-medium">#{{ comparePicked.position }} {{ comparePicked.name }}</span>
+                Selected:
+                <span class="text-zinc-100 font-medium">
+                  <template v-if="compareChallengeMode && comparePicked.challenge_rank != null">C#{{ comparePicked.challenge_rank }}</template>
+                  <template v-else>#{{ comparePicked.position }}</template>
+                  {{ comparePicked.name }}
+                </span>
               </template>
               <template v-else>
                 <span class="text-zinc-600">No level selected.</span>

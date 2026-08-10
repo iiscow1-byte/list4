@@ -110,12 +110,11 @@ const shownCompletions = computed(() => {
 
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2 flex-wrap">
-              <span class="text-sm font-bold uppercase tracking-wider text-accent">[{{ data.clan.tag }}]</span>
+              <!-- `link` off: this is the clan's own page, so the tag has
+                   nowhere to go. -->
+              <ClanTag :tag="data.clan.tag" :name="data.clan.name" :color="data.clan.color" :link="false" class="self-center" />
               <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">{{ data.clan.name }}</h1>
-              <span
-                v-if="data.clan.invite_only"
-                class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400"
-              >Invite only</span>
+              <Badge v-if="data.clan.invite_only" tone="quiet" title="The owner adds people">Invite only</Badge>
             </div>
             <p v-if="data.clan.description" class="mt-1.5 text-sm text-zinc-400 max-w-2xl whitespace-pre-wrap">{{ data.clan.description }}</p>
             <p class="mt-1 text-[11px] text-zinc-600">

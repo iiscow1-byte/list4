@@ -29,6 +29,7 @@ const { data, error, refresh } = await useFetch<{
     twitch_url: string | null; twitter_url: string | null; bluesky_url: string | null
     gd_username: string | null
     name_emoji?: string | null; name_badge?: string | null; name_badge_color?: string | null
+    clan?: { tag: string; name: string; color: string | null } | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
@@ -125,6 +126,7 @@ const stats = computed(() => {
       value: listPercent(done, d.totalLevels),
       tone: 'text-zinc-100',
       hint: `${done.toLocaleString()} of ${d.totalLevels.toLocaleString()} levels`,
+      progress: d.totalLevels > 0 ? done / d.totalLevels : null,
     },
     { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100', opens: 'followers' as const },
     { label: 'Following', value: d.follow.followingCount.toLocaleString(), tone: 'text-zinc-100', opens: 'following' as const },
@@ -159,16 +161,11 @@ function openFollowList(mode: 'followers' | 'following') {
       :banner-image="bannerImage"
       :stats="stats"
       :joined="joined"
-      :is-self="isOwnProfile"
       @open-list="openFollowList"
     >
       <template #name-suffix>
         <!-- The one thing a follower count can't say. -->
-        <span
-          v-if="data.follow.followsYou"
-          class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-zinc-700 bg-zinc-900 text-zinc-400"
-          title="This profile follows you"
-        >Follows you</span>
+        <Badge v-if="data.follow.followsYou" tone="quiet" title="This profile follows you">Follows you</Badge>
       </template>
       <template #meta>
         <span v-if="data.follow.mutuals" class="text-zinc-500">
@@ -208,8 +205,7 @@ function openFollowList(mode: 'followers' | 'following') {
 
       <div class="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 items-start">
         <main class="space-y-6 min-w-0">
-          <section v-if="data.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Player stats</h2>
+          <ProfilePanel v-if="data.player" title="Player stats">
             <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
@@ -228,7 +224,7 @@ function openFollowList(mode: 'followers' | 'following') {
                 <dd class="text-zinc-100 text-base">{{ data.player.tier ?? '—' }}</dd>
               </div>
             </dl>
-          </section>
+          </ProfilePanel>
 
           <ProgressPosts
             :posts="data.progressPosts"
@@ -256,8 +252,7 @@ function openFollowList(mode: 'followers' | 'following') {
         <aside class="space-y-4 lg:sticky lg:top-20">
           <RecordCharts :completed="data.completedLevels" />
 
-          <section v-if="data.publicLists?.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">Lists</h2>
+          <ProfilePanel v-if="data.publicLists?.length" title="Lists" :count="data.publicLists.length">
             <ul class="space-y-1">
               <li v-for="l in data.publicLists" :key="l.public_id">
                 <NuxtLink
@@ -265,23 +260,20 @@ function openFollowList(mode: 'followers' | 'following') {
                   class="flex items-center gap-2 rounded-lg border border-zinc-800/70 px-2.5 py-1.5 text-xs hover:border-zinc-700 hover:bg-zinc-900/40 transition-colors"
                 >
                   <span class="truncate flex-1 text-zinc-200">{{ l.title }}</span>
-                  <span v-if="!l.is_public" class="text-[9px] uppercase tracking-wider text-zinc-600 shrink-0">private</span>
-                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0">{{ l.item_count }}</span>
-                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0">★{{ l.likes }}</span>
+                  <Badge v-if="!l.is_public" tone="quiet" size="sm">Private</Badge>
+                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0" :title="`${l.item_count} levels`">{{ l.item_count }}</span>
+                  <span class="text-[10px] text-zinc-600 tabular-nums shrink-0" :title="`${l.likes} likes`">★{{ l.likes }}</span>
                 </NuxtLink>
               </li>
             </ul>
-          </section>
+          </ProfilePanel>
 
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
-              <button
-                type="button"
-                class="uppercase tracking-widest hover:text-accent transition-colors"
-                @click="openFollowList('followers')"
-              >Followers</button>
-              <span class="text-zinc-600 tabular-nums">{{ data.follow.followerCount }}</span>
-            </h2>
+          <ProfilePanel
+            title="Followers"
+            :count="data.follow.followerCount"
+            clickable
+            @title-click="openFollowList('followers')"
+          >
             <p v-if="!data.follow.followers?.length" class="text-xs text-zinc-600">No followers yet.</p>
             <ul v-else class="flex flex-wrap gap-1.5">
               <li v-for="f in data.follow.followers" :key="f.username">
@@ -290,7 +282,7 @@ function openFollowList(mode: 'followers' | 'following') {
                   class="inline-flex items-center gap-1.5 px-1.5 py-1 rounded-lg border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
                 >
                   <span class="w-4 h-4 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
-                    <img v-if="f.has_avatar" :src="`/api/users/${encodeURIComponent(f.username)}/avatar`" class="w-full h-full object-cover" alt="" />
+                    <img v-if="f.has_avatar" :src="`/api/users/${encodeURIComponent(f.username)}/avatar`" class="w-full h-full object-cover" alt="" loading="lazy" />
                     <span v-else class="text-[8px] font-semibold uppercase">{{ f.username.charAt(0) }}</span>
                   </span>
                   {{ f.username }}
@@ -303,17 +295,14 @@ function openFollowList(mode: 'followers' | 'following') {
               class="mt-2 text-[11px] text-zinc-500 hover:text-accent transition-colors"
               @click="openFollowList('followers')"
             >See all {{ data.follow.followerCount.toLocaleString() }} →</button>
-          </section>
+          </ProfilePanel>
 
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
-              <button
-                type="button"
-                class="uppercase tracking-widest hover:text-accent transition-colors"
-                @click="openFollowList('following')"
-              >Following</button>
-              <span class="text-zinc-600 tabular-nums">{{ data.follow.followingCount }}</span>
-            </h2>
+          <ProfilePanel
+            title="Following"
+            :count="data.follow.followingCount"
+            clickable
+            @title-click="openFollowList('following')"
+          >
             <p v-if="!data.follow.following?.length" class="text-xs text-zinc-600">Not following anyone yet.</p>
             <ul v-else class="flex flex-wrap gap-1.5">
               <li v-for="f in data.follow.following" :key="f.name">
@@ -329,7 +318,7 @@ function openFollowList(mode: 'followers' | 'following') {
               class="mt-2 text-[11px] text-zinc-500 hover:text-accent transition-colors"
               @click="openFollowList('following')"
             >See all {{ data.follow.followingCount.toLocaleString() }} →</button>
-          </section>
+          </ProfilePanel>
         </aside>
       </div>
     </div>

@@ -82,8 +82,11 @@ async function create() {
         <NuxtLink
           v-if="data?.mine"
           :to="`/clans/${data.mine.tag}`"
-          class="rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 transition-colors"
-        >Your clan · [{{ data.mine.tag }}]</NuxtLink>
+          class="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 transition-colors"
+        >
+          Your clan
+          <ClanTag :tag="data.mine.tag" :name="data.mine.name" :color="data.mine.color" size="sm" :link="false" />
+        </NuxtLink>
         <button
           v-else-if="data?.signedIn"
           type="button"
@@ -178,7 +181,10 @@ async function create() {
 
           <span class="min-w-0 flex-1">
             <span class="flex items-baseline gap-2 min-w-0">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-accent shrink-0">[{{ c.tag }}]</span>
+              <!-- The same tag component that prints beside a member's name
+                   everywhere else, so a clan is recognisable from its tag alone
+                   rather than only from this page. -->
+              <ClanTag :tag="c.tag" :name="c.name" :color="c.color" :link="false" class="self-center" />
               <span class="truncate font-semibold text-zinc-100 group-hover:text-accent transition-colors">{{ c.name }}</span>
             </span>
             <span class="block truncate text-[11px] text-zinc-600">

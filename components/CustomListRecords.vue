@@ -55,14 +55,15 @@ async function removeRecord(id: number) {
           :key="r.id"
           class="px-3 py-2.5 hover:bg-zinc-900/60 transition-colors group"
         >
-          <div class="flex items-baseline justify-between gap-2">
+          <div class="flex items-baseline gap-2">
+            <ClanTag v-if="r.clan" :tag="r.clan.tag" :name="r.clan.name" :color="r.clan.color" size="sm" class="self-center" />
             <NuxtLink
               v-if="r.account_username"
               :to="`/users/${encodeURIComponent(r.account_username)}`"
               class="text-sm font-medium truncate hover:text-accent transition-colors"
             >{{ r.player_name }}</NuxtLink>
             <span v-else class="text-sm font-medium truncate">{{ r.player_name }}</span>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="ml-auto flex items-center gap-2 shrink-0">
               <a
                 v-if="r.video"
                 :href="r.video"
@@ -75,7 +76,7 @@ async function removeRecord(id: number) {
                 v-if="canModerate"
                 type="button"
                 :disabled="busy != null"
-                class="text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-colors leading-none opacity-0 group-hover:opacity-100"
+                class="text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-colors leading-none sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
                 title="Remove record"
                 @click="removeRecord(r.id)"
               >✕</button>
@@ -83,7 +84,7 @@ async function removeRecord(id: number) {
           </div>
           <div class="flex items-center gap-2 mt-0.5 text-[11px] text-zinc-500">
             <span v-if="r.hz" class="tabular-nums">{{ r.hz }}hz</span>
-            <span v-if="r.mobile" class="text-[9px] uppercase tracking-wider px-1 py-px rounded bg-zinc-900 text-zinc-400">mobile</span>
+            <Badge v-if="r.mobile" tone="sky" size="sm" title="Beaten on mobile">Mobile</Badge>
           </div>
         </li>
       </ul>

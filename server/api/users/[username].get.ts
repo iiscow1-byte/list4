@@ -4,6 +4,7 @@ import { computeDerivedStats } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { isFollowing } from '~/server/utils/follows'
 import { looksAutomated, recordProfileView } from '~/server/utils/analytics'
+import { clanForAccount } from '~/server/utils/clans'
 
 export default defineEventHandler((event) => {
   const username = getRouterParam(event, 'username')
@@ -175,6 +176,12 @@ export default defineEventHandler((event) => {
       ORDER BY cl.is_public DESC, cl.likes DESC, cl.updated_at DESC
       LIMIT 12`,
   ).all(acc.id, me && me.id === acc.id ? 1 : 0)
+
+  // The clan rides on the account rather than beside it, because the header
+  // draws it as part of the name and takes the whole account as one prop.
+  const clan = clanForAccount(db, acc.id)
+  acc.clan = clan ? { tag: clan.tag, name: clan.name, color: clan.color } : null
+  acc.clan_role = clan?.role ?? null
 
   return {
     account: acc,

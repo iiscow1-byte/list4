@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { assertClean } from '~/server/utils/profanity-guard'
+import { clanForAccount } from '~/server/utils/clans'
 
 const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 const MAX_BODY = 1000
@@ -81,6 +82,10 @@ export default defineEventHandler(async (event) => {
     name_emoji: me.name_emoji ?? null,
     name_badge: me.name_badge ?? null,
     name_badge_color: me.name_badge_color ?? null,
+    clan: (() => {
+      const c = clanForAccount(db, me.id)
+      return c ? { tag: c.tag, name: c.name, color: c.color } : null
+    })(),
     has_avatar: me.has_avatar,
     body: text,
     created_at: new Date().toISOString().replace('T', ' ').slice(0, 19),

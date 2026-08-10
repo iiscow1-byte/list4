@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { listDerivedPlayers } from '~/server/utils/leaderboard'
+import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
 
 /**
  * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
@@ -30,18 +31,28 @@ type Row = {
   extras: { extremes?: number; pack_points?: number }
   hardest: string | null
   claimed_account: { username: string; has_avatar: boolean } | null
+  clan?: ClanBadge | null
 }
 
 /**
- * Attach each row's avatar flag, for the page being returned only.
+ * Attach what a row needs from the site's own accounts, for the page being
+ * returned only.
  *
  * The claim join upstream gives a username but says nothing about whether that
  * account has a picture, and the page rendered every row's initial instead —
  * on the tab the leaderboard opens on. Doing it here rather than in the joins
  * keeps it to one query over at most a page's worth of names, not tens of
- * thousands of blob checks.
+ * thousands of blob checks. The clan tag is attached the same way and for the
+ * same reason.
+ *
+ * A clan is looked up by the *player* name rather than the claimed username,
+ * because that is the name the record is filed under and the name this row is
+ * printed with — matching the rule `server/utils/clans.ts` uses everywhere.
  */
-function attachAvatars(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
+function attachAccountBits(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
+  const clans = clanTagsForPlayers(db, rows.map((r) => r.player))
+  for (const r of rows) r.clan = clans.get(r.player.toLowerCase()) ?? null
+
   const names = [...new Set(
     rows.map((r) => r.claimed_account?.username).filter((u): u is string => !!u),
   )]
@@ -340,8 +351,8 @@ export default defineEventHandler((event) => {
     const visible = search
       ? mergedRows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
       : mergedRows
-    return { total: visible.length, items: attachAvatars(db, visible.slice(offset, offset + limit)) }
+    return { total: visible.length, items: attachAccountBits(db, visible.slice(offset, offset + limit)) }
   }
 
-  return { total: rows.length, items: attachAvatars(db, rows.slice(offset, offset + limit)) }
+  return { total: rows.length, items: attachAccountBits(db, rows.slice(offset, offset + limit)) }
 })

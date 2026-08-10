@@ -4,6 +4,7 @@ import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { isChallengeSql } from '~/server/utils/challenge-expr'
 import { otherListsFor } from '~/server/utils/other-lists'
 import { looksAutomated, recordLevelView } from '~/server/utils/analytics'
+import { clanTagsForPlayers } from '~/server/utils/clans'
 
 const IS_CHALLENGE_L = isChallengeSql('l', 'c')
 const IS_CHALLENGE_L2 = isChallengeSql('l2', 'c2')
@@ -121,6 +122,20 @@ export default defineEventHandler((event) => {
     seenPlayer.add(k)
     return true
   })
+
+  // Clan tags for everyone on this level, in one query across all three
+  // sources — a player's clan is a fact about the player, not about which list
+  // their completion was imported from.
+  const clanTags = clanTagsForPlayers(db, [
+    ...(records as any[]).map((r) => r.player as string),
+    ...dedupedAredl.map((r) => r.player as string),
+    ...dedupedPc.map((r) => r.player as string),
+  ])
+  const withClan = (rows: any[]) => {
+    for (const r of rows) r.clan = clanTags.get(String(r.player).toLowerCase()) ?? null
+    return rows
+  }
+  withClan(records as any[]); withClan(dedupedAredl); withClan(dedupedPc)
 
   const community = communityStats(db, 'main', level.id)
   // If the community has settled on an enjoyment, prefer it over the imported

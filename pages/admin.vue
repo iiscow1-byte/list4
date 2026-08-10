@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { roleBadgeClass } from '~/utils/role-styles'
 
 definePageMeta({ middleware: 'mod', layout: 'level' })
 useHead({ title: 'Admin — All Levels List' })
@@ -1529,7 +1528,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                   <!-- The admin table is the one place a plain `user` is worth
                        printing: it is a column of roles, and a blank cell there
                        reads as missing data rather than as "no role". -->
-                  <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0" :class="roleBadgeClass(u.role)">{{ u.role }}</span>
+                  <RoleBadge :role="u.role" size="sm" always />
                   <span
                     v-if="u.banned_at"
                     class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border bg-red-950/40 text-red-300 border-red-900/60"

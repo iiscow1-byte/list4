@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { listDerivedPlayers } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
+import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
 
 type Row = {
   player: string
@@ -159,6 +160,7 @@ function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: Res
     ...p,
     account_username: null as string | null,
     has_avatar: false,
+    clan: null as ClanBadge | null,
   }))
 
   // Attach the site account behind each name on this page only — the full set
@@ -184,6 +186,11 @@ function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: Res
       p.account_username = hit?.username ?? null
       p.has_avatar = hit?.has_avatar ?? false
     }
+
+    // The clan tag rides along with the account, for the same reason and at the
+    // same cost: one query for the page rather than one per row.
+    const clans = clanTagsForPlayers(db, names)
+    if (clans.size) for (const p of items) p.clan = clans.get(p.player.toLowerCase()) ?? null
   }
 
   return { total, items }

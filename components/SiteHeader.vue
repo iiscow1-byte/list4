@@ -219,6 +219,18 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
               <img v-if="me.has_avatar" :src="`/api/users/${encodeURIComponent(me.username)}/avatar`" class="w-full h-full object-cover" alt="" />
               <span v-else class="text-[10px] font-semibold text-zinc-200 leading-none uppercase">{{ me.username.charAt(0) }}</span>
             </span>
+            <!-- The tag rides with the name in the header the same way it does
+                 on a leaderboard row, so the clan you are in is visible from
+                 every page rather than only from the clans page. -->
+            <ClanTag
+              v-if="me.clan"
+              :tag="me.clan.tag"
+              :name="me.clan.name"
+              :color="me.clan.color"
+              size="sm"
+              :link="false"
+              class="hidden sm:inline-flex"
+            />
             <span class="hidden sm:inline">{{ me.username }}</span>
           </NuxtLink>
         </template>

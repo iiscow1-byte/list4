@@ -17,6 +17,7 @@ export type FollowRow = {
   name: string
   username?: string | null
   role?: string | null
+  clan?: { tag: string; name: string; color: string | null } | null
   has_avatar?: boolean
 }
 
@@ -148,6 +149,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
                   />
                   <span v-else class="text-[10px] font-bold uppercase text-zinc-500">{{ r.name.charAt(0) }}</span>
                 </span>
+                <ClanTag v-if="r.clan" :tag="r.clan.tag" :name="r.clan.name" :color="r.clan.color" size="sm" :link="false" />
                 <span class="flex-1 min-w-0 truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">
                   {{ r.name }}
                 </span>

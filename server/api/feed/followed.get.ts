@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { listFollowedNames } from '~/server/utils/follows'
+import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
 
 type Item = {
   kind: 'record' | 'verify' | 'level' | 'progress'
@@ -9,6 +10,7 @@ type Item = {
   /** Site account behind the actor name, when there is one — for the avatar. */
   actor_username?: string | null
   actor_has_avatar?: boolean
+  clan?: ClanBadge | null
   level_position: number | null
   level_name: string
   /** Drives the level art on feed rows. */
@@ -132,6 +134,11 @@ export default defineEventHandler((event) => {
       i.actor_username = hit?.username ?? null
       i.actor_has_avatar = hit?.has_avatar ?? false
     }
+
+    // And the clan tag, from the same page of names — the feed prints the
+    // actor's name, so it prints the name the way the rest of the site does.
+    const clans = clanTagsForPlayers(db, actors)
+    if (clans.size) for (const i of page) i.clan = clans.get(i.actor.toLowerCase()) ?? null
   }
 
   return { items: page }

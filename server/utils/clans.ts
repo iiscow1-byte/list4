@@ -159,3 +159,65 @@ export function clanForAccount(db: DatabaseSync, accountId: number) {
   `).get(accountId) as { id: number; tag: string; name: string; color: string | null; role: string } | undefined
 }
 
+/** Just enough of a clan to print its tag beside a name. */
+export type ClanBadge = { tag: string; name: string; color: string | null }
+
+/**
+ * The clan behind each of these player names, in one query.
+ *
+ * The tag belongs next to a name wherever a name appears — leaderboard rows, a
+ * level's records, a comment — and the alternative is a lookup per row, which
+ * on a 200-row leaderboard page is 200 round trips to print a handful of tags.
+ *
+ * Names are matched the way the rest of the site matches them: against
+ * `claimed_player` when the account has claimed a leaderboard identity, and
+ * against the username otherwise. The map is keyed lowercase because the
+ * callers hold display names, and `COLLATE NOCASE` inside SQLite does not make
+ * a JavaScript `Map` case-insensitive.
+ *
+ * Chunked at 400 placeholders. SQLite's default host-parameter ceiling is 999,
+ * and the leaderboard will hand this up to 2,000 names.
+ */
+export function clanTagsForPlayers(db: DatabaseSync, names: string[]): Map<string, ClanBadge> {
+  const out = new Map<string, ClanBadge>()
+  const unique = [...new Set(names.filter(Boolean).map((n) => n.toLowerCase()))]
+  if (!unique.length) return out
+
+  for (let i = 0; i < unique.length; i += 400) {
+    const chunk = unique.slice(i, i + 400)
+    const ph = chunk.map(() => '?').join(',')
+    const rows = db.prepare(`
+      SELECT ${MEMBER_NAME_SQL} AS player_name, c.tag, c.name, c.color
+        FROM clan_members m
+        JOIN accounts a ON a.id = m.account_id
+        JOIN clans    c ON c.id = m.clan_id
+       WHERE a.banned_at IS NULL
+         AND ${MEMBER_NAME_SQL} COLLATE NOCASE IN (${ph})
+    `).all(...chunk) as { player_name: string; tag: string; name: string; color: string | null }[]
+    for (const r of rows) {
+      out.set(r.player_name.toLowerCase(), { tag: r.tag, name: r.name, color: r.color })
+    }
+  }
+  return out
+}
+
+/**
+ * Attach `clan` to every row that has a player name on it.
+ *
+ * Written once rather than at each call site because "which column holds the
+ * name" is the only thing that differs between the leaderboard, a level's
+ * records and a follow list — and getting that wrong shows up as tags silently
+ * missing rather than as an error.
+ */
+export function attachClans<T extends Record<string, any>>(
+  db: DatabaseSync,
+  rows: T[],
+  nameKey: keyof T & string,
+): (T & { clan: ClanBadge | null })[] {
+  const tags = clanTagsForPlayers(db, rows.map((r) => String(r[nameKey] ?? '')))
+  return rows.map((r) => ({
+    ...r,
+    clan: tags.get(String(r[nameKey] ?? '').toLowerCase()) ?? null,
+  }))
+}
+

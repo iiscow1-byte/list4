@@ -18,9 +18,12 @@ export default defineEventHandler((event) => {
     `SELECT c.id, c.account_id, c.body, c.created_at,
             a.username, a.role,
             a.name_emoji, a.name_badge, a.name_badge_color,
+            cl.tag AS clan_tag, cl.name AS clan_name, cl.color AS clan_color,
             (a.avatar_blob IS NOT NULL) AS has_avatar
        FROM comments c
        JOIN accounts a ON a.id = c.account_id
+       LEFT JOIN clan_members cm ON cm.account_id = a.id
+       LEFT JOIN clans        cl ON cl.id = cm.clan_id
       WHERE a.banned_at IS NULL
         AND c.target_kind = ?
         AND c.target_id   = ?
@@ -36,8 +39,19 @@ export default defineEventHandler((event) => {
     name_emoji: string | null
     name_badge: string | null
     name_badge_color: string | null
+    clan_tag: string | null
+    clan_name: string | null
+    clan_color: string | null
     has_avatar: number
   }[]
 
-  return { items: items.map((r) => ({ ...r, has_avatar: !!r.has_avatar })) }
+  // The clan arrives as three flat columns because it is one LEFT JOIN on a
+  // table with one row per account; it leaves as the object `UserName` takes.
+  return {
+    items: items.map(({ clan_tag, clan_name, clan_color, ...r }) => ({
+      ...r,
+      has_avatar: !!r.has_avatar,
+      clan: clan_tag ? { tag: clan_tag, name: clan_name, color: clan_color } : null,
+    })),
+  }
 })

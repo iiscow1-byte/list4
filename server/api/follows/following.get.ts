@@ -1,4 +1,5 @@
 import { getDb } from '~/server/db'
+import { attachClans } from '~/server/utils/clans'
 
 /**
  * Who a profile follows.
@@ -46,11 +47,15 @@ export default defineEventHandler((event) => {
     { name: string; username: string | null; role: string | null; has_avatar: number | null }[]
 
   return {
-    items: items.map((r) => ({
-      name: r.name,
-      username: r.username,
-      role: r.role,
-      has_avatar: !!r.has_avatar,
-    })),
+    items: attachClans(
+      db,
+      items.map((r) => ({
+        name: r.name,
+        username: r.username,
+        role: r.role,
+        has_avatar: !!r.has_avatar,
+      })),
+      'name',
+    ),
   }
 })

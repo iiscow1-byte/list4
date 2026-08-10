@@ -791,6 +791,7 @@ type ProfileData = {
     claimed_player: string | null; has_avatar: boolean; created_at: string
     pronouns: string | null; discord_handle: string | null; youtube_url: string | null
     gd_username?: string | null
+    clan?: { tag: string; name: string; color: string | null } | null
   }
   player: { name: string; total_points: number; skill_points: number; hardest: string | null; tier: string | null; country: string | null } | null
   completedLevels: any[]
@@ -887,6 +888,7 @@ const headlineStats = computed(() => {
       value: listPercent(d.completedLevels.length, d.totalLevels ?? 0),
       tone: 'text-zinc-100',
       hint: `${d.completedLevels.length.toLocaleString()} of ${(d.totalLevels ?? 0).toLocaleString()} levels`,
+      progress: (d.totalLevels ?? 0) > 0 ? d.completedLevels.length / (d.totalLevels ?? 1) : null,
     },
     { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100', opens: 'followers' as const },
     { label: 'Following', value: (d.follow.followingCount ?? 0).toLocaleString(), tone: 'text-zinc-100', opens: 'following' as const },
@@ -903,7 +905,13 @@ const headlineStats = computed(() => {
  * you press Save. Everything not in the form comes straight off the account.
  */
 const headerAccount = computed<Record<string, any>>(() => {
-  const base = { ...(me.value ?? {}) } as Record<string, any>
+  // `/api/auth/me` is the session, not the profile, so the clan comes from the
+  // same endpoint the public page reads — which is also what keeps the tag
+  // here identical to the tag a visitor sees.
+  const base = {
+    ...(me.value ?? {}),
+    clan: profileData.value?.account?.clan ?? null,
+  } as Record<string, any>
   if (!editing.value) return base
   return {
     ...base,
@@ -985,7 +993,6 @@ function fmt(n: number | null | undefined) {
       :banner-image="bannerImage"
       :stats="headlineStats"
       :joined="joined"
-      is-self
       @open-list="openFollowList"
     >
       <!-- The avatar is a control here rather than a picture: this is the page
@@ -1051,15 +1058,17 @@ function fmt(n: number | null | undefined) {
           is-self
         />
 
-        <!-- About: always-visible display + collapsible edit dropdown below -->
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">About</h2>
-
+        <!-- About: always-visible display + collapsible edit dropdown below.
+             The same box the public profile draws — see `ProfilePanel`; these
+             two columns sit side by side in a screenshot often enough that a
+             different corner radius on each is the first thing you notice. -->
+        <ProfilePanel title="About">
+          <div class="space-y-3">
           <!-- Read-only display — always visible -->
           <div>
             <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
             <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
-            <dl v-if="me.subdivision || me.pronouns" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
+            <dl v-if="me.subdivision || me.pronouns || profileData?.account?.clan" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
               <div v-if="me.subdivision">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
                 <dd class="text-zinc-100">{{ me.subdivision }}</dd>
@@ -1067,6 +1076,21 @@ function fmt(n: number | null | undefined) {
               <div v-if="me.pronouns">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Pronouns</dt>
                 <dd class="text-zinc-100">{{ me.pronouns }}</dd>
+              </div>
+              <div v-if="profileData?.account?.clan">
+                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Clan</dt>
+                <dd class="flex items-center gap-1.5 min-w-0">
+                  <ClanTag
+                    :tag="profileData.account.clan.tag"
+                    :name="profileData.account.clan.name"
+                    :color="profileData.account.clan.color"
+                    size="sm"
+                  />
+                  <NuxtLink
+                    :to="`/clans/${profileData.account.clan.tag}`"
+                    class="truncate text-zinc-100 hover:text-accent transition-colors"
+                  >{{ profileData.account.clan.name }}</NuxtLink>
+                </dd>
               </div>
             </dl>
             <!-- The hardest completion and the favourite live in the showcase
@@ -1336,6 +1360,7 @@ function fmt(n: number | null | undefined) {
                       :badge="nameBadge"
                       :badge-color="nameBadgeColor"
                       :role="me?.role !== 'user' ? me?.role : null"
+                      :clan="profileData?.account?.clan ?? null"
                     />
                     <button
                       v-if="nameEmoji || nameBadge"
@@ -1364,10 +1389,10 @@ function fmt(n: number | null | undefined) {
               </div>
             </form>
           </details>
-        </section>
+          </div>
+        </ProfilePanel>
 
-        <section v-if="profileData?.player" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
+        <ProfilePanel v-if="profileData?.player" title="Player stats">
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
               <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
@@ -1386,7 +1411,7 @@ function fmt(n: number | null | undefined) {
               <dd class="text-zinc-100 text-base">{{ profileData.player.tier ?? '—' }}</dd>
             </div>
           </dl>
-        </section>
+        </ProfilePanel>
 
         <ProgressPosts
           v-if="profileData"

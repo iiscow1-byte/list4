@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { countryName, normalizeCountry } from '~/utils/countries'
+
 /**
  * The top of a profile: cover, avatar, name, and the numbers under it.
  *
@@ -9,9 +11,14 @@
  * decoration added since had to be remembered twice. Now the page you edit your
  * profile on shows you the profile you are editing.
  *
- * The differences that are real are props: whose page it is (`isSelf` decides
- * Edit versus Follow) and, on the account page, the live form values so the
- * header updates as you type.
+ * The name line reads left to right in order of who is speaking: the clan tag
+ * (a prefix the account chose), the name, the emoji (part of the name), the
+ * staff-set badge, then the role — the site's own statement, last.
+ *
+ * Everything that is *about* somebody rather than part of their name — country,
+ * region, the player they claim, when they joined — is one meta line under it.
+ * The country used to be in both places: a flag beside the name and a second
+ * flag with its name in the meta line, which read as two facts rather than one.
  */
 type ShowcaseLevel = {
   position: number
@@ -22,6 +29,17 @@ type ShowcaseLevel = {
   verification_url?: string | null
 }
 
+/** A tile under the name. `progress` draws a bar across the bottom of it. */
+type ProfileStat = {
+  label: string
+  value: string
+  tone?: string
+  hint?: string
+  /** 0–1. Only for a value that genuinely is a share of something. */
+  progress?: number | null
+  opens?: 'followers' | 'following'
+}
+
 const props = defineProps<{
   account: Record<string, any>
   /** The level painted behind the header, already chosen by the caller. */
@@ -29,11 +47,9 @@ const props = defineProps<{
   /** A staff-set cover image, which beats the level art. */
   bannerImage?: string | null
   /** Tiles under the name. */
-  stats?: { label: string; value: string; tone?: string; hint?: string; opens?: 'followers' | 'following' }[]
+  stats?: ProfileStat[]
   /** `joined March 2026`, worked out by the caller from `created_at`. */
   joined?: string | null
-  isSelf?: boolean
-  /** Rendered to the right of the name — Edit profile, or a follow button. */
 }>()
 
 const emit = defineEmits<{ (e: 'openList', mode: 'followers' | 'following'): void }>()
@@ -45,15 +61,31 @@ const avatarUrl = computed(() =>
 )
 
 /**
- * The badge colour, re-validated on the way out.
+ * Where somebody is, as one string.
  *
- * The write path already refuses anything that isn't a hex literal; this value
- * lands in a style attribute, so it gets a second gate rather than one.
+ * The flag beside the name is the picture of it; this is the words. Written out
+ * here rather than in the template because "California, United States",
+ * "California" and "United States" are three different sentences depending on
+ * what the account filled in, and a template that tries to punctuate all three
+ * ends up emitting a stray comma for the ones it didn't think about.
  */
-const nameBadgeStyle = computed(() => {
-  const hex = props.account?.name_badge_color
-  if (!hex || !/^#[0-9a-fA-F]{6}$/.test(hex)) return undefined
-  return { backgroundColor: `${hex}22`, borderColor: `${hex}66`, color: hex }
+const location = computed(() => {
+  const region = (props.account?.subdivision ?? '').trim()
+  const country = countryName(normalizeCountry(props.account?.country))
+    ?? (props.account?.country ?? '').trim()
+  return [region, country].filter(Boolean).join(', ') || null
+})
+
+/**
+ * Up to three emoji, as characters rather than as a string.
+ *
+ * `Array.from` rather than `split('')`, because every emoji worth setting is
+ * outside the basic plane and half of them are multi-code-point sequences —
+ * splitting by code unit cuts a flag in half and prints two letters.
+ */
+const emoji = computed(() => {
+  const raw = (props.account?.name_emoji ?? '').trim()
+  return raw ? Array.from(raw).slice(0, 8).join('') : null
 })
 </script>
 
@@ -116,29 +148,31 @@ const nameBadgeStyle = computed(() => {
         </div>
 
         <div class="flex-1 min-w-0 pb-1">
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-x-2 gap-y-1.5 flex-wrap">
+            <ClanTag
+              v-if="account.clan"
+              :tag="account.clan.tag"
+              :name="account.clan.name"
+              :color="account.clan.color"
+            />
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ account.username }}</h1>
+            <!-- The flag rides with the name; the country's *name* is in the
+                 meta line below, so this is a picture rather than a repeat. -->
             <CountryFlag :country="account.country" class="shrink-0" />
-            <span v-if="account.name_emoji" class="text-2xl leading-none" aria-hidden="true">{{ account.name_emoji }}</span>
-            <span
-              v-if="account.name_badge"
-              class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border font-semibold"
-              :class="nameBadgeStyle ? '' : 'border-zinc-700 bg-zinc-800 text-zinc-300'"
-              :style="nameBadgeStyle"
-            >{{ account.name_badge }}</span>
+            <!-- Sized to the meta line rather than to the heading: three emoji
+                 at 24px next to a 30px name is a second heading. -->
+            <span v-if="emoji" class="text-lg leading-none tracking-tight shrink-0" aria-hidden="true">{{ emoji }}</span>
+            <NameBadge :label="account.name_badge" :color="account.name_badge_color" />
             <RoleBadge :role="account.role" />
-            <span v-if="account.pronouns" class="text-xs text-zinc-500">{{ account.pronouns }}</span>
             <slot name="name-suffix" />
           </div>
 
-          <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          <p class="text-[11px] text-zinc-500 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span v-if="account.claimed_player">
               playing as <span class="text-zinc-300">{{ account.claimed_player }}</span>
             </span>
-            <span v-if="account.subdivision || account.country" class="inline-flex items-center gap-1">
-              <span v-if="account.subdivision">{{ account.subdivision }}<template v-if="account.country">,</template></span>
-              <CountryFlag :country="account.country" size="sm" with-name />
-            </span>
+            <span v-if="location">{{ location }}</span>
+            <span v-if="account.pronouns">{{ account.pronouns }}</span>
             <span v-if="joined">joined {{ joined }}</span>
             <slot name="meta" />
           </p>
@@ -152,7 +186,7 @@ const nameBadgeStyle = computed(() => {
 
       <!-- Headline numbers -->
       <!-- Five across once "of the list" joined them: the row splits 2/3 on a
-           phone and sits on one line from `sm` up, rather than leaving a
+           phone and sits on one line from `lg` up, rather than leaving a
            stray tile on a row of its own. -->
       <dl v-if="stats?.length" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
         <component
@@ -160,16 +194,35 @@ const nameBadgeStyle = computed(() => {
           v-for="s in stats"
           :key="s.label"
           :type="s.opens ? 'button' : undefined"
-          class="bg-zinc-950 px-3 py-2.5 text-left"
-          :class="s.opens ? 'hover:bg-zinc-900 transition-colors cursor-pointer group' : ''"
+          class="relative bg-zinc-950 px-3 py-2.5 text-left"
+          :class="s.opens
+            ? 'hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none transition-colors cursor-pointer group'
+            : ''"
           :title="s.hint"
           @click="s.opens && emit('openList', s.opens)"
         >
           <dt
-            class="text-[10px] uppercase tracking-widest text-zinc-500"
+            class="text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1"
             :class="s.opens ? 'group-hover:text-accent transition-colors' : ''"
-          >{{ s.label }}</dt>
+          >
+            {{ s.label }}
+            <!-- The two tiles that open something say so, rather than relying on
+                 somebody discovering it by hovering. -->
+            <span v-if="s.opens" class="text-zinc-700 group-hover:text-accent transition-colors" aria-hidden="true">›</span>
+          </dt>
           <dd class="tabular-nums text-lg font-semibold" :class="s.tone ?? 'text-zinc-100'">{{ s.value }}</dd>
+          <!-- A share of the list is the one number here that has a ceiling, so
+               it is the one that can honestly be drawn as a bar. -->
+          <span
+            v-if="s.progress != null"
+            class="absolute inset-x-0 bottom-0 h-[3px] bg-zinc-900"
+            aria-hidden="true"
+          >
+            <span
+              class="block h-full bg-accent/70"
+              :style="{ width: `${Math.min(100, Math.max(0, s.progress * 100))}%` }"
+            />
+          </span>
         </component>
       </dl>
     </div>
