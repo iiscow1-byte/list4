@@ -53,6 +53,8 @@ type Level = {
   position_history?: PositionHistoryEntry[]
   aredl_history?: AredlHistoryEntry[]
   challenge_rank?: number | null
+  /** Times this level's page has been opened — see `server/utils/analytics.ts`. */
+  views?: number | null
   /** Admin override: 1 when a level has been taken off the challenge list. */
   not_challenge?: number | boolean | null
   /** Admin override: 1 when a level has been put on it by hand. */
@@ -581,7 +583,7 @@ const infoRows = computed<CreditRow[]>(() => {
 // original layout — the first is identity/scoring, the second is gameplay
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
-type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
+type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date' | 'views'
 type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
 
 const community = computed<Community | null>(() => props.level.community ?? null)
@@ -596,6 +598,9 @@ const visibleTiles1 = computed<Tile1[]>(() => {
   if (props.level.edel_enjoyment != null)   out.push('edel_enjoyment')
   if (props.level.gddl_tier)                out.push('gddl_tier')
   if (props.level.verify_date)              out.push('verify_date')
+  // Only once somebody other than the first reader has been here: "1 view" on
+  // a page you are the first to open is a fact about you, not about the level.
+  if ((props.level.views ?? 0) > 1)         out.push('views')
   return out
 })
 
@@ -2124,6 +2129,14 @@ const chartAredlSeries = computed(() =>
         <div v-if="visibleTiles1.includes('verify_date')" class="bg-zinc-950 p-4">
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify Date</div>
           <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date }}</div>
+        </div>
+        <div
+          v-if="visibleTiles1.includes('views')"
+          class="bg-zinc-950 p-4"
+          title="Times this level's page has been opened here"
+        >
+          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Views</div>
+          <div class="tabular-nums text-base text-zinc-100">{{ (level.views ?? 0).toLocaleString() }}</div>
         </div>
       </div>
 

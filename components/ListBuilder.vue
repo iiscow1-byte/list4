@@ -31,30 +31,83 @@ const palette = ref<PaletteLevel[]>([])
 const paletteLoading = ref(false)
 const paletteTotal = ref(0)
 
+/**
+ * The palette is paged, not capped.
+ *
+ * It used to fetch one page of 60 and stop, so 54,000 levels were reachable
+ * only through the search box: scrolling the column ran out after the sixtieth
+ * hardest level, with no way to reach anything below it and nothing saying so.
+ *
+ * Sixty at a time is kept as the *page* size, which is the part that matters
+ * for a list of rows each carrying a thumbnail — a bigger page would fetch art
+ * nobody scrolls to. Pages are appended as a sentinel at the bottom comes into
+ * view, and a new search throws the window away and starts again.
+ */
+const PALETTE_PAGE = 60
+const palettePage = ref(1)
+const paletteDone = computed(() => palette.value.length >= paletteTotal.value)
+
 let paletteCtrl: AbortController | null = null
-async function loadPalette() {
+async function loadPalette(append = false) {
+  if (paletteLoading.value && !append) paletteCtrl?.abort()
+  if (paletteLoading.value) return
   paletteLoading.value = true
-  paletteCtrl?.abort()
+  const page = append ? palettePage.value + 1 : 1
   const ctrl = new AbortController()
   paletteCtrl = ctrl
   try {
     const res = await $fetch<{ total: number; items: PaletteLevel[] }>('/api/levels', {
-      query: { page: 1, pageSize: 60, search: search.value || undefined },
+      query: { page, pageSize: PALETTE_PAGE, search: search.value || undefined },
       signal: ctrl.signal,
     })
+    // A newer request has already replaced this one — its rows are the answer.
     if (paletteCtrl !== ctrl) return
-    palette.value = res.items
+    palette.value = append ? [...palette.value, ...res.items] : res.items
     paletteTotal.value = res.total
+    palettePage.value = page
   } catch (e: any) {
     if (e?.name !== 'AbortError' && e?.cause?.name !== 'AbortError') throw e
   } finally {
     if (paletteCtrl === ctrl) { paletteLoading.value = false; paletteCtrl = null }
   }
 }
+
+/**
+ * More rows when the bottom of the column comes into view.
+ *
+ * An observer rather than a scroll handler: a scroll listener on a 28rem box
+ * fires on every frame of a flick and has to measure the element each time,
+ * which is exactly the work an observer exists to avoid. `rootMargin` starts
+ * the fetch a little before the end so the rows are usually there by the time
+ * the reader arrives.
+ */
+const paletteScroller = ref<HTMLElement | null>(null)
+const paletteSentinel = ref<HTMLElement | null>(null)
+let paletteObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (!paletteScroller.value || !paletteSentinel.value) return
+  paletteObserver = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0]?.isIntersecting) return
+      if (paletteLoading.value || paletteDone.value) return
+      loadPalette(true).catch(() => {})
+    },
+    { root: paletteScroller.value, rootMargin: '240px 0px' },
+  )
+  paletteObserver.observe(paletteSentinel.value)
+})
+onBeforeUnmount(() => paletteObserver?.disconnect())
+
 let searchDebounce: ReturnType<typeof setTimeout> | null = null
 watch(search, () => {
   if (searchDebounce) clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(loadPalette, 300)
+  searchDebounce = setTimeout(() => {
+    // Back to the top of a fresh result set, or the observer sees a sentinel
+    // that is still on screen from the old one and pages straight past it.
+    paletteScroller.value?.scrollTo({ top: 0 })
+    loadPalette(false).catch(() => {})
+  }, 300)
 })
 // Fetched during setup (not onMounted) so the palette is server-rendered and
 // the page doesn't paint an empty column first — same pattern as LevelListNav.
@@ -287,7 +340,7 @@ function copyShare() {
           class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
         />
       </div>
-      <ul class="max-h-[28rem] overflow-y-auto p-1.5 space-y-1">
+      <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto p-1.5 space-y-1">
         <li v-for="l in palette" :key="l.id">
           <div
             draggable="true"
@@ -316,11 +369,16 @@ function copyShare() {
             >+</button>
           </div>
         </li>
-        <li v-if="paletteLoading" class="px-3 py-4 text-center text-xs text-zinc-600">loading…</li>
-        <li v-else-if="palette.length === 0" class="px-3 py-4 text-center text-xs text-zinc-600">No matches.</li>
+        <li v-if="palette.length === 0 && !paletteLoading" class="px-3 py-4 text-center text-xs text-zinc-600">No matches.</li>
+        <!-- The bottom of the column: crossing it fetches the next page. -->
+        <li ref="paletteSentinel" class="px-3 py-3 text-center text-[11px] text-zinc-600">
+          <span v-if="paletteLoading">loading…</span>
+          <span v-else-if="paletteDone && palette.length">that's all of them</span>
+          <span v-else-if="palette.length">↓ scroll for more</span>
+        </li>
       </ul>
       <div class="px-4 py-2 border-t border-zinc-800/80 text-[10px] text-zinc-600 tabular-nums">
-        {{ paletteTotal.toLocaleString() }} levels — showing top {{ palette.length }}
+        {{ palette.length.toLocaleString() }} of {{ paletteTotal.toLocaleString() }} levels
       </div>
     </aside>
 

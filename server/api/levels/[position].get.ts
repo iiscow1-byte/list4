@@ -3,6 +3,7 @@ import { communityStats } from '~/server/utils/opinions'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { isChallengeSql } from '~/server/utils/challenge-expr'
 import { otherListsFor } from '~/server/utils/other-lists'
+import { looksAutomated, recordLevelView } from '~/server/utils/analytics'
 
 const IS_CHALLENGE_L = isChallengeSql('l', 'c')
 const IS_CHALLENGE_L2 = isChallengeSql('l2', 'c2')
@@ -16,6 +17,24 @@ export default defineEventHandler((event) => {
   const db = getDb()
   const level = db.prepare(`SELECT * FROM levels WHERE position = ?`).get(position) as any
   if (!level) throw createError({ statusCode: 404, statusMessage: 'Level not found' })
+
+  /**
+   * One view of this level.
+   *
+   * Counted here rather than in the analytics middleware because that one only
+   * ever sees a path, and `/levels/4021` names a *slot*: the level there today
+   * is somewhere else the moment anything is placed above it. This handler has
+   * the level's id, and is reached by both a fresh page load and a click
+   * through the list, which between them is what "viewed" means.
+   *
+   * Read before the increment, so a page shows the count it was opened with
+   * rather than including itself — the number would otherwise be off by one
+   * against the same page seen by anybody else.
+   */
+  const viewRow = db.prepare(`SELECT views FROM level_views WHERE level_id = ?`)
+    .get(level.id) as { views: number } | undefined
+  const views = viewRow?.views ?? 0
+  if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordLevelView(level.id)
 
   // Resolve the submitter's username (only set for site submissions; sheet
   // imports have submitted_by = NULL).
@@ -205,5 +224,6 @@ export default defineEventHandler((event) => {
     alternate_of,
     gddl_tier_frac,
     challenge_rank,
+    views,
   }
 })

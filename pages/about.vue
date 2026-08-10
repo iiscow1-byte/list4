@@ -28,6 +28,8 @@ type Stats = {
   totalRecords: number
   totalPlayers: number
   levelsWithRecords: number
+  totalVisits: number
+  visitsSince: string | null
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string; gd_id: number | null } | null
   tiers: { tier: string; count: number }[]
   subtiers: { tier: string; count: number }[]
@@ -65,7 +67,7 @@ watch(tab, (v) => router.replace({ query: { ...route.query, tab: v === 'about' ?
  */
 type ImportedSource = {
   key: string; label: string; hint: string; url: string | null
-  levels: number; shared: number | null
+  levels: number; shared: number | null; updated: string | null
 }
 const { data: sourceData } = await useFetch<{ sources: ImportedSource[] }>('/api/list-sources')
 
@@ -89,7 +91,40 @@ function matches(text: string): boolean {
   const q = listsSearch.value.trim().toLowerCase()
   return !q || text.toLowerCase().includes(q)
 }
-const shownImported = computed(() => importedSources.value.filter((s) => matches(s.label)))
+
+/**
+ * How the mirrored lists are ordered.
+ *
+ * Catalogue order is the order the site happens to define them in, which is
+ * meaningless to a reader. Size answers "which of these is big", overlap
+ * answers "how much of it does the ALL already have", and freshness answers
+ * the question the page could not answer at all until now — whether what you
+ * are reading is current. The ALL sheet is pinned first under every order:
+ * it is what the others are being compared *to*.
+ */
+type ListSort = 'catalogue' | 'levels' | 'overlap' | 'updated'
+const LIST_SORTS: { id: ListSort; label: string }[] = [
+  { id: 'catalogue', label: 'Default' },
+  { id: 'levels', label: 'Size' },
+  { id: 'overlap', label: 'Overlap' },
+  { id: 'updated', label: 'Freshest' },
+]
+const listSort = ref<ListSort>('catalogue')
+
+const shownImported = computed(() => {
+  const rows = importedSources.value.filter((s) => matches(s.label))
+  if (listSort.value === 'catalogue') return rows
+  const rank = (s: ImportedSource) => {
+    if (listSort.value === 'levels') return s.levels
+    if (listSort.value === 'overlap') return sharedPct(s)
+    return s.updated ? Date.parse(s.updated.replace(' ', 'T') + 'Z') || 0 : 0
+  }
+  return [...rows].sort((a, b) => {
+    if (a.key === 'all') return -1
+    if (b.key === 'all') return 1
+    return rank(b) - rank(a)
+  })
+})
 const shownOther = computed(() => otherLists.value.filter((l) => matches(l.name)))
 const totalLists = computed(() => importedSources.value.length + otherLists.value.length)
 
@@ -117,6 +152,35 @@ const indexedLevels = computed(() =>
   importedSources.value.reduce((sum, s) => sum + (s.levels || 0), 0),
 )
 
+/**
+ * "3h ago" for a mirror's last refresh.
+ *
+ * Relative rather than a timestamp: what a reader wants from this column is
+ * "is this current", and "4 August, 02:15" makes them work that out. Anything
+ * older than a week gets the date instead, where the relative form stops
+ * being easier to read than the thing it replaced.
+ */
+function freshness(at: string | null): string | null {
+  if (!at) return null
+  const t = Date.parse(at.includes('T') ? at : at.replace(' ', 'T') + 'Z')
+  if (Number.isNaN(t)) return null
+  const mins = Math.max(0, Math.round((Date.now() - t) / 60000))
+  if (mins < 2) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days <= 7) return `${days}d ago`
+  return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+}
+
+/** How stale is too stale to look routine. Importers run daily. */
+function isStale(at: string | null): boolean {
+  if (!at) return false
+  const t = Date.parse(at.includes('T') ? at : at.replace(' ', 'T') + 'Z')
+  return !Number.isNaN(t) && Date.now() - t > 7 * 24 * 60 * 60 * 1000
+}
+
 
 useHead({ title: 'About & stats — The All Levels List' })
 
@@ -137,6 +201,15 @@ function fmt(n: number | null | undefined, digits = 0) {
 }
 
 /** Headline tiles at the top of the Stats tab. */
+/** `2026-08-04` → `4 August 2026`, for the visit counter's "since". */
+function longDay(day: string | null | undefined): string | null {
+  if (!day) return null
+  const d = new Date(`${day}T00:00:00Z`)
+  return Number.isNaN(d.getTime())
+    ? null
+    : d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
 const headline = computed(() => {
   const s = stats.value
   if (!s) return []
@@ -145,6 +218,13 @@ const headline = computed(() => {
     { label: 'List points', value: fmt(s.totalListPoints), hint: 'Sum of every level\'s point value' },
     { label: 'Records', value: fmt(s.totalRecords), hint: 'Approved completions on the site' },
     { label: 'Players', value: fmt(s.totalPlayers), hint: 'People with at least one approved record' },
+    {
+      label: 'Pages read',
+      value: fmt(s.totalVisits),
+      // The date matters as much as the number: counting started long after
+      // the site did, and a total with no beginning can't be read.
+      hint: longDay(s.visitsSince) ? `Since ${longDay(s.visitsSince)}` : 'Counting from today',
+    },
   ]
 })
 
@@ -285,7 +365,9 @@ const coveragePct = computed(() => {
 
       <template v-else>
         <!-- Headline numbers -->
-        <dl class="grid grid-cols-2 lg:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+        <!-- Five tiles now the visit counter is among them: a five-wide row is
+             what keeps them one size rather than leaving a stray on its own. -->
+        <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <div v-for="h in headline" :key="h.label" class="bg-zinc-950 px-4 py-3.5">
             <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ h.label }}</dt>
             <dd class="tabular-nums text-2xl font-bold text-zinc-50 mt-0.5">{{ h.value }}</dd>
@@ -480,10 +562,24 @@ const coveragePct = computed(() => {
       <!-- Imported live. Generated from the importers, so this section is
            complete by construction rather than by anyone remembering. -->
       <section v-if="shownImported.length" class="space-y-2">
-        <div class="flex items-baseline gap-2">
+        <div class="flex items-baseline gap-2 flex-wrap">
           <h3 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Imported by this site</h3>
           <span class="text-[10px] text-zinc-600">kept in sync automatically</span>
-          <span class="ml-auto text-[10px] tabular-nums text-zinc-700">{{ shownImported.length }}</span>
+          <!-- Catalogue order means nothing to a reader; these three questions
+               are the ones the numbers on each row answer. -->
+          <div class="ml-auto flex items-center gap-1">
+            <button
+              v-for="o in LIST_SORTS"
+              :key="o.id"
+              type="button"
+              class="rounded-lg border px-2 py-0.5 text-[10px] transition-colors"
+              :class="listSort === o.id
+                ? 'border-accent/60 text-accent bg-accent/10'
+                : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'"
+              @click="listSort = o.id"
+            >{{ o.label }}</button>
+          </div>
+          <span class="text-[10px] tabular-nums text-zinc-700">{{ shownImported.length }}</span>
         </div>
         <ul class="grid grid-cols-1 lg:grid-cols-2 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
           <li v-for="s in shownImported" :key="s.key" class="bg-zinc-950">
@@ -507,7 +603,16 @@ const coveragePct = computed(() => {
                   class="block truncate text-sm"
                   :class="s.url ? 'text-zinc-200 group-hover:text-accent transition-colors' : 'text-zinc-300'"
                 >{{ longName(s.label) }}</span>
-                <span class="block truncate text-[10px] text-zinc-600">{{ s.hint }}</span>
+                <span class="block truncate text-[10px] text-zinc-600">
+                  {{ s.hint }}
+                  <!-- The column this page was missing: a count says how much
+                       of a list is here, only a date says whether it's now. -->
+                  <template v-if="freshness(s.updated)">
+                    · <span :class="isStale(s.updated) ? 'text-amber-500/80' : 'text-zinc-500'">
+                      updated {{ freshness(s.updated) }}
+                    </span>
+                  </template>
+                </span>
               </span>
 
               <span v-if="s.levels" class="shrink-0 text-right tabular-nums">

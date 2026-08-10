@@ -156,6 +156,18 @@ useHead({ title: 'Community — All Levels List' })
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Community</h1>
         <p class="text-sm text-zinc-500 mt-1">What the list and its players have been up to.</p>
+        <!-- Clans are part of the community rather than a page of their own to
+             stumble on, so they are linked from the top of it. -->
+        <nav class="mt-2 flex items-center gap-1.5">
+          <NuxtLink
+            to="/clans"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+          >Clans →</NuxtLink>
+          <NuxtLink
+            to="/leaderboard"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+          >Leaderboard →</NuxtLink>
+        </nav>
       </div>
       <dl v-if="community" class="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
         <div v-for="s in [

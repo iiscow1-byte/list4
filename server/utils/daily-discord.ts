@@ -1,6 +1,6 @@
 import { getDb } from '~/server/db'
 import { groupByDay, loadChanges } from '~/server/utils/changes'
-import { buildDailyEmbed, buildChallengeEmbed, postToDiscordWebhook } from '~/server/utils/discord'
+import { buildDailyEmbeds, buildChallengeEmbeds, postToDiscordWebhook } from '~/server/utils/discord'
 
 /** YYYY-MM-DD for `date` in UTC. */
 export function ymdUtc(date: Date): string {
@@ -18,6 +18,8 @@ export type WebhookRow = {
   active: number
   last_posted_date: string | null
   tier_emoji: number
+  /** 1 = send the whole day across as many messages as it takes. */
+  split_long?: number
 }
 
 /**
@@ -37,8 +39,8 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
   // `active` flag gates the automated scheduler only.
   const webhooks = db
     .prepare(opts.allWebhooks
-      ? `SELECT id, url, active, last_posted_date, tier_emoji, kind FROM discord_webhooks WHERE kind IN ('changes','challenge_changes')`
-      : `SELECT id, url, active, last_posted_date, tier_emoji, kind FROM discord_webhooks WHERE active = 1 AND kind IN ('changes','challenge_changes')`)
+      ? `SELECT id, url, active, last_posted_date, tier_emoji, kind, split_long FROM discord_webhooks WHERE kind IN ('changes','challenge_changes')`
+      : `SELECT id, url, active, last_posted_date, tier_emoji, kind, split_long FROM discord_webhooks WHERE active = 1 AND kind IN ('changes','challenge_changes')`)
     .all() as (WebhookRow & { kind: string })[]
   if (!webhooks.length) return { posted: [] }
 
@@ -80,8 +82,16 @@ export async function postDailyChangesIfDue(opts: { upToDate?: string; forceCurr
   return { posted }
 }
 
-/** Post a specific UTC day's changes to a single webhook. Returns status. */
-export async function postOneDay(wh: WebhookRow & { kind?: string }, date: string): Promise<string> {
+/**
+ * Post a specific UTC day's changes to a single webhook. Returns status.
+ *
+ * A day can be more than one message — see `buildDailyEmbeds`. They go in
+ * order, with a short pause between them: Discord's per-webhook rate limit is
+ * generous but real, and a day that needs six messages would otherwise send
+ * them in the same instant. The first failure stops the rest, since posting
+ * pages 4–6 of something whose page 3 never arrived is worse than stopping.
+ */
+export async function postOneDay(wh: WebhookRow & { kind?: string; split_long?: number }, date: string): Promise<string> {
   const db = getDb()
   const since = `${date} 00:00:00`
   const until = `${date} 23:59:59`
@@ -89,16 +99,22 @@ export async function postOneDay(wh: WebhookRow & { kind?: string }, date: strin
   // imported AREDL history rows carry historical dates and would flood the
   // digest if a backfill ran that day.
   const changes = loadChanges(db, { since, until, limit: 1000, source: 'all' }).reverse()
+  const split = !!wh.split_long
 
-  if (wh.kind === 'challenge_changes') {
-    const payload = buildChallengeEmbed(date, changes)
-    if (!payload) return 'no changes'
-    return postToDiscordWebhook(wh.url, payload)
+  const payloads = wh.kind === 'challenge_changes'
+    ? buildChallengeEmbeds(date, changes, { split })
+    : buildDailyEmbeds(date, changes, { tierEmoji: !!wh.tier_emoji, split })
+
+  if (!payloads.length) return 'no changes'
+
+  for (const [i, payload] of payloads.entries()) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 1200))
+    const status = await postToDiscordWebhook(wh.url, payload)
+    if (status !== 'ok') {
+      return payloads.length > 1 ? `${status} (message ${i + 1}/${payloads.length})` : status
+    }
   }
-
-  const payload = buildDailyEmbed(date, changes, { tierEmoji: !!wh.tier_emoji })
-  if (!payload) return 'no changes'
-  return postToDiscordWebhook(wh.url, payload)
+  return payloads.length > 1 ? `ok (${payloads.length} messages)` : 'ok'
 }
 
 function incrementDate(ymd: string): string {

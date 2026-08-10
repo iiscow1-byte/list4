@@ -13,7 +13,7 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'imported-movements' | 'open-verifications' | 'imports' | 'claims' | 'accounts' | 'discord' | 'custom-lists'
+type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'imported-movements' | 'open-verifications' | 'statistics' | 'imports' | 'claims' | 'accounts' | 'discord' | 'custom-lists'
 const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'records',            label: 'Records',         adminOnly: false },
   { id: 'opinions',           label: 'Opinions',        adminOnly: false },
@@ -23,6 +23,7 @@ const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
   { id: 'movements',          label: 'Movements',       adminOnly: false },
   { id: 'imported-movements', label: 'Imported moves',  adminOnly: false },
   { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
+  { id: 'statistics',         label: 'Statistics',      adminOnly: false },
   { id: 'imports',            label: 'Imports',         adminOnly: true },
   { id: 'claims',             label: 'Claims',          adminOnly: true },
   { id: 'accounts',           label: 'Accounts',        adminOnly: true },
@@ -154,6 +155,7 @@ type DiscordWebhook = {
   label: string | null
   active: 0 | 1
   tier_emoji: 0 | 1
+  split_long: 0 | 1
   kind: WebhookKind
   created_at: string
   created_by: string | null
@@ -256,6 +258,18 @@ async function toggleTierEmoji(w: DiscordWebhook) {
   try {
     await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
       method: 'PATCH', body: { tier_emoji: !w.tier_emoji },
+    })
+    await loadWebhooks()
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed.')
+  }
+}
+
+/** Send a long day as several messages instead of cutting it off. */
+async function toggleSplitLong(w: DiscordWebhook) {
+  try {
+    await $fetch(`/api/admin/discord-webhooks/${w.id}`, {
+      method: 'PATCH', body: { split_long: !w.split_long },
     })
     await loadWebhooks()
   } catch (e: any) {
@@ -1085,6 +1099,9 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
     <!-- Open verifications tab — pending unverified-level submissions -->
     <AdminOpenVerificationsReview v-else-if="tab === 'open-verifications'" class="flex-1 min-h-0" />
 
+    <!-- Statistics — traffic, and what the site gained, side by side -->
+    <AdminStatistics v-else-if="tab === 'statistics'" class="flex-1 min-h-0" />
+
     <!-- Imports tab — manually re-run any of the data importers and clear
          out unaccepted pending rows from each source. -->
     <div v-else-if="tab === 'imports'" class="flex-1 overflow-y-auto">
@@ -1711,15 +1728,33 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 </div>
               </div>
 
-              <label
+              <div
                 v-if="k.id === 'changes' || k.id === 'challenge_changes'"
-                class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] transition-colors shrink-0"
-                :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
-                :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in the embeds'"
+                class="flex items-center gap-3 shrink-0"
               >
-                <input type="checkbox" :checked="!!w.tier_emoji" class="accent-accent" @change="toggleTierEmoji(w)" />
-                Tier emoji
-              </label>
+                <label
+                  class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] transition-colors"
+                  :class="w.tier_emoji ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
+                  :title="w.tier_emoji ? 'Tier emojis enabled — click to disable' : 'Enable tier emojis in the embeds'"
+                >
+                  <input type="checkbox" :checked="!!w.tier_emoji" class="accent-accent" @change="toggleTierEmoji(w)" />
+                  Tier emoji
+                </label>
+                <!-- A busy day passes Discord's 4,096-character embed limit,
+                     and what happened then was "…(truncated)" with the rest of
+                     the day never posted. Off by default: it changes how much
+                     a channel receives. -->
+                <label
+                  class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] transition-colors"
+                  :class="w.split_long ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
+                  :title="w.split_long
+                    ? 'A day too long for one embed is sent as several messages — click to go back to cutting it off'
+                    : 'Send the whole day across several messages when it is too long for one embed'"
+                >
+                  <input type="checkbox" :checked="!!w.split_long" class="accent-accent" @change="toggleSplitLong(w)" />
+                  Split long changelogs
+                </label>
+              </div>
 
               <div class="flex items-center gap-1.5 shrink-0">
                 <button

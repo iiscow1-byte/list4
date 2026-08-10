@@ -29,11 +29,28 @@ export function isChallengeSource(source: string | null | undefined): boolean {
 /**
  * SQL fragment matching `placement_source` against the challenge source list.
  *
- * Wrapping the column in pipes and stripping spaces makes one LIKE per source
- * match a whole part and only a whole part: `|ACS|` matches `ACS` and
- * `AREDL|ACS`, and never `ACSX`.
+ * Two tests, cheapest first, and the order is the whole point.
+ *
+ * A single-source value — which is every row on the sheet today — is settled by
+ * the `IN`, one comparison against a small constant set. Only a value that
+ * actually contains a pipe falls through to the eleven `LIKE`s that match a
+ * whole part and only a whole part (`|ACS|` matches `ACS` and `AREDL|ACS`, and
+ * never `ACSX`).
+ *
+ * Measured on the real 54,000-row list: the LIKE chain alone costs 126 ms per
+ * evaluation and this costs 10.6 ms, against 9.8 ms for the plain `IN` it
+ * replaced. That expression runs twice per list request — once to count and
+ * once to fetch — and again inside the effective-rating CASE, so making it
+ * unconditional turned every filtered search on the site into a slow one.
  */
 export function challengeSourceSqlExpr(column = 'placement_source'): string {
-  const haystack = `REPLACE(UPPER('|' || COALESCE(${column}, '') || '|'), ' ', '')`
-  return `(${CHALLENGE_SOURCES.map((s) => `${haystack} LIKE '%|${s}|%'`).join(' OR ')})`
+  const col = `COALESCE(${column}, '')`
+  // TRIM, because a hand-typed source can arrive as " ACS ". The pipe form
+  // below strips spaces anywhere in the value, and the two tests have to agree
+  // about what counts — a row matching one and not the other is exactly the
+  // kind of difference nobody notices until a level is on the wrong list.
+  const single = `UPPER(TRIM(${col})) IN (${CHALLENGE_SOURCES.map((s) => `'${s}'`).join(', ')})`
+  const haystack = `REPLACE(UPPER('|' || ${col} || '|'), ' ', '')`
+  const anyPart = CHALLENGE_SOURCES.map((s) => `${haystack} LIKE '%|${s}|%'`).join(' OR ')
+  return `(${single} OR (${col} LIKE '%|%' AND (${anyPart})))`
 }

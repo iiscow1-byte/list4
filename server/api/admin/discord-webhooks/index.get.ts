@@ -7,7 +7,7 @@ export default defineEventHandler((event) => {
   const db = getDb()
   const items = db
     .prepare(
-      `SELECT w.id, w.url, w.label, w.active, w.tier_emoji, w.kind,
+      `SELECT w.id, w.url, w.label, w.active, w.tier_emoji, w.split_long, w.kind,
               w.created_at, w.last_posted_date, w.last_post_status,
               a.username AS created_by
          FROM discord_webhooks w

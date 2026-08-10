@@ -69,7 +69,7 @@ const startsWith = (...prefixes: string[]) =>
 
 const buildActive = computed(() => startsWith('/builder', '/lists'))
 const listActive = computed(() => startsWith('/levels', '/awaiting', '/void', '/open-verifications'))
-const communityActive = computed(() => startsWith('/community', '/leaderboard', '/changelog', '/users', '/about', '/updates'))
+const communityActive = computed(() => startsWith('/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates'))
 const submitActive = computed(() => startsWith('/records', '/opinions') || route.path === '/levels/submit')
 </script>
 
@@ -137,6 +137,10 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
           <NavMenuItem to="/leaderboard" hint="Ranked players">
             <template #icon><NavIcon name="trophy" /></template>
             Leaderboard
+          </NavMenuItem>
+          <NavMenuItem to="/clans" hint="Groups of players, ranked together">
+            <template #icon><NavIcon name="users" /></template>
+            Clans
           </NavMenuItem>
           <NavMenuSection label="The list" />
           <NavMenuItem to="/changelog" hint="Placements and movements">

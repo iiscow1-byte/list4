@@ -39,6 +39,9 @@ export type Account = {
   pronouns: string | null
   discord_handle: string | null
   youtube_url: string | null
+  twitch_url: string | null
+  twitter_url: string | null
+  bluesky_url: string | null
   gd_username: string | null
   favorite_level_id: number | null
   favorite_level_note: string | null
@@ -91,6 +94,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
             a.claimed_aredl_uuid, a.claimed_pointercrate_id, a.claimed_gdl_id,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
             a.pronouns, a.discord_handle, a.youtube_url, a.gd_username,
+            a.twitch_url, a.twitter_url, a.bluesky_url,
             a.favorite_level_id, a.favorite_level_note,
             a.hardest_record_id, a.banner_choice, a.banner_level_id,
             a.banner_image_url, a.name_emoji, a.name_badge, a.name_badge_color
@@ -124,6 +128,11 @@ export function getCurrentAccount(event: H3Event): Account | null {
     pronouns: row.pronouns,
     discord_handle: row.discord_handle,
     youtube_url: row.youtube_url,
+    // Returned like every other field: a mapper that queries a column and
+    // doesn't return it makes any partial PATCH bind `undefined` and throw.
+    twitch_url: row.twitch_url ?? null,
+    twitter_url: row.twitter_url ?? null,
+    bluesky_url: row.bluesky_url ?? null,
     favorite_level_id: row.favorite_level_id ?? null,
     favorite_level_note: row.favorite_level_note ?? null,
     // These were queried but never returned, so every caller saw `undefined`:

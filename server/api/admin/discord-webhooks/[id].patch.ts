@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Bad id.' })
   }
 
-  const body = (await readBody<{ active?: boolean; label?: string | null; tier_emoji?: boolean; kind?: string }>(event)) ?? {}
+  const body = (await readBody<{ active?: boolean; label?: string | null; tier_emoji?: boolean; split_long?: boolean; kind?: string }>(event)) ?? {}
   const sets: string[] = []
   const values: (string | number | null)[] = []
   if (typeof body.active === 'boolean') {
@@ -26,6 +26,10 @@ export default defineEventHandler(async (event) => {
   if (typeof body.tier_emoji === 'boolean') {
     sets.push('tier_emoji = ?')
     values.push(body.tier_emoji ? 1 : 0)
+  }
+  if (typeof body.split_long === 'boolean') {
+    sets.push('split_long = ?')
+    values.push(body.split_long ? 1 : 0)
   }
   if (typeof body.kind === 'string' && VALID_KINDS.has(body.kind)) {
     sets.push('kind = ?')

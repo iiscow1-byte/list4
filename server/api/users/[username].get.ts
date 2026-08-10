@@ -3,6 +3,7 @@ import { getPlayerStats, getCompletedLevels, getCreatedLevels, getVerifiedLevels
 import { computeDerivedStats } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { isFollowing } from '~/server/utils/follows'
+import { looksAutomated, recordProfileView } from '~/server/utils/analytics'
 
 export default defineEventHandler((event) => {
   const username = getRouterParam(event, 'username')
@@ -13,6 +14,7 @@ export default defineEventHandler((event) => {
     `SELECT id, username, role, bio, country, subdivision, claimed_player,
             (avatar_blob IS NOT NULL) AS has_avatar, created_at,
             pronouns, discord_handle, youtube_url, gd_username,
+            twitch_url, twitter_url, bluesky_url,
             favorite_level_id, favorite_level_note,
             hardest_record_id, banner_choice, banner_level_id,
             banner_image_url, name_emoji, name_badge, name_badge_color
@@ -67,6 +69,16 @@ export default defineEventHandler((event) => {
   }
 
   const completedLevels = getCompletedLevels(db, effectiveName)
+
+  /**
+   * How much of the list this is.
+   *
+   * A completion count says how much somebody has done; it takes the size of
+   * the list to say how far through it they are. Sent as the denominator
+   * rather than a percentage so the page can round it once, in the place that
+   * decides how many digits are worth showing.
+   */
+  const totalLevels = (db.prepare(`SELECT COUNT(*) AS n FROM levels`).get() as { n: number }).n
   const createdLevels = getCreatedLevels(db, effectiveName)
   const verifiedLevels = getVerifiedLevels(db, effectiveName)
   const progressPosts = getProgressPosts(db, acc.id)
@@ -112,6 +124,46 @@ export default defineEventHandler((event) => {
     `SELECT COUNT(*) AS n FROM follows WHERE follower_account_id = ?`,
   ).get(acc.id) as { n: number }).n
 
+  /**
+   * The two things a follow list can say that a count can't.
+   *
+   * `followsYou` is whether this profile follows *the viewer* back, and
+   * `mutuals` is how many people you both follow. Both are one query against a
+   * table the page already reads, and both are the difference between a number
+   * and a relationship — which is the whole point of a follow.
+   *
+   * Only computed for a signed-in viewer looking at somebody else: neither
+   * means anything otherwise, and asking the database is a waste of a query.
+   */
+  let followsYou = false
+  let mutuals = 0
+  if (me && !isSelf && myCanonical) {
+    followsYou = !!db.prepare(
+      `SELECT 1 FROM follows WHERE follower_account_id = ? AND target_name = ? COLLATE NOCASE`,
+    ).get(acc.id, myCanonical)
+    mutuals = (db.prepare(
+      `SELECT COUNT(*) AS n FROM follows mine
+         JOIN follows theirs ON theirs.target_name = mine.target_name COLLATE NOCASE
+        WHERE mine.follower_account_id = ? AND theirs.follower_account_id = ?`,
+    ).get(me.id, acc.id) as { n: number }).n
+  }
+
+  /**
+   * How many people have opened this profile.
+   *
+   * Read before the increment and not counted for the owner: a number that
+   * goes up every time you look at your own page is a count of you checking
+   * it. Recorded here rather than in the analytics middleware for the same
+   * reason level views are — the middleware sees `/users/:username`, and this
+   * handler knows which account that is.
+   */
+  const profileViews = (db.prepare(
+    `SELECT COALESCE(views, 0) AS n FROM profile_views WHERE account_id = ?`,
+  ).get(acc.id) as { n: number } | undefined)?.n ?? 0
+  if (!me || me.id !== acc.id) {
+    if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordProfileView(acc.id)
+  }
+
   // The profile owner's published lists. Private drafts stay hidden unless
   // the viewer is the owner.
   const publicLists = db.prepare(
@@ -134,8 +186,10 @@ export default defineEventHandler((event) => {
     follow: {
       target: followTarget, followed, followerCount, followingCount,
       isSelf, canFollow: !!me && !isSelf,
-      followers, following,
+      followers, following, followsYou, mutuals,
     },
+    profileViews,
+    totalLevels,
     publicLists,
     favorite_level,
     favorite_level_note: acc.favorite_level_note ?? null,

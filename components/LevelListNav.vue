@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Ref } from 'vue'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
@@ -239,6 +240,77 @@ const activeFilterCount = computed(() => {
   if (sort.value !== 'position') n++
   if (rankByFilter.value) n++
   return n
+})
+
+/**
+ * Every filter currently narrowing the list, as chips you can take off.
+ *
+ * The panel could only ever say "6 active", which tells you that something is
+ * filtering the list and leaves you to open ten sections and find out what.
+ * Each chip names one filter and removes exactly that one — and they render
+ * above the sections, so the answer is the first thing on screen rather than
+ * the reward for hunting.
+ */
+type FilterChip = { key: string; label: string; clear: () => void }
+const activeFilters = computed<FilterChip[]>(() => {
+  const out: FilterChip[] = []
+  if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) {
+    out.push({
+      key: 'tier',
+      label: `${ordToTier(tierMin.value)} → ${ordToTier(tierMax.value)}`,
+      clear: () => { tierMin.value = 0; tierMax.value = TIER_MAX_ORD },
+    })
+  }
+  for (const r of RATINGS) {
+    if (ratingSet[r]) out.push({ key: `rating:${r}`, label: r, clear: () => { ratingSet[r] = false } })
+  }
+  for (const t of TAGS) {
+    if (tagSet[t]) out.push({ key: `tag:${t}`, label: t === 'uldm' ? 'ULDM' : t, clear: () => { tagSet[t] = false } })
+  }
+  for (const s of SKILLSETS) {
+    if (skillsetSet[s]) out.push({ key: `skill:${s}`, label: s, clear: () => { skillsetSet[s] = false } })
+  }
+  if (creator.value.trim()) {
+    out.push({ key: 'creator', label: `by ${creator.value.trim()}`, clear: () => { creator.value = '' } })
+  }
+  if (sourceFilter.value) {
+    out.push({ key: 'source', label: sourceFilter.value, clear: () => { sourceFilter.value = '' } })
+  }
+  if (verifyFrom.value || verifyTo.value) {
+    out.push({
+      key: 'verified',
+      label: `verified ${verifyFrom.value || '…'} – ${verifyTo.value || '…'}`,
+      clear: () => { verifyFrom.value = ''; verifyTo.value = '' },
+    })
+  }
+  if (enjoyMin.value > 0 || enjoyMax.value < 10) {
+    out.push({
+      key: 'enjoy',
+      label: `enjoyment ${enjoyMin.value}–${enjoyMax.value}`,
+      clear: () => { enjoyMin.value = 0; enjoyMax.value = 10 },
+    })
+  }
+  for (const [ref_, key, label] of [
+    [altVersions, 'altVersions', 'alt versions'],
+    [alternates, 'alternates', 'alternates'],
+    [tentativePlacements, 'tentative', 'tentative'],
+    [siteOnly, 'siteOnly', 'site-only'],
+  ] as const) {
+    if (ref_.value !== 'show') {
+      out.push({
+        key,
+        label: `${ref_.value} ${label}`,
+        clear: () => { (ref_ as Ref<string>).value = 'show' },
+      })
+    }
+  }
+  if (sort.value !== 'position') {
+    out.push({ key: 'sort', label: `sorted by ${sort.value.replace(/_/g, ' ')}`, clear: () => { sort.value = 'position' } })
+  }
+  if (rankByFilter.value) {
+    out.push({ key: 'rank', label: 'renumbered', clear: () => { rankByFilter.value = false } })
+  }
+  return out
 })
 
 const tagsDropdownActiveCount = computed(() => {
@@ -681,33 +753,57 @@ watch(
           aria-label="Advanced search"
           class="relative w-full max-w-4xl max-h-[90vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
         >
-          <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
-            <div class="flex items-center gap-2">
-              <h2 class="text-xs uppercase tracking-widest text-zinc-200 font-semibold">Advanced search</h2>
-              <span v-if="activeFilterCount" class="text-[10px] text-accent normal-case tracking-normal">
-                {{ activeFilterCount }} active
-              </span>
-              <span v-if="challengeMode" class="text-[10px] text-accent normal-case tracking-normal">
-                — Showing challenge ranks
-              </span>
+          <div class="px-4 py-3 border-b border-zinc-800 shrink-0 space-y-2.5">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-baseline gap-2 min-w-0">
+                <h2 class="text-xs uppercase tracking-widest text-zinc-200 font-semibold">Advanced search</h2>
+                <!-- What the filters currently produce, live, in the dialog
+                     that set them. It used to take closing the dialog to find
+                     out whether the last change had narrowed the list to
+                     nothing. -->
+                <span class="text-[11px] tabular-nums" :class="total ? 'text-zinc-500' : 'text-amber-400'">
+                  {{ total.toLocaleString() }} match{{ total === 1 ? '' : 'es' }}
+                </span>
+                <span v-if="loading" class="text-[10px] text-zinc-600">updating…</span>
+                <span v-if="challengeMode" class="text-[10px] text-accent">· challenge ranks</span>
+              </div>
+              <div class="flex items-center gap-3 shrink-0">
+                <button
+                  v-if="activeFilters.length"
+                  type="button"
+                  class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                  @click="resetFilters"
+                >Reset all</button>
+                <button
+                  type="button"
+                  class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                  aria-label="Close"
+                  @click="closeFilters"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-3">
+
+            <!-- One chip per filter, each removing only itself. -->
+            <div v-if="activeFilters.length" class="flex flex-wrap items-center gap-1.5">
               <button
+                v-for="f in activeFilters"
+                :key="f.key"
                 type="button"
-                class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
-                @click="resetFilters"
-              >Reset filters</button>
-              <button
-                type="button"
-                class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                aria-label="Close"
-                @click="closeFilters"
+                class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent hover:border-accent hover:bg-accent/20 transition-colors"
+                :title="`Remove: ${f.label}`"
+                @click="f.clear()"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                {{ f.label }}
+                <span class="text-[10px] opacity-70" aria-hidden="true">✕</span>
               </button>
             </div>
+            <p v-else class="text-[11px] text-zinc-600">
+              No filters — the whole list, in placement order.
+            </p>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-0 min-h-0 flex-1 overflow-hidden">

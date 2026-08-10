@@ -19,6 +19,68 @@ function levelLink(name: string, position: number): string {
   return `[${name}](${SITE_URL_VALID}/levels/${position})`
 }
 
+/**
+ * Where the title of a changes post goes.
+ *
+ * The changelog, not the front page. The embed is a list of changes and the
+ * page that holds all of them is the changelog — clicking through to the list
+ * itself left you to find the day's changes yourself.
+ */
+const CHANGELOG_URL = SITE_URL_VALID ? `${SITE_URL_VALID}/changelog` : undefined
+
+/**
+ * Discord's own limit on an embed description, less a little room for the
+ * "continued" header a split page may add back.
+ */
+const DESCRIPTION_LIMIT = 3900
+
+/**
+ * Break a day's lines into as many descriptions as it takes.
+ *
+ * Splitting happens on line boundaries only — half a level's entry in one
+ * message and half in the next would be worse than the truncation this
+ * replaces. A section heading (`**Moved up (40)**`) is repeated at the top of
+ * the page that continues it, so a reader who only sees the third message can
+ * still tell what they are looking at.
+ *
+ * Returns one page when it fits, which is the overwhelmingly common case.
+ */
+export function paginateLines(lines: string[], limit = DESCRIPTION_LIMIT): string[] {
+  const pages: string[] = []
+  let current: string[] = []
+  let length = 0
+  let heading: string | null = null
+
+  const flush = () => {
+    const text = current.join('\n').trim()
+    if (text) pages.push(text)
+    current = []
+    length = 0
+  }
+
+  for (const line of lines) {
+    if (line.startsWith('**')) heading = line
+    // +1 for the newline this line will be joined with.
+    if (length + line.length + 1 > limit && current.length) {
+      flush()
+      if (heading && heading !== line) {
+        const cont = `${heading} (continued)`
+        current.push(cont)
+        length += cont.length + 1
+      }
+    }
+    current.push(line)
+    length += line.length + 1
+  }
+  flush()
+  return pages.length ? pages : ['']
+}
+
+/** `Title` → `Title (2/3)`, only when there is more than one. */
+function pageTitle(title: string, i: number, total: number): string {
+  return total > 1 ? `${title} (${i + 1}/${total})` : title
+}
+
 function tierEmojiStr(tier: string | null): string {
   if (!tier) return ''
   if (/^Subtier \d/.test(tier)) return ':tierunrated:'
@@ -28,15 +90,22 @@ function tierEmojiStr(tier: string | null): string {
 }
 
 /**
- * Build the Discord embed payload for a single day's changes. Returns null
- * when the day has no changes — caller should skip the post.
+ * Build the Discord messages for a single day's changes.
+ *
+ * Returns an **array** of payloads: one on an ordinary day, more when the day
+ * doesn't fit in one embed and the webhook has asked to be sent all of it
+ * (`split`). Without that flag the behaviour is what it always was — the first
+ * page, marked truncated — because posting six messages to a channel that
+ * expected one is a change the channel's owner should opt into.
+ *
+ * Returns an empty array when the day has no changes; the caller skips it.
  */
-export function buildDailyEmbed(
+export function buildDailyEmbeds(
   date: string,
   changes: Change[],
-  opts: { tierEmoji?: boolean } = {},
-): { embeds: unknown[] } | null {
-  if (!changes.length) return null
+  opts: { tierEmoji?: boolean; split?: boolean } = {},
+): { embeds: unknown[] }[] {
+  if (!changes.length) return []
 
   const adds = changes.filter((c) => c.kind === 'add')
   // Group moves by direction so the embed reads "promoted up" vs "demoted down".
@@ -86,23 +155,34 @@ export function buildDailyEmbed(
     }
   }
 
-  // Discord embeds cap description at 4096 chars; truncate gracefully.
-  let description = lines.join('\n').trim()
-  if (description.length > 3900) {
-    description = description.slice(0, 3900) + '\n…(truncated)'
+  const title = `The All Levels List — Recent Changes for ${date}`
+  const count = `${changes.length} change${changes.length === 1 ? '' : 's'}`
+  const pages = paginateLines(lines)
+
+  // Not splitting: the first page, and an honest note that there was more.
+  if (!opts.split && pages.length > 1) {
+    return [{
+      embeds: [{
+        title,
+        url: CHANGELOG_URL,
+        description: `${pages[0]}\n…(truncated — turn on "Split long changelogs" to get the rest)`,
+        color: 0xf4c430,
+        footer: { text: count },
+      }],
+    }]
   }
 
-  return {
-    embeds: [
-      {
-        title: `The All Levels List — Recent Changes for ${date}`,
-        url: SITE_URL_VALID || undefined,
-        description,
-        color: 0xf4c430,
-        footer: { text: `${changes.length} change${changes.length === 1 ? '' : 's'}` },
-      },
-    ],
-  }
+  return pages.map((description, i) => ({
+    embeds: [{
+      title: pageTitle(title, i, pages.length),
+      url: CHANGELOG_URL,
+      description,
+      color: 0xf4c430,
+      // The count belongs on the last one, where it reads as a total rather
+      // than as a claim about the message it is attached to.
+      footer: { text: i === pages.length - 1 ? count : `${count} · continued below` },
+    }],
+  }))
 }
 
 /**
@@ -209,12 +289,13 @@ export function buildLevelStatusEmbed(opts: {
  * Positions are shown as challenge ranks (1 = hardest challenge on the list).
  * Returns null when there are no challenge changes for the day.
  */
-export function buildChallengeEmbed(
+export function buildChallengeEmbeds(
   date: string,
   changes: Change[],
-): { embeds: unknown[] } | null {
+  opts: { split?: boolean } = {},
+): { embeds: unknown[] }[] {
   const challengeChanges = changes.filter((c) => c.level_rated === 'Challenge')
-  if (!challengeChanges.length) return null
+  if (!challengeChanges.length) return []
 
   const adds = challengeChanges.filter((c) => c.kind === 'add')
   const movesUp = challengeChanges.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position < c.from_position!)
@@ -246,18 +327,31 @@ export function buildChallengeEmbed(
     }
   }
 
-  let description = lines.join('\n').trim()
-  if (description.length > 3900) description = description.slice(0, 3900) + '\n…(truncated)'
+  const title = `Challenge Ranks — Recent Changes for ${date}`
+  const count = `${challengeChanges.length} challenge change${challengeChanges.length === 1 ? '' : 's'}`
+  const pages = paginateLines(lines)
 
-  return {
+  if (!opts.split && pages.length > 1) {
+    return [{
+      embeds: [{
+        title,
+        url: CHANGELOG_URL,
+        description: `${pages[0]}\n…(truncated — turn on "Split long changelogs" to get the rest)`,
+        color: 0xf59e0b,
+        footer: { text: count },
+      }],
+    }]
+  }
+
+  return pages.map((description, i) => ({
     embeds: [{
-      title: `Challenge Ranks — Recent Changes for ${date}`,
-      url: SITE_URL_VALID || undefined,
+      title: pageTitle(title, i, pages.length),
+      url: CHANGELOG_URL,
       description,
       color: 0xf59e0b,
-      footer: { text: `${challengeChanges.length} challenge change${challengeChanges.length === 1 ? '' : 's'}` },
+      footer: { text: i === pages.length - 1 ? count : `${count} · continued below` },
     }],
-  }
+  }))
 }
 
 /**

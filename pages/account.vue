@@ -2,9 +2,20 @@
 import { gdUserUrl, isGdUsername } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { allCountries, normalizeCountry } from '~/utils/countries'
+import { SOCIAL_LINKS, isValidSocialUrl } from '~/utils/social-links'
+import { listPercent } from '~/utils/list-progress'
 
 /** Every country, by name. Built once — see `utils/countries.ts`. */
 const countryOptions = allCountries()
+
+/**
+ * The link fields, driven by one table rather than one block of markup each.
+ *
+ * Adding a service is a row in `utils/social-links.ts` — its field, its
+ * validation, its icon and its chip all come from there, so the settings form
+ * and the profile can't end up knowing about different sets of them.
+ */
+const SOCIAL_KEYS = SOCIAL_LINKS.map((s) => s.key)
 
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Account — All Levels List' })
@@ -23,6 +34,9 @@ const profile = reactive({
   pronouns: me.value?.pronouns ?? '',
   discord_handle: me.value?.discord_handle ?? '',
   youtube_url: me.value?.youtube_url ?? '',
+  twitch_url: (me.value as any)?.twitch_url ?? '',
+  twitter_url: (me.value as any)?.twitter_url ?? '',
+  bluesky_url: (me.value as any)?.bluesky_url ?? '',
   gd_username: me.value?.gd_username ?? '',
 })
 const profileSaving = ref(false)
@@ -39,6 +53,7 @@ watch(me, (val) => {
     profile.pronouns = val.pronouns ?? ''
     profile.discord_handle = val.discord_handle ?? ''
     profile.youtube_url = val.youtube_url ?? ''
+    for (const k of SOCIAL_KEYS) profile[k] = (val as any)[k] ?? ''
     profile.gd_username = val.gd_username ?? ''
   }
 }, { immediate: true })
@@ -51,6 +66,7 @@ function startEdit() {
   profile.pronouns = me.value.pronouns ?? ''
   profile.discord_handle = me.value.discord_handle ?? ''
   profile.youtube_url = me.value.youtube_url ?? ''
+  for (const k of SOCIAL_KEYS) profile[k] = (me.value as any)[k] ?? ''
     profile.gd_username = me.value.gd_username ?? ''
   favoriteLevelId.value = me.value.favorite_level_id
   favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
@@ -75,6 +91,7 @@ function cancelEdit() {
     profile.pronouns = me.value.pronouns ?? ''
     profile.discord_handle = me.value.discord_handle ?? ''
     profile.youtube_url = me.value.youtube_url ?? ''
+    for (const k of SOCIAL_KEYS) profile[k] = (me.value as any)[k] ?? ''
     profile.gd_username = me.value.gd_username ?? ''
     favoriteLevelId.value = me.value.favorite_level_id
     favoriteLevelDisplay.value = profileData.value?.favorite_level ?? null
@@ -794,6 +811,8 @@ type ProfileData = {
   name_badge?: string | null
   name_badge_color?: string | null
   banner_level: ShowcaseLevel | null
+  profileViews?: number
+  totalLevels?: number
 }
 /**
  * Fetched during SSR, not in `onMounted`. This page renders the same cover
@@ -862,9 +881,45 @@ const headlineStats = computed(() => {
   return [
     { label: 'Points', value: d.player ? fmt(d.player.total_points) : '—', tone: 'text-amber-300' },
     { label: 'Completions', value: d.completedLevels.length.toLocaleString(), tone: 'text-zinc-100' },
+    // The same tile the public profile shows — see `listPercent` there.
+    {
+      label: 'Of the list',
+      value: listPercent(d.completedLevels.length, d.totalLevels ?? 0),
+      tone: 'text-zinc-100',
+      hint: `${d.completedLevels.length.toLocaleString()} of ${(d.totalLevels ?? 0).toLocaleString()} levels`,
+    },
     { label: 'Followers', value: d.follow.followerCount.toLocaleString(), tone: 'text-zinc-100', opens: 'followers' as const },
     { label: 'Following', value: (d.follow.followingCount ?? 0).toLocaleString(), tone: 'text-zinc-100', opens: 'following' as const },
   ]
+})
+
+/**
+ * The account, as the shared header wants it — with the edit form's values
+ * applied while the form is open.
+ *
+ * This page is where the profile is built, so the header has to answer to the
+ * form rather than to the saved row: choosing a country, typing a pronoun or
+ * pasting a Twitch link should show up in the thing you are editing, not after
+ * you press Save. Everything not in the form comes straight off the account.
+ */
+const headerAccount = computed<Record<string, any>>(() => {
+  const base = { ...(me.value ?? {}) } as Record<string, any>
+  if (!editing.value) return base
+  return {
+    ...base,
+    country: profile.country,
+    subdivision: profile.subdivision,
+    pronouns: profile.pronouns,
+    discord_handle: profile.discord_handle,
+    youtube_url: profile.youtube_url,
+    twitch_url: profile.twitch_url,
+    twitter_url: profile.twitter_url,
+    bluesky_url: profile.bluesky_url,
+    gd_username: profile.gd_username,
+    name_emoji: nameEmoji.value,
+    name_badge: nameBadge.value,
+    name_badge_color: nameBadgeColor.value,
+  }
 })
 
 // The same dialog the public profile opens — this page shows the same numbers,
@@ -884,6 +939,19 @@ const youtubeUrlValid = computed(() => {
   if (!url) return true
   return /^https?:\/\/(www\.)?youtube\.com\/((@|channel\/|c\/|user\/)[^/?&#\s]+)/i.test(url)
 })
+
+/**
+ * The same host check the server applies, run as you type.
+ *
+ * Deliberately a second copy of the rule rather than the only one: the server
+ * refuses a bad link whatever the form does, and this exists so you find out
+ * before pressing Save instead of after.
+ */
+function socialValid(key: string): boolean {
+  const url = String((profile as Record<string, string>)[key] ?? '').trim()
+  return !url || isValidSocialUrl(key, url)
+}
+const allSocialsValid = computed(() => SOCIAL_KEYS.every((k) => socialValid(k)))
 
 // The in-game name is stored bare and turned into a gdbrowser link on the way
 // out, so it's checked here for the same reason the server checks it: a value
@@ -905,221 +973,83 @@ function fmt(n: number | null | undefined) {
 
 <template>
   <div v-if="me">
-    <!-- Cover header. Deliberately the same construction as /users/:name — this
-         page is where you build that profile, so it should show you the thing
-         you're editing rather than a different-looking settings screen. The
-         backdrop follows the edit form live. -->
-    <header class="relative">
-      <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
-        <template v-if="bannerImage">
-          <img
-            :src="bannerImage"
-            alt=""
-            referrerpolicy="no-referrer"
-            fetchpriority="high"
-            decoding="async"
-            class="absolute inset-0 w-full h-full object-cover opacity-70"
-          />
-          <div class="absolute inset-0 bg-gradient-to-b from-zinc-950/40 via-zinc-950/60 to-zinc-950" aria-hidden="true" />
-        </template>
-        <!-- The cover is full-bleed, so `100vw` is honest and `high` is worth
-             it — and it is the same URL the profile page paints, so a visit to
-             either one warms the other's cache. -->
-        <LevelThumbBg
-          v-else-if="bannerLevel"
-          :key="bannerLevel.gd_id ?? bannerLevel.name"
-          :gd-id="bannerLevel.gd_id"
-          :video-url="bannerLevel.video ?? bannerLevel.verification_url"
-          res="high"
-          sizes="100vw"
-          priority
-          img-class="opacity-60 scale-105"
-          overlay-class="bg-gradient-to-b from-zinc-950/40 via-zinc-950/70 to-zinc-950"
-        />
-        <div
-          v-else
-          class="absolute inset-0 bg-[radial-gradient(80%_140%_at_50%_0%,theme(colors.zinc.800),theme(colors.zinc.950))]"
-          aria-hidden="true"
-        />
-        <div class="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent" aria-hidden="true" />
+    <!-- The same header the public profile draws, from the same component.
+         This page is where you build that profile, so it has to *be* it: two
+         hand-written copies had already drifted, and the account one had lost
+         the country flag, the banner level link and half the social chips.
+         Everything editable follows the form live, so the header shows what
+         you are choosing while you choose it. -->
+    <ProfileHeader
+      :account="headerAccount"
+      :banner-level="bannerLevel"
+      :banner-image="bannerImage"
+      :stats="headlineStats"
+      :joined="joined"
+      is-self
+      @open-list="openFollowList"
+    >
+      <!-- The avatar is a control here rather than a picture: this is the page
+           you change it on, so it opens the picker instead of doing nothing. -->
+      <template #avatar>
+        <label class="absolute inset-0 cursor-pointer group" title="Change profile picture">
+          <img v-if="avatarUrl" :src="avatarUrl" alt="" decoding="async" class="w-full h-full object-cover" />
+          <div v-else class="w-full h-full flex items-center justify-center text-3xl text-zinc-600 font-black">
+            {{ me.username.charAt(0).toUpperCase() }}
+          </div>
+          <div class="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-white">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span class="text-[9px] uppercase tracking-widest text-white/80">Change</span>
+          </div>
+          <input ref="avatarHoverFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onHoverAvatarChange" />
+        </label>
+      </template>
 
+      <template #meta>
+        <span v-if="profileData && profileData.profileViews > 1" class="text-zinc-600">
+          {{ profileData.profileViews.toLocaleString() }} profile views
+        </span>
+      </template>
+
+      <template #actions>
+        <button
+          type="button"
+          class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
+          :class="editing
+            ? 'border-accent/60 text-accent bg-accent/10'
+            : 'border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent'"
+          @click="editing ? cancelEdit() : startEdit()"
+        >{{ editing ? 'Editing…' : 'Edit profile' }}</button>
         <NuxtLink
-          v-if="bannerLevel?.position"
-          :to="`/levels/${bannerLevel.position}`"
-          class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors"
-        >
-          <span class="tabular-nums text-zinc-400">#{{ bannerLevel.sheet_placement ?? bannerLevel.position }}</span>
-          <span class="truncate max-w-[10rem]">{{ bannerLevel.name }}</span>
-        </NuxtLink>
-      </div>
+          :to="`/users/${me.username}`"
+          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+        >View public ↗</NuxtLink>
+      </template>
+    </ProfileHeader>
 
-      <div class="container-tight max-w-5xl">
-        <div class="relative -mt-14 sm:-mt-16 flex items-end gap-4 flex-wrap">
-          <label
-            class="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-zinc-900 ring-4 ring-zinc-950 overflow-hidden shrink-0 shadow-xl shadow-black/50 cursor-pointer group"
-            title="Change profile picture"
-          >
-            <img v-if="avatarUrl" :src="avatarUrl" alt="" class="w-full h-full object-cover" />
-            <div v-else class="w-full h-full flex items-center justify-center text-3xl text-zinc-600 font-black">
-              {{ me.username.charAt(0).toUpperCase() }}
-            </div>
-            <div class="absolute inset-0 bg-black/55 flex flex-col items-center justify-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-6 h-6 text-white">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-              <span class="text-[9px] uppercase tracking-widest text-white/80">Change</span>
-            </div>
-            <input ref="avatarHoverFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onHoverAvatarChange" />
-          </label>
-
-          <div class="flex-1 min-w-0 pb-1">
-            <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ me.username }}</h1>
-              <!-- Follows the picker live while editing, so the flag you're
-                   choosing is the flag you can see. -->
-              <CountryFlag :country="editing ? profile.country : me.country" class="shrink-0" />
-              <RoleBadge :role="me.role" />
-              <span v-if="me.pronouns" class="text-xs text-zinc-500">{{ me.pronouns }}</span>
-            </div>
-            <p class="text-[11px] text-zinc-500 mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span v-if="me.claimed_player">
-                playing as <span class="text-zinc-300">{{ me.claimed_player }}</span>
-              </span>
-              <span v-if="me.subdivision || me.country" class="inline-flex items-center gap-1">
-                <span v-if="me.subdivision">{{ me.subdivision }}<template v-if="me.country">,</template></span>
-                <CountryFlag :country="me.country" size="sm" with-name />
-              </span>
-              <span v-if="joined">joined {{ joined }}</span>
-            </p>
-          </div>
-
-          <div class="pb-1 flex items-center gap-2 shrink-0">
-            <span v-if="me.discord_handle" class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400">
-              <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-3.5 h-3.5 shrink-0 text-[#5865F2]" aria-hidden="true">
-                <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
-              </svg>
-              {{ me.discord_handle }}
-            </span>
-            <a
-              v-if="me.youtube_url"
-              :href="me.youtube_url"
-              target="_blank"
-              rel="noopener"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-red-400 hover:border-red-900/60 transition-colors"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-              </svg>
-              YouTube
-            </a>
-            <a
-              v-if="gdProfileUrl"
-              :href="gdProfileUrl"
-              target="_blank"
-              rel="noopener"
-              class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 py-1 text-[11px] text-zinc-400 hover:text-accent hover:border-accent/50 transition-colors"
-              :title="`${me.gd_username} on gdbrowser`"
-            >
-              <GdCubeIcon class="w-3.5 h-3.5 shrink-0" />
-              {{ me.gd_username }}
-            </a>
-            <button
-              type="button"
-              class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="editing
-                ? 'border-accent/60 text-accent bg-accent/10'
-                : 'border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent'"
-              @click="editing ? cancelEdit() : startEdit()"
-            >{{ editing ? 'Editing…' : 'Edit profile' }}</button>
-            <NuxtLink
-              :to="`/users/${me.username}`"
-              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
-            >View public ↗</NuxtLink>
-          </div>
-        </div>
-
-        <dl v-if="profileData" class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
-          <component
-            :is="s.opens ? 'button' : 'div'"
-            v-for="s in headlineStats"
-            :key="s.label"
-            :type="s.opens ? 'button' : undefined"
-            class="bg-zinc-950 px-3 py-2.5 text-left"
-            :class="s.opens ? 'hover:bg-zinc-900 transition-colors cursor-pointer group' : ''"
-            @click="s.opens && openFollowList(s.opens)"
-          >
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500" :class="s.opens ? 'group-hover:text-accent transition-colors' : ''">{{ s.label }}</dt>
-            <dd class="tabular-nums text-lg font-semibold" :class="s.tone">{{ s.value }}</dd>
-          </component>
-        </dl>
-        <FollowListModal
-          v-if="profileData"
-          v-model:open="followListOpen"
-          :target="profileData.follow.target"
-          :mode="followListMode"
-          :count="followListMode === 'followers' ? profileData.follow.followerCount : (profileData.follow.followingCount ?? 0)"
-          :who="me.username"
-        />
-      </div>
-    </header>
+    <FollowListModal
+      v-if="profileData"
+      v-model:open="followListOpen"
+      :target="profileData.follow.target"
+      :mode="followListMode"
+      :count="followListMode === 'followers' ? profileData.follow.followerCount : (profileData.follow.followingCount ?? 0)"
+      :who="me.username"
+    />
 
     <div class="container-tight max-w-5xl py-6">
     <div class="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
       <!-- Main column: same shape as the public profile -->
       <main class="space-y-6 min-w-0">
-        <!-- Showcase cards, exactly as they appear to visitors -->
-        <section v-if="profileData?.hardest_completion || profileData?.favorite_level" class="grid gap-3 sm:grid-cols-2">
-          <article
-            v-if="profileData?.hardest_completion"
-            class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
-          >
-            <LevelThumbBg
-              :gd-id="profileData.hardest_completion.gd_id"
-              :video-url="profileData.hardest_completion.video ?? profileData.hardest_completion.verification_url"
-              res="medium"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 460px"
-              img-class="opacity-25 group-hover:opacity-40"
-              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
-            />
-            <div class="relative p-4">
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Hardest completion</h2>
-              <NuxtLink :to="`/levels/${profileData.hardest_completion.position}`" class="mt-1.5 block">
-                <span class="text-lg font-bold text-zinc-50 hover:text-accent transition-colors">{{ profileData.hardest_completion.name }}</span>
-              </NuxtLink>
-              <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-                <span class="tabular-nums rounded px-1.5 py-0.5 bg-zinc-900 text-zinc-300 border border-zinc-800">
-                  #{{ profileData.hardest_completion.sheet_placement ?? profileData.hardest_completion.position }}
-                </span>
-                <span
-                  v-if="profileData.hardest_completion.percent != null && profileData.hardest_completion.percent < 100"
-                  class="tabular-nums text-zinc-400"
-                >{{ profileData.hardest_completion.percent }}%</span>
-              </div>
-            </div>
-          </article>
-
-          <article
-            v-if="profileData?.favorite_level"
-            class="relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 group"
-          >
-            <LevelThumbBg
-              :gd-id="profileData.favorite_level.gd_id"
-              :video-url="profileData.favorite_level.verification_url"
-              res="medium"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 460px"
-              img-class="opacity-25 group-hover:opacity-40"
-              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
-            />
-            <div class="relative p-4">
-              <h2 class="text-[10px] uppercase tracking-widest text-pink-400 font-semibold">Favourite level</h2>
-              <NuxtLink :to="`/levels/${profileData.favorite_level.position}`" class="mt-1.5 block">
-                <span class="text-lg font-bold text-zinc-50 hover:text-accent transition-colors">{{ profileData.favorite_level.name }}</span>
-              </NuxtLink>
-              <p v-if="profileData.favorite_level_note" class="mt-2 text-xs text-zinc-400 whitespace-pre-wrap">{{ profileData.favorite_level_note }}</p>
-            </div>
-          </article>
-        </section>
+        <!-- The same cards visitors see, from the same component. -->
+        <ProfileShowcase
+          v-if="profileData"
+          :hardest="profileData.hardest_completion"
+          :favorite="profileData.favorite_level"
+          :favorite-note="profileData.favorite_level_note"
+          is-self
+        />
 
         <!-- About: always-visible display + collapsible edit dropdown below -->
         <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
@@ -1129,11 +1059,7 @@ function fmt(n: number | null | undefined) {
           <div>
             <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
             <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
-            <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
-              <div v-if="me.country">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
-                <dd class="text-zinc-100"><CountryFlag :country="me.country" size="sm" with-name /></dd>
-              </div>
+            <dl v-if="me.subdivision || me.pronouns" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
               <div v-if="me.subdivision">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
                 <dd class="text-zinc-100">{{ me.subdivision }}</dd>
@@ -1141,20 +1067,6 @@ function fmt(n: number | null | undefined) {
               <div v-if="me.pronouns">
                 <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Pronouns</dt>
                 <dd class="text-zinc-100">{{ me.pronouns }}</dd>
-              </div>
-              <div v-if="me.discord_handle">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Discord</dt>
-                <dd class="text-zinc-100">{{ me.discord_handle }}</dd>
-              </div>
-              <div v-if="me.gd_username">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Geometry Dash</dt>
-                <dd>
-                  <a :href="gdProfileUrl!" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">{{ me.gd_username }} ↗</a>
-                </dd>
-              </div>
-              <div v-if="me.youtube_url" class="col-span-2">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">YouTube</dt>
-                <dd><a :href="me.youtube_url" target="_blank" rel="noopener" class="text-accent hover:underline text-sm">YouTube ↗</a></dd>
               </div>
             </dl>
             <!-- The hardest completion and the favourite live in the showcase
@@ -1172,76 +1084,71 @@ function fmt(n: number | null | undefined) {
               <span class="text-zinc-600 group-open:rotate-180 transition-transform">▾</span>
             </summary>
 
-            <form class="space-y-4 pt-4" @submit.prevent="saveProfile">
-              <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
-                <textarea
-                  v-model="profile.bio"
-                  rows="3"
-                  maxlength="1000"
-                  placeholder="Tell people about yourself."
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                />
-              </label>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- A list rather than a text box: the value draws a flag and
-                     is meant to be comparable between profiles, and "UK",
-                     "U.K." and "england" are three countries to a database. -->
+            <!-- The form, in the order somebody fills it in: who you are,
+                 where you are, where else to find you, then what the profile
+                 shows off. It was one flat run of fourteen boxes where a bio
+                 sat next to a Discord handle next to a banner picker. -->
+            <form class="pt-4 space-y-4" @submit.prevent="saveProfile">
+              <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
+                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">You</legend>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
-                  <div class="mt-1 flex items-center gap-2">
-                    <CountryFlag v-if="profile.country" :country="profile.country" class="shrink-0" />
-                    <select
-                      v-model="profile.country"
-                      class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    >
-                      <option value="">— none —</option>
-                      <option v-for="c in countryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
-                    </select>
-                  </div>
-                </label>
-                <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
-                  <input
-                    v-model="profile.subdivision"
-                    maxlength="64"
-                    placeholder="e.g. California"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
+                  <textarea
+                    v-model="profile.bio"
+                    rows="3"
+                    maxlength="1000"
+                    placeholder="Tell people about yourself."
+                    class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label class="block">
+                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
+                    <input v-model="profile.pronouns" maxlength="64" placeholder="e.g. they/them" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                  </label>
+                  <!-- A list rather than a text box: the value draws a flag and
+                       is meant to be comparable between profiles. -->
+                  <label class="block">
+                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
+                    <div class="mt-1 flex items-center gap-2">
+                      <CountryFlag v-if="profile.country" :country="profile.country" class="shrink-0" />
+                      <select v-model="profile.country" class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent">
+                        <option value="">— none —</option>
+                        <option v-for="c in countryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
+                      </select>
+                    </div>
+                  </label>
+                  <label class="block sm:col-span-2">
+                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
+                    <input v-model="profile.subdivision" maxlength="64" placeholder="e.g. California" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
+                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Where else to find you</legend>
+                <p class="text-[11px] text-zinc-600 -mt-1">
+                  Each one is checked against the site it belongs to, and shows as a chip on your profile.
+                </p>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
-                  <input
-                    v-model="profile.pronouns"
-                    maxlength="64"
-                    placeholder="e.g. they/them"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— a handle, not a link</span></span>
+                  <input v-model="profile.discord_handle" maxlength="64" placeholder="e.g. username" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
                 </label>
-                <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord</span>
+                <label v-for="link in SOCIAL_LINKS" :key="link.key" class="block">
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">{{ link.label }}</span>
                   <input
-                    v-model="profile.discord_handle"
-                    maxlength="64"
-                    placeholder="e.g. username or username#1234"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                </label>
-                <label class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">YouTube channel <span class="text-zinc-600 normal-case">full URL</span></span>
-                  <input
-                    v-model="profile.youtube_url"
+                    v-model="profile[link.key]"
                     type="url"
                     maxlength="500"
-                    placeholder="https://www.youtube.com/@yourhandle"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    :class="{ 'border-red-800': profile.youtube_url.trim() && !youtubeUrlValid }"
+                    :placeholder="link.example"
+                    class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    :class="{ 'border-red-800': profile[link.key].trim() && !socialValid(link.key) }"
                   />
-                  <span v-if="profile.youtube_url.trim() && !youtubeUrlValid" class="text-[11px] text-red-400 mt-1 block">
-                    Must be a YouTube channel URL, e.g. https://www.youtube.com/@handle
+                  <span v-if="profile[link.key].trim() && !socialValid(link.key)" class="text-[11px] text-red-400 mt-1 block">
+                    Should look like {{ link.example }}
                   </span>
                 </label>
-                <label class="block sm:col-span-2">
+                <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">
                     Geometry Dash username
                     <span class="text-zinc-600 normal-case">— links to your gdbrowser profile</span>
@@ -1260,6 +1167,13 @@ function fmt(n: number | null | undefined) {
                     gdbrowser.com/u/{{ profile.gd_username.trim() }}
                   </span>
                 </label>
+              </fieldset>
+
+              <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
+                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
+                <p class="text-[11px] text-zinc-600 -mt-1">
+                  The two levels and the header art at the top of your profile.
+                </p>
                 <div class="block sm:col-span-2">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level</span>
                   <div class="mt-1 flex items-center gap-2 flex-wrap">
@@ -1376,10 +1290,13 @@ function fmt(n: number | null | undefined) {
                   </div>
                 </div>
 
-                <!-- Name decorations, staff only -->
-                <div v-if="isStaffAccount" class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name decorations</span>
-                  <p class="text-[11px] text-zinc-600 mt-0.5">
+              </fieldset>
+
+              <!-- Name decorations, staff only -->
+              <fieldset v-if="isStaffAccount" class="rounded-xl border border-zinc-800/80 p-3.5">
+                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name decorations</legend>
+                <div class="block">
+                  <p class="text-[11px] text-zinc-600">
                     Shown beside your name wherever it appears. Staff only.
                   </p>
                   <div class="mt-1.5 grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
@@ -1428,16 +1345,19 @@ function fmt(n: number | null | undefined) {
                     >clear</button>
                   </div>
                 </div>
-              </div>
-              <div class="flex items-center gap-2 flex-wrap">
+              </fieldset>
+
+              <!-- Sticky, because the form is now four sections tall and Save
+                   was at the bottom of all of them. -->
+              <div class="sticky bottom-0 -mx-3.5 px-3.5 py-3 bg-zinc-950/90 backdrop-blur border-t border-zinc-800/80 flex items-center gap-2 flex-wrap">
                 <button
                   type="submit"
-                  :disabled="profileSaving || !gdUsernameValid || !youtubeUrlValid"
-                  class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  :disabled="profileSaving || !gdUsernameValid || !youtubeUrlValid || !allSocialsValid"
+                  class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
                 >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
                 <button
                   type="button"
-                  class="rounded border border-zinc-800 text-zinc-300 text-sm px-3 py-1.5 hover:bg-zinc-900 transition-colors"
+                  class="rounded-lg border border-zinc-800 text-zinc-300 text-sm px-3 py-1.5 hover:bg-zinc-900 transition-colors"
                   @click="cancelEdit"
                 >Cancel</button>
                 <span v-if="profileError" class="text-xs text-red-400">{{ profileError }}</span>

@@ -515,6 +515,74 @@ writes still sitting in the WAL). Staff are kept unless `--include-staff`, and
 it refuses outright to leave zero admins — with sign-ups closed that would lock
 everyone out of the site permanently.
 
+## Clans
+
+Groups of players, ranked by what they have beaten between them
+(`server/utils/clans.ts`). A clan stores **nothing** about completions: every
+figure is read through `clan_members` into `records` at the moment you ask, so
+a member joining lifts their clan's standing immediately and leaving takes it
+with them, with no stored total to fall out of step.
+
+The three numbers mean different things and the difference is the interesting
+part:
+
+- **levels** — `COUNT(DISTINCT r.level_id)`, the amount of the list the clan
+  covers between them.
+- **completions** — every member's records added up; two members with the same
+  level is two completions and one level.
+- **points** — each level counted **once**, however many members hold it. A
+  clan climbs by covering more of the list, not by stacking the same level.
+
+The completions list is one row per *level* with the members who have it, which
+is what a group's list of completions means; `GROUP_CONCAT` keeps it to one
+query rather than one per level.
+
+Membership is one clan per account, enforced by the primary key on
+`clan_members.account_id`. An owner can't walk out of a clan that still has
+people in it — they hand it over first — and the last member leaving disbands
+it, because a clan with nobody in it is a row nobody can join or delete.
+
+## Counting how much the site is read
+
+Two numbers are worth having — how many pages were opened, and how many people
+opened them — and the whole of `server/utils/analytics.ts` exists to produce
+those two and nothing else. There is no per-request row, no address stored and
+no account attached to a view, so there is nothing to drill into and the admin
+tab says so rather than implying a detail it deliberately doesn't keep.
+
+Three tables:
+
+| table | one row per | holds |
+|---|---|---|
+| `page_views` | path *shape* per day | views |
+| `visit_uniques` | visitor per day | nothing but an opaque hash |
+| `level_views` / `profile_views` | level / account | a running total |
+
+**Path shapes, not paths.** `/levels/4021` and `/levels/9` both count as
+`/levels/:position`; keeping them apart would add a row per level per day for no
+benefit, and would let a crawler inventing URLs grow the table without bound
+(everything unrecognised collapses to `/other`). Per-level numbers are counted
+separately against the level's **id** — a position moves the moment anything is
+placed above it, so counting by position would follow the slot rather than the
+level. Same reasoning for profiles and account ids.
+
+**The visitor hash** is `sha256(day | per-install salt | address | user agent)`
+truncated to 16 characters. The day is part of the input, so the same person
+tomorrow is a different value and nothing here can follow anyone across days;
+the salt lives in `site_meta` rather than in memory, because a restart would
+otherwise re-salt everything and count every returning reader as new. It is
+deliberately weak as an identifier and adequate as a counter. `visit_uniques` is
+the only table with a row per person, so it is the only one that is pruned (400
+days); the counts themselves are never dropped.
+
+**Both halves of a visit.** The server middleware sees document requests — the
+first page of a visit and a refresh — and nothing after it, because Nuxt renders
+every subsequent page in the browser without asking the server for one. Reading
+the middleware alone would report the first page of each visit as the whole
+visit, so `plugins/analytics.client.ts` reports the rest, and `POST
+/api/analytics/view` counts them exactly the same way. Bots that say what they
+are, prefetches, and the server's own internal fetches are all skipped.
+
 ## Countries
 
 `accounts.country` holds an **ISO 3166-1 alpha-2 code** — `US`, not "United
@@ -538,6 +606,28 @@ Flags are **images** (`flagcdn.com`), not emoji. Emoji flags are pairs of
 regional-indicator letters and Windows ships no glyphs for them, so every flag
 on the site would render as two boxed letters for a large share of readers. A
 20-pixel PNG costs one cached request and looks the same everywhere.
+
+## Profiles
+
+`/users/:name` and `/account` are the same profile: one is read-only and the
+other has the form under it. They are drawn by the same components —
+`ProfileHeader`, `ProfileShowcase`, `ProfileSocialLinks` — because they were
+two hand-written copies of the same markup that were *meant* to be identical
+and weren't. The account page had lost the country flag, the banner level link,
+the level points on a showcase card and half the social chips, and every
+decoration added since had to be remembered in two places.
+
+The account page passes the *form's* values to the header rather than the saved
+row's, so choosing a country or pasting a Twitch link shows up in the thing you
+are editing instead of after you press Save.
+
+Social links are columns rather than a free list, because each is validated
+against the host it claims to be — a parsed host, not a substring, since
+`https://evil.example/twitch.tv` contains the string and is not Twitch. That
+check is what stops a profile pointing anywhere it likes under a trusted-looking
+icon. `utils/social-links.ts` is one table of service, field, placeholder, host
+list, icon and handle-extractor, so the settings form and the profile can't end
+up knowing about different sets of them.
 
 ## Roles, and the badges for them
 
@@ -666,6 +756,32 @@ same list of marker columns, in one place, because they are complements — when
 ACS was missing from it, its 262 rows vanished from the imported queue *and*
 turned up in the user-submissions queue, since "not from any importer" is how
 that side is defined.
+
+## What makes the list page fast
+
+`/api/levels` answers a page of the list in **6 ms**. It used to take 131 ms,
+and the difference was one line: it rebuilt the *entire* challenge ranking on
+every request — a scan of all 54,000 levels evaluating the challenge expression
+per row, sorted — to attach a rank to the fifty rows being returned.
+
+`server/utils/challenge-rank.ts` caches that map against a stamp built from the
+list's shape (row count, newest id, highest position). Anything that adds,
+removes or renumbers a level moves the stamp, so the map can't outlive the list
+it describes. Marking a level as a challenge by hand changes the *ranking*
+without changing the shape, so that one endpoint drops the cache itself.
+
+The other cost was self-inflicted and worth recording. `challengeSourceSqlExpr`
+was rewritten to support multi-source values (`AREDL|ACS`) as eleven
+`REPLACE(UPPER(…)) LIKE` tests per row — **126 ms per evaluation** against 9.8 ms
+for the `IN` it replaced, and it runs twice per request plus once inside the
+effective-rating CASE. It now tries the single-source `IN` first and only falls
+through to the LIKE chain for values that actually contain a pipe: 10.6 ms, and
+a test drives both forms over the same rows to prove they still answer
+identically. That test caught a real difference on the first run — the slow form
+tolerated `" ACS "` with stray spaces and the fast one didn't, so the fast path
+trims.
+
+Both numbers above are measured on the real list, not estimated.
 
 ## Challenges, and marking one either way
 

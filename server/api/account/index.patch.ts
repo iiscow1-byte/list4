@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount, isAdminRole } from '~/server/utils/auth'
 import { isGdUsername } from '~/utils/gd-links'
 import { normalizeCountry } from '~/utils/countries'
+import { isValidSocialUrl, socialDef } from '~/utils/social-links'
 import { assertClean } from '~/server/utils/profanity-guard'
 
 function clamp(val: unknown, max: number): string | null {
@@ -25,6 +26,9 @@ export default defineEventHandler(async (event) => {
     pronouns: 'pronouns' in body ? clamp(body.pronouns, 64) : me.pronouns,
     discord_handle: 'discord_handle' in body ? clamp(body.discord_handle, 64) : me.discord_handle,
     youtube_url: 'youtube_url' in body ? clamp(body.youtube_url, 500) : me.youtube_url,
+    twitch_url: 'twitch_url' in body ? clamp(body.twitch_url, 500) : (me as any).twitch_url,
+    twitter_url: 'twitter_url' in body ? clamp(body.twitter_url, 500) : (me as any).twitter_url,
+    bluesky_url: 'bluesky_url' in body ? clamp(body.bluesky_url, 500) : (me as any).bluesky_url,
     gd_username: 'gd_username' in body ? clamp(body.gd_username, 20) : (me as any).gd_username,
     favorite_level_note: 'favorite_level_note' in body ? clamp(body.favorite_level_note, 500) : me.favorite_level_note,
   }
@@ -39,6 +43,26 @@ export default defineEventHandler(async (event) => {
     const ytPattern = /^https?:\/\/(www\.)?youtube\.com\/((@|channel\/|c\/|user\/)[^/?&#\s]+)/i
     if (!ytPattern.test(next.youtube_url)) {
       throw createError({ statusCode: 400, statusMessage: 'YouTube URL must be a valid channel link (e.g. https://www.youtube.com/@handle)' })
+    }
+  }
+
+  /**
+   * The other three, each checked against the host it claims to be.
+   *
+   * A parsed host, not a substring: `https://evil.example/twitch.tv` contains
+   * the string and is not Twitch. These end up as links on a public page, so
+   * the check is what stops a profile pointing anywhere it likes under a
+   * trusted-looking icon.
+   */
+  for (const key of ['twitch_url', 'twitter_url', 'bluesky_url'] as const) {
+    const value = (next as Record<string, unknown>)[key] as string | null
+    if (!value) continue
+    if (!isValidSocialUrl(key, value)) {
+      const def = socialDef(key)!
+      throw createError({
+        statusCode: 400,
+        statusMessage: `That isn't a ${def.label} link — it should look like ${def.example}`,
+      })
     }
   }
 
@@ -175,10 +199,12 @@ export default defineEventHandler(async (event) => {
 
   getDb().prepare(
     `UPDATE accounts SET bio = ?, country = ?, subdivision = ?, pronouns = ?, discord_handle = ?, youtube_url = ?,
+     twitch_url = ?, twitter_url = ?, bluesky_url = ?,
      gd_username = ?, favorite_level_id = ?, favorite_level_note = ?, hardest_record_id = ?, banner_choice = ?,
      banner_level_id = ?, banner_image_url = ?, name_emoji = ?, name_badge = ?, name_badge_color = ?
      WHERE id = ?`,
   ).run(next.bio, next.country, next.subdivision, next.pronouns, next.discord_handle, next.youtube_url,
+    next.twitch_url, next.twitter_url, next.bluesky_url,
     next.gd_username, favorite_level_id, next.favorite_level_note, hardest_record_id, banner_choice, banner_level_id,
     banner_image_url, name_emoji, name_badge, name_badge_color, me.id)
 

@@ -518,6 +518,15 @@ function missingFields(r: PendingLevel): string[] {
 }
 const selectedMissing = computed(() => (selected.value ? missingFields(selected.value) : []))
 
+/**
+ * How many rows in the current view need nothing before they can be placed.
+ *
+ * Each row already carries a green or amber dot; this is the same fact for the
+ * queue as a whole, and it is what tells a reviewer whether there is an hour of
+ * chasing missing videos ahead of them or a run of easy placements.
+ */
+const readyCount = computed(() => filteredItems.value.filter((r) => !missingFields(r).length).length)
+
 /** "3d" rather than "2026-07-31 12:04:11" — the queue is scanned, not read. */
 function relativeAge(at: string): string {
   const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
@@ -531,6 +540,42 @@ function relativeAge(at: string): string {
   const months = Math.floor(days / 30)
   return months < 12 ? `${months}mo` : `${Math.floor(days / 365)}y`
 }
+
+/**
+ * How much of the queue is actually in the DOM.
+ *
+ * The imported queue is fourteen hundred rows, and every one of them carries a
+ * thumbnail, five conditional badges and a source line — so the panel was
+ * building fourteen hundred of those to show the twelve you can see. Rendering
+ * a window and growing it as you scroll costs nothing to the reviewer (the
+ * scrollbar is the only tell) and takes the row count on first paint from
+ * 1,454 to 60.
+ *
+ * The window also grows to include whatever `j`/`k` lands on, so keyboard
+ * navigation is never stopped by the edge of it.
+ */
+const WINDOW_STEP = 60
+const windowSize = ref(WINDOW_STEP)
+const windowedItems = computed(() => filteredItems.value.slice(0, windowSize.value))
+const windowHasMore = computed(() => windowSize.value < filteredItems.value.length)
+
+// A new filter or sort is a new queue: start from the top of it.
+watch(filteredItems, () => { windowSize.value = WINDOW_STEP })
+
+const queueSentinel = ref<HTMLElement | null>(null)
+const queueScroller = ref<HTMLElement | null>(null)
+let queueObserver: IntersectionObserver | null = null
+onMounted(() => {
+  if (!queueSentinel.value || !queueScroller.value) return
+  queueObserver = new IntersectionObserver(
+    (entries) => {
+      if (entries[0]?.isIntersecting && windowHasMore.value) windowSize.value += WINDOW_STEP
+    },
+    { root: queueScroller.value, rootMargin: '400px 0px' },
+  )
+  queueObserver.observe(queueSentinel.value)
+})
+onBeforeUnmount(() => queueObserver?.disconnect())
 
 /** The row after `id` in the queue as it's currently filtered and sorted. */
 function nextIdAfter(id: number | null): number | null {
@@ -562,6 +607,9 @@ function onReviewKey(e: KeyboardEvent) {
   const i = rows.findIndex((r) => r.id === selectedId.value)
   const next = i === -1 ? 0 : Math.max(0, Math.min(rows.length - 1, i + dir))
   selectedId.value = rows[next]!.id
+  // Walking past the end of the rendered window extends it, so the keyboard
+  // can reach the whole queue however little of it is currently drawn.
+  if (next >= windowSize.value) windowSize.value = next + WINDOW_STEP
   // Keep the moving selection on screen.
   nextTick(() => {
     document.querySelector(`[data-pending-row="${selectedId.value}"]`)
@@ -760,11 +808,22 @@ watch(preview, (p) => {
       <div class="p-3 border-b border-zinc-800 shrink-0">
         <div class="flex items-baseline justify-between gap-2 mb-2">
           <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ isImported ? 'Imported levels' : 'Pending levels' }}</p>
-          <p class="text-[11px] text-zinc-600 tabular-nums" title="Press j and k to move through the queue">
-            {{ filteredItems.length }}<span v-if="filteredItems.length !== items.length"> / {{ items.length }}</span> waiting
-            <span class="text-zinc-700 normal-case tracking-normal ml-1">· j/k</span>
+          <p class="text-[11px] text-zinc-600 tabular-nums">
+            <template v-if="filteredItems.length !== items.length">
+              <span class="text-zinc-400">{{ filteredItems.length.toLocaleString() }}</span> of {{ items.length.toLocaleString() }}
+            </template>
+            <template v-else>{{ items.length.toLocaleString() }} waiting</template>
           </p>
         </div>
+        <!-- Said out loud rather than hidden in a tooltip: it is the difference
+             between a few hundred trips to the mouse and none. -->
+        <p v-if="filteredItems.length > 1" class="text-[10px] text-zinc-700 mb-2">
+          <kbd class="px-1 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-500">j</kbd>
+          /
+          <kbd class="px-1 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-500">k</kbd>
+          moves through the queue
+          <span v-if="readyCount" class="ml-1.5">· {{ readyCount.toLocaleString() }} ready to place</span>
+        </p>
         <div class="flex items-stretch gap-1.5">
           <input
             v-model="search"
@@ -930,9 +989,9 @@ watch(preview, (p) => {
           </div>
         </div>
       </div>
-      <div class="flex-1 min-h-0 overflow-y-auto">
+      <div ref="queueScroller" class="flex-1 min-h-0 overflow-y-auto">
         <ul v-if="filteredItems.length" class="p-1.5 space-y-1">
-          <li v-for="r in filteredItems" :key="r.id">
+          <li v-for="r in windowedItems" :key="r.id">
             <button
               type="button"
               :data-pending-row="r.id"
@@ -1015,6 +1074,11 @@ watch(preview, (p) => {
                 <span :title="r.submitted_at">{{ relativeAge(r.submitted_at) }}</span>
               </div>
             </button>
+          </li>
+          <!-- The bottom of the drawn window; crossing it draws more. -->
+          <li ref="queueSentinel" class="px-3 py-2 text-center text-[10px] text-zinc-600 tabular-nums">
+            <span v-if="windowHasMore">{{ (filteredItems.length - windowedItems.length).toLocaleString() }} more below</span>
+            <span v-else-if="filteredItems.length > WINDOW_STEP">end of the queue</span>
           </li>
         </ul>
         <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} {{ isImported ? 'imported' : 'pending' }}.</div>

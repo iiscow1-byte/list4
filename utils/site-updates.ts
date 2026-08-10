@@ -22,6 +22,39 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.16.0',
+    date: '2026-08-08',
+    title: 'Clans, and a much faster list',
+    tags: ['Community', 'The list', 'Performance', 'Fixes'],
+    changes: [
+      'Clans: groups of players ranked by what they have beaten between them, with a leaderboard and a list of every level the group has completed and who in it has done it. Points count each level once however many members hold it, so a clan climbs by covering more of the list.',
+      'Much faster: browsing the list went from 131ms a page to 6ms. It was rebuilding the entire challenge ranking — a scan of all 54,000 levels — on every single request, to attach a number to the fifty rows being shown.',
+      'Fixed a slow filter I introduced last week: the challenge-source test ran eleven string comparisons per level on every search. It checks the ordinary single-source case first now, which is 12× faster and answers identically.',
+      'Advanced search shows every active filter as a chip you can take off one at a time, and reports how many levels match while you are still in the dialog.',
+      'The builder\'s ALL-list palette scrolls through the whole list instead of stopping at the first sixty levels.',
+      'The pending queue draws the rows you can see rather than all fourteen hundred, and says how many are ready to place.',
+      '"All demonlists used" says when each mirrored list was last refreshed, and can be sorted by size, overlap or freshness.',
+      'Your profile shows what percent of the list you have beaten.',
+      'Discord: a changelog too long for one message can be sent as several instead of being cut off, and the title links to the changelog.',
+      'Fixed: "Challenges" was cut to "Ch…" in the levels-versus-challenges chart on a profile.',
+    ],
+  },
+  {
+    version: '1.15.0',
+    date: '2026-08-08',
+    title: 'Profiles, and knowing how much the site is read',
+    tags: ['Profiles', 'Admin', 'The list'],
+    changes: [
+      'Your profile and the page you edit it on are now the same page, drawn from the same code. They were two hand-written copies that had drifted: the account one had lost the country flag, the banner link, the level points and half the social chips.',
+      'The edit form is in four labelled groups — you, where else to find you, your showcase, and staff decorations — instead of one run of fourteen boxes, and Save follows you down it.',
+      'Profiles can carry Twitch, X and Bluesky alongside YouTube, Discord and Geometry Dash. Each link is checked against the site it claims to be, so a chip with a Twitch icon goes to Twitch.',
+      'A profile says when it follows you back, how many people you both follow, and how many times it has been opened.',
+      'Every level page shows how many times it has been viewed.',
+      'The about page shows how many pages have been read on the site, and since when.',
+      'New Statistics tab in the admin panel: traffic per day, people per day, most-read pages, most-viewed levels, and what was added — accounts, levels, records, lists, comments, opinions — over any window up to a year. Views are counted per page shape and people are counted once a day from a salted hash that can\'t be turned back into anyone; there is no per-visitor record behind any of it.',
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-08-04',
     title: 'Flags, a split of what you have beaten, and badges that tell roles apart',

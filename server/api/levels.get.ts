@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
 import { isChallengeSql } from '~/server/utils/challenge-expr'
+import { getChallengeRankMap } from '~/server/utils/challenge-rank'
 import { getCurrentAccount, isModRole } from '~/server/utils/auth'
 
 const TIER_ORD_SQL = `
@@ -12,6 +13,8 @@ const TIER_ORD_SQL = `
 
 // Sources that always classify a level as Challenge regardless of `rated`.
 const SOURCE_CHALLENGE_SQL = challengeSourceSqlExpr('placement_source')
+
+
 
 // CTE that computes challenge rank (1-based position among challenges only,
 // ordered by list position ascending) for every challenge level. Uses lc/cc
@@ -257,14 +260,7 @@ export default defineEventHandler((event) => {
 
   const total = (db.prepare(`SELECT COUNT(*) as n FROM ${fromClause} ${allWhere}`).get(...allParams) as { n: number }).n
 
-  // Pre-fetch all challenge level positions (ordered) to compute absolute
-  // challenge ranks in JS — avoids window functions in the main query.
-  const challengePositions = (db.prepare(
-    `SELECT position FROM ${fromClause} WHERE (${IS_CHALLENGE_SQL}) ORDER BY position ASC`,
-  ).all() as { position: number }[]).map((r) => r.position)
-  const challengeRankMap = new Map<number, number>(
-    challengePositions.map((pos, i) => [pos, i + 1]),
-  )
+  const challengeRankMap = getChallengeRankMap(db)
 
   let items: any[]
   if (useFilterRank) {

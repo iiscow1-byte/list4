@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
+import { invalidateChallengeRanks } from '~/server/utils/challenge-rank'
 
 /**
  * Put a level on the challenge list, or take it off.
@@ -43,6 +44,10 @@ export default defineEventHandler(async (event) => {
 
   db.prepare(`UPDATE levels SET force_challenge = ?, not_challenge = ? WHERE id = ?`)
     .run(body.challenge ? 1 : 0, body.challenge ? 0 : 1, level.id)
+
+  // The challenge ranking just changed without the list changing shape, which
+  // is the one thing the rank cache's stamp can't see.
+  invalidateChallengeRanks()
 
   return { ok: true, name: level.name, challenge: body.challenge }
 })

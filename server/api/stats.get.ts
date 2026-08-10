@@ -132,6 +132,21 @@ export default defineEventHandler((event) => {
     `SELECT COUNT(DISTINCT level_id) AS n FROM records WHERE permanent = 1`,
   ).get() as { n: number }).n
 
+  /**
+   * How often the site has been opened, and since when.
+   *
+   * Public because it is a fact about the site rather than about anyone using
+   * it — the same sort of number as "54,000 levels". The date matters as much
+   * as the count: a total with no start is unreadable, and this one started
+   * being counted long after the site did.
+   */
+  const totalVisits = (db.prepare(
+    `SELECT COALESCE(SUM(views), 0) AS n FROM page_views`,
+  ).get() as { n: number }).n
+  const visitsSince = (db.prepare(
+    `SELECT MIN(day) AS d FROM page_views`,
+  ).get() as { d: string | null }).d
+
   // The hardest thing on the list, for the headline. Ordered by tier rather
   // than position so it stays right if the two ever disagree.
   const hardest = db
@@ -152,6 +167,8 @@ export default defineEventHandler((event) => {
     totalRecords,
     totalPlayers,
     levelsWithRecords,
+    totalVisits,
+    visitsSince,
     hardest: hardest ?? null,
     tiers,
     subtiers,

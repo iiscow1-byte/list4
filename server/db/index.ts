@@ -204,6 +204,19 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'gd_username')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN gd_username TEXT`)
   }
+  /**
+   * The rest of where somebody is.
+   *
+   * Columns rather than a JSON blob, matching `youtube_url` beside them: each
+   * one is validated against the host it claims to be, which is only possible
+   * when the site knows which service a value belongs to. Four is where this
+   * stops — a profile is a list of places to find a person, not a link tree.
+   */
+  for (const col of ['twitch_url', 'twitter_url', 'bluesky_url']) {
+    if (!accCols.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE accounts ADD COLUMN ${col} TEXT`)
+    }
+  }
   if (!accCols.some((c) => c.name === 'favorite_level_id')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN favorite_level_id INTEGER REFERENCES levels(id) ON DELETE SET NULL`)
   }
@@ -593,6 +606,18 @@ function initSchema(db: DatabaseSync) {
   const dwCols = db.prepare(`PRAGMA table_info(discord_webhooks)`).all() as { name: string }[]
   if (!dwCols.some((c) => c.name === 'tier_emoji')) {
     db.exec(`ALTER TABLE discord_webhooks ADD COLUMN tier_emoji INTEGER NOT NULL DEFAULT 0`)
+  }
+  /**
+   * Send the whole day, across as many messages as it takes.
+   *
+   * A Discord embed description stops at 4,096 characters, which a busy day
+   * on a 54,000-level list passes easily — and what happened then was
+   * "…(truncated)", with the rest of the day's changes simply never posted.
+   * Off by default because it changes how much a channel receives, and that
+   * is the owner's call rather than an upgrade's.
+   */
+  if (!dwCols.some((c) => c.name === 'split_long')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN split_long INTEGER NOT NULL DEFAULT 0`)
   }
   if (!dwCols.some((c) => c.name === 'kind')) {
     db.exec(`ALTER TABLE discord_webhooks ADD COLUMN kind TEXT NOT NULL DEFAULT 'changes'`)
@@ -1790,5 +1815,117 @@ function initSchema(db: DatabaseSync) {
       fetched_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_aredl_pos_hist_level ON aredl_position_history(level_id, action_at);
+  `)
+
+  /**
+   * How much the site is read.
+   *
+   * Three tables, deliberately small, and none of them a log of who did what:
+   *
+   *   page_views     one row per path per day, counting views
+   *   visit_uniques  one row per visitor per day, counting people
+   *   level_views    one running total per level
+   *
+   * `path` is the *shape* of the URL — `/levels/:position`, not `/levels/4021`
+   * — so a day of browsing is thirty rows rather than one per level visited.
+   * Per-level numbers are the third table, keyed on the level's id: a level's
+   * position moves every time something is placed above it, so counting by
+   * position would follow the slot rather than the level.
+   *
+   * `visitor` is a salted daily hash of address and user agent (see
+   * `server/utils/analytics.ts`). It cannot be turned back into either, it
+   * changes every day, and it exists only so "views" and "people" can be
+   * different numbers. Nothing here stores an address, a name or an account.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS page_views (
+      day   TEXT    NOT NULL,
+      path  TEXT    NOT NULL,
+      views INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, path)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_page_views_day ON page_views(day);
+
+    CREATE TABLE IF NOT EXISTS visit_uniques (
+      day     TEXT NOT NULL,
+      visitor TEXT NOT NULL,
+      PRIMARY KEY (day, visitor)
+    ) WITHOUT ROWID;
+
+    CREATE TABLE IF NOT EXISTS level_views (
+      level_id       INTEGER PRIMARY KEY REFERENCES levels(id) ON DELETE CASCADE,
+      views          INTEGER NOT NULL DEFAULT 0,
+      last_viewed_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_level_views_views ON level_views(views DESC);
+
+    -- The same, for profiles. Counted against the account rather than the
+    -- username so a rename keeps the number, and never incremented by the
+    -- owner: a count that goes up every time you check your own page is a
+    -- count of you.
+    CREATE TABLE IF NOT EXISTS profile_views (
+      account_id     INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      views          INTEGER NOT NULL DEFAULT 0,
+      last_viewed_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    -- Small key/value store for the things the site has to remember about
+    -- itself. First use is the salt above, which has to survive a restart or
+    -- every restart would start counting the same person as somebody new.
+    CREATE TABLE IF NOT EXISTS site_meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    ) WITHOUT ROWID;
+  `)
+
+  /**
+   * Clans — groups of players, ranked together.
+   *
+   * A clan's numbers are the *sum of its members'*, which is the whole point:
+   * nothing is stored about a clan's completions, because a completion belongs
+   * to a player and a player belongs to a clan. Everything the leaderboard
+   * shows is derived from `records` through the membership table, so a member
+   * joining or leaving moves the clan's standing without anything being
+   * recalculated or copied.
+   *
+   * `tag` is the short name that appears beside a member's name — three to six
+   * characters, unique, and case-insensitive so two clans can't take "TSK" and
+   * "tsk". `owner_account_id` can appoint others; membership is one clan per
+   * account, enforced by the primary key on `account_id`.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS clans (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      tag         TEXT    NOT NULL COLLATE NOCASE,
+      name        TEXT    NOT NULL,
+      description TEXT,
+      color       TEXT,
+      icon_url    TEXT,
+      banner_url  TEXT,
+      discord_url TEXT,
+      /** 0 = anyone can join, 1 = the owner adds people. */
+      invite_only INTEGER NOT NULL DEFAULT 0,
+      owner_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE (tag)
+    );
+
+    CREATE TABLE IF NOT EXISTS clan_members (
+      account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      clan_id    INTEGER NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+      role       TEXT    NOT NULL DEFAULT 'member',
+      joined_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id);
+
+    -- Asking to join a clan that doesn't take walk-ins. Removed on accept or
+    -- decline; a clan's owner sees them on the clan's page.
+    CREATE TABLE IF NOT EXISTS clan_join_requests (
+      clan_id    INTEGER NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      message    TEXT,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (clan_id, account_id)
+    );
   `)
 }

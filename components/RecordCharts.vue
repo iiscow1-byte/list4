@@ -158,7 +158,13 @@ const tierBars = computed(() => {
         Levels vs challenges
         <span class="text-[10px] text-zinc-600 normal-case tracking-normal">{{ split.total }} beaten</span>
       </h2>
-      <div class="flex items-center gap-3">
+      <!-- Stacked, not side by side.
+           The ring and the legend shared a 260px column, which left the labels
+           about seventy pixels: "Challenges" rendered as "Ch…", and the word
+           being cut was the one the chart is about. The ring is centred on its
+           own line now and the legend has the full width under it — the same
+           shape the skillset pie below already uses. -->
+      <div class="flex flex-col items-center gap-2">
         <svg
           viewBox="0 0 128 128"
           class="w-[104px] h-[104px] shrink-0"
@@ -187,19 +193,19 @@ const tierBars = computed(() => {
           >LEVELS</text>
         </svg>
 
-        <ul class="flex-1 min-w-0 space-y-1.5">
+        <ul class="w-full space-y-1">
           <li
             v-for="row in [
               { label: 'Levels', n: split.levels, pct: split.levelPct, color: LEVEL_COLOR },
               { label: 'Challenges', n: split.challenges, pct: split.challengePct, color: CHALLENGE_COLOR },
             ]"
             :key="row.label"
-            class="flex items-center gap-2 text-xs"
+            class="flex items-center gap-2 text-xs px-1"
           >
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: row.color }" />
-            <span class="flex-1 truncate text-zinc-200">{{ row.label }}</span>
-            <span class="tabular-nums text-zinc-500">{{ row.n.toLocaleString() }}</span>
-            <span class="tabular-nums text-zinc-600 w-9 text-right">{{ Math.round(row.pct * 100) }}%</span>
+            <span class="flex-1 min-w-0 text-zinc-200">{{ row.label }}</span>
+            <span class="tabular-nums text-zinc-500 shrink-0">{{ row.n.toLocaleString() }}</span>
+            <span class="tabular-nums text-zinc-600 w-9 text-right shrink-0">{{ Math.round(row.pct * 100) }}%</span>
           </li>
         </ul>
       </div>
