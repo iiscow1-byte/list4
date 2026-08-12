@@ -15,12 +15,19 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#0a0a0a' },
       ],
       link: [
-        // The tab icon is the site's mark — see public/favicon.svg, which is
-        // the same drawing as components/AllLogo.vue with its colours written
-        // out. `mask-icon` is the monochrome cut Safari uses for a pinned tab,
-        // where a full-colour icon is silhouetted into a shape instead.
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'mask-icon', href: '/mask-icon.svg', color: '#06b6d4' },
+        // The tab icon is the real logo, cut down to size.
+        //
+        // `public/logo.png` is the 512px artwork and stays the source of truth;
+        // `scripts/make-icons.mjs` reduces it to these two, which are committed.
+        // Pointing a tab straight at the 512 works and ships 350 KB to paint
+        // sixteen pixels, which is not what this site does elsewhere.
+        //
+        // No `mask-icon` here: Safari silhouettes that into one flat shape, and
+        // the logo is a photographic collage with no meaningful silhouette — it
+        // would pin as a solid black square. Safari falls back to the icon
+        // below, which is the better answer.
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/icon-32.png' },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: '/icon-180.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         // Almost every page paints level thumbnails from these two hosts, and

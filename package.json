@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "start": "node .output/server/index.mjs",
     "postinstall": "nuxt prepare",
+    "make-icons": "node scripts/make-icons.mjs",
     "make-admin": "node --experimental-strip-types --no-warnings scripts/make-admin.ts",
     "purge-accounts": "node --experimental-strip-types --no-warnings scripts/purge-accounts.ts",
     "reset-analytics": "node --experimental-strip-types --no-warnings scripts/reset-analytics.ts",
