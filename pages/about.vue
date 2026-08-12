@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
-import { SITE_VERSION } from '~/utils/site-updates'
+import { SITE_VERSION, versionLabel } from '~/utils/site-updates'
 import { ALL_SHEET_URL } from '~/utils/sheet'
 // Out of the page so they can be checked without a browser — see `utils/prose.ts`.
 import { faqParts, linkLabel } from '~/utils/prose'
@@ -335,16 +335,28 @@ const coveragePct = computed(() => {
         aria-hidden="true"
       />
       <div class="container-tight relative py-10 space-y-4">
-        <div class="flex flex-wrap items-center gap-2.5">
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">The All Levels List</h1>
-          <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
-            <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-            Alpha
-          </span>
-          <NuxtLink
-            to="/updates"
-            class="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] tabular-nums text-zinc-400 hover:border-accent/50 hover:text-accent transition-colors"
-          >v{{ SITE_VERSION }}</NuxtLink>
+        <!-- The mark, at the one size on the site where it can be looked at
+             rather than merely recognised. This is the page that explains what
+             the All Levels List is; the logo belongs at the top of it. -->
+        <div class="flex items-start gap-4">
+          <AllLogo :size="56" class="mt-0.5 hidden sm:inline-flex" />
+          <div class="min-w-0 space-y-2">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <AllLogo :size="34" class="sm:hidden" />
+              <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">The All Levels List</h1>
+              <!-- Beta, matching how every release is labelled on /updates.
+                   This said Alpha while the version beside it read "Beta 1.20.0",
+                   which is one line of the page disagreeing with itself. -->
+              <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+                Beta
+              </span>
+              <NuxtLink
+                to="/updates"
+                class="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] tabular-nums text-zinc-400 hover:border-accent/50 hover:text-accent transition-colors"
+              >{{ versionLabel(SITE_VERSION) }}</NuxtLink>
+            </div>
+          </div>
         </div>
 
         <div v-if="landing" class="space-y-2 text-zinc-300 leading-relaxed max-w-3xl">

@@ -1,4 +1,4 @@
-import { SITE_VERSION } from '~/utils/site-updates'
+import { SITE_VERSION, versionLabel } from '~/utils/site-updates'
 import { ALL_SHEET_URL } from '~/utils/sheet'
 
 /**
@@ -105,23 +105,35 @@ export const SITE_NAV: NavMenu[] = [
     key: 'community',
     label: 'Community',
     to: '/community',
-    match: ['/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates', '/friends', '/forum'],
+    match: ['/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates'],
     groups: [
       {
         label: 'People',
         links: [
-          { label: 'Community hub', to: '/community', hint: 'Activity from people you follow', icon: 'users' },
-          { label: 'Forum', to: '/forum', hint: 'Talk about levels and post progress', icon: 'chat' },
+          /**
+           * The hub covers the feed *and* the forum.
+           *
+           * The forum had a menu entry of its own for about a day. It was
+           * wrong: a menu is a list of places the site has, and "somewhere to
+           * read what people are doing" and "somewhere to talk about it" are
+           * not two places — they are the same room, and splitting them meant
+           * neither half was ever busy. It is a section of the hub now, and
+           * this is the one door.
+           *
+           * Friends went the same way, for a different reason: your friends
+           * are part of *your profile*, not a page of the site. See the account
+           * page and the social menu in `components/SiteHeader.vue`.
+           */
+          { label: 'Community hub', to: '/community', hint: 'The feed, and the forum', icon: 'users' },
           { label: 'Leaderboard', to: '/leaderboard', hint: 'Ranked players', icon: 'trophy' },
           { label: 'Clans', to: '/clans', hint: 'Groups of players, ranked together', icon: 'users' },
-          { label: 'Friends', to: '/friends', hint: 'Your friends and any pending requests', icon: 'userPlus', authOnly: true },
         ],
       },
       {
         label: 'The list',
         links: [
           { label: 'Changelog', to: '/changelog', hint: 'Placements and movements', icon: 'history' },
-          { label: 'List updates', to: '/updates', hint: `What's new on the site — v${SITE_VERSION}`, icon: 'sparkles', flag: 'updates' },
+          { label: 'List updates', to: '/updates', hint: `What's new on the site — ${versionLabel(SITE_VERSION)}`, icon: 'sparkles', flag: 'updates' },
           { label: 'About & stats', to: '/about', hint: 'How the list works, and stats', icon: 'info' },
         ],
       },

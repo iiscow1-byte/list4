@@ -75,7 +75,7 @@ async function act(action: 'like' | 'unlike' | 'pin' | 'unpin' | 'lock' | 'unloc
     const res = await $fetch<{ deleted?: boolean }>(`/api/forum/${id.value}`, {
       method: 'POST', body: { action },
     })
-    if (res.deleted) { await navigateTo('/forum'); return }
+    if (res.deleted) { await navigateTo('/community?tab=forum'); return }
     await refresh()
   } catch (e: any) {
     actionError.value = e?.data?.statusMessage ?? 'That didn\'t work.'
@@ -92,11 +92,11 @@ function avatarFor(a: Author): string | null {
 <template>
   <div v-if="error" class="container-tight py-16 text-center">
     <p class="text-sm text-zinc-500">No such thread.</p>
-    <NuxtLink to="/forum" class="text-accent hover:underline text-sm mt-2 inline-block">Back to the forum →</NuxtLink>
+    <NuxtLink to="/community?tab=forum" class="text-accent hover:underline text-sm mt-2 inline-block">Back to the forum →</NuxtLink>
   </div>
 
   <div v-else-if="data" class="container-tight max-w-3xl py-8 space-y-4">
-    <NuxtLink to="/forum" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">← Forum</NuxtLink>
+    <NuxtLink to="/community?tab=forum" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">← Community · Forum</NuxtLink>
 
     <header class="space-y-2">
       <div class="flex items-baseline gap-2 flex-wrap">

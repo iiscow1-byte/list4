@@ -229,7 +229,7 @@ function kindTone(kind: string): string {
  * simply never read.
  */
 function linkFor(m: InboxItem): string | null {
-  if (m.kind === 'forum_reply' && m.related_id) return `/forum/${m.related_id}`
+  if (m.kind === 'forum_reply' && m.related_id) return `/community/thread/${m.related_id}`
   if (m.kind === 'clan_invite' && m.clan) return `/clans/${encodeURIComponent(m.clan.tag)}`
   if ((m.kind === 'friend_request' || m.kind === 'friend_accepted') && m.sent_by_username) {
     return `/users/${encodeURIComponent(m.sent_by_username)}`

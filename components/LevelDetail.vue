@@ -138,6 +138,12 @@ async function loadLevelThreads() {
 onMounted(loadLevelThreads)
 watch(() => props.level.id, loadLevelThreads)
 
+/**
+ * Whether view counts are shown at all — a reading preference, set in advanced
+ * search. See `composables/useShowViews.ts`.
+ */
+const showViews = useShowViews()
+
 const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
 const isLoggedIn = computed(() => !!meRes.value?.account)
@@ -1336,7 +1342,7 @@ const chartAredlSeries = computed(() =>
                than a labelled figure.
                Absent at zero — "👁 0" is worse than nothing. -->
           <span
-            v-if="(level.views ?? 0) > 0"
+            v-if="showViews && (level.views ?? 0) > 0"
             class="inline-flex items-center gap-1 text-[11px] leading-none text-zinc-500 tabular-nums"
             :title="`${viewsLabel(level.views)} of this level`"
           >
@@ -2486,14 +2492,14 @@ const chartAredlSeries = computed(() =>
           </span>
         </h2>
         <NuxtLink
-          :to="`/forum?level_id=${level.id}`"
+          :to="`/community?tab=forum&level_id=${level.id}`"
           class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
         >{{ levelThreads.length ? 'All threads →' : 'Start one →' }}</NuxtLink>
       </div>
       <ul v-if="levelThreads.length" class="card divide-y divide-zinc-900/70 overflow-hidden">
         <li v-for="t in levelThreads" :key="t.id">
           <NuxtLink
-            :to="`/forum/${t.id}`"
+            :to="`/community/thread/${t.id}`"
             class="px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/40 transition-colors group"
           >
             <span class="min-w-0 flex-1">

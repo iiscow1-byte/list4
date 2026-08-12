@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { listPercent } from '~/utils/list-progress'
 import { profileChipClass } from '~/utils/profile-chips'
+
+/** The site-wide "show view counts" preference — see composables/useShowViews.ts. */
+const showViews = useShowViews()
+
 const route = useRoute()
 const username = computed(() => String(route.params.username))
 
@@ -238,7 +242,10 @@ function onFriendshipChanged(state: string) {
           </svg>
           <span><span class="tabular-nums">{{ friendCount }}</span> friend{{ friendCount === 1 ? '' : 's' }}</span>
         </span>
-        <span v-if="data.profileViews > 1" :class="profileChipClass()" title="Times this profile has been opened">
+        <!-- Honours the same "show view counts" preference the level pages do.
+             The setting says "hide it everywhere", and a profile's view count
+             is the same kind of number for the same kind of reason. -->
+        <span v-if="showViews && data.profileViews > 1" :class="profileChipClass()" title="Times this profile has been opened">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
           </svg>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { tierColor, textOn } from '~/utils/tier-colors'
-import { compactCount, viewsLabel } from '~/utils/format-count'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
 
@@ -22,8 +21,6 @@ type LevelRow = {
   challenge_list_position?: number | null
   is_challenge?: boolean | number | null
   challenge_rank?: number | null
-  /** How many times the level's page has been opened. Public, and everyone's. */
-  views?: number | null
 }
 
 const props = defineProps<{
@@ -137,6 +134,16 @@ const sort = ref<typeof SORTS[number]['value']>('position')
 const rankByFilter = ref(false)
 const showTierDecimal = useTierDecimal()
 const showTierInList = ref(false)
+/**
+ * Whether view counts appear at all. Shared state rather than a local ref: the
+ * control lives here, in advanced search, but the thing it governs is drawn by
+ * `LevelDetail` — see `composables/useShowViews.ts`.
+ *
+ * Deliberately *not* watched into `refilter`. It changes nothing about which
+ * levels match, so re-running the query would be a wasted round trip and a
+ * rebuilt list for a change that is pure presentation.
+ */
+const showViews = useShowViews()
 
 
 function tierTextLabel(lvl: LevelRow): string | null {
@@ -1188,6 +1195,17 @@ watch(
                       Show tier in list — adds a tier label to each level row.
                     </span>
                   </label>
+                  <!-- A reading preference, not a filter: it changes nothing
+                       about which levels are shown, so it doesn't touch the
+                       query or count as an active filter. It is remembered
+                       between visits. -->
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input v-model="showViews" type="checkbox" class="mt-0.5 accent-accent" />
+                    <span class="text-[10px] text-zinc-500">
+                      Show view counts — how many times each level's page has been opened,
+                      shown on the level itself. Turn it off to hide it everywhere.
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1247,18 +1265,10 @@ watch(
             </span>
             <span class="relative truncate flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
-            <!-- How many people have opened it. Everything else on this row is
-                 what curators decided; this is the one thing readers did. It
-                 sits last, is compact, and is absent until somebody has been —
-                 a list of "0" against every level is worse than no column. -->
-            <span
-              v-if="(lvl.views ?? 0) > 0"
-              class="relative shrink-0 inline-flex items-center gap-1 text-[10px] tabular-nums text-zinc-400 group-hover:text-zinc-300 drop-shadow-sm"
-              :title="`${viewsLabel(lvl.views)} of this level`"
-            >
-              <NavIcon name="eye" class="w-3 h-3 shrink-0 opacity-70" />
-              {{ compactCount(lvl.views) }}
-            </span>
+            <!-- The view count used to sit here. It is on the level's own page
+                 instead, beside "From": a list row is a rank, a name and a
+                 tier, and a fourth number competing with the name for the same
+                 few hundred pixels cost more than it told anybody. -->
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">

@@ -149,345 +149,49 @@ const avatarUrl = computed(() =>
   me.value?.has_avatar ? `/api/users/${encodeURIComponent(me.value.username)}/avatar?v=${avatarVersion.value}` : null,
 )
 const avatarError = ref<string | null>(null)
-const avatarUploading = ref(false)
 const avatarHoverFileInput = ref<HTMLInputElement | null>(null)
 
 /**
- * Avatar cropper.
+ * Cropping a new picture.
  *
- * The stage is a square: avatars appear as circles in the header and feed but
- * as a rounded square on the profile, so a square is the only output that
- * looks right in both. The circle drawn over the stage is a *guide* — nothing
- * is clipped when saving. (Clipping to a circle and encoding as JPEG, which has
- * no alpha, is what used to bake black corners into every avatar.)
+ * The cropper itself is `components/AvatarCropper.vue` — a dialog that owns the
+ * framing, the previews and the upload. This page's job is only to turn a
+ * chosen file into something it can display and to refresh the avatar once it
+ * has saved.
  *
- * Offsets are the image's top-left corner relative to the stage's top-left,
- * in display pixels. `cropScale` multiplies the natural size.
- *
- * ## Why the stage measures itself
- *
- * All of the arithmetic here — the minimum zoom, the pan clamp, where a
- * cursor is on the stage, and the region that gets saved — is in units of "the
- * stage is N pixels across". That N used to be the constant 320 while the
- * element it described was `width: 320px; max-width: 100%` inside a dialog with
- * padding. On any window narrower than about 400px the element was *not* 320
- * wide, and every one of those calculations was then wrong by the difference:
- * dragging tracked faster than the pointer, the clamp let the image pull away
- * from an edge, and — the part that made it look broken rather than fiddly —
- * the saved picture was a crop of a 320-wide stage nobody had been looking at,
- * so the result did not match the preview.
- *
- * So the stage reports its own size and everything reads that. The element is
- * kept square by `aspect-ratio`, not by a hardcoded height, so it cannot become
- * a rectangle the square maths does not describe.
+ * It used to be three hundred lines here, tangled through the settings form,
+ * which is part of why it was hard to get right: the state that decided what
+ * got saved was interleaved with state about a completely different form.
  */
-const CROP_MAX_STAGE = 320  // px — the widest the stage is allowed to be
-const CROP_OUT = 512        // px — saved image edge
-const CROP_MAX_ZOOM = 6
-
 const cropOpen = ref(false)
 const cropSrc = ref<string | null>(null)
-const cropImgEl = ref<HTMLImageElement | null>(null)
-const cropStageEl = ref<HTMLElement | null>(null)
-const cropNaturalW = ref(0)
-const cropNaturalH = ref(0)
-const cropScale = ref(1)
-const cropOffsetX = ref(0)
-const cropOffsetY = ref(0)
-const cropIsDragging = ref(false)
-
-/**
- * The stage's real edge length, in CSS pixels. Seeded to the maximum so the
- * first frame is sane, then corrected the moment the element exists.
- */
-const cropStageSize = ref(CROP_MAX_STAGE)
-let cropStageObserver: ResizeObserver | null = null
-
-function measureCropStage() {
-  const el = cropStageEl.value
-  if (!el) return
-  const next = el.getBoundingClientRect().width
-  if (next > 0 && Math.abs(next - cropStageSize.value) > 0.5) {
-    // Rescale the framing so the same part of the picture stays framed when the
-    // stage changes size (a rotated phone, a resized window). Without this the
-    // offsets are still in the old stage's units and the subject jumps.
-    const ratio = next / cropStageSize.value
-    cropStageSize.value = next
-    cropScale.value *= ratio
-    cropOffsetX.value *= ratio
-    cropOffsetY.value *= ratio
-    clampCropOffset()
-  }
-}
-
-// Watched rather than measured once: the dialog can open before layout settles,
-// and the window can change size while it is open.
-watch(cropStageEl, (el) => {
-  cropStageObserver?.disconnect()
-  cropStageObserver = null
-  if (!el || typeof ResizeObserver === 'undefined') return
-  cropStageObserver = new ResizeObserver(measureCropStage)
-  cropStageObserver.observe(el)
-  measureCropStage()
-})
-onBeforeUnmount(() => { cropStageObserver?.disconnect(); cropStageObserver = null })
-
-/** Smallest zoom that still covers the stage — never allow empty corners. */
-const cropMinScale = computed(() => {
-  const min = Math.min(cropNaturalW.value || 1, cropNaturalH.value || 1)
-  return cropStageSize.value / min
-})
-
-function clampCropOffset() {
-  const stage = cropStageSize.value
-  const w = cropNaturalW.value * cropScale.value
-  const h = cropNaturalH.value * cropScale.value
-  cropOffsetX.value = Math.min(0, Math.max(stage - w, cropOffsetX.value))
-  cropOffsetY.value = Math.min(0, Math.max(stage - h, cropOffsetY.value))
-}
-
-/** Centre the image at the current zoom. */
-function centreCrop() {
-  const stage = cropStageSize.value
-  cropOffsetX.value = (stage - cropNaturalW.value * cropScale.value) / 2
-  cropOffsetY.value = (stage - cropNaturalH.value * cropScale.value) / 2
-  clampCropOffset()
-}
-
-function resetCrop() {
-  cropScale.value = cropMinScale.value
-  centreCrop()
-}
-
-function onCropImgLoad(e: Event) {
-  const img = e.target as HTMLImageElement
-  cropNaturalW.value = img.naturalWidth
-  cropNaturalH.value = img.naturalHeight
-  // The image can finish loading before the stage has been laid out; without
-  // this the framing is computed against the seeded size and is wrong until
-  // something else nudges it.
-  measureCropStage()
-  resetCrop()
-}
-
-/**
- * Zoom about a point on the stage, so whatever is under the cursor (or between
- * two fingers) stays there. Zooming from the corner instead — which is what it
- * used to do — walks your subject out of frame every time you scroll.
- */
-function zoomAt(nextScale: number, stageX: number, stageY: number) {
-  const from = cropScale.value
-  const to = Math.max(cropMinScale.value, Math.min(CROP_MAX_ZOOM, nextScale))
-  if (to === from) return
-  cropOffsetX.value = stageX - (stageX - cropOffsetX.value) * (to / from)
-  cropOffsetY.value = stageY - (stageY - cropOffsetY.value) * (to / from)
-  cropScale.value = to
-  clampCropOffset()
-}
-
-function stagePoint(e: { clientX: number; clientY: number }, el: HTMLElement) {
-  const r = el.getBoundingClientRect()
-  return { x: e.clientX - r.left, y: e.clientY - r.top }
-}
-
-function onCropWheel(e: WheelEvent) {
-  const el = e.currentTarget as HTMLElement
-  const p = stagePoint(e, el)
-  // Proportional steps, so zooming feels the same whether you're at 1× or 5×.
-  zoomAt(cropScale.value * (e.deltaY < 0 ? 1.12 : 1 / 1.12), p.x, p.y)
-}
-
-// Pointer events cover mouse, pen and touch in one path — the old mouse-only
-// handlers made this unusable on a phone.
-const cropPointers = new Map<number, { x: number; y: number }>()
-let cropPinchDist = 0
-let cropDragStart = { x: 0, y: 0, ox: 0, oy: 0 }
-
-function onCropPointerDown(e: PointerEvent) {
-  const el = e.currentTarget as HTMLElement
-  el.setPointerCapture?.(e.pointerId)
-  cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-  if (cropPointers.size === 1) {
-    cropIsDragging.value = true
-    cropDragStart = { x: e.clientX, y: e.clientY, ox: cropOffsetX.value, oy: cropOffsetY.value }
-  } else if (cropPointers.size === 2) {
-    const [a, b] = [...cropPointers.values()]
-    cropPinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
-    cropIsDragging.value = false
-  }
-}
-
-function onCropPointerMove(e: PointerEvent) {
-  if (!cropPointers.has(e.pointerId)) return
-  cropPointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-  const el = e.currentTarget as HTMLElement
-
-  if (cropPointers.size >= 2) {
-    const [a, b] = [...cropPointers.values()]
-    const dist = Math.hypot(a!.x - b!.x, a!.y - b!.y)
-    if (cropPinchDist > 0 && dist > 0) {
-      const mid = stagePoint({ clientX: (a!.x + b!.x) / 2, clientY: (a!.y + b!.y) / 2 }, el)
-      zoomAt(cropScale.value * (dist / cropPinchDist), mid.x, mid.y)
-    }
-    cropPinchDist = dist
-    return
-  }
-
-  if (!cropIsDragging.value) return
-  cropOffsetX.value = cropDragStart.ox + (e.clientX - cropDragStart.x)
-  cropOffsetY.value = cropDragStart.oy + (e.clientY - cropDragStart.y)
-  clampCropOffset()
-}
-
-function onCropPointerUp(e: PointerEvent) {
-  cropPointers.delete(e.pointerId)
-  if (cropPointers.size < 2) cropPinchDist = 0
-  if (cropPointers.size === 0) cropIsDragging.value = false
-}
-
-/** Arrow keys nudge; shift moves ten at a time. */
-function onCropKeydown(e: KeyboardEvent) {
-  const step = e.shiftKey ? 10 : 1
-  const moves: Record<string, [number, number]> = {
-    ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step],
-  }
-  const m = moves[e.key]
-  if (m) {
-    e.preventDefault()
-    cropOffsetX.value += m[0]
-    cropOffsetY.value += m[1]
-    clampCropOffset()
-    return
-  }
-  if (e.key === '+' || e.key === '=') {
-    e.preventDefault()
-    zoomAt(cropScale.value * 1.12, cropStageSize.value / 2, cropStageSize.value / 2)
-  } else if (e.key === '-' || e.key === '_') {
-    e.preventDefault()
-    zoomAt(cropScale.value / 1.12, cropStageSize.value / 2, cropStageSize.value / 2)
-  }
-}
-
-/**
- * Live preview: the same transform scaled down to a preview box, so you can see
- * what the avatar will look like at the sizes it's actually used.
- */
-function cropPreviewStyle(size: number) {
-  const r = size / cropStageSize.value
-  return {
-    position: 'absolute' as const,
-    left: cropOffsetX.value * r + 'px',
-    top: cropOffsetY.value * r + 'px',
-    width: cropNaturalW.value * cropScale.value * r + 'px',
-    height: cropNaturalH.value * cropScale.value * r + 'px',
-    pointerEvents: 'none' as const,
-  }
-}
 
 function openCropForFile(file: File) {
   const reader = new FileReader()
   reader.onload = (ev) => {
     cropSrc.value = ev.target?.result as string
-    // Real values land in onCropImgLoad once the natural size is known.
-    cropScale.value = 1
-    cropOffsetX.value = 0
-    cropOffsetY.value = 0
     cropOpen.value = true
   }
+  reader.onerror = () => { avatarError.value = 'Could not read that file.' }
   reader.readAsDataURL(file)
 }
 
-function closeCrop() {
-  cropOpen.value = false
+async function onAvatarSaved() {
+  await refreshMe()
+  avatarVersion.value++
   cropSrc.value = null
-  cropPointers.clear()
-  cropIsDragging.value = false
-}
-
-function onHoverAvatarChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  ;(e.target as HTMLInputElement).value = ''
-  openCropForFile(file)
-}
-
-async function confirmCrop() {
-  const img = cropImgEl.value
-  if (!img || !cropNaturalW.value || !cropNaturalH.value) return
   avatarError.value = null
-  avatarUploading.value = true
-  const wasOpen = cropOpen.value
-
-  /**
-   * The framing, read *before* anything that could re-render.
-   *
-   * The `<img>` this draws from lives inside `v-if="cropOpen"`. Closing the
-   * dialog first and then reading the element is one microtask away from
-   * drawing a detached node, so the numbers are taken while it is certainly
-   * still on screen and the dialog is closed afterwards.
-   */
-  const stage = cropStageSize.value
-  const scale = cropScale.value
-  const offX = cropOffsetX.value
-  const offY = cropOffsetY.value
-
-  try {
-    /**
-     * Which part of the *source image* the stage is showing, in the image's own
-     * pixels — the region from (-offset / scale) that is `stage / scale` across.
-     *
-     * Expressed as a source rectangle rather than by drawing the whole image
-     * into a scaled destination rectangle. The two are equivalent on paper, but
-     * the destination form encodes the display size into the output: it works
-     * only while the stage really is the size the constant claims, which is
-     * exactly the assumption that made this crop wrong on a narrow window. This
-     * form has no display size in it at all.
-     */
-    const srcSize = stage / scale
-    const sx = -offX / scale
-    const sy = -offY / scale
-
-    const canvas = document.createElement('canvas')
-    canvas.width = CROP_OUT
-    canvas.height = CROP_OUT
-    const ctx = canvas.getContext('2d')!
-    // Better downscaling than the default nearest-ish resampling — avatars are
-    // almost always a large photo squeezed into 512px.
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = 'high'
-    // JPEG has no alpha; without this, any gap would encode as black.
-    ctx.fillStyle = '#18181b'
-    ctx.fillRect(0, 0, CROP_OUT, CROP_OUT)
-    ctx.drawImage(
-      img,
-      sx, sy, srcSize, srcSize,
-      0, 0, CROP_OUT, CROP_OUT,
-    )
-
-    cropOpen.value = false
-    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9))
-    if (!blob) throw new Error('Crop failed.')
-    const fd = new FormData()
-    fd.append('avatar', blob, 'avatar.jpg')
-    await $fetch('/api/account/avatar', { method: 'POST', body: fd })
-    await refreshMe()
-    avatarVersion.value++
-    cropSrc.value = null
-  } catch (err: any) {
-    avatarError.value = err?.data?.statusMessage ?? err?.statusMessage ?? 'Upload failed.'
-    // Keep the crop up so the chosen framing isn't lost to a failed upload.
-    if (wasOpen) cropOpen.value = true
-  } finally {
-    avatarUploading.value = false
-  }
 }
 
-async function onAvatarChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  ;(e.target as HTMLInputElement).value = ''
-  openCropForFile(file)
+/** Both file inputs — the one in the form and the one on the avatar itself. */
+function onAvatarChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) openCropForFile(file)
 }
+const onHoverAvatarChange = onAvatarChange
+
 
 async function removeAvatar() {
   await $fetch('/api/account/avatar', { method: 'DELETE' })
@@ -1506,6 +1210,11 @@ function fmt(n: number | null | undefined) {
           </dl>
         </ProfilePanel>
 
+        <!-- Your friends are part of your profile rather than a page of the
+             site: two thirds of the panel is pending requests, which are
+             nobody else's business, and the rest is a fact about you. -->
+        <ProfileFriends />
+
         <ProgressPosts
           v-if="profileData"
           v-model:open="showProgress"
@@ -1901,7 +1610,9 @@ function fmt(n: number | null | undefined) {
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Profile picture</h2>
           <div class="flex items-center gap-2 flex-wrap">
             <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium px-2.5 py-1 cursor-pointer transition-colors">
-              <span>{{ avatarUploading ? 'Uploading…' : 'Upload' }}</span>
+              <!-- Choosing a file opens the cropper; the upload happens from
+                   there, and reports its own progress. -->
+              <span>{{ me.has_avatar ? 'Change' : 'Upload' }}</span>
               <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onAvatarChange" />
             </label>
             <button
@@ -1970,138 +1681,12 @@ function fmt(n: number | null | undefined) {
     }"
   />
 
-  <!-- Avatar crop modal -->
-  <Teleport to="body">
-    <div
-      v-if="cropOpen"
-      class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-      @click.self="closeCrop"
-      @keydown.esc="closeCrop"
-    >
-      <div class="modal-panel p-5 w-full max-w-md space-y-4" @click.stop>
-        <div>
-          <h2 class="text-sm font-semibold text-zinc-100">Crop profile picture</h2>
-          <p class="text-[11px] text-zinc-500 mt-0.5">
-            Drag to reposition · scroll or pinch to zoom · arrow keys to nudge
-          </p>
-        </div>
-
-        <!-- Stage. Square, because avatars render as a rounded square on
-             profiles and a circle everywhere else; the ring is only a guide. -->
-        <!-- `aspect-ratio` rather than a matching height: the width is capped
-             but can be smaller than the cap on a narrow window, and a fixed
-             height would then make this a rectangle while every calculation
-             behind it assumes a square. -->
-        <div
-          ref="cropStageEl"
-          class="relative mx-auto bg-black overflow-hidden select-none touch-none rounded-2xl ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-accent"
-          :style="{ width: CROP_MAX_STAGE + 'px', maxWidth: '100%', aspectRatio: '1 / 1' }"
-          :class="cropIsDragging ? 'cursor-grabbing' : 'cursor-grab'"
-          tabindex="0"
-          role="application"
-          aria-label="Crop area — drag to reposition, arrow keys to nudge"
-          @pointerdown="onCropPointerDown"
-          @pointermove="onCropPointerMove"
-          @pointerup="onCropPointerUp"
-          @pointercancel="onCropPointerUp"
-          @wheel.prevent="onCropWheel"
-          @keydown="onCropKeydown"
-        >
-          <img
-            v-if="cropSrc"
-            ref="cropImgEl"
-            :src="cropSrc"
-            alt=""
-            draggable="false"
-            :style="{
-              position: 'absolute',
-              left: cropOffsetX + 'px',
-              top: cropOffsetY + 'px',
-              width: cropNaturalW * cropScale + 'px',
-              height: cropNaturalH * cropScale + 'px',
-              userSelect: 'none',
-              pointerEvents: 'none',
-            }"
-            @load="onCropImgLoad"
-          />
-
-          <!-- Circle guide: shows what the round contexts will keep, without
-               removing the corners the square contexts still show. A circular
-               element with a large *outward* shadow dims everything outside it;
-               the stage's own overflow-hidden clips the shadow to the square. -->
-          <div
-            class="absolute inset-0 rounded-full ring-2 ring-accent/70 pointer-events-none"
-            style="box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45)"
-            aria-hidden="true"
-          />
-          <!-- Rule-of-thirds guides, faint, only while dragging -->
-          <div v-if="cropIsDragging" class="absolute inset-0 pointer-events-none" aria-hidden="true">
-            <div class="absolute inset-y-0 left-1/3 w-px bg-white/20" />
-            <div class="absolute inset-y-0 left-2/3 w-px bg-white/20" />
-            <div class="absolute inset-x-0 top-1/3 h-px bg-white/20" />
-            <div class="absolute inset-x-0 top-2/3 h-px bg-white/20" />
-          </div>
-        </div>
-
-        <!-- Live previews at the sizes avatars are actually used -->
-        <div class="flex items-center justify-center gap-4">
-          <div class="flex flex-col items-center gap-1">
-            <div class="relative w-16 h-16 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
-              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(64)" draggable="false" />
-            </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Feed</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <div class="relative w-16 h-16 rounded-full overflow-hidden bg-black ring-2 ring-zinc-950 outline outline-1 outline-zinc-700">
-              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(64)" draggable="false" />
-            </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Profile</span>
-          </div>
-          <div class="flex flex-col items-center gap-1">
-            <div class="relative w-7 h-7 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
-              <img v-if="cropSrc" :src="cropSrc" alt="" :style="cropPreviewStyle(28)" draggable="false" />
-            </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Header</span>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3">
-          <label class="flex-1">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Zoom</span>
-            <input
-              type="range"
-              :min="cropMinScale"
-              :max="CROP_MAX_ZOOM"
-              step="0.01"
-              :value="cropScale"
-              class="w-full mt-1 accent-accent"
-              @input="(e) => zoomAt(Number((e.target as HTMLInputElement).value), cropStageSize / 2, cropStageSize / 2)"
-            />
-          </label>
-          <button
-            type="button"
-            class="btn btn-sm btn-ghost mt-4 shrink-0"
-            title="Zoom back out as far as it goes and centre the picture"
-            @click="resetCrop"
-          >Reset</button>
-        </div>
-
-        <p v-if="avatarError" class="text-xs text-red-400">{{ avatarError }}</p>
-
-        <div class="flex gap-2 pt-1">
-          <button
-            type="button"
-            :disabled="avatarUploading"
-            class="btn btn-md btn-primary flex-1"
-            @click="confirmCrop"
-          >{{ avatarUploading ? 'Saving…' : 'Save picture' }}</button>
-          <button
-            type="button"
-            class="btn btn-md btn-ghost"
-            @click="closeCrop"
-          >Cancel</button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <!-- The cropper is its own dialog now. It holds the framing in the picture's
+       own coordinates, which is what makes what you save match what you saw —
+       see components/AvatarCropper.vue. -->
+  <AvatarCropper
+    v-model:open="cropOpen"
+    :src="cropSrc"
+    @saved="onAvatarSaved"
+  />
 </template>

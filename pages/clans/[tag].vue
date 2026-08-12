@@ -709,7 +709,7 @@ const shownCompletions = computed(() => {
               </p>
             </div>
             <p v-else-if="!inviteQuery.trim()" class="text-[11px] text-zinc-600">
-              <NuxtLink to="/friends" class="text-zinc-500 hover:text-accent transition-colors">Add friends</NuxtLink>
+              <NuxtLink to="/account?panel=friends" class="text-zinc-500 hover:text-accent transition-colors">Add friends</NuxtLink>
               to invite them here in one click.
             </p>
 

@@ -22,6 +22,8 @@ const props = defineProps<{
   inboxUnread?: number
   adminPending?: number
   updatesUnread?: boolean
+  /** Friend requests waiting on you — badged on the Friends row. */
+  friendRequests?: number
 }>()
 
 const emit = defineEmits<{ (e: 'update:open', open: boolean): void }>()
@@ -139,6 +141,17 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
               <NavMenuItem to="/inbox" hint="Messages and notifications" :badge="inboxUnread || null">
                 <template #icon><NavIcon name="inbox" /></template>
                 Inbox
+              </NavMenuItem>
+              <!-- Friends are a section of your profile rather than a page of
+                   the site, so this is a jump to that panel — the drawer's
+                   counterpart to the social menu's entry on a wide screen. -->
+              <NavMenuItem
+                to="/account?panel=friends"
+                hint="Your friends, and anyone waiting on you"
+                :badge="friendRequests || null"
+              >
+                <template #icon><NavIcon name="userPlus" /></template>
+                Friends
               </NavMenuItem>
               <NavMenuItem
                 v-if="role && role !== 'user'"

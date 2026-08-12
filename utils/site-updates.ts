@@ -7,7 +7,25 @@
  * end-to-end takes the minor. Add an entry here whenever you ship, and the
  * version chip, the Updates page and the "new since your last visit" dot all
  * follow from it — there is nothing else to remember to update.
+ *
+ * ## Two audiences, one file
+ *
+ * Roughly a third of what has ever shipped is admin tooling: import queues,
+ * the statistics dashboard, placement backups, moderator-only filters. To a
+ * reader of the list those entries are noise at best — they describe buttons
+ * that page does not have — and at worst they advertise the shape of the
+ * moderation tools to people who cannot use them.
+ *
+ * So every line carries its audience. `adm(...)` marks a change as staff-only;
+ * a bare string is for everybody. `visibleUpdates()` filters both the lines and
+ * the entries, and an entry whose every line is staff-only simply isn't there
+ * for a normal reader. Nothing is duplicated and nothing is written twice —
+ * there is one history, read at two levels of access.
  */
+
+/** One line of a release. A bare string is public; the object form is staff-only. */
+export type SiteChange = string | { text: string; admin: true }
+
 export type SiteUpdate = {
   /** Semantic-ish: major.minor.patch, monotonically increasing down the file. */
   version: string
@@ -15,59 +33,90 @@ export type SiteUpdate = {
   date: string
   title: string
   /** One line per change. Written for readers of the site, not the diff. */
-  changes: string[]
+  changes: SiteChange[]
   /** Optional grouping chips shown next to the entry. */
   tags?: string[]
 }
+
+/** Mark a change as staff-only. Short on purpose — it appears a hundred times. */
+const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
     version: '1.21.0',
     date: '2026-08-12',
-    title: 'The hours, drawn properly — and every level’s view count on the list',
-    tags: ['List', 'Admin', 'UI'],
+    title: 'Friends, a forum, and clans you can actually run',
+    tags: ['Community', 'Profiles', 'UI', 'Fixes'],
     changes: [
-      'Every level shows how many times it has been opened, on its own row in the main list as well as on its page. It is the one number on a list row that comes from readers rather than from curators, and everybody can see it.',
-      'The by-hour panel is a chart rather than a row of bars: an axis with real numbers, gridlines to read them against, and a hover that says exactly what each hour was. The old shape could only ever answer "which bar is tallest".',
-      'It counts people as well as views. One reader working through forty pages between nine and ten is forty views and one person, and which of those a busy hour is made of is the whole reason to look at it. Nothing new is stored about anyone: each visitor’s existing daily row now remembers which hours it was seen in, and nothing else.',
-      'Looking at today puts the typical day behind it as a dashed line, so "is this busy?" has an answer on the same axis instead of in another chart.',
-      'Chart axes label their gridlines in even steps. Four gaps into a maximum of five used to produce a ladder reading 5, 4, 3, 1, 0 — nothing wrong with the drawing, only with the numbers written on it.',
-      'There is now a way to start the counting over (npm run reset-analytics). The counters filled before v1.20.0 came from a version that counted every arrival twice, counted 404s, counted admin tabs, and let the view beacon be fired as often as anyone liked — and an inflated history makes a corrected present look like a collapse.',
-    ],
-  },
-  {
-    version: '1.20.1',
-    date: '2026-08-12',
-    title: 'Imports counted apart, and a notice when roles change',
-    tags: ['Admin', 'UI', 'Fixes'],
-    changes: [
-      '"Levels submitted" was mostly a graph of when the importers last ran. Mirrored levels share a table with real submissions, and they arrive in the thousands — one refresh buried every submission the site had ever had under a single day’s bar. The two are separate figures and separate lines now, each with its own pending count.',
-      'Admins are told in their inbox when somebody’s role changes: who did it, to whom, and from what. A role change is the one action that changes who can change the site, and until now the only person told was the one it happened to.',
-      'The Submit menu’s record icon is a medal rather than a flag — a flag reads as "report this", not "here is a run I finished".',
-      'Fixed the double space in "2  views" on a profile. The chips are a flex row, so the loose word beside the number was its own item and got the row’s gap on top of the space already in the text.',
+      'Friends. A friendship is mutual and asked for, which is what makes it different from a follow — following is one-sided and needs nobody\'s permission. Send a request from anyone\'s profile, answer it from your inbox, and manage the lot from your account page.',
+      '"Mutual friends" means friends you actually have in common, and the number opens the list. It used to count people you both happened to follow, which is a much weaker claim — two strangers who both follow the site\'s best ten players had ten "mutuals" between them.',
+      'A forum, in the community hub. Threads can name a level, and those show up on that level\'s own page — so "which of these should I grind next" has somewhere to live that isn\'t a comment on a level it isn\'t about. Categories, likes, and a reply notice to everyone in the thread.',
+      'Clans can be edited. The name, tag, description, colour and join policy were all answerable exactly once, and the only way to fix a typo was to disband and start again — which loses the roster and the standing that made the clan worth having.',
+      'Clans can have a picture and a background, uploaded rather than linked, so they survive somebody else\'s image host going away.',
+      'The clans page is something you can browse: sort by points, levels, members, newest or name, and filter to the ones you can simply join. A ranking by points is the worst possible place to find a new clan looking for members.',
+      'Invite your friends to your clan in one click, from a list of them, instead of typing a name into a search box from memory.',
+      'A challenge leaderboard, ranked by challenge points. Challenges and extreme demons were never comparable on one number and the leaderboard only ever answered for the second.',
+      'Custom lists can mark a level as a challenge — the list\'s own call, independent of what the ALL considers one.',
+      'The inbox answers questions in place. Clan invites and friend requests arrive with Accept and Decline on them, sit above the ordinary notices, and everything else can now be filtered and deleted. An inbox you can\'t clear is a list you stop reading.',
+      'Leaderboard pictures fall back to AREDL. Most ranked players have never signed up here, and the alternative for them was a grey circle with one letter in it. An account\'s own picture always wins.',
+      'Levels submitted from a custom list no longer stall on "needs a verification date" while holding the video the date comes from — the server reads it off the video itself.',
+      'Advanced search stopped fighting back. Every filter you touched was rebuilding the whole 500-row list behind the dialog covering it; the dialog counts matches while it is open and rebuilds the list once, when you close it.',
+      'The site has a logo. The old one was the letters ALL in a coloured box, which at 16px in a browser tab is a smudge.',
+      'The view count is off the list rows and stays on the level\'s page, where there is room for it — and it can be turned off entirely in advanced search.',
+      'Rebuilt the profile-picture cropper. Its framing is held in the picture\'s own coordinates now, so what you save is what the preview showed, at any window size.',
+      'The site\'s colours default to cyan.',
+      'Credit where it is due: the About page names every API the site reads, AREDL first.',
+      adm('Marking a level as a challenge refreshes the challenge leaderboard immediately rather than up to thirty seconds later.'),
+      adm('Forum threads can be pinned, locked and deleted by moderators.'),
     ],
   },
   {
     version: '1.20.0',
     date: '2026-08-12',
-    title: 'Statistics you can trust, and the hours behind them',
-    tags: ['Admin', 'Access', 'Fixes'],
+    title: 'The hours, drawn properly — and every level’s view count',
+    tags: ['List', 'Admin', 'UI'],
     changes: [
-      'The view counter could be written to by anyone. `/api/analytics/view` has to be open — it is a beacon a closing page fires — and fifty posts of the same path were fifty views. The same reader opening the same page inside fifteen seconds now counts once, and no single reader can add more than two thousand views to the site total in a day.',
-      'Every arrival at the site was counted twice. The homepage answers a redirect to the top of the list, and both the redirect and the page it pointed at were scored as pages read. Only a page that was actually delivered counts now — which also stops every 404 counting as something somebody read.',
-      'Flicking through the admin panel’s fifteen tabs used to score fifteen views. Changing a query no longer counts as opening a page.',
-      'Views and unique visitors are separate figures everywhere, with the ratio between them shown: four thousand views from two hundred people is a site being read, and four thousand from six is somebody’s script.',
-      'Statistics shows views by the hour — as an average day over the range, or as today so far — with the busiest hour called out.',
-      'Statistics shows how many accounts were signed in each day, and how many of them logged in fresh.',
-      'The charts are charts now: a y-axis with real numbers, gridlines, dates along the bottom, up to four series at once and a readout of every one of them for the day under the pointer.',
-      '"Most-viewed levels" said thirty days and answered all-time. It respects the range now, and offers all-time as its own separate answer.',
-      '"Accounts with records" counted anything ever submitted, including records still waiting for review. It counts accepted ones.',
-      'A custom list shows how many times it has been opened, so somebody who builds one can find out whether anybody read it. The owner’s own visits are not counted.',
-      'Your own profile view count is always visible on your account page rather than only once it passes one, and a level shows its view count from the first view rather than the second.',
+      'Every level shows how many times it has been opened. It is the one number on a level that comes from readers rather than from curators, and everybody can see it.',
+      adm('The by-hour panel is a chart rather than a row of bars: an axis with real numbers, gridlines to read them against, and a hover that says exactly what each hour was. The old shape could only ever answer "which bar is tallest".'),
+      adm('It counts people as well as views. One reader working through forty pages between nine and ten is forty views and one person, and which of those a busy hour is made of is the whole reason to look at it. Nothing new is stored about anyone: each visitor’s existing daily row now remembers which hours it was seen in, and nothing else.'),
+      adm('Looking at today puts the typical day behind it as a dashed line, so "is this busy?" has an answer on the same axis instead of in another chart.'),
+      adm('Chart axes label their gridlines in even steps. Four gaps into a maximum of five used to produce a ladder reading 5, 4, 3, 1, 0 — nothing wrong with the drawing, only with the numbers written on it.'),
+      adm('There is now a way to start the counting over (npm run reset-analytics). The counters filled before the previous release came from a version that counted every arrival twice, counted 404s, counted admin tabs, and let the view beacon be fired as often as anyone liked — and an inflated history makes a corrected present look like a collapse.'),
+    ],
+  },
+  {
+    version: '1.19.1',
+    date: '2026-08-12',
+    title: 'Imports counted apart, and a notice when roles change',
+    tags: ['Admin', 'UI', 'Fixes'],
+    changes: [
+      'The Submit menu’s record icon is a medal rather than a flag — a flag reads as "report this", not "here is a run I finished".',
+      'Fixed the double space in "2  views" on a profile. The chips are a flex row, so the loose word beside the number was its own item and got the row’s gap on top of the space already in the text.',
+      adm('"Levels submitted" was mostly a graph of when the importers last ran. Mirrored levels share a table with real submissions, and they arrive in the thousands — one refresh buried every submission the site had ever had under a single day’s bar. The two are separate figures and separate lines now, each with its own pending count.'),
+      adm('Admins are told in their inbox when somebody’s role changes: who did it, to whom, and from what. A role change is the one action that changes who can change the site, and until now the only person told was the one it happened to.'),
     ],
   },
   {
     version: '1.19.0',
+    date: '2026-08-12',
+    title: 'Statistics you can trust, and the hours behind them',
+    tags: ['Admin', 'Access', 'Fixes'],
+    changes: [
+      'A custom list shows how many times it has been opened, so somebody who builds one can find out whether anybody read it. The owner’s own visits are not counted.',
+      'Your own profile view count is always visible on your account page rather than only once it passes one, and a level shows its view count from the first view rather than the second.',
+      adm('The view counter could be written to by anyone. `/api/analytics/view` has to be open — it is a beacon a closing page fires — and fifty posts of the same path were fifty views. The same reader opening the same page inside fifteen seconds now counts once, and no single reader can add more than two thousand views to the site total in a day.'),
+      adm('Every arrival at the site was counted twice. The homepage answers a redirect to the top of the list, and both the redirect and the page it pointed at were scored as pages read. Only a page that was actually delivered counts now — which also stops every 404 counting as something somebody read.'),
+      adm('Flicking through the admin panel’s fifteen tabs used to score fifteen views. Changing a query no longer counts as opening a page.'),
+      adm('Views and unique visitors are separate figures everywhere, with the ratio between them shown: four thousand views from two hundred people is a site being read, and four thousand from six is somebody’s script.'),
+      adm('Statistics shows views by the hour — as an average day over the range, or as today so far — with the busiest hour called out.'),
+      adm('Statistics shows how many accounts were signed in each day, and how many of them logged in fresh.'),
+      adm('The charts are charts now: a y-axis with real numbers, gridlines, dates along the bottom, up to four series at once and a readout of every one of them for the day under the pointer.'),
+      adm('"Most-viewed levels" said thirty days and answered all-time. It respects the range now, and offers all-time as its own separate answer.'),
+      adm('"Accounts with records" counted anything ever submitted, including records still waiting for review. It counts accepted ones.'),
+    ],
+  },
+  {
+    version: '1.18.0',
     date: '2026-08-10',
     title: 'A menu that fits a phone, and one of everything else',
     tags: ['UI', 'Access', 'Fixes'],
@@ -83,7 +132,7 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.18.0',
+    version: '1.17.0',
     date: '2026-08-10',
     title: 'Clan invites, and video dates that work again',
     tags: ['Community', 'Profiles', 'UI', 'Fixes'],
@@ -96,11 +145,11 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Clan tags lost their border. A bordered chip in front of every name turned a leaderboard into a column of boxes; the tag is now a soft block of the clan\'s colour, and its own page shows it filled.',
       'The Progress panel draws each post as a bar — the run so far, and the part the post added — and no longer loads a YouTube player for every post on the page whether or not you wanted to watch any of them.',
       'The About page opens with the four numbers people come to it for, splits each FAQ entry into its question and its answer, and says where to submit a level, a record or start a clan.',
-      'Fixed: the pending-levels queue ran the word "Between" straight into the level name after it.',
+      adm('Fixed: the pending-levels queue ran the word "Between" straight into the level name after it.'),
     ],
   },
   {
-    version: '1.17.0',
+    version: '1.16.0',
     date: '2026-08-09',
     title: 'Clan tags, one badge, and records worth reading',
     tags: ['Community', 'Profiles', 'UI', 'Submissions'],
@@ -117,25 +166,25 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.16.0',
+    version: '1.15.0',
     date: '2026-08-08',
     title: 'Clans, and a much faster list',
     tags: ['Community', 'The list', 'Performance', 'Fixes'],
     changes: [
       'Clans: groups of players ranked by what they have beaten between them, with a leaderboard and a list of every level the group has completed and who in it has done it. Points count each level once however many members hold it, so a clan climbs by covering more of the list.',
       'Much faster: browsing the list went from 131ms a page to 6ms. It was rebuilding the entire challenge ranking — a scan of all 54,000 levels — on every single request, to attach a number to the fifty rows being shown.',
-      'Fixed a slow filter I introduced last week: the challenge-source test ran eleven string comparisons per level on every search. It checks the ordinary single-source case first now, which is 12× faster and answers identically.',
+      'Fixed a slow filter: the challenge-source test ran eleven string comparisons per level on every search. It checks the ordinary single-source case first now, which is 12× faster and answers identically.',
       'Advanced search shows every active filter as a chip you can take off one at a time, and reports how many levels match while you are still in the dialog.',
       'The builder\'s ALL-list palette scrolls through the whole list instead of stopping at the first sixty levels.',
-      'The pending queue draws the rows you can see rather than all fourteen hundred, and says how many are ready to place.',
       '"All demonlists used" says when each mirrored list was last refreshed, and can be sorted by size, overlap or freshness.',
       'Your profile shows what percent of the list you have beaten.',
       'Discord: a changelog too long for one message can be sent as several instead of being cut off, and the title links to the changelog.',
       'Fixed: "Challenges" was cut to "Ch…" in the levels-versus-challenges chart on a profile.',
+      adm('The pending queue draws the rows you can see rather than all fourteen hundred, and says how many are ready to place.'),
     ],
   },
   {
-    version: '1.15.0',
+    version: '1.14.0',
     date: '2026-08-08',
     title: 'Profiles, and knowing how much the site is read',
     tags: ['Profiles', 'Admin', 'The list'],
@@ -143,14 +192,14 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Your profile and the page you edit it on are now the same page, drawn from the same code. They were two hand-written copies that had drifted: the account one had lost the country flag, the banner link, the level points and half the social chips.',
       'The edit form is in four labelled groups — you, where else to find you, your showcase, and staff decorations — instead of one run of fourteen boxes, and Save follows you down it.',
       'Profiles can carry Twitch, X and Bluesky alongside YouTube, Discord and Geometry Dash. Each link is checked against the site it claims to be, so a chip with a Twitch icon goes to Twitch.',
-      'A profile says when it follows you back, how many people you both follow, and how many times it has been opened.',
+      'A profile says when it follows you back and how many times it has been opened.',
       'Every level page shows how many times it has been viewed.',
       'The about page shows how many pages have been read on the site, and since when.',
-      'New Statistics tab in the admin panel: traffic per day, people per day, most-read pages, most-viewed levels, and what was added — accounts, levels, records, lists, comments, opinions — over any window up to a year. Views are counted per page shape and people are counted once a day from a salted hash that can\'t be turned back into anyone; there is no per-visitor record behind any of it.',
+      adm('New Statistics tab in the admin panel: traffic per day, people per day, most-read pages, most-viewed levels, and what was added — accounts, levels, records, lists, comments, opinions — over any window up to a year. Views are counted per page shape and people are counted once a day from a salted hash that can\'t be turned back into anyone; there is no per-visitor record behind any of it.'),
     ],
   },
   {
-    version: '1.14.0',
+    version: '1.13.0',
     date: '2026-08-04',
     title: 'Flags, a split of what you have beaten, and badges that tell roles apart',
     tags: ['Profiles', 'The list', 'Fixes'],
@@ -163,7 +212,7 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.13.0',
+    version: '1.12.0',
     date: '2026-08-04',
     title: 'One move is one changelog entry',
     tags: ['The list', 'Custom lists', 'Performance', 'Fixes'],
@@ -177,29 +226,28 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.12.0',
+    version: '1.11.0',
     date: '2026-08-04',
     title: 'The challenge sheet brings its videos, and the list you are reading is a menu',
     tags: ['Imports', 'Admin', 'Custom lists', 'The list', 'Fixes'],
     changes: [
       'The name of the list at the top of the main panel is a dropdown: Classic, Challenge and Rated, plus the three external rankings. They were radio buttons inside the advanced-search dialog, behind a funnel icon — the name of the one you were reading sat right where you would try to click to change it, and did nothing.',
       'The level count beside it says "levels", and opens the stats page.',
-      'ACS import: each level\'s verification video comes across with it. The sheet keeps the video as a link on the level\'s name rather than in a column, and no text export of a Google Sheet carries a link — 928 of them were invisible to the importer.',
-      'The ACS is in Imported Movements, so the 93 levels it orders differently to the ALL can be read and acted on like every other list\'s.',
       'The ACS is no longer listed among a level\'s rankings on other lists. It is this project\'s own working sheet, so printing it there was the ALL citing itself as a second opinion.',
-      'Imported levels say what their estimated placement sits between — the two levels that would end up either side of it — rather than a bare number out of fifty thousand.',
       'Custom lists: a level\'s creator and verifier read as a sentence again, with the two names carrying the weight rather than the words joining them. The creator\'s name filters the list to their other levels.',
       'Fixed: a level submitted from a custom list was tiered by a different formula from the one the importers use. The browser was estimating without the list\'s measured tier curve, which put a level in a wide gap out by as much as ten tiers.',
       'Fixed: names rendered through the shared name component — comments, and now custom-list credits — were not links. They resolved to an element the browser does not know, which looks right and does nothing.',
+      adm('ACS import: each level\'s verification video comes across with it. The sheet keeps the video as a link on the level\'s name rather than in a column, and no text export of a Google Sheet carries a link — 928 of them were invisible to the importer.'),
+      adm('The ACS is in Imported Movements, so the 93 levels it orders differently to the ALL can be read and acted on like every other list\'s.'),
+      adm('Imported levels say what their estimated placement sits between — the two levels that would end up either side of it — rather than a bare number out of fifty thousand.'),
     ],
   },
   {
-    version: '1.11.0',
+    version: '1.10.0',
     date: '2026-08-04',
     title: 'A level can be made a challenge, and the forms say what they take',
     tags: ['Admin', 'Profiles', 'Custom lists', 'Submissions', 'Fixes'],
     changes: [
-      'Admin: a level can be marked as a challenge, from the level page, in one click. Taking one off has been possible since 1.9; putting one on had to be inferred, and the rules that infer it miss any challenge that does not look like the usual one — short, unrated, tiered.',
       'A profile\'s Completed, Verified and Created levels are one card with tabs instead of three lists printed in full. Only the tabs with something in them are offered, long ones open at twenty-five rows with the rest a click away, and there is a filter box once scrolling is the alternative.',
       'Profile comments are a section rather than a heading with a collapsed control under it also called "Comments". Each comment carries its author\'s avatar and whatever decorations their name has.',
       'Custom lists: "Suggest" is Submit Level and "Submit" is Submit Record. The two sat next to each other meaning different things, and the shorter word was the one for levels.',
@@ -210,36 +258,37 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Fixed: profile comments were fetched only after the page reached the browser, so the card arrived headed "Comments 0" with an empty body.',
       'Fixed: a level\'s rating tile and its chip worked out "is this a challenge?" for themselves, from an older set of rules than the challenge list uses. A level an admin had taken off it still said Challenge in both.',
       'Fixed: a profile\'s level lists numbered every row by its internal position rather than its placement on the list, which differ wherever the sheet leaves a gap.',
-    ],
-  },
-  {
-    version: '1.10.0',
-    date: '2026-08-03',
-    title: 'ACS, staff decorations, and tiers on a custom list',
-    tags: ['Imports', 'Profiles', 'Custom lists', 'Fixes'],
-    changes: [
-      'The challenges sheet is called ACS, and its levels are in the imported-levels queue with their own filter chip. They were reaching neither: the queue lists rows by which importer produced them, ACS had no marker there, and so 262 of them were sitting in the user-submissions queue instead.',
-      'Admins can put a custom image behind their profile instead of level art.',
-      'Admins can add an emoji and a badge beside their name, in a colour of their choosing.',
-      'Custom lists can be split into named tiers. A tier runs from its starting rank until the next one begins, so the bands follow the list as levels move rather than needing to be redrawn, and each one colours the rank badges under it.',
-      'Fixed: saving your profile without touching your Geometry Dash username returned a server error. The settings form always sends every field, which is the only reason this was invisible.',
-      'Fixed: a custom list\'s settings page shipped its community links and tier editor blank from the server and filled them in only once the browser caught up.',
+      adm('A level can be marked as a challenge, from the level page, in one click. Taking one off has been possible for a while; putting one on had to be inferred, and the rules that infer it miss any challenge that does not look like the usual one — short, unrated, tiered.'),
     ],
   },
   {
     version: '1.9.0',
     date: '2026-08-03',
-    title: 'The challenges sheet, and a level that can leave the challenge list',
-    tags: ['Imports', 'Admin', 'Challenges', 'Fixes'],
+    title: 'ACS, staff decorations, and tiers on a custom list',
+    tags: ['Imports', 'Profiles', 'Custom lists', 'Fixes'],
     changes: [
-      'The ALL Challenges List sheet is an import source. 940 challenges, 258 of them already on the ALL — those now carry an ACS badge with their rank — and the rest queued for review with a placement and tier estimated from the ones the two lists share.',
-      'Admin: Remove sits next to Edit on a level. Deleting one used to mean opening an edit form you had no intention of using and scrolling to the bottom of it.',
-      'Admin: a level can be taken off the challenge list, and put back. Being a challenge is otherwise inferred — from the placement source, from a pin, or from Geometry Dash\'s own metadata — and an inference with no override left a level the last rule caught by accident stuck there.',
-      'Fixed: a level pinned as a challenge stayed on the challenge list, in the filters and in the stats, even once it was unmarked. The pin is an input to that decision, and it was coming back through the rating fallback as though it were an answer.',
+      'Custom lists can be split into named tiers. A tier runs from its starting rank until the next one begins, so the bands follow the list as levels move rather than needing to be redrawn, and each one colours the rank badges under it.',
+      'Fixed: saving your profile without touching your Geometry Dash username returned a server error. The settings form always sends every field, which is the only reason this was invisible.',
+      'Fixed: a custom list\'s settings page shipped its community links and tier editor blank from the server and filled them in only once the browser caught up.',
+      adm('The challenges sheet is called ACS, and its levels are in the imported-levels queue with their own filter chip. They were reaching neither: the queue lists rows by which importer produced them, ACS had no marker there, and so 262 of them were sitting in the user-submissions queue instead.'),
+      adm('Admins can put a custom image behind their profile instead of level art.'),
+      adm('Admins can add an emoji and a badge beside their name, in a colour of their choosing.'),
     ],
   },
   {
     version: '1.8.0',
+    date: '2026-08-03',
+    title: 'The challenges sheet, and a level that can leave the challenge list',
+    tags: ['Imports', 'Admin', 'Challenges', 'Fixes'],
+    changes: [
+      'Fixed: a level pinned as a challenge stayed on the challenge list, in the filters and in the stats, even once it was unmarked. The pin is an input to that decision, and it was coming back through the rating fallback as though it were an answer.',
+      adm('The ALL Challenges List sheet is an import source. 940 challenges, 258 of them already on the ALL — those now carry an ACS badge with their rank — and the rest queued for review with a placement and tier estimated from the ones the two lists share.'),
+      adm('Remove sits next to Edit on a level. Deleting one used to mean opening an edit form you had no intention of using and scrolling to the bottom of it.'),
+      adm('A level can be taken off the challenge list, and put back. Being a challenge is otherwise inferred — from the placement source, from a pin, or from Geometry Dash\'s own metadata — and an inference with no override left a level the last rule caught by accident stuck there.'),
+    ],
+  },
+  {
+    version: '1.7.0',
     date: '2026-08-03',
     title: 'Estimates that follow the list\'s own shape',
     tags: ['Custom lists', 'Admin', 'Leaderboard', 'UI', 'Fixes'],
@@ -250,14 +299,14 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Custom lists gained presentation settings — banner, level art, points, record counts, row density and the editor list can each be turned off. The accent colour now themes the whole list rather than just its icon, and the banner image finally renders.',
       'A Builder button in every custom list\'s header. Adding and reordering levels was three clicks deep inside a settings page about webhooks.',
       'Custom-list settings split into List, Appearance, Sharing, People and Integrations, instead of eight sections in one scroll.',
-      'The admin Discord tab is grouped by what each webhook posts, with the four kinds explained where they apply rather than in a paragraph above them.',
-      'Webhook URLs are no longer sent to the browser in full. The admin panel was rendering the whole credential; it now shows the same masked form the custom-list settings always did.',
       'Lists used reads as a page rather than a list of links: short names line up in a column, and each mirrored list shows how much of it the ALL already carries.',
       'Fixed: a custom list\'s editor roster was missing from the server-rendered page and only appeared once the browser caught up.',
+      adm('The Discord tab is grouped by what each webhook posts, with the four kinds explained where they apply rather than in a paragraph above them.'),
+      adm('Webhook URLs are no longer sent to the browser in full. The admin panel was rendering the whole credential; it now shows the same masked form the custom-list settings always did.'),
     ],
   },
   {
-    version: '1.7.1',
+    version: '1.6.1',
     date: '2026-08-03',
     title: 'Where else a level is ranked, and who is behind a number',
     tags: ['List', 'Profiles', 'Submissions', 'Fixes'],
@@ -273,7 +322,7 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.7.0',
+    version: '1.6.0',
     date: '2026-08-03',
     title: 'Moves that carry the tier, claims that carry the records',
     tags: ['List', 'Profiles', 'Custom lists', 'Fixes'],
@@ -288,30 +337,30 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'New standalone link for a custom list, in its settings: the same list with no ALL header or footer, its own bar at the top, and one button back. For pinning in a Discord or a video description.',
       'Fixed: the leaderboard showed the wrong picture — or none at all. The tab it opens on never asked for avatars, and a custom list where an editor enters everyone\'s records gave every player the editor\'s name and picture.',
       'Fixed: the community tier on a level page never appeared, however many people had rated it. Every rating was being read as an unparseable number.',
-      'Placement backups now carry tiers, so restoring one puts back the tiers the moves it is undoing had replaced.',
       'The account page no longer repeats Submit record and Submit level — both are in the header\'s Submit menu, on every page.',
+      adm('Placement backups now carry tiers, so restoring one puts back the tiers the moves it is undoing had replaced.'),
     ],
   },
   {
-    version: '1.6.0',
+    version: '1.5.0',
     date: '2026-08-02',
     title: 'Imports you can watch, and levels that can go back to the sheet',
     tags: ['Admin', 'Imports', 'UI', 'Fixes'],
     changes: [
-      'Imports show a progress bar with the phase and the count, instead of a "Running" chip that meant the same thing at ten seconds and at ten minutes.',
-      'Admin: hand a level stored on this site back to the sheet. It takes the sheet\'s data, drops the site\'s ownership, and the importer owns the row from then on — which is what the sheet-exclusive report has been asking for after every import.',
-      'Imported moves now suggest the smallest move that satisfies the imported list, and name the two levels it puts each one between. A level rearranged over there lands next to its new neighbours here rather than in the middle of levels that list has no opinion about.',
       'Every list this site imports is on About → Lists used automatically, with how many levels it carries and how many the ALL shares. Adding an importer adds it to the page.',
-      '"Site-only levels" on the main list is a moderator filter now — it answers a question about the sheet\'s bookkeeping, not about the list.',
       'The List menu has a link straight to the ALL sheet.',
-      'Pending levels: a dot on each queue row says whether it has everything it needs, the detail panel names what\'s missing instead of showing six empty tiles, deciding moves to the next submission instead of back to the top, and j/k walk the queue.',
       'Submit a level shows the level\'s art once you type an ID, and the checklist chips jump to the field they name — including into collapsed sections.',
       'Submit a record shows the level you picked, with its art and placement, so the wrong variant is visible before you send it.',
       'The builder\'s intro collapses, and stays collapsed.',
+      adm('Imports show a progress bar with the phase and the count, instead of a "Running" chip that meant the same thing at ten seconds and at ten minutes.'),
+      adm('Hand a level stored on this site back to the sheet. It takes the sheet\'s data, drops the site\'s ownership, and the importer owns the row from then on — which is what the sheet-exclusive report has been asking for after every import.'),
+      adm('Imported moves now suggest the smallest move that satisfies the imported list, and name the two levels it puts each one between. A level rearranged over there lands next to its new neighbours here rather than in the middle of levels that list has no opinion about.'),
+      adm('"Site-only levels" on the main list is a moderator filter now — it answers a question about the sheet\'s bookkeeping, not about the list.'),
+      adm('Pending levels: a dot on each queue row says whether it has everything it needs, the detail panel names what\'s missing instead of showing six empty tiles, deciding moves to the next submission instead of back to the top, and j/k walk the queue.'),
     ],
   },
   {
-    version: '1.5.1',
+    version: '1.4.1',
     date: '2026-08-02',
     title: 'Sharper backgrounds, and a filter that runs before the words land',
     tags: ['UI', 'Custom lists', 'Moderation', 'Fixes'],
@@ -324,15 +373,11 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.5.0',
+    version: '1.4.0',
     date: '2026-08-02',
     title: 'Placement backups, and the ALL stops borrowing AREDL\'s history',
     tags: ['Admin', 'Changelog', 'Community', 'Fixes'],
     changes: [
-      'Admin: download every placement as a file and upload it back to undo. The CSV is editable — retype a few numbers in a spreadsheet and feed it in to move those levels.',
-      'Admin: "Reset to the sheet\'s order" puts every sheet-backed level back where the sheet has it, without re-downloading the sheet. Site-only levels hold their positions.',
-      'Both preview what they would do before anything moves, and save the current placements next to the database first.',
-      'New admin tab, Imported moves: the levels an imported list and the ALL both carry but rank differently, with where that list says each belongs and one button to move it.',
       'The changelog is the ALL\'s own history again. 1,774 of its 1,777 entries were imported AREDL movements describing another site\'s list; they are gone, and the Newly ranked panel no longer shows placements from 2019.',
       'Level graphs keep AREDL\'s placement history and now plot the ALL\'s alongside it, each on its own scale — the two were sharing one axis, which made both unreadable.',
       'Community: search for a player across members, the ALL, AREDL, Pointercrate and GDL at once. Someone who has claimed their leaderboard name is found once, as themselves.',
@@ -340,22 +385,26 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Fixed: levels submitted from a custom list arrived with no verification date. It is read from the video, in one request for the whole batch.',
       'Fixed: levels submitted from a custom list arrived with no estimated placement, even though the list had already worked one out.',
       'Fixed: the bulk submit page told you every level was already on the ALL for a moment before showing the ones that weren\'t.',
+      adm('Download every placement as a file and upload it back to undo. The CSV is editable — retype a few numbers in a spreadsheet and feed it in to move those levels.'),
+      adm('"Reset to the sheet\'s order" puts every sheet-backed level back where the sheet has it, without re-downloading the sheet. Site-only levels hold their positions.'),
+      adm('Both preview what they would do before anything moves, and save the current placements next to the database first.'),
+      adm('New admin tab, Imported moves: the levels an imported list and the ALL both carry but rank differently, with where that list says each belongs and one button to move it.'),
     ],
   },
   {
-    version: '1.4.0',
+    version: '1.3.0',
     date: '2026-08-01',
-    title: 'Closed for alpha',
+    title: 'Closed for testing',
     tags: ['Access', 'Admin'],
     changes: [
       'The site is now restricted to the team while the list and the website settle.',
       'Account creation is closed. Existing accounts still sign in; nobody new can register.',
       'Signed-in accounts without access get a page explaining that, instead of being bounced around a login form they can already satisfy.',
-      'Admin accounts are created from the command line while sign-ups are off, which is also the way back in if the last one is ever lost.',
+      adm('Admin accounts are created from the command line while sign-ups are off, which is also the way back in if the last one is ever lost.'),
     ],
   },
   {
-    version: '1.3.0',
+    version: '1.2.0',
     date: '2026-08-01',
     title: 'About, profiles and the admin panel',
     tags: ['Profiles', 'Admin', 'UI', 'Fixes'],
@@ -365,16 +414,16 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'New profile banner option — pick any level on the list as your header art, no record or favourite required.',
       'Fixed: words ran together in the community Following feed ("GERGcompletedSociety"). They are separate words again.',
       'Fixed: the account settings form forgot your banner and pinned completion every time it opened, and saving could clear them.',
-      'Fixed: the admin Pending menu opened behind the page and could not be clicked.',
       'Public lists are called Custom lists, and the gallery has a My lists view that includes the ones you have not published.',
-      'Admin: download a report of everywhere the ALL sheet and this site disagree — where the numbering drifts apart, which levels the sheet has never heard of, and which sheet rows never landed here.',
-      '"Site only" now means what it says: the sheet has no level with that ID. Renamed levels and Solo/2P pairs are no longer mislabelled.',
-      'Admin level queues got level art, tier colours and a readable layout; the submit forms show what is still missing before you press Submit.',
-      'The footer credits everyone who built the site, and says plainly that the list is in alpha.',
+      'The footer credits everyone who built the site.',
+      adm('Fixed: the admin Pending menu opened behind the page and could not be clicked.'),
+      adm('Download a report of everywhere the ALL sheet and this site disagree — where the numbering drifts apart, which levels the sheet has never heard of, and which sheet rows never landed here.'),
+      adm('"Site only" now means what it says: the sheet has no level with that ID. Renamed levels and Solo/2P pairs are no longer mislabelled.'),
+      adm('Level queues got level art, tier colours and a readable layout; the submit forms show what is still missing before you press Submit.'),
     ],
   },
   {
-    version: '1.2.0',
+    version: '1.1.0',
     date: '2026-08-01',
     title: 'Custom lists feed the ALL',
     tags: ['Custom lists', 'Submissions', 'Fixes'],
@@ -386,13 +435,13 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.1.1',
+    version: '1.0.1',
     date: '2026-08-01',
     title: 'Placements that actually move',
     tags: ['Fixes', 'Custom lists', 'Profiles'],
     changes: [
       'Fixed: moving a level left it printing its old placement, and shifted every level it displaced by one. Placement numbers now belong to the slot, not the level.',
-      'Lists already damaged by that bug are repaired automatically on the next start — there is also a "Repair placements" button in the admin Imports tab.',
+      'Lists already damaged by that bug are repaired automatically on the next start.',
       'Custom-list rows now link themselves to the matching ALL level when it can be identified without guessing, so they follow the main list instead of going stale. Editors can link or unlink by hand when a level ID is shared by several variants.',
       'New "Submit to the ALL" button on custom-list levels that the main list doesn\'t have yet — it opens the submit form with everything already filled in.',
       'Rebuilt the profile-picture cropper: bigger stage, pinch and drag on touch, zoom that follows your cursor, live previews, and arrow-key nudging.',
@@ -401,7 +450,7 @@ export const SITE_UPDATES: SiteUpdate[] = [
     ],
   },
   {
-    version: '1.1.0',
+    version: '1.0.0',
     date: '2026-07-31',
     title: 'Profiles, custom lists and a version number',
     tags: ['Profiles', 'Custom lists', 'UI', 'Performance'],
@@ -413,16 +462,16 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'Custom-list level rows now match the main list exactly, so the two read as one site.',
       'Custom-list leaderboard redesigned — podium for the top three, points bars, avatars, player search and per-player breakdowns.',
       'Player leaderboard gained a podium, avatars and points bars, and now pages instantly instead of rebuilding the whole ranking per page.',
-      'Admin "create a custom list" can now pull from any imported list (CCL, TSL, AREDL, GDL, MSCL and the rest), not just the ALL — shared levels stay linked to the ALL list.',
       'Moving a level got quicker: ±1/±5/±10 nudges, a drag-to-place button and a "move now" that skips the rest of the edit form.',
       'Changelog regrouped by day with movement distances, per-day tallies, level art, a name filter and a compact density toggle.',
       'Every header dropdown redesigned with icons, sections, current-page highlighting and arrow-key navigation.',
       'Faster all round: fewer font files, cached community data, pre-compressed assets, and new indexes behind the feed and leaderboard.',
       'This page: a running log of website updates, with a version number in the footer.',
+      adm('"Create a custom list" can now pull from any imported list (CCL, TSL, AREDL, GDL, MSCL and the rest), not just the ALL — shared levels stay linked to the ALL list.'),
     ],
   },
   {
-    version: '1.0.0',
+    version: '0.9.0',
     date: '2026-07-24',
     title: 'All Levels List, on the web',
     tags: ['Launch'],
@@ -437,7 +486,56 @@ export const SITE_UPDATES: SiteUpdate[] = [
 ]
 
 /** The version the site is currently running — shown in the footer. */
-export const SITE_VERSION: string = SITE_UPDATES[0]?.version ?? '1.0.0'
+export const SITE_VERSION: string = SITE_UPDATES[0]?.version ?? '0.9.0'
 
 /** The date of the newest entry, used for the "new updates" dot. */
 export const SITE_VERSION_DATE: string = SITE_UPDATES[0]?.date ?? ''
+
+/**
+ * How a version is written wherever a reader sees one.
+ *
+ * The site is in beta, and a bare `v1.21.0` claims otherwise — a 1.x version
+ * number is the conventional way of saying "this is released". Written in one
+ * place because it appears in the footer, the header menu, the About hero and
+ * twice on the Updates page, and five copies of a format string is five things
+ * to find when it changes.
+ */
+export function versionLabel(version: string): string {
+  return `Beta ${version}`
+}
+
+/** The words of a change, whichever form it was written in. */
+export function changeText(change: SiteChange): string {
+  return typeof change === 'string' ? change : change.text
+}
+
+/** Whether a change is staff-only. */
+export function isAdminChange(change: SiteChange): boolean {
+  return typeof change !== 'string' && change.admin === true
+}
+
+/**
+ * The changelog as a given reader should see it.
+ *
+ * Staff see everything. Everybody else sees the lines written for them, and
+ * entries left with nothing at all are dropped rather than rendered as a title
+ * with an empty body — a release that was purely internal is not a release
+ * anybody outside the team can be told about.
+ *
+ * The `Admin` tag goes with the lines it describes, so a filtered entry doesn't
+ * advertise a category none of its visible content belongs to.
+ */
+export function visibleUpdates(isAdmin: boolean): SiteUpdate[] {
+  if (isAdmin) return SITE_UPDATES
+  const out: SiteUpdate[] = []
+  for (const u of SITE_UPDATES) {
+    const changes = u.changes.filter((c) => !isAdminChange(c))
+    if (!changes.length) continue
+    out.push({
+      ...u,
+      changes,
+      tags: u.tags?.filter((t) => t !== 'Admin' && t !== 'Imports' && t !== 'Moderation'),
+    })
+  }
+  return out
+}

@@ -12,6 +12,9 @@
  */
 import type { ListTab } from './CustomListTabs.vue'
 
+/** The site-wide "show view counts" preference — see composables/useShowViews.ts. */
+const showViews = useShowViews()
+
 const props = defineProps<{
   list: {
     public_id: string
@@ -340,7 +343,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
              a list and shares it had no way to find out whether anyone read
              it; likes only count the ones who felt strongly. -->
         <span
-          v-if="views"
+          v-if="showViews && views"
           class="shrink-0 inline-flex items-center gap-1 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-500"
           :title="`Opened ${views.toLocaleString()} time${views === 1 ? '' : 's'}. Your own visits aren't counted.`"
         >

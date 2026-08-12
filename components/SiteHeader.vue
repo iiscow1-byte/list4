@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SITE_VERSION } from '~/utils/site-updates'
+import { SITE_VERSION, versionLabel, visibleUpdates } from '~/utils/site-updates'
 import { SITE_NAV, navMatches, type NavLink } from '~/utils/site-nav'
 
 const route = useRoute()
@@ -22,6 +22,27 @@ async function loadInboxUnread() {
 }
 watch(me, loadInboxUnread, { immediate: true })
 watch(() => route.fullPath, loadInboxUnread)
+
+/**
+ * Friend requests waiting on you.
+ *
+ * Friends live on your profile rather than in the navigation — see
+ * `utils/site-nav.ts` — which leaves one problem: a request nobody is told
+ * about is a request nobody answers. This is that signal, in the social menu,
+ * so it is reachable from every page without a nav entry for a private list.
+ */
+const friendRequests = ref(0)
+async function loadFriendRequests() {
+  if (!me.value) { friendRequests.value = 0; return }
+  try {
+    const res = await $fetch<{ pending: number }>('/api/friends')
+    friendRequests.value = res.pending ?? 0
+  } catch {
+    friendRequests.value = 0
+  }
+}
+watch(me, loadFriendRequests, { immediate: true })
+watch(() => route.fullPath, loadFriendRequests)
 
 // Admin/mod pending count badge — shown on the Admin/Mod nav link.
 // Shows the number of pending items that haven't been acknowledged yet
@@ -55,13 +76,28 @@ watch(() => route.fullPath, () => { creditsOpen.value = false })
  * Whether the site has shipped an update this visitor hasn't opened yet. The
  * marker is read on mount so server and client render the same thing first,
  * and cleared by the Updates page itself.
+ *
+ * Measured against the newest release *this reader can see*, not the newest
+ * one that exists. Roughly a third of the changelog is staff-only, so a purely
+ * internal release would otherwise light a dot for everybody, send them to a
+ * page that looks unchanged, and — because the page stamps what it actually
+ * showed them — leave the dot lit forever.
  */
 const updatesUnread = ref(false)
-onMounted(() => {
-  try {
-    updatesUnread.value = localStorage.getItem('all:updates-seen') !== SITE_VERSION
-  } catch { updatesUnread.value = false }
+const latestVisibleVersion = computed(() => {
+  const r = meRes.value?.account?.role
+  const staff = r === 'moderator' || r === 'admin' || r === 'owner' || r === 'developer'
+  return visibleUpdates(staff)[0]?.version ?? SITE_VERSION
 })
+function refreshUpdatesDot() {
+  try {
+    updatesUnread.value = localStorage.getItem('all:updates-seen') !== latestVisibleVersion.value
+  } catch { updatesUnread.value = false }
+}
+onMounted(refreshUpdatesDot)
+// The role arrives with the session, which lands after mount — and it changes
+// which release counts as the newest.
+watch(latestVisibleVersion, () => { if (import.meta.client) refreshUpdatesDot() })
 watch(() => route.path, (p) => { if (p === '/updates') updatesUnread.value = false })
 
 /**
@@ -96,9 +132,18 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
 <template>
   <header class="border-b border-zinc-800/80 bg-zinc-950/75 backdrop-blur-md sticky top-0 z-30">
     <div class="container-wide flex h-14 items-center justify-between gap-3">
-      <NuxtLink to="/" class="flex items-center gap-2 group shrink-0">
-        <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-accent text-zinc-950 text-xs font-black tracking-tight">ALL</span>
-        <span class="hidden lg:inline text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
+      <!-- The mark and the name are one lockup now. The old header put the
+           letters ALL in an accent block and then wrote "Levels List" beside
+           it, so the site's name was split across a logo and a label that
+           didn't look related to each other — and the block vanished entirely
+           below `lg`, leaving two words and no mark. The mark is always
+           present; only the words fold away. -->
+      <NuxtLink
+        to="/"
+        class="flex items-center shrink-0 rounded-lg group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+        aria-label="All Levels List — home"
+      >
+        <AllLogo :size="28" wordmark responsive-wordmark class="transition-opacity group-hover:opacity-80" />
       </NuxtLink>
 
       <!-- The dropdown row is the wide-screen navigation; below `lg` it is
@@ -242,8 +287,23 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
             TikTok
           </NavMenuItem>
 
+          <!-- Your own corner of the social world. The list itself is on your
+               profile, where it belongs; this is the way to it from anywhere,
+               and the badge is the reason it needs one. -->
+          <template v-if="me">
+            <NavMenuSection label="You" />
+            <NavMenuItem
+              to="/account?panel=friends"
+              hint="Your friends, and anyone waiting on you"
+              :badge="friendRequests || null"
+            >
+              <template #icon><NavIcon name="userPlus" /></template>
+              Friends
+            </NavMenuItem>
+          </template>
+
           <NavMenuSection label="About this site" />
-          <NavMenuItem to="/updates" :hint="`Version ${SITE_VERSION}`">
+          <NavMenuItem to="/updates" :hint="versionLabel(SITE_VERSION)">
             <template #icon><NavIcon name="sparkles" /></template>
             List updates
           </NavMenuItem>
@@ -313,7 +373,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           <!-- Anything waiting behind the button has to be visible on the
                button, or the drawer is the only place it exists. -->
           <span
-            v-if="inboxUnread + adminPendingCount > 0 || updatesUnread"
+            v-if="inboxUnread + adminPendingCount + friendRequests > 0 || updatesUnread"
             class="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent ring-2 ring-zinc-950"
             aria-hidden="true"
           />
@@ -327,6 +387,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         :inbox-unread="inboxUnread"
         :admin-pending="adminPendingCount"
         :updates-unread="updatesUnread"
+        :friend-requests="friendRequests"
       />
     </div>
   </header>

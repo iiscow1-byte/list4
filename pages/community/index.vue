@@ -29,6 +29,37 @@ const me = computed(() => meRes.value?.account ?? null)
 
 const { data: community } = await useFetch<Community>('/api/community')
 
+/**
+ * The hub has two halves: what people have done, and what they are saying.
+ *
+ * The forum was briefly a nav entry of its own, which split the community into
+ * two doors and left a visitor to pick one — so neither half was ever busy.
+ * They are one page with one switch now, and the switch is in the URL so a
+ * link can point at either.
+ */
+const route = useRoute()
+const router = useRouter()
+type HubTab = 'feed' | 'forum'
+const tab = ref<HubTab>(route.query.tab === 'forum' ? 'forum' : 'feed')
+const tabModel = computed({
+  get: () => tab.value as string,
+  set: (v: string) => { tab.value = v as HubTab },
+})
+watch(tab, (v) => {
+  router.replace({ query: { ...route.query, tab: v === 'feed' ? undefined : v } })
+})
+
+/**
+ * `?level_id=` arrives from a level's own page and means "the threads about
+ * this one". It implies the forum half — landing on the feed after following
+ * a link about a specific level would look like the link did nothing.
+ */
+const levelFilter = computed(() => {
+  const n = Number(route.query.level_id)
+  return Number.isInteger(n) && n > 0 ? n : null
+})
+if (levelFilter.value) tab.value = 'forum'
+
 // Personalised half — only meaningful when logged in.
 const feed = ref<FeedItem[]>([])
 const feedLoaded = ref(false)
@@ -163,12 +194,6 @@ useHead({ title: 'Community — All Levels List' })
         <!-- Clans are part of the community rather than a page of their own to
              stumble on, so they are linked from the top of it. -->
         <nav class="mt-2 flex flex-wrap items-center gap-1.5">
-          <!-- The forum leads, because it is the only one of these you can
-               *write* to, and the hub's own feed is read-only. -->
-          <NuxtLink
-            to="/forum"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
-          >Forum →</NuxtLink>
           <NuxtLink
             to="/clans"
             class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
@@ -177,11 +202,13 @@ useHead({ title: 'Community — All Levels List' })
             to="/leaderboard"
             class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
           >Leaderboard →</NuxtLink>
+          <!-- Your friends live on your own profile, not on a page of the
+               site — this is a shortcut to that half of it. -->
           <NuxtLink
             v-if="me"
-            to="/friends"
+            to="/account?panel=friends"
             class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
-          >Friends →</NuxtLink>
+          >Your friends →</NuxtLink>
         </nav>
       </div>
       <dl v-if="community" class="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
@@ -197,6 +224,23 @@ useHead({ title: 'Community — All Levels List' })
       </dl>
     </header>
 
+    <!-- The two halves of the hub. One switch rather than two nav entries:
+         reading what people have done and talking about it are the same room. -->
+    <SegmentedControl
+      v-model="tabModel"
+      size="md"
+      aria-label="Community section"
+      :options="[
+        { value: 'feed', label: 'Feed' },
+        { value: 'forum', label: 'Forum' },
+      ]"
+    />
+
+    <!-- ---------------- Forum ---------------- -->
+    <CommunityForum v-if="tab === 'forum'" :level-id="levelFilter" />
+
+    <!-- ---------------- Feed ---------------- -->
+    <template v-else>
     <!-- Find a player -->
     <section class="card overflow-hidden">
       <div class="px-4 py-3 flex items-center gap-3 flex-wrap">
@@ -433,5 +477,6 @@ useHead({ title: 'Community — All Levels List' })
         </section>
       </div>
     </div>
+    </template>
   </div>
 </template>

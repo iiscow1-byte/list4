@@ -10,9 +10,17 @@ export default defineNuxtConfig({
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'description', content: 'The All Levels List — a community-ranked database of every level worth playing.' },
+        // Tints the browser chrome on mobile to match the site rather than
+        // leaving a white bar above a black page.
+        { name: 'theme-color', content: '#0a0a0a' },
       ],
       link: [
+        // The tab icon is the site's mark — see public/favicon.svg, which is
+        // the same drawing as components/AllLogo.vue with its colours written
+        // out. `mask-icon` is the monochrome cut Safari uses for a pinned tab,
+        // where a full-colour icon is silhouetted into a shape instead.
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'mask-icon', href: '/mask-icon.svg', color: '#06b6d4' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         // Almost every page paints level thumbnails from these two hosts, and
@@ -43,6 +51,13 @@ export default defineNuxtConfig({
     },
   },
   routeRules: {
+    // The forum and the friends list are sections of pages now rather than
+    // pages of their own — see `utils/site-nav.ts` for why. These keep any
+    // link that was made while they were top-level working.
+    '/forum': { redirect: '/community?tab=forum' },
+    '/forum/**': { redirect: '/community?tab=forum' },
+    '/friends': { redirect: '/account?panel=friends' },
+
     // These three are identical for every visitor and each reads several
     // tables to build one response. A minute of staleness is invisible, and
     // it takes the work off the hot path for the pages that open first.
