@@ -5,6 +5,7 @@ import { getCurrentAccount } from '~/server/utils/auth'
 import { isFollowing } from '~/server/utils/follows'
 import { looksAutomated, recordProfileView, viewerOf } from '~/server/utils/analytics'
 import { clanForAccount } from '~/server/utils/clans'
+import { friendCount, friendState, type FriendState } from '~/server/utils/friends'
 
 export default defineEventHandler((event) => {
   const username = getRouterParam(event, 'username')
@@ -126,27 +127,44 @@ export default defineEventHandler((event) => {
   ).get(acc.id) as { n: number }).n
 
   /**
-   * The two things a follow list can say that a count can't.
-   *
-   * `followsYou` is whether this profile follows *the viewer* back, and
-   * `mutuals` is how many people you both follow. Both are one query against a
-   * table the page already reads, and both are the difference between a number
-   * and a relationship — which is the whole point of a follow.
-   *
-   * Only computed for a signed-in viewer looking at somebody else: neither
-   * means anything otherwise, and asking the database is a waste of a query.
+   * Whether this profile follows *the viewer* back — the one thing a follower
+   * count can't say. Only meaningful for a signed-in viewer on somebody else's
+   * page, so it isn't asked for otherwise.
    */
   let followsYou = false
-  let mutuals = 0
   if (me && !isSelf && myCanonical) {
     followsYou = !!db.prepare(
       `SELECT 1 FROM follows WHERE follower_account_id = ? AND target_name = ? COLLATE NOCASE`,
     ).get(acc.id, myCanonical)
+  }
+
+  /**
+   * Friendship, which is a different thing from following.
+   *
+   * `mutuals` used to count people you and this profile both *followed*, and
+   * the chip that showed it went nowhere. Both problems had the same cause:
+   * there was no such relationship as a friend, so "mutual" had to be inferred
+   * from a one-sided signal that means much less — two strangers who both
+   * follow the site's ten best players had ten "mutuals". It now means friends
+   * in common, which is a claim worth printing, and the chip opens the list.
+   *
+   * `friendState` is what the profile's own button draws itself from: one of
+   * self / friends / incoming / outgoing / none, decided server-side so the
+   * button cannot offer to add somebody who has already asked you.
+   */
+  const friends = friendCount(db, acc.id)
+  let mutuals = 0
+  let friendship: FriendState = 'none'
+  if (me && !isSelf) {
+    friendship = friendState(db, me.id, acc.id)
     mutuals = (db.prepare(
-      `SELECT COUNT(*) AS n FROM follows mine
-         JOIN follows theirs ON theirs.target_name = mine.target_name COLLATE NOCASE
-        WHERE mine.follower_account_id = ? AND theirs.follower_account_id = ?`,
+      `SELECT COUNT(*) AS n
+         FROM friends mine
+         JOIN friends theirs ON theirs.friend_id = mine.friend_id
+        WHERE mine.account_id = ? AND theirs.account_id = ?`,
     ).get(me.id, acc.id) as { n: number }).n
+  } else if (isSelf) {
+    friendship = 'self'
   }
 
   /**
@@ -194,6 +212,17 @@ export default defineEventHandler((event) => {
       target: followTarget, followed, followerCount, followingCount,
       isSelf, canFollow: !!me && !isSelf,
       followers, following, followsYou, mutuals,
+    },
+    /**
+     * Friendship, kept beside `follow` rather than folded into it: they are
+     * separate relationships with separate buttons, and a client that reads one
+     * shape for both is a client that will eventually confuse them.
+     */
+    friendship: {
+      state: friendship,
+      count: friends,
+      mutuals,
+      canFriend: !!me && !isSelf,
     },
     profileViews,
     totalLevels,

@@ -2,6 +2,8 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { hexToRgbTriplet } from '~/utils/custom-list-colors'
 import { listPercent } from '~/utils/list-progress'
+import { clanIconUrl, clanBannerUrl } from '~/utils/clan-images'
+import { isValidClanTag } from '~/utils/clan-tag'
 
 /**
  * One clan: who is in it, and what they have beaten between them.
@@ -28,6 +30,7 @@ const { data, error, refresh } = await useFetch<{
   clan: {
     id: number; tag: string; name: string; description: string | null; color: string | null
     icon_url: string | null; banner_url: string | null; discord_url: string | null
+    has_icon: boolean; has_banner: boolean
     invite_only: number; owner_username: string | null; created_at: string
   }
   totals: { members: number; levels: number; completions: number; points: number; challenges: number }
@@ -54,6 +57,15 @@ const clanStyle = computed(() => {
 })
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+/**
+ * Bumped after an upload so the `<img>` re-requests instead of showing the old
+ * picture out of cache. The endpoint's own caching is deliberately short but
+ * not zero, and a replaced icon that visibly doesn't change reads as a failure.
+ */
+const imageVersion = ref(0)
+const clanIcon = computed(() => clanIconUrl(data.value?.clan, imageVersion.value))
+const clanBanner = computed(() => clanBannerUrl(data.value?.clan, imageVersion.value))
 
 const busy = ref(false)
 const notice = ref<string | null>(null)
@@ -82,6 +94,95 @@ async function act(action: string, accountId?: number, message?: string) {
 }
 
 /**
+ * Editing the clan.
+ *
+ * Everything the create form asked for was answerable exactly once: a typo in
+ * the description, or a colour that turned out to clash with the site's, was
+ * permanent, and the only way out was to disband and start again — which loses
+ * the roster and the standing that made the clan worth anything.
+ *
+ * Owner only, and the tag is included: it is a rename, but a clan that picked a
+ * tag badly deserved better than living with it forever. The URL moves with it.
+ */
+const editOpen = ref(false)
+const editSaving = ref(false)
+const editError = ref<string | null>(null)
+const edit = reactive({
+  tag: '', name: '', description: '', color: '#06b6d4',
+  discord_url: '', invite_only: false,
+})
+const editTagOk = computed(() => !edit.tag.trim() || isValidClanTag(edit.tag.trim()))
+
+function seedEdit() {
+  const c = data.value?.clan
+  if (!c) return
+  edit.tag = c.tag
+  edit.name = c.name
+  edit.description = c.description ?? ''
+  edit.color = c.color ?? '#06b6d4'
+  edit.discord_url = c.discord_url ?? ''
+  edit.invite_only = !!c.invite_only
+  editError.value = null
+}
+watch(editOpen, (open) => { if (open) seedEdit() })
+
+async function saveEdit() {
+  if (editSaving.value) return
+  editSaving.value = true
+  editError.value = null
+  try {
+    const res = await $fetch<{ tag: string }>(`/api/clans/${encodeURIComponent(tag.value)}`, {
+      method: 'PATCH',
+      body: {
+        tag: edit.tag.trim(),
+        name: edit.name.trim(),
+        description: edit.description.trim(),
+        color: edit.color,
+        discord_url: edit.discord_url.trim(),
+        invite_only: edit.invite_only,
+      },
+    })
+    editOpen.value = false
+    notice.value = 'Clan updated.'
+    // The tag is the URL. A rename has to move the page with it, or the next
+    // refresh 404s on a clan that no longer answers to that name.
+    if (res.tag.toLowerCase() !== tag.value.toLowerCase()) {
+      await navigateTo(`/clans/${encodeURIComponent(res.tag)}`)
+      return
+    }
+    await refresh()
+  } catch (e: any) {
+    editError.value = e?.data?.statusMessage ?? 'Could not save those changes.'
+  } finally {
+    editSaving.value = false
+  }
+}
+
+/** Icon and banner uploads. Stored on the clan, not linked from elsewhere. */
+const uploading = ref<'icon' | 'banner' | null>(null)
+async function uploadImage(kind: 'icon' | 'banner', e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || uploading.value) return
+  uploading.value = kind
+  editError.value = null
+  try {
+    const fd = new FormData()
+    fd.append('kind', kind)
+    fd.append('image', file, file.name)
+    await $fetch(`/api/clans/${encodeURIComponent(tag.value)}/image`, { method: 'POST', body: fd })
+    await refresh()
+    imageVersion.value++
+    notice.value = kind === 'icon' ? 'Clan picture updated.' : 'Clan background updated.'
+  } catch (err: any) {
+    editError.value = err?.data?.statusMessage ?? 'Upload failed.'
+  } finally {
+    uploading.value = null
+  }
+}
+
+/**
  * Inviting somebody.
  *
  * By account, not by name: two people can share a display name, and an invite
@@ -89,6 +190,11 @@ async function act(action: string, accountId?: number, message?: string) {
  * turned up in the roster. The search answers with accounts and says which of
  * them are already in a clan, rather than hiding those — "they're in [ZOD]" is
  * the answer to "why isn't my friend in this list".
+ *
+ * Your friends come back with the same call and are listed above the search,
+ * because inviting somebody to a clan nearly always means inviting somebody you
+ * already know — and making you type their name from memory to reach them is
+ * asking you to solve a problem the site already has the answer to.
  */
 type Invitable = {
   id: number; username: string; claimed_player: string | null
@@ -98,8 +204,26 @@ const inviteOpen = ref(false)
 const inviteQuery = ref('')
 const inviteNote = ref('')
 const inviteResults = ref<Invitable[]>([])
+const inviteFriends = ref<Invitable[]>([])
 const inviteSearching = ref(false)
 let inviteTimer: ReturnType<typeof setTimeout> | null = null
+
+async function loadInvitable(q = '') {
+  try {
+    const res = await $fetch<{ items: Invitable[]; friends: Invitable[] }>(
+      `/api/clans/${encodeURIComponent(tag.value)}/invitable`,
+      { query: q ? { q } : {} },
+    )
+    inviteResults.value = res.items
+    inviteFriends.value = res.friends ?? []
+  } catch {
+    inviteResults.value = []
+  }
+}
+
+// Opening the panel loads your friends straight away — that list is the point
+// of the panel, and waiting for a search to reveal it would hide it.
+watch(inviteOpen, (open) => { if (open) loadInvitable() })
 
 watch(inviteQuery, (q) => {
   if (inviteTimer) clearTimeout(inviteTimer)
@@ -107,13 +231,7 @@ watch(inviteQuery, (q) => {
   inviteTimer = setTimeout(async () => {
     inviteSearching.value = true
     try {
-      const res = await $fetch<{ items: Invitable[] }>(
-        `/api/clans/${encodeURIComponent(tag.value)}/invitable`,
-        { query: { q: q.trim() } },
-      )
-      inviteResults.value = res.items
-    } catch {
-      inviteResults.value = []
+      await loadInvitable(q.trim())
     } finally {
       inviteSearching.value = false
     }
@@ -127,8 +245,13 @@ async function invite(person: Invitable) {
     notice.value = person.clan_tag
       ? `Invited ${person.username}. They're in [${person.clan_tag}] — they can take it up after leaving.`
       : `Invited ${person.username}.`
-    inviteQuery.value = ''
-    inviteResults.value = []
+    // Mark them locally rather than clearing the list: inviting several people
+    // in a row is the normal case, and wiping the list after each one means
+    // typing the next name from scratch.
+    for (const bucket of [inviteResults.value, inviteFriends.value]) {
+      const hit = bucket.find((p) => p.id === person.id)
+      if (hit) hit.invited = true
+    }
     inviteNote.value = ''
   }
 }
@@ -152,15 +275,32 @@ const shownCompletions = computed(() => {
   <div v-else-if="data" :style="clanStyle">
     <!-- Header -->
     <header class="relative border-b border-zinc-800/80 overflow-hidden">
+      <!-- The clan's own background, when it has one. Behind the accent wash
+           rather than instead of it, so the header still reads as this site's
+           and the text over it stays legible whatever was uploaded. -->
+      <img
+        v-if="clanBanner"
+        :src="clanBanner"
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        referrerpolicy="no-referrer"
+        class="absolute inset-0 w-full h-full object-cover opacity-25"
+      />
+      <div
+        v-if="clanBanner"
+        class="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/85 to-zinc-950"
+        aria-hidden="true"
+      />
       <div class="absolute inset-0 bg-[radial-gradient(70%_120%_at_20%_0%,rgb(var(--c-accent)/0.14),transparent)]" aria-hidden="true" />
       <div class="container-tight max-w-5xl relative py-7">
         <NuxtLink to="/clans" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">← All clans</NuxtLink>
         <div class="mt-3 flex items-start gap-4 flex-wrap">
           <span
-            v-if="data.clan.icon_url"
+            v-if="clanIcon"
             class="w-14 h-14 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0"
           >
-            <img :src="data.clan.icon_url" alt="" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+            <img :src="clanIcon" alt="" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
           </span>
           <span
             v-else
@@ -199,6 +339,14 @@ const shownCompletions = computed(() => {
           </div>
 
           <div class="shrink-0 flex items-center gap-2">
+            <button
+              v-if="data.viewer.isOwner"
+              type="button"
+              class="btn btn-sm btn-ghost"
+              :class="editOpen ? 'border-accent/60 text-accent bg-accent/10' : 'hover:border-accent/60 hover:text-accent'"
+              :aria-expanded="editOpen"
+              @click="editOpen = !editOpen"
+            >{{ editOpen ? 'Close' : 'Edit clan' }}</button>
             <button
               v-if="data.viewer.isMember"
               type="button"
@@ -262,6 +410,102 @@ const shownCompletions = computed(() => {
             >No thanks</button>
           </div>
         </div>
+
+        <!-- Editing, in place. A separate settings page would put three fields
+             and two file pickers behind a navigation, and you'd lose sight of
+             the thing you were changing while you changed it. -->
+        <form
+          v-if="editOpen && data.viewer.isOwner"
+          class="mt-4 rounded-xl border border-accent/30 bg-zinc-950/80 p-4 grid gap-3 sm:grid-cols-2"
+          @submit.prevent="saveEdit"
+        >
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+              Tag <span class="text-zinc-600 normal-case">2–6 letters or digits</span>
+            </span>
+            <input
+              v-model="edit.tag"
+              maxlength="6"
+              class="mt-1 w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-accent"
+              :class="editTagOk ? 'border-zinc-800 focus:border-accent' : 'border-red-800'"
+            />
+            <span class="text-[10px] text-zinc-600">Changing this changes the clan's address.</span>
+          </label>
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name</span>
+            <input v-model="edit.name" maxlength="60" class="field field-md mt-1" />
+          </label>
+          <label class="block sm:col-span-2">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Description</span>
+            <textarea v-model="edit.description" rows="2" maxlength="500" class="field field-md mt-1" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Discord invite</span>
+            <input v-model="edit.discord_url" placeholder="https://discord.gg/…" class="field field-md mt-1" />
+          </label>
+          <div class="flex items-end gap-4 flex-wrap">
+            <label class="flex items-center gap-2 text-xs text-zinc-400">
+              Colour
+              <input v-model="edit.color" type="color" class="h-8 w-12 rounded border border-zinc-800 bg-zinc-900 cursor-pointer" />
+            </label>
+            <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
+              <input v-model="edit.invite_only" type="checkbox" class="accent-accent" />
+              Ask before joining
+            </label>
+          </div>
+
+          <!-- Pictures. Uploaded rather than linked: a clan's picture is part
+               of the clan, and a link to an image host is a picture that
+               vanishes when somebody else's account lapses. -->
+          <div class="sm:col-span-2 grid gap-3 sm:grid-cols-2 border-t border-zinc-800 pt-3">
+            <div class="flex items-center gap-3">
+              <span class="w-12 h-12 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0 flex items-center justify-center">
+                <img v-if="clanIcon" :src="clanIcon" alt="" class="w-full h-full object-cover" />
+                <span v-else class="text-[10px] font-black uppercase text-accent">{{ data.clan.tag.slice(0, 3) }}</span>
+              </span>
+              <label class="min-w-0">
+                <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Clan picture</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  :disabled="uploading !== null"
+                  class="mt-1 block w-full text-[11px] text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-[11px] file:text-zinc-200 hover:file:bg-zinc-700"
+                  @change="uploadImage('icon', $event)"
+                />
+                <span class="text-[10px] text-zinc-600">Square, up to 1 MB.</span>
+              </label>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="w-20 h-12 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900 shrink-0 flex items-center justify-center">
+                <img v-if="clanBanner" :src="clanBanner" alt="" class="w-full h-full object-cover" />
+                <span v-else class="text-[9px] text-zinc-700">none</span>
+              </span>
+              <label class="min-w-0">
+                <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Background</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  :disabled="uploading !== null"
+                  class="mt-1 block w-full text-[11px] text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-800 file:px-2 file:py-1 file:text-[11px] file:text-zinc-200 hover:file:bg-zinc-700"
+                  @change="uploadImage('banner', $event)"
+                />
+                <span class="text-[10px] text-zinc-600">Wide, up to 3 MB.</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="sm:col-span-2 flex items-center gap-3 flex-wrap">
+            <p v-if="editError" class="text-xs text-red-400 flex-1">{{ editError }}</p>
+            <p v-else-if="uploading" class="text-xs text-zinc-500 flex-1">Uploading {{ uploading }}…</p>
+            <span v-else class="flex-1" />
+            <button type="button" class="btn btn-sm btn-ghost" @click="editOpen = false">Cancel</button>
+            <button
+              type="submit"
+              :disabled="editSaving || !edit.name.trim() || !editTagOk"
+              class="btn btn-sm btn-primary"
+            >{{ editSaving ? 'Saving…' : 'Save changes' }}</button>
+          </div>
+        </form>
 
         <p v-if="notice" class="mt-3 text-xs text-emerald-400">{{ notice }}</p>
         <p v-if="actionError" class="mt-3 text-xs text-red-400">{{ actionError }}</p>
@@ -422,6 +666,53 @@ const shownCompletions = computed(() => {
           </button>
 
           <div v-if="inviteOpen" class="px-3 pb-3 space-y-2 border-t border-zinc-900 pt-3">
+            <!-- Your friends, first and without searching. Inviting somebody to
+                 a clan nearly always means inviting somebody you already know,
+                 and a search box is the wrong tool for a list you already have.
+                 People already in this clan are absent; people in another are
+                 shown and labelled, since they can take it up after leaving. -->
+            <div v-if="inviteFriends.length && !inviteQuery.trim()">
+              <p class="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-1.5">
+                Your friends
+                <span class="normal-case tracking-normal tabular-nums">{{ inviteFriends.length }}</span>
+              </p>
+              <ul class="space-y-1">
+                <li
+                  v-for="person in inviteFriends"
+                  :key="`friend-${person.id}`"
+                  class="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-zinc-900 transition-colors"
+                >
+                  <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center">
+                    <img
+                      v-if="person.has_avatar"
+                      :src="`/api/users/${encodeURIComponent(person.username)}/avatar`"
+                      class="w-full h-full object-cover" alt="" loading="lazy"
+                    />
+                    <span v-else class="text-[8px] font-bold uppercase text-zinc-500">{{ person.username.charAt(0) }}</span>
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate text-xs text-zinc-200">{{ person.username }}</span>
+                    <span v-if="person.clan_tag" class="block text-[10px] text-zinc-600">in [{{ person.clan_tag }}]</span>
+                  </span>
+                  <button
+                    v-if="!person.invited"
+                    type="button"
+                    :disabled="busy"
+                    class="shrink-0 rounded border border-accent/50 text-accent px-2 py-0.5 text-[11px] hover:bg-accent/10 disabled:opacity-50 transition-colors"
+                    @click="invite(person)"
+                  >Invite</button>
+                  <span v-else class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-600">Invited</span>
+                </li>
+              </ul>
+              <p class="mt-2 mb-1 text-[10px] uppercase tracking-widest text-zinc-600 font-semibold border-t border-zinc-900 pt-2">
+                Or find anybody
+              </p>
+            </div>
+            <p v-else-if="!inviteQuery.trim()" class="text-[11px] text-zinc-600">
+              <NuxtLink to="/friends" class="text-zinc-500 hover:text-accent transition-colors">Add friends</NuxtLink>
+              to invite them here in one click.
+            </p>
+
             <input
               v-model="inviteQuery"
               type="search"

@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { listFriends } from '~/server/utils/friends'
 
 /**
  * Accounts the owner could invite, by name.
@@ -26,7 +27,40 @@ export default defineEventHandler((event) => {
   if (me.id !== clan.owner_account_id) {
     throw createError({ statusCode: 403, statusMessage: 'Only the clan owner can invite people.' })
   }
-  if (q.length < 2) return { items: [] }
+  /**
+   * Your friends, as one-click invites.
+   *
+   * Inviting somebody to a clan almost always means inviting somebody you
+   * already know, and making you type their name into a search box to reach
+   * them is asking you to remember the exact spelling of a name the site
+   * already has on file. Returned alongside the search rather than instead of
+   * it — a clan can want somebody it hasn't befriended.
+   *
+   * People already in *this* clan are dropped, because there is nothing to
+   * offer for them. People in another clan are kept and labelled, for the same
+   * reason the search keeps them.
+   */
+  const friends = listFriends(db, me.id)
+    .map((f) => {
+      const theirClan = db.prepare(
+        `SELECT c.id, c.tag FROM clan_members m JOIN clans c ON c.id = m.clan_id WHERE m.account_id = ?`,
+      ).get(f.account_id) as { id: number; tag: string } | undefined
+      if (theirClan?.id === clan.id) return null
+      const invited = !!db.prepare(
+        `SELECT 1 FROM clan_invites WHERE clan_id = ? AND account_id = ?`,
+      ).get(clan.id, f.account_id)
+      return {
+        id: f.account_id,
+        username: f.username,
+        claimed_player: f.claimed_player,
+        has_avatar: f.has_avatar,
+        clan_tag: theirClan?.tag ?? null,
+        invited,
+      }
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null)
+
+  if (q.length < 2) return { items: [], friends }
 
   const items = db.prepare(
     `SELECT a.id, a.username, a.claimed_player,
@@ -53,5 +87,5 @@ export default defineEventHandler((event) => {
     invited: !!r.invited,
   }))
 
-  return { items }
+  return { items, friends }
 })

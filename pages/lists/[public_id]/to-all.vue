@@ -82,14 +82,26 @@ function seed() {
 
 const selected = computed(() => drafts.value.filter((d) => d.selected))
 
-/** What each row is still missing, so the gaps are visible before submitting. */
+/**
+ * What each row is still missing, so the gaps are visible before submitting.
+ *
+ * A blank date on a row that *has* a YouTube link is not a gap: the server
+ * reads the upload date off the video when the submission arrives. It used to
+ * be counted as one, which is what made "needs verify date" the thing standing
+ * between a curated list and a batch submission — the date was always
+ * obtainable, and the row was refused for not having it in hand.
+ */
 function missing(d: Draft): string[] {
   const gaps: string[] = []
   if (!d.gd_id.trim()) gaps.push('level ID')
   if (!d.verifier.trim()) gaps.push('verifier')
   if (!d.verification_url.trim()) gaps.push('video')
-  if (!d.verify_date.trim()) gaps.push('verify date')
+  if (!d.verify_date.trim() && !youtubeIdFrom(d.verification_url)) gaps.push('verify date')
   return gaps
+}
+/** A row whose date the server will read off the video, rather than one that has it. */
+function dateFromVideo(d: Draft): boolean {
+  return !d.verify_date.trim() && !!youtubeIdFrom(d.verification_url)
 }
 const readyCount = computed(() => selected.value.filter((d) => missing(d).length === 0).length)
 
@@ -189,6 +201,8 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 type Outcome = { item_id: number | null; name: string; status: 'submitted' | 'skipped'; reason?: string }
 const outcomes = ref<Outcome[] | null>(null)
+/** How many dates the server read off the videos on the last submission. */
+const autoDated = ref(0)
 
 async function submitBatch() {
   if (busy.value || !selected.value.length) return
@@ -196,7 +210,7 @@ async function submitBatch() {
   error.value = null
   outcomes.value = null
   try {
-    const res = await $fetch<{ submitted: number; skipped: number; results: Outcome[] }>(
+    const res = await $fetch<{ submitted: number; skipped: number; autoDated?: number; results: Outcome[] }>(
       `/api/custom-lists/${publicId.value}/submit-to-all`,
       {
         method: 'POST',
@@ -215,6 +229,7 @@ async function submitBatch() {
       },
     )
     outcomes.value = res.results
+    autoDated.value = res.autoDated ?? 0
     // Clear the ones that went through, so a second press can't double-submit.
     const done = new Set(res.results.filter((r) => r.status === 'submitted').map((r) => r.item_id))
     for (const d of drafts.value) if (done.has(d.item_id)) d.selected = false
@@ -295,6 +310,9 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
             <span v-else-if="datesFilled != null && !datesBusy" class="text-[10px] text-zinc-600">
               {{ datesFilled === 0 ? 'No dates found from the videos.' : `Filled ${datesFilled} from video upload dates.` }}
             </span>
+            <span v-else class="text-[10px] text-zinc-600">
+              Left blank, a row with a YouTube link takes that video's upload date.
+            </span>
           </label>
 
           <div class="ml-auto text-right">
@@ -315,6 +333,9 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
         <!-- Outcome report -->
         <div v-if="outcomes" class="card p-3 mb-3 space-y-1">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Result</h3>
+          <p v-if="autoDated" class="text-[11px] text-zinc-500">
+            {{ autoDated }} verification date{{ autoDated === 1 ? '' : 's' }} read from the videos.
+          </p>
           <p
             v-for="(o, i) in outcomes"
             :key="i"
@@ -346,6 +367,11 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
                     v-if="missing(d).length"
                     class="text-[10px] text-amber-400/90"
                   >needs {{ missing(d).join(', ') }}</span>
+                  <span
+                    v-else-if="dateFromVideo(d)"
+                    class="text-[10px] text-zinc-500"
+                    title="Left blank — the upload date of the verification video will be used"
+                  >date from video</span>
                   <span v-if="d.basis" class="text-[10px] text-zinc-600 ml-auto">{{ d.basis }}</span>
                 </div>
 

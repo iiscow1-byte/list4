@@ -24,6 +24,8 @@ export type CustomItem = {
   records: { id: number }[]
   position?: number | null
   sheet_placement?: number | null
+  /** This list's own call on whether the level is a challenge. */
+  is_challenge?: boolean | number | null
 }
 
 const props = defineProps<{
@@ -359,6 +361,16 @@ async function remove(item: CustomItem) {
                 class="block truncate text-[10px] text-zinc-500"
               >{{ lvl.creator }}</span>
             </span>
+
+            <!-- Marked a challenge by this list. A dot rather than the word in
+                 compact mode: the row is one line there and a five-letter chip
+                 would cost the level's name five letters. -->
+            <span
+              v-if="lvl.is_challenge"
+              class="relative shrink-0 text-amber-400/90"
+              :class="compact ? 'text-[10px] leading-none' : 'text-[9px] uppercase tracking-widest px-1 py-0.5 rounded border border-amber-900/60 bg-amber-950/40'"
+              title="Challenge"
+            >{{ compact ? '⚑' : 'CH' }}</span>
 
             <span
               v-if="showPoints !== false || (showRecords !== false && lvl.records.length)"

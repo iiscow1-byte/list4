@@ -125,6 +125,10 @@ function toItem(l: PaletteLevel): BuilderItem {
     gddl_tier: l.gddl_tier ?? null,
     verification_url: null,
     notes: null,
+    // Off for a level dragged in from the ALL: the ALL's own verdict is about
+    // the ALL's challenge list, and this flag is this list's opinion. The
+    // editor turns it on.
+    is_challenge: false,
     position: l.position,
     sheet_placement: l.sheet_placement ?? null,
   }
@@ -262,6 +266,7 @@ async function save() {
         percent_to_qualify: i.percent_to_qualify ?? 100,
         fps: i.fps ?? null,
         game_version: i.game_version ?? null,
+        is_challenge: !!i.is_challenge,
       })),
     }
     const res = draft.value.publicId
@@ -499,9 +504,31 @@ function copyShare() {
                 <template v-if="item.notes">{{ item.notes }}</template>
               </span>
             </div>
+            <!-- Marked as a challenge. Always visible when set, unlike the row
+                 controls beside it: it is a fact about the level rather than
+                 something you do to the row, and a flag you can only see by
+                 hovering is a flag you cannot scan a list for. -->
+            <span
+              v-if="item.is_challenge"
+              class="relative shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
+              title="This list counts this level as a challenge"
+            >challenge</span>
             <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
             <span v-else class="relative shrink-0 text-[10px] text-zinc-600 uppercase tracking-wider">custom</span>
             <div class="relative shrink-0 flex items-center gap-0.5 transition-opacity" :class="metaOpen === i ? '' : 'opacity-0 group-hover:opacity-100'">
+              <!-- One click, on the row, because marking challenges is
+                   something you do to a run of levels at a time — burying it in
+                   the details panel would mean four clicks each. -->
+              <button
+                type="button"
+                class="w-6 h-6 rounded text-sm leading-none transition-colors"
+                :class="item.is_challenge
+                  ? 'text-amber-400 bg-amber-950/40'
+                  : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'"
+                :title="item.is_challenge ? 'Not a challenge' : 'Mark as a challenge'"
+                :aria-pressed="!!item.is_challenge"
+                @click="item.is_challenge = !item.is_challenge"
+              >⚑</button>
               <button
                 type="button"
                 class="w-6 h-6 rounded transition-colors"
@@ -539,6 +566,13 @@ function copyShare() {
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
               <input v-model="item.notes" type="text" maxlength="500" class="field field-sm mt-1 text-xs" />
+            </label>
+            <label class="flex items-start gap-2 cursor-pointer select-none sm:col-span-2 pt-1">
+              <input v-model="item.is_challenge" type="checkbox" class="mt-0.5 accent-accent" />
+              <span class="text-[10px] text-zinc-500 leading-snug">
+                <span class="text-zinc-300">Challenge</span> — this list counts the level as one.
+                Independent of the ALL's own challenge list.
+              </span>
             </label>
             <p v-if="item.level_id" class="text-[10px] text-zinc-600 sm:col-span-4">
               Name, creator and tier come from the ALL list for linked levels and can't be overridden here.

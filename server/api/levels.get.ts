@@ -260,6 +260,20 @@ export default defineEventHandler((event) => {
 
   const total = (db.prepare(`SELECT COUNT(*) as n FROM ${fromClause} ${allWhere}`).get(...allParams) as { n: number }).n
 
+  /**
+   * "How many levels match?" without fetching any of them.
+   *
+   * The advanced-search dialog shows a live match count as filters are
+   * toggled. Answering that by returning a page of results meant every tick of
+   * a checkbox ran the ranked CTE, the per-page view lookup and the tier-fraction
+   * scan — and then handed the client 500 rows it was going to throw away,
+   * because the dialog is over the list and the list is not being read while it
+   * is open. The count is the whole answer, so this returns only the count.
+   */
+  if (q.countOnly === '1' || q.countOnly === 'true' || q.countOnly === true) {
+    return { total, page, pageSize, items: [], challengeMode: challengeOnly, rankByFilter: useFilterRank }
+  }
+
   const challengeRankMap = getChallengeRankMap(db)
 
   let items: any[]

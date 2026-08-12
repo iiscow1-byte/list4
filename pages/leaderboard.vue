@@ -17,6 +17,8 @@ type AllRow = {
   account_username?: string | null
   has_avatar?: boolean
   clan?: ClanTagInfo | null
+  /** Discord avatar via AREDL — only ever set when there is no site avatar. */
+  aredl_avatar_url?: string | null
 }
 type GlobalSource = 'aredl' | 'pointercrate' | 'gdl' | 'alllist'
 type GlobalRow = {
@@ -31,8 +33,9 @@ type GlobalRow = {
   hardest: string | null
   claimed_account: { username: string; has_avatar?: boolean } | null
   clan?: ClanTagInfo | null
+  aredl_avatar_url?: string | null
 }
-type Row = AllRow | GlobalRow
+type Row = AllRow | GlobalRow | ChallengeRow
 
 type FeedItem = {
   kind: 'record' | 'verify' | 'level' | 'progress'
@@ -53,7 +56,33 @@ type FeedItem = {
 const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
-type Tab = 'members' | 'global' | 'followed'
+/**
+ * A player's challenge standing.
+ *
+ * Ranked by challenge points rather than list points, because they measure
+ * different things: the main list's points reflect where a level sits among
+ * fifty thousand, and by that measure every challenge is worth roughly nothing.
+ * A player with three hundred challenges and a player with three extreme demons
+ * were never comparable on one number, and the leaderboard only ever answered
+ * for the second.
+ */
+type ChallengeRow = {
+  rank: number
+  source?: undefined
+  player: string
+  country: string | null
+  points: number
+  challenges: number
+  hardest: string | null
+  hardest_rank: number | null
+  hardest_position: number | null
+  account_username?: string | null
+  has_avatar?: boolean
+  aredl_avatar_url?: string | null
+  clan?: ClanTagInfo | null
+}
+
+type Tab = 'members' | 'global' | 'followed' | 'challenges'
 const tab = ref<Tab>('global')
 // `SegmentedControl` speaks plain strings; the page's own type is narrower.
 const tabModel = computed({
@@ -68,9 +97,14 @@ watch(search, (v) => {
   debounceTimer = setTimeout(() => { debounced.value = v.trim() }, 200)
 })
 
-// "Members" and "Followed" tabs use /api/leaderboard (ALL list players);
-// "Global" hits /api/leaderboard/global which merges AREDL, PC, GDL, and ALL.
-const url = computed(() => tab.value === 'global' ? '/api/leaderboard/global' : '/api/leaderboard')
+// "Members" and "Followed" use /api/leaderboard (ALL list players); "Global"
+// hits /api/leaderboard/global, which merges AREDL, PC, GDL and ALL; and
+// "Challenges" its own endpoint, which ranks by challenge points instead.
+const url = computed(() => {
+  if (tab.value === 'global') return '/api/leaderboard/global'
+  if (tab.value === 'challenges') return '/api/leaderboard/challenges'
+  return '/api/leaderboard'
+})
 
 const PAGE_SIZE = 200
 const items = ref<Row[]>([])
@@ -88,6 +122,7 @@ function buildParams(offset: number) {
   } else if (tab.value === 'followed') {
     params.followed = '1'
   }
+  // The challenge endpoint takes `limit` / `offset` / `q` and nothing else.
   return params
 }
 
@@ -229,8 +264,21 @@ function sourceLabel(p: Row): string | null {
  *
  * The two endpoints name the account differently — Members flattens it onto the
  * row, Global nests it under `claimed_account` — and this only read the first
- * shape, so the tab the page opens on showed initials for everyone. A global
- * row has a picture exactly when the player has claimed a site account with one.
+ * shape, so the tab the page opens on showed initials for everyone.
+ *
+ * ## Order, and why it is this order
+ *
+ * 1. An account on **this site**, always and without exception. It is a picture
+ *    its owner uploaded and cropped here, and it is the one they expect to see
+ *    next to their name here.
+ * 2. Failing that, their **AREDL** picture, which is their Discord avatar. Most
+ *    ranked players have never signed up to this site, and the alternative for
+ *    them is a grey circle with one letter in it.
+ * 3. Failing that, initials.
+ *
+ * The order matters because the two can disagree: somebody who has claimed a
+ * leaderboard identity here *and* is on AREDL has two pictures, and the one
+ * they chose here is the one that wins.
  */
 function avatarFor(p: Row): string | null {
   const all = p as AllRow
@@ -241,7 +289,7 @@ function avatarFor(p: Row): string | null {
   if (claimed?.has_avatar) {
     return `/api/users/${encodeURIComponent(claimed.username)}/avatar`
   }
-  return null
+  return p.aredl_avatar_url ?? null
 }
 
 useHead({ title: 'Leaderboard — All Levels List' })
@@ -254,6 +302,10 @@ useHead({ title: 'Leaderboard — All Levels List' })
       <p class="text-zinc-500 mt-1 text-sm">
         <template v-if="tab === 'global'">
           Players from AREDL, Pointercrate, GDL, and the ALL list, ranked by their ALL list points.
+        </template>
+        <template v-else-if="tab === 'challenges'">
+          Players ranked by the challenges they've beaten — a separate ranking, because the
+          main list's points barely register a challenge.
         </template>
         <template v-else-if="tab === 'members'">
           ALL list members ranked by total points.
@@ -272,6 +324,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
         :options="[
           { value: 'global', label: 'Global' },
           { value: 'members', label: 'Members' },
+          { value: 'challenges', label: 'Challenges' },
           { value: 'followed', label: 'Followed' },
         ]"
       />
@@ -313,7 +366,18 @@ useHead({ title: 'Leaderboard — All Levels List' })
                   class="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-zinc-800 ring-2 flex items-center justify-center shrink-0"
                   :class="podiumRing(p!.rank)"
                 >
-                  <img v-if="avatarFor(p!)" :src="avatarFor(p!)!" class="w-full h-full object-cover" alt="" />
+                  <!-- `no-referrer`: some of these are Discord's CDN now, and
+                       an external host has no business being told which page a
+                       reader is on. -->
+                  <img
+                    v-if="avatarFor(p!)"
+                    :src="avatarFor(p!)!"
+                    class="w-full h-full object-cover"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerpolicy="no-referrer"
+                  />
                   <span v-else class="text-lg font-black uppercase text-zinc-500">{{ p!.player.charAt(0) }}</span>
                 </span>
                 <span class="rank-badge shrink-0" :class="rankClass(p!.rank)">#{{ p!.rank }}</span>
@@ -347,7 +411,15 @@ useHead({ title: 'Leaderboard — All Levels List' })
               >
                 <span class="rank-badge shrink-0" :class="rankClass(p.rank)">#{{ p.rank }}</span>
                 <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">
-                  <img v-if="avatarFor(p)" :src="avatarFor(p)!" class="w-full h-full object-cover" alt="" />
+                  <img
+                    v-if="avatarFor(p)"
+                    :src="avatarFor(p)!"
+                    class="w-full h-full object-cover"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerpolicy="no-referrer"
+                  />
                   <span v-else class="text-[11px] font-bold uppercase text-zinc-500">{{ p.player.charAt(0) }}</span>
                 </span>
                 <div class="flex-1 min-w-0">
@@ -371,7 +443,20 @@ useHead({ title: 'Leaderboard — All Levels List' })
                     </template>
                   </div>
                   <div class="text-[11px] text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
-                    <template v-if="!sourceLabel(p)">
+                    <!-- The challenge tab's numbers are its own: how many, and
+                         the best one by *challenge* rank rather than by list
+                         placement, which is the number the challenge list
+                         itself prints. -->
+                    <template v-if="tab === 'challenges'">
+                      <span class="tabular-nums">{{ fmt((p as ChallengeRow).challenges) }} challenges</span>
+                      <span v-if="(p as ChallengeRow).hardest" class="truncate">
+                        Hardest: {{ (p as ChallengeRow).hardest }}
+                        <span v-if="(p as ChallengeRow).hardest_rank" class="text-zinc-600 tabular-nums">
+                          (#{{ (p as ChallengeRow).hardest_rank }})
+                        </span>
+                      </span>
+                    </template>
+                    <template v-else-if="!sourceLabel(p)">
                       <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill {{ fmt((p as AllRow).skill_points) }}</span>
                       <span v-if="(p as AllRow).extremes" class="tabular-nums">{{ (p as AllRow).extremes }} extremes</span>
                       <span v-if="p.hardest" class="truncate">Hardest: {{ p.hardest }}</span>
@@ -398,6 +483,12 @@ useHead({ title: 'Leaderboard — All Levels List' })
               </template>
               <template v-else-if="tab === 'global'">
                 No global players imported yet.
+              </template>
+              <template v-else-if="tab === 'challenges' && debounced">
+                No challenge players match "{{ debounced }}".
+              </template>
+              <template v-else-if="tab === 'challenges'">
+                Nobody has an approved record on a challenge yet.
               </template>
               <template v-else-if="debounced">
                 No players or accounts match "{{ debounced }}".

@@ -2,20 +2,32 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { hexToRgbTriplet } from '~/utils/custom-list-colors'
 import { isValidClanTag } from '~/utils/clan-tag'
+import { clanIconUrl } from '~/utils/clan-images'
 
 /**
- * Clans: groups of players, ranked by what they have beaten between them.
+ * Clans: groups of players, ranked by what they have beaten between them —
+ * and, now, a place to go looking for one.
  *
- * The leaderboard is the page. A clan's numbers are the sum of its members'
- * completions, read live — so the standing here is never a stored total that
- * has drifted from the records behind it.
+ * The page used to be a points leaderboard and nothing else, which answered
+ * one question ("who is winning") and refused the two that a person without a
+ * clan actually has: *which of these could I join*, and *what has started
+ * recently*. The top of a points ranking is precisely where a new clan looking
+ * for members is not.
+ *
+ * So the ordering is a choice and there are two filters, and every row shows
+ * its standing regardless of how the list is currently sorted — the rank means
+ * "by points", wherever it appears.
  */
 useHead({ title: 'Clans — All Levels List' })
 
 type Clan = {
   id: number; tag: string; name: string; description: string | null
-  color: string | null; icon_url: string | null; owner_username: string | null
+  color: string | null; icon_url: string | null; has_icon: boolean
+  banner_url: string | null; has_banner: boolean
+  invite_only: number; created_at: string
+  owner_username: string | null
   members: number; levels: number; completions: number; points: number
+  rank: number | null
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string | null } | null
 }
 
@@ -24,24 +36,66 @@ type Invite = {
   message: string | null; created_at: string; invited_by_username: string | null
 }
 
+type Sort = 'points' | 'levels' | 'members' | 'newest' | 'name'
+const SORTS: { value: Sort; label: string }[] = [
+  { value: 'points',  label: 'Points' },
+  { value: 'levels',  label: 'Levels' },
+  { value: 'members', label: 'Members' },
+  { value: 'newest',  label: 'Newest' },
+  { value: 'name',    label: 'Name' },
+]
+
+const sort = ref<Sort>('points')
+const search = ref('')
+const joinable = ref<'' | 'open' | 'invite'>('')
+
+/**
+ * Debounced, because the query is a server round trip now rather than a filter
+ * over an array already in hand. 200ms is long enough that typing a clan's name
+ * is one request instead of eight, and short enough not to feel like a wait.
+ */
+const debouncedSearch = ref('')
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(search, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { debouncedSearch.value = v.trim() }, 200)
+})
+onBeforeUnmount(() => { if (searchTimer) clearTimeout(searchTimer) })
+
 const { data, refresh } = await useFetch<{
   clans: Clan[]
+  total: number
   mine: { id: number; tag: string; name: string; color: string | null; role: string } | null
   invites: Invite[]
   signedIn: boolean
-}>('/api/clans')
-
-const clans = computed(() => data.value?.clans ?? [])
-const search = ref('')
-const shown = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return clans.value
-  return clans.value.filter(
-    (c) => c.name.toLowerCase().includes(q) || c.tag.toLowerCase().includes(q),
-  )
+}>('/api/clans', {
+  query: computed(() => ({
+    sort: sort.value,
+    q: debouncedSearch.value || undefined,
+    joinable: joinable.value || undefined,
+  })),
 })
 
+const shown = computed(() => data.value?.clans ?? [])
+const total = computed(() => data.value?.total ?? 0)
+/** Whether anything is currently narrowing the list — decides the empty text. */
+const filtered = computed(() => !!debouncedSearch.value || !!joinable.value)
+
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+function iconFor(c: Clan) { return clanIconUrl(c) }
+
+/** "3 days ago" for a clan founded recently; a date once it isn't news. */
+function founded(at: string): string {
+  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ''
+  const days = Math.floor((Date.now() - t) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 30) return `${days}d ago`
+  return new Date(t).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
+}
 
 /** A clan's own colour, applied the same way a custom list's is. */
 function clanStyle(c: { color: string | null }) {
@@ -222,40 +276,77 @@ async function create() {
       <p v-if="error" class="sm:col-span-2 text-xs text-red-400">{{ error }}</p>
     </form>
 
-    <div v-if="clans.length > 6" class="flex justify-end">
+    <!-- Browse controls. One row: what to search for, what to order by, and
+         whether to hide the clans you'd have to ask to get into. -->
+    <div class="card px-3 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
       <input
         v-model="search"
         type="search"
-        placeholder="Search clans…"
-        class="field field-sm sm:w-64 text-xs"
+        placeholder="Search clans by name or tag…"
+        class="field field-sm flex-1 min-w-[12rem] text-xs"
       />
+      <label class="flex items-center gap-2 text-[11px] text-zinc-500">
+        Sort
+        <select v-model="sort" class="field field-sm text-xs w-28">
+          <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
+        </select>
+      </label>
+      <div class="flex items-center gap-1.5">
+        <label
+          v-for="opt in ([
+            { value: '', label: 'All' },
+            { value: 'open', label: 'Open to join' },
+            { value: 'invite', label: 'Invite only' },
+          ] as const)"
+          :key="opt.value"
+          class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
+          :class="joinable === opt.value
+            ? 'border-accent/60 text-accent bg-accent/10'
+            : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+        >
+          <input v-model="joinable" type="radio" :value="opt.value" class="sr-only" />
+          {{ opt.label }}
+        </label>
+      </div>
+      <span class="text-[11px] text-zinc-600 tabular-nums ml-auto">
+        {{ shown.length }}<template v-if="shown.length !== total"> of {{ total }}</template>
+        clan{{ total === 1 ? '' : 's' }}
+      </span>
     </div>
 
-    <p v-if="!clans.length" class="card px-6 py-12 text-center text-sm text-zinc-500">
+    <p v-if="!total" class="card px-6 py-12 text-center text-sm text-zinc-500">
       No clans yet.
       <template v-if="data?.signedIn">Start the first one.</template>
     </p>
     <p v-else-if="!shown.length" class="card px-6 py-10 text-center text-sm text-zinc-500">
-      No clans match “{{ search.trim() }}”.
+      <template v-if="debouncedSearch">No clans match “{{ debouncedSearch }}”.</template>
+      <template v-else-if="joinable === 'open'">Every clan is invite only right now.</template>
+      <template v-else>No clans match those filters.</template>
     </p>
 
     <!-- The leaderboard -->
     <ol v-else class="space-y-2">
       <li
-        v-for="(c, i) in shown"
+        v-for="c in shown"
         :key="c.id"
         class="card overflow-hidden"
         :style="clanStyle(c)"
         :class="data?.mine?.id === c.id ? 'ring-1 ring-inset ring-accent/40' : ''"
       >
         <NuxtLink :to="`/clans/${c.tag}`" class="flex items-center gap-3 px-3 sm:px-4 py-3 group">
-          <span class="w-8 shrink-0 text-center tabular-nums text-sm font-bold text-zinc-600">{{ i + 1 }}</span>
+          <!-- The clan's standing by points, not its position in this list.
+               Ordering by "newest" doesn't make a young clan first overall, and
+               a number that changed meaning with the sort would be a lie. -->
+          <span
+            class="w-8 shrink-0 text-center tabular-nums text-sm font-bold text-zinc-600"
+            :title="c.rank ? `#${c.rank} by points` : undefined"
+          >{{ c.rank ?? '—' }}</span>
 
           <span
-            v-if="c.icon_url"
+            v-if="iconFor(c)"
             class="w-9 h-9 rounded-lg overflow-hidden border border-zinc-800 shrink-0 bg-zinc-900"
           >
-            <img :src="c.icon_url" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+            <img :src="iconFor(c)!" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
           </span>
           <span
             v-else
@@ -269,15 +360,27 @@ async function create() {
                    rather than only from this page. -->
               <ClanTag :tag="c.tag" :name="c.name" :color="c.color" :link="false" class="self-center" />
               <span class="truncate font-semibold text-zinc-100 group-hover:text-accent transition-colors">{{ c.name }}</span>
+              <!-- Whether you can simply join. The single most useful fact on
+                   this row for somebody who hasn't got a clan yet. -->
+              <span
+                v-if="!c.invite_only"
+                class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-emerald-900/60 bg-emerald-950/40 text-emerald-400/90"
+              >Open</span>
+              <span
+                v-else
+                class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600"
+              >Invite only</span>
             </span>
             <span class="block truncate text-[11px] text-zinc-600">
               {{ c.members }} member{{ c.members === 1 ? '' : 's' }}
               <template v-if="c.owner_username"> · run by {{ c.owner_username }}</template>
-              <template v-if="c.hardest">
+              <template v-if="sort === 'newest'"> · started {{ founded(c.created_at) }}</template>
+              <template v-else-if="c.hardest">
                 · hardest
                 <span class="text-zinc-500">{{ c.hardest.name }}</span>
               </template>
             </span>
+            <span v-if="c.description" class="block truncate text-[11px] text-zinc-500 mt-0.5">{{ c.description }}</span>
           </span>
 
           <span

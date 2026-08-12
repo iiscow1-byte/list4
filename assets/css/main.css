@@ -10,21 +10,28 @@
  * Values are space-separated R G B triplets (no commas, no rgb() wrapper) so
  * they compose with Tailwind's `<alpha-value>` syntax.
  */
+/*
+ * These are the *Cyan* preset, and they have to stay that way: this block is
+ * what paints the first frame, before any JavaScript has read localStorage, so
+ * it is the site's real default and not merely a fallback. It must match
+ * `PRESETS.cyan` / `DEFAULT_PRESET` in composables/useTheme.ts — when they
+ * disagree the page loads in one palette and flips to another on hydration.
+ */
 :root {
-  --c-accent:     245 158 11;
-  --c-accent-dim: 180 83 9;
+  --c-accent:       6 182 212;
+  --c-accent-dim:  14 116 144;
 
   --c-zinc-50:  250 250 250;
-  --c-zinc-100: 244 244 245;
-  --c-zinc-200: 228 228 231;
-  --c-zinc-300: 212 212 216;
-  --c-zinc-400: 161 161 170;
-  --c-zinc-500: 113 113 122;
-  --c-zinc-600:  82  82  91;
-  --c-zinc-700:  63  63  70;
-  --c-zinc-800:  39  39  42;
-  --c-zinc-900:  24  24  27;
-  --c-zinc-950:   9   9  11;
+  --c-zinc-100: 245 245 245;
+  --c-zinc-200: 229 229 229;
+  --c-zinc-300: 212 212 212;
+  --c-zinc-400: 163 163 163;
+  --c-zinc-500: 115 115 115;
+  --c-zinc-600:  82  82  82;
+  --c-zinc-700:  64  64  64;
+  --c-zinc-800:  38  38  38;
+  --c-zinc-900:  23  23  23;
+  --c-zinc-950:  10  10  10;
 }
 
 @layer base {

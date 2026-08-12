@@ -89,6 +89,21 @@ export default defineEventHandler(async (event) => {
     params.push(value === row[key] ? null : value)
   }
 
+  /**
+   * Whether the list calls this row a challenge.
+   *
+   * List-owned, and deliberately so even on a row linked to the ALL: the ALL
+   * decides what *it* considers a challenge from the level's rating, length and
+   * source, and a list that exists to rank challenges by its own definition
+   * would be overruled by that on every save. Boolean rather than a string, so
+   * `clean()` above cannot be used — it would turn `false` into null and leave
+   * the flag stuck on.
+   */
+  if ('is_challenge' in body) {
+    sets.push(`is_challenge = ?`)
+    params.push(body.is_challenge ? 1 : 0)
+  }
+
   // Percent is numeric and clamped rather than trimmed.
   if ('percent_to_qualify' in body) {
     const n = Number(body.percent_to_qualify)

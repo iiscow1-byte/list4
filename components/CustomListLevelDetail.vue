@@ -80,6 +80,7 @@ const draft = reactive({
   fps: '',
   game_version: '',
   notes: '',
+  is_challenge: false,
 })
 
 function seed() {
@@ -96,6 +97,7 @@ function seed() {
   draft.fps = i.fps ?? ''
   draft.game_version = i.game_version ?? ''
   draft.notes = i.notes ?? ''
+  draft.is_challenge = !!i.is_challenge
   error.value = null
   saved.value = false
 }
@@ -123,6 +125,7 @@ async function save() {
       fps: draft.fps,
       game_version: draft.game_version,
       notes: draft.notes,
+      is_challenge: draft.is_challenge,
       name: draft.name,
       creator: draft.creator,
       gddl_tier: draft.gddl_tier,
@@ -262,6 +265,11 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             class="text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
             :style="{ backgroundColor: tierColor(item.gddl_tier), color: textOn(tierColor(item.gddl_tier)) }"
           >{{ item.gddl_tier }}</span>
+          <span
+            v-if="item.is_challenge"
+            class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
+            :title="`${listTitle} counts this level as a challenge`"
+          >Challenge</span>
           <!-- A level the ALL list doesn't have yet is the interesting case:
                offer to submit it, prefilled, rather than making someone retype
                what this list already knows. -->
@@ -403,6 +411,21 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         <label class="block sm:col-span-2">
           <span :class="label">Notes</span>
           <textarea v-model="draft.notes" rows="2" :class="field" />
+        </label>
+
+        <!-- Stays list-owned even on a linked row: the ALL decides what its own
+             challenge list contains, and a list built around a different
+             definition would have this overwritten every time the row
+             re-synced. -->
+        <label class="sm:col-span-2 flex items-start gap-2 cursor-pointer select-none rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+          <input v-model="draft.is_challenge" type="checkbox" class="mt-0.5 accent-accent" />
+          <span class="min-w-0">
+            <span class="block text-xs font-medium text-zinc-200">Mark as a challenge</span>
+            <span class="block text-[11px] text-zinc-500 leading-snug">
+              This list's own call. Challenges get a badge on the list and can be counted separately
+              on its leaderboard — independent of whether the ALL considers it one.
+            </span>
+          </span>
         </label>
 
         <!-- Link status: whether this row follows the ALL list or stands alone -->

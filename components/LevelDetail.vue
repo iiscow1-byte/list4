@@ -3,6 +3,8 @@ import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_ORD } from '~/utils/tier-ordinal'
 import { splitSources, isChallengeSource } from '~/utils/challenge-sources'
 import { sourceUrlByName } from '~/utils/list-source-catalog'
+import { compactCount, viewsLabel } from '~/utils/format-count'
+import { relativeTime } from '~/utils/relative-time'
 
 type Community = {
   count: number
@@ -106,6 +108,35 @@ const emit = defineEmits<{
   (e: 'back-group-move'): void
   (e: 'end-group-move'): void
 }>()
+
+/**
+ * Forum threads that name this level.
+ *
+ * Client-only and small: five rows to say "people are talking about this over
+ * there", not a second comment section. Fetched on mount rather than during
+ * setup because a server render should not wait on it — the level itself is
+ * what the page is for, and this is an aside.
+ */
+type LevelThread = {
+  id: number; title: string; reply_count: number; created_at: string
+  author: { username: string } | null
+}
+const levelThreads = ref<LevelThread[]>([])
+
+async function loadLevelThreads() {
+  const id = props.level.id
+  if (!id) { levelThreads.value = []; return }
+  try {
+    const res = await $fetch<{ items: LevelThread[] }>('/api/forum', {
+      query: { level_id: id, limit: 5, sort: 'active' },
+    })
+    levelThreads.value = res.items
+  } catch {
+    levelThreads.value = []
+  }
+}
+onMounted(loadLevelThreads)
+watch(() => props.level.id, loadLevelThreads)
 
 const { data: meRes } = useCurrentUser()
 const role = computed(() => meRes.value?.account?.role ?? null)
@@ -583,7 +614,7 @@ const infoRows = computed<CreditRow[]>(() => {
 // original layout — the first is identity/scoring, the second is gameplay
 // metadata. The grid-cols class is picked based on visible-tile count so
 // hidden tiles don't leave gray gap-px slots showing through.
-type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date' | 'views'
+type Tile1 = 'level_id' | 'list_points' | 'enjoyment' | 'edel_enjoyment' | 'gddl_tier' | 'verify_date'
 type Tile2 = 'difficulty' | 'rated' | 'main_skillset' | 'pov_placement' | 'community_tier'
 
 const community = computed<Community | null>(() => props.level.community ?? null)
@@ -598,10 +629,6 @@ const visibleTiles1 = computed<Tile1[]>(() => {
   if (props.level.edel_enjoyment != null)   out.push('edel_enjoyment')
   if (props.level.gddl_tier)                out.push('gddl_tier')
   if (props.level.verify_date)              out.push('verify_date')
-  // Shown to everyone, from the first view — the same number the main list
-  // puts on this level's row. Hidden at zero, because a tile reading 0 says
-  // nothing the absent tile doesn't.
-  if ((props.level.views ?? 0) > 0)         out.push('views')
   return out
 })
 
@@ -1299,6 +1326,22 @@ const chartAredlSeries = computed(() =>
                   : `Placed from ${s.name}`"
               >{{ s.name }}</span>
             </template>
+          </span>
+
+          <!-- How many people have opened this level.
+               Beside "From" rather than in the stat grid below: everything in
+               that grid is a property of the level, decided by curators, and a
+               reader count is neither. It is also the one number here that
+               changes on its own, which is why it reads as a quiet aside rather
+               than a labelled figure.
+               Absent at zero — "👁 0" is worse than nothing. -->
+          <span
+            v-if="(level.views ?? 0) > 0"
+            class="inline-flex items-center gap-1 text-[11px] leading-none text-zinc-500 tabular-nums"
+            :title="`${viewsLabel(level.views)} of this level`"
+          >
+            <NavIcon name="eye" class="w-3.5 h-3.5 shrink-0 opacity-70" />
+            {{ compactCount(level.views) }}
           </span>
         </div>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
@@ -2131,14 +2174,10 @@ const chartAredlSeries = computed(() =>
           <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify Date</div>
           <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date }}</div>
         </div>
-        <div
-          v-if="visibleTiles1.includes('views')"
-          class="bg-zinc-950 p-4"
-          title="Times this level's page has been opened here"
-        >
-          <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Views</div>
-          <div class="tabular-nums text-base text-zinc-100">{{ (level.views ?? 0).toLocaleString() }}</div>
-        </div>
+        <!-- Views are not a tile. They sit up in the header beside "From" —
+             see the chip row there. A tile gave a reader-count the same visual
+             weight as the level's points and its tier, which are the things the
+             page is actually about. -->
       </div>
 
       <!-- Stats grid: gameplay metadata -->
@@ -2430,6 +2469,48 @@ const chartAredlSeries = computed(() =>
           <p class="text-xs text-zinc-600">No external list rankings for this level.</p>
         </div>
       </details>
+    </section>
+
+    <!-- Forum threads about this level.
+         Separate from the comments below, and not a duplicate of them: a
+         comment is a remark *on* this level and lives here; a thread is a
+         conversation that happens to be about it and lives on the forum, where
+         people are reading. Linking the two is what makes naming a level on a
+         thread worth doing. -->
+    <section v-if="level.id" class="mt-6">
+      <div class="flex items-baseline justify-between gap-3 mb-2">
+        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+          Forum threads
+          <span v-if="levelThreads.length" class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">
+            {{ levelThreads.length }}
+          </span>
+        </h2>
+        <NuxtLink
+          :to="`/forum?level_id=${level.id}`"
+          class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
+        >{{ levelThreads.length ? 'All threads →' : 'Start one →' }}</NuxtLink>
+      </div>
+      <ul v-if="levelThreads.length" class="card divide-y divide-zinc-900/70 overflow-hidden">
+        <li v-for="t in levelThreads" :key="t.id">
+          <NuxtLink
+            :to="`/forum/${t.id}`"
+            class="px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/40 transition-colors group"
+          >
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">{{ t.title }}</span>
+              <span class="block truncate text-[11px] text-zinc-600">
+                {{ t.author?.username ?? 'deleted account' }} · {{ relativeTime(t.created_at) }}
+              </span>
+            </span>
+            <span class="shrink-0 text-[11px] tabular-nums text-zinc-500">
+              {{ t.reply_count }} repl{{ t.reply_count === 1 ? 'y' : 'ies' }}
+            </span>
+          </NuxtLink>
+        </li>
+      </ul>
+      <p v-else class="card px-4 py-5 text-center text-xs text-zinc-600">
+        Nothing on the forum about this level yet.
+      </p>
     </section>
 
     <!-- Discussion -->

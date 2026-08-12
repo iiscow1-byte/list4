@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ThemeOverrideKey } from '~/composables/useTheme'
+import { DEFAULT_PRESET, type ThemeOverrideKey } from '~/composables/useTheme'
 
 const { state, PRESETS, setPreset, setOverride, reset, effectiveHex } = useTheme()
 
@@ -128,7 +128,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
         </div>
       </div>
 
-      <div v-if="hasOverrides || state.preset !== 'default'" class="border-t border-zinc-800 px-4 py-2 flex justify-end">
+      <div v-if="hasOverrides || state.preset !== DEFAULT_PRESET" class="border-t border-zinc-800 px-4 py-2 flex justify-end">
         <button
           type="button"
           class="text-[11px] text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline"

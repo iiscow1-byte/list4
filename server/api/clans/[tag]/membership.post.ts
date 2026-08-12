@@ -221,10 +221,15 @@ export default defineEventHandler(async (event) => {
          message    = excluded.message,
          created_at = datetime('now')`,
     ).run(clan.id, targetId, me.id, note)
+    // `clan_invite`, not the general `clan` kind: the inbox answers this one in
+    // place with Accept / Decline, which it can only offer for a message it can
+    // recognise as a question. `related_id` is the clan the answer applies to.
     sendInboxMessage(db, targetId, {
-      kind: 'clan',
+      kind: 'clan_invite',
       subject: `${me.username} invited you to [${clan.tag}] ${clan.name}`,
       body: note,
+      related_kind: 'clan',
+      related_id: clan.id,
       sent_by: me.id,
     })
     return { ok: true, invited: true, inAnotherClan: !!theirs }

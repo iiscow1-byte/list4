@@ -105,14 +105,16 @@ export const SITE_NAV: NavMenu[] = [
     key: 'community',
     label: 'Community',
     to: '/community',
-    match: ['/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates'],
+    match: ['/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates', '/friends', '/forum'],
     groups: [
       {
         label: 'People',
         links: [
           { label: 'Community hub', to: '/community', hint: 'Activity from people you follow', icon: 'users' },
+          { label: 'Forum', to: '/forum', hint: 'Talk about levels and post progress', icon: 'chat' },
           { label: 'Leaderboard', to: '/leaderboard', hint: 'Ranked players', icon: 'trophy' },
           { label: 'Clans', to: '/clans', hint: 'Groups of players, ranked together', icon: 'users' },
+          { label: 'Friends', to: '/friends', hint: 'Your friends and any pending requests', icon: 'userPlus', authOnly: true },
         ],
       },
       {

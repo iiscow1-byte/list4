@@ -2028,4 +2028,134 @@ function initSchema(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_clan_invites_account ON clan_invites(account_id);
   `)
+
+  // --- A custom list can call one of its levels a challenge ---
+  //
+  // The ALL works this out for itself (see `server/utils/challenge-expr.ts`):
+  // four inferences over the level's rating, length and source, with an
+  // editorial override in each direction. None of that is available to a custom
+  // list, whose rows may not be on the ALL at all — so here it is simply what
+  // the list's editors say it is. A flag, not an expression.
+  const cliChallengeCols = db.prepare(`PRAGMA table_info(custom_list_items)`).all() as { name: string }[]
+  if (!cliChallengeCols.some((c) => c.name === 'is_challenge')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN is_challenge INTEGER NOT NULL DEFAULT 0`)
+  }
+
+  // AREDL mirrors each player's Discord avatar hash. Paired with `discord_id`
+  // it is a CDN URL, which is the only picture the site can show for a player
+  // who has never signed up here — see `utils/discord-avatar.ts`.
+  const apCols = db.prepare(`PRAGMA table_info(aredl_players)`).all() as { name: string }[]
+  if (!apCols.some((c) => c.name === 'discord_avatar')) {
+    db.exec(`ALTER TABLE aredl_players ADD COLUMN discord_avatar TEXT`)
+  }
+
+  // Clan imagery, uploaded rather than linked.
+  //
+  // `icon_url` and `banner_url` already existed and stay: a clan that already
+  // points at an image somewhere keeps working. These are the uploaded copy,
+  // stored the way an account's avatar is, and they win over the URL when set —
+  // an upload is a deliberate act and a stale URL is not.
+  const clanCols = db.prepare(`PRAGMA table_info(clans)`).all() as { name: string }[]
+  for (const [col, type] of [
+    ['icon_blob', 'BLOB'], ['icon_type', 'TEXT'],
+    ['banner_blob', 'BLOB'], ['banner_type', 'TEXT'],
+  ] as const) {
+    if (!clanCols.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE clans ADD COLUMN ${col} ${type}`)
+    }
+  }
+
+  // SQL `--` comments throughout the block below, and no backticks in them:
+  // this is one template literal, and a backtick inside it ends the string.
+  db.exec(`
+    -- Friendship, in two tables.
+    --
+    -- A follow is one-sided and needs no consent; a friendship is mutual and
+    -- does. They are kept apart rather than folded together because they answer
+    -- different questions — "whose activity do I want to see" versus "who am I
+    -- actually connected to" — and because collapsing them would mean either
+    -- following somebody silently befriended them, or asking permission to
+    -- read a public feed.
+    --
+    -- A request is one row from → to. Accepting it deletes the request and
+    -- writes the pair into friends.
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      from_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      to_account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      message         TEXT,
+      created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (from_account_id, to_account_id),
+      CHECK (from_account_id <> to_account_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_friend_req_to   ON friend_requests(to_account_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_friend_req_from ON friend_requests(from_account_id, created_at DESC);
+
+    -- Both directions of every friendship, as two rows.
+    --
+    -- The alternative — one row with the lower id first — makes "who are A's
+    -- friends" a query with an OR across two columns and a CASE to work out
+    -- which end is the other person. Two rows makes it a primary-key range
+    -- scan, and every write goes through addFriendship in
+    -- server/utils/friends.ts, which is what keeps the pair in step.
+    CREATE TABLE IF NOT EXISTS friends (
+      account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      friend_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      created_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (account_id, friend_id),
+      CHECK (account_id <> friend_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_friends_friend ON friends(friend_id);
+
+    -- The public forum.
+    --
+    -- A thread is a title plus a first post; replies are forum_posts rows
+    -- pointing at it. level_id optionally ties a thread to a level, which is
+    -- what makes "talk about levels" more than a free-text board — a level's
+    -- own page can list the threads about it.
+    --
+    -- last_post_at is denormalised so the index can order the thread list
+    -- without touching the posts table; reply_count likewise. Both are
+    -- maintained by server/utils/forum.ts and by nothing else.
+    CREATE TABLE IF NOT EXISTS forum_threads (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      category     TEXT    NOT NULL DEFAULT 'general'
+                     CHECK(category IN ('general','levels','progress','help','offtopic')),
+      title        TEXT    NOT NULL,
+      body         TEXT    NOT NULL,
+      author_id    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      level_id     INTEGER REFERENCES levels(id)   ON DELETE SET NULL,
+      pinned       INTEGER NOT NULL DEFAULT 0,
+      locked       INTEGER NOT NULL DEFAULT 0,
+      reply_count  INTEGER NOT NULL DEFAULT 0,
+      created_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      last_post_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      edited_at    TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_recent
+      ON forum_threads(pinned DESC, last_post_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_cat
+      ON forum_threads(category, pinned DESC, last_post_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_level ON forum_threads(level_id);
+    CREATE INDEX IF NOT EXISTS idx_forum_threads_author ON forum_threads(author_id);
+
+    CREATE TABLE IF NOT EXISTS forum_posts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      thread_id  INTEGER NOT NULL REFERENCES forum_threads(id) ON DELETE CASCADE,
+      author_id  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      body       TEXT    NOT NULL,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      edited_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_forum_posts_thread ON forum_posts(thread_id, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_forum_posts_author ON forum_posts(author_id);
+
+    -- One like per account per thread — the forum's only reaction.
+    CREATE TABLE IF NOT EXISTS forum_thread_likes (
+      thread_id  INTEGER NOT NULL REFERENCES forum_threads(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES accounts(id)      ON DELETE CASCADE,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (thread_id, account_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_forum_likes_thread ON forum_thread_likes(thread_id);
+  `)
 }

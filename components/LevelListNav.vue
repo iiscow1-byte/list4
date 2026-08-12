@@ -69,6 +69,24 @@ const SKILLSETS = [
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const filtersOpen = ref(false)
 
+/**
+ * While the advanced-search dialog is open, changing a filter only re-counts.
+ *
+ * Every filter used to trigger a full reload: empty the list, fetch 500 rows,
+ * and let Vue tear down and rebuild 500 rows — each one a component with its own
+ * watchers and a thumbnail `<img>` that starts loading again. Ticking four
+ * checkboxes did that four times, behind a dialog covering the very list being
+ * rebuilt, which is what made the panel feel like it was fighting back.
+ *
+ * So: the dialog asks for the count alone (`countOnly`, one COUNT query, no
+ * rows), and the list itself is rebuilt exactly once, when the dialog closes.
+ * `filtersDirty` is what remembers that it needs to be.
+ */
+const filtersDirty = ref(false)
+/** Live match count for the dialog. Null when it hasn't been asked yet. */
+const matchCount = ref<number | null>(null)
+const countLoading = ref(false)
+
 function closeFilters() { filtersOpen.value = false }
 function onFiltersKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && filtersOpen.value) closeFilters()
@@ -405,6 +423,41 @@ function reset() {
   initialLoaded.value = false
 }
 
+/**
+ * Re-run the current filters from page 1, swapping the rows in one assignment.
+ *
+ * `reset()` followed by `loadMore()` empties the list, renders an empty list,
+ * then renders 500 rows — two full teardowns of 500 components with thumbnails
+ * for one filter change, and a visible flash of nothing in between. Fetching
+ * first and assigning once does neither.
+ */
+async function reloadFromStart() {
+  activeFetch?.abort()
+  const ctrl = new AbortController()
+  activeFetch = ctrl
+  loading.value = true
+  try {
+    const res = await $fetch<{ total: number; items: LevelRow[]; challengeMode: boolean }>(
+      '/api/levels',
+      { query: { ...buildQuery(), page: 1 }, signal: ctrl.signal },
+    )
+    if (activeFetch !== ctrl) return
+    total.value = res.total
+    challengeMode.value = !!res.challengeMode
+    items.value = res.items
+    nextPage.value = 2
+    initialLoaded.value = true
+    scrollEl.value?.scrollTo({ top: 0 })
+  } catch (e: any) {
+    if (e?.name !== 'AbortError' && e?.cause?.name !== 'AbortError') throw e
+  } finally {
+    if (activeFetch === ctrl) {
+      loading.value = false
+      activeFetch = null
+    }
+  }
+}
+
 function resetFilters() {
   tierMin.value = 0
   tierMax.value = TIER_MAX_ORD
@@ -522,19 +575,70 @@ async function maybeJumpToGdId(): Promise<boolean> {
   return false
 }
 
+/**
+ * Just the count, for the dialog's live readout. Aborts the previous one, so
+ * mashing checkboxes leaves one request in flight rather than a queue of them.
+ */
+let activeCount: AbortController | null = null
+async function refreshCount() {
+  activeCount?.abort()
+  const ctrl = new AbortController()
+  activeCount = ctrl
+  countLoading.value = true
+  try {
+    const res = await $fetch<{ total: number; challengeMode: boolean }>('/api/levels', {
+      query: { ...buildQuery(), page: 1, pageSize: 1, countOnly: 1 },
+      signal: ctrl.signal,
+    })
+    if (activeCount !== ctrl) return
+    matchCount.value = res.total
+    challengeMode.value = !!res.challengeMode
+  } catch (e: any) {
+    if (e?.name !== 'AbortError' && e?.cause?.name !== 'AbortError') matchCount.value = null
+  } finally {
+    if (activeCount === ctrl) { countLoading.value = false; activeCount = null }
+  }
+}
+
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
   if (suppressNextRefilter) { suppressNextRefilter = false; return }
+
+  // The dialog is over the list: re-count, and rebuild once on close.
+  if (filtersOpen.value) {
+    filtersDirty.value = true
+    debounce = setTimeout(refreshCount, immediate ? 150 : 300)
+    return
+  }
+
   const run = async () => {
     if (await maybeJumpToTier()) return
     if (await maybeJumpToPosition()) return
     if (await maybeJumpToGdId()) return
     router.replace({ query: { ...route.query, q: search.value || undefined } })
-    reset()
-    await loadMore()
+    await reloadFromStart()
   }
   debounce = setTimeout(run, immediate ? 150 : 400)
 }
+
+/**
+ * Opening seeds the count from what's already loaded; closing applies whatever
+ * changed while it was open, once.
+ */
+watch(filtersOpen, async (open) => {
+  if (open) {
+    matchCount.value = total.value
+    return
+  }
+  if (debounce) { clearTimeout(debounce); debounce = null }
+  activeCount?.abort()
+  activeCount = null
+  countLoading.value = false
+  if (!filtersDirty.value) return
+  filtersDirty.value = false
+  router.replace({ query: { ...route.query, q: search.value || undefined } })
+  await reloadFromStart()
+})
 
 watch(search, () => refilter())
 watch(creator, () => refilter())
@@ -745,9 +849,14 @@ watch(
 
     <!-- Advanced filter popup -->
     <Teleport to="body">
+      <!-- No `backdrop-blur` here, deliberately. The backdrop is a 500-row
+           scrolling list of thumbnails; blurring it makes the compositor
+           re-rasterise that whole surface behind every hover and every chip
+           transition in the dialog, which is most of what "the filter menu is
+           laggy" was. A plain scrim reads the same and costs nothing. -->
       <div
         v-if="filtersOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
         @click.self="closeFilters"
       >
         <div
@@ -763,11 +872,15 @@ watch(
                 <!-- What the filters currently produce, live, in the dialog
                      that set them. It used to take closing the dialog to find
                      out whether the last change had narrowed the list to
-                     nothing. -->
-                <span class="text-[11px] tabular-nums" :class="total ? 'text-zinc-500' : 'text-amber-400'">
-                  {{ total.toLocaleString() }} match{{ total === 1 ? '' : 'es' }}
+                     nothing.
+                     This is a count, not a page: the rows behind the dialog are
+                     rebuilt when it closes, so a filter change costs one COUNT
+                     rather than 500 rows nobody is looking at. -->
+                <span class="text-[11px] tabular-nums" :class="(matchCount ?? total) ? 'text-zinc-500' : 'text-amber-400'">
+                  {{ (matchCount ?? total).toLocaleString() }} match{{ (matchCount ?? total) === 1 ? '' : 'es' }}
                 </span>
-                <span v-if="loading" class="text-[10px] text-zinc-600">updating…</span>
+                <span v-if="countLoading" class="text-[10px] text-zinc-600">counting…</span>
+                <span v-else-if="filtersDirty" class="text-[10px] text-zinc-600">applied when you close this</span>
                 <span v-if="challengeMode" class="text-[10px] text-accent">· challenge ranks</span>
               </div>
               <div class="flex items-center gap-3 shrink-0">
@@ -777,6 +890,13 @@ watch(
                   class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
                   @click="resetFilters"
                 >Reset all</button>
+                <!-- Closing is what applies the filters, so it needs to look
+                     like a thing you do rather than only a way out. -->
+                <button
+                  type="button"
+                  class="btn btn-sm btn-primary"
+                  @click="closeFilters"
+                >{{ filtersDirty ? 'Show results' : 'Done' }}</button>
                 <button
                   type="button"
                   class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
@@ -1170,16 +1290,16 @@ watch(
   pointer-events: auto;
   width: 14px; height: 14px;
   border-radius: 9999px;
-  background: rgb(244 196 48);
-  border: 2px solid rgb(24 24 27);
+  background: rgb(var(--c-accent));
+  border: 2px solid rgb(var(--c-zinc-900));
   cursor: pointer;
 }
 .range-thumb::-moz-range-thumb {
   pointer-events: auto;
   width: 14px; height: 14px;
   border-radius: 9999px;
-  background: rgb(244 196 48);
-  border: 2px solid rgb(24 24 27);
+  background: rgb(var(--c-accent));
+  border: 2px solid rgb(var(--c-zinc-900));
   cursor: pointer;
 }
 .range-thumb::-webkit-slider-runnable-track { background: transparent; }

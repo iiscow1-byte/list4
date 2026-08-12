@@ -2,6 +2,8 @@ import { getDb } from '~/server/db'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { listDerivedPlayers } from '~/server/utils/leaderboard'
 import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
+import { aredlAvatarsForPlayers } from '~/server/utils/aredl-avatars'
+import { discordAvatarUrl } from '~/utils/discord-avatar'
 
 /**
  * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
@@ -32,6 +34,13 @@ type Row = {
   hardest: string | null
   claimed_account: { username: string; has_avatar: boolean } | null
   clan?: ClanBadge | null
+  /**
+   * Discord avatar via AREDL, for a player with no account here. Never
+   * consulted when `claimed_account.has_avatar` is true — this is the picture
+   * for the very many ranked players who have never signed up, not an
+   * alternative to the one somebody chose on this site.
+   */
+  aredl_avatar_url?: string | null
 }
 
 /**
@@ -56,19 +65,43 @@ function attachAccountBits(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
   const names = [...new Set(
     rows.map((r) => r.claimed_account?.username).filter((u): u is string => !!u),
   )]
-  if (!names.length) return rows
-  const ph = names.map(() => '?').join(',')
-  const withAvatar = new Set(
-    (db.prepare(
-      `SELECT username FROM accounts
-        WHERE avatar_blob IS NOT NULL AND username COLLATE NOCASE IN (${ph})`,
-    ).all(...names) as { username: string }[]).map((a) => a.username.toLowerCase()),
-  )
-  for (const r of rows) {
-    if (r.claimed_account) {
-      r.claimed_account = {
-        ...r.claimed_account,
-        has_avatar: withAvatar.has(r.claimed_account.username.toLowerCase()),
+  // Not an early return: a page where nobody has claimed an account is exactly
+  // the page the AREDL fallback below exists for.
+  if (names.length) {
+    const ph = names.map(() => '?').join(',')
+    const withAvatar = new Set(
+      (db.prepare(
+        `SELECT username FROM accounts
+          WHERE avatar_blob IS NOT NULL AND username COLLATE NOCASE IN (${ph})`,
+      ).all(...names) as { username: string }[]).map((a) => a.username.toLowerCase()),
+    )
+    for (const r of rows) {
+      if (r.claimed_account) {
+        r.claimed_account = {
+          ...r.claimed_account,
+          has_avatar: withAvatar.has(r.claimed_account.username.toLowerCase()),
+        }
+      }
+    }
+  }
+
+  /**
+   * AREDL faces for whatever is still blank.
+   *
+   * The AREDL branch below fills these in directly from the row it already
+   * read, so this only catches rows that came from Pointercrate, GDL or the ALL
+   * and happen to name somebody AREDL also knows. A row whose account has its
+   * own avatar is skipped: that picture wins, always.
+   */
+  const faceless = rows
+    .filter((r) => !r.aredl_avatar_url && !r.claimed_account?.has_avatar)
+    .map((r) => r.player)
+  if (faceless.length) {
+    const faces = aredlAvatarsForPlayers(db, faceless)
+    if (faces.size) {
+      for (const r of rows) {
+        if (r.aredl_avatar_url || r.claimed_account?.has_avatar) continue
+        r.aredl_avatar_url = faces.get(r.player.toLowerCase()) ?? null
       }
     }
   }
@@ -99,7 +132,7 @@ export default defineEventHandler((event) => {
     const sql = `
       SELECT ap.uuid, ap.global_name AS player, ap.country,
              ap.total_points, ap.pack_points, ap.extremes, ap.rank,
-             ap.hardest_name,
+             ap.hardest_name, ap.discord_id, ap.discord_avatar,
              a.username AS claimed_username
         FROM aredl_players ap
         LEFT JOIN accounts a ON a.id = ap.claimed_account_id
@@ -121,6 +154,9 @@ export default defineEventHandler((event) => {
         extras: { extremes: r.extremes, pack_points: r.pack_points },
         hardest: r.hardest_name,
         claimed_account: r.claimed_username ? { username: r.claimed_username, has_avatar: false } : null,
+        // Straight off the row that was already read — no second lookup for the
+        // source that has the answer in hand.
+        aredl_avatar_url: discordAvatarUrl(r.discord_id, r.discord_avatar, 64),
       })
     }
   }
@@ -323,6 +359,11 @@ export default defineEventHandler((event) => {
       existing.country = existing.country ?? r.country
       existing.hardest = existing.hardest ?? r.hardest
       existing.claimed_account = existing.claimed_account ?? r.claimed_account
+      // The one row of this merge that carries a picture is the AREDL one, and
+      // it is not necessarily the row that won routing — a player ranked on
+      // Pointercrate too keeps whichever source came first. Carrying it across
+      // is what stops the merged view being blanker than the AREDL-only view.
+      existing.aredl_avatar_url = existing.aredl_avatar_url ?? r.aredl_avatar_url
       existing.extras = {
         extremes: existing.extras.extremes ?? r.extras.extremes,
         pack_points: existing.extras.pack_points ?? r.extras.pack_points,

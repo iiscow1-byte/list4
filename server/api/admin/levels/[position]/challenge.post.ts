@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { invalidateChallengeRanks } from '~/server/utils/challenge-rank'
+import { invalidateChallengeLeaderboard } from '~/server/api/leaderboard/challenges.get'
 
 /**
  * Put a level on the challenge list, or take it off.
@@ -48,6 +49,11 @@ export default defineEventHandler(async (event) => {
   // The challenge ranking just changed without the list changing shape, which
   // is the one thing the rank cache's stamp can't see.
   invalidateChallengeRanks()
+  // And so did the challenge leaderboard: a level entering or leaving the
+  // challenge list changes who is on that ranking and what they are worth.
+  // Its own cache is time-based and would otherwise be up to 30 seconds behind
+  // an admin who has just made the change and gone to look at the result.
+  invalidateChallengeLeaderboard()
 
   return { ok: true, name: level.name, challenge: body.challenge }
 })

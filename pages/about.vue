@@ -59,6 +59,58 @@ const tab = ref<Tab>(
 watch(tab, (v) => router.replace({ query: { ...route.query, tab: v === 'about' ? undefined : v } }))
 
 /**
+ * The third-party services this site actually calls.
+ *
+ * Distinct from the "Lists used" tab, which is about *placements* — where a
+ * level's rank came from. These are the APIs the site queries for data it does
+ * not own: level metadata, video dates, avatars, difficulty tiers. Anything the
+ * site fetches from somebody else's server belongs on this list, and the rule
+ * for adding one is exactly that.
+ */
+const API_CREDITS: { name: string; url: string; what: string }[] = [
+  {
+    name: 'AREDL',
+    url: 'https://aredl.net',
+    what: 'Extreme demon placements, records, player profiles and level metadata.',
+  },
+  {
+    name: 'Global Stats Viewer',
+    url: 'https://globalstatsviewer.com',
+    what: 'Player completion data behind the leaderboard.',
+  },
+  {
+    name: 'Pointercrate',
+    url: 'https://pointercrate.com',
+    what: 'The Demonlist — placements and player scores, mirrored for comparison.',
+  },
+  {
+    name: 'Geometry Dash Demonlist',
+    url: 'https://demonlist.org',
+    what: 'GDL placements, players and records.',
+  },
+  {
+    name: 'Geometry Dash Demon Ladder',
+    url: 'https://gdladder.com',
+    what: 'Community difficulty tiers (GDDL) shown on every level.',
+  },
+  {
+    name: 'Challenge List',
+    url: 'https://challengelist.gd',
+    what: 'Challenge placements and the challenge ranking view.',
+  },
+  {
+    name: 'GDBrowser',
+    url: 'https://gdbrowser.com',
+    what: 'Level search, level info and thumbnails from the Geometry Dash servers.',
+  },
+  {
+    name: 'YouTube Data API',
+    url: 'https://developers.google.com/youtube/v3',
+    what: 'Verification video upload dates, filled in automatically on submission.',
+  },
+]
+
+/**
  * Every list the ALL draws from.
  *
  * Two sources, merged: the lists this site actually imports (generated from the
@@ -450,6 +502,38 @@ const coveragePct = computed(() => {
           <button type="button" class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline" @click="tab = 'sources'">{{ totalLists }} other demonlists</button>.
           Thanks to everyone who submits records, levels and opinions to keep the list current.
         </p>
+
+        <!-- Where the data actually comes from.
+             Named individually rather than as one line of thanks: each of these
+             is a service this site queries at runtime or on a schedule, and the
+             people running them are owed the credit by name and by link. AREDL
+             is first because it is the largest single contributor — placements,
+             records, players and level metadata all come through it. -->
+        <div class="pt-2">
+          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">APIs and data sources</h3>
+          <ul class="grid gap-px sm:grid-cols-2 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+            <li v-for="c in API_CREDITS" :key="c.name" class="bg-zinc-950 px-4 py-3">
+              <a
+                :href="c.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm font-medium text-zinc-100 hover:text-accent underline-offset-2 hover:underline"
+              >{{ c.name }} <span class="text-[9px] opacity-60" aria-hidden="true">↗</span></a>
+              <p class="text-[11px] text-zinc-500 mt-0.5 leading-snug">{{ c.what }}</p>
+            </li>
+          </ul>
+          <p class="text-[11px] text-zinc-500 leading-relaxed mt-2">
+            Extreme demon placements, records, player profiles and level metadata are mirrored from
+            <a
+              href="https://aredl.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-accent hover:underline underline-offset-2 font-medium"
+            >AREDL.net</a> — the All Rated Extreme Demons List. Their public API is what makes the
+            cross-list comparisons, the AREDL player pages and the AREDL ranking view on this site
+            possible. Thank you to the AREDL team.
+          </p>
+        </div>
       </section>
     </div>
 

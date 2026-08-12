@@ -78,6 +78,12 @@ export default defineEventHandler((event) => {
       color: clan.color, icon_url: clan.icon_url, banner_url: clan.banner_url,
       discord_url: clan.discord_url, invite_only: clan.invite_only,
       owner_username: clan.owner_username, created_at: clan.created_at,
+      // Whether an *uploaded* picture exists, not the picture itself: the blob
+      // is served by `image.get.ts` and would be megabytes of base64 in this
+      // JSON otherwise. `utils/clan-images.ts` turns these two flags plus the
+      // two URLs into one answer.
+      has_icon: !!clan.icon_blob,
+      has_banner: !!clan.banner_blob,
     },
     totals,
     members,

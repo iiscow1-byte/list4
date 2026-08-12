@@ -127,8 +127,19 @@ export function rgbTripletToHex(triplet: string): string {
   return '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')
 }
 
+/**
+ * The preset a browser that has never chosen one gets.
+ *
+ * Named rather than inlined because three separate places need to agree on it:
+ * the initial state, the fallback for a stored preset that no longer exists,
+ * and `reset()`. They were three literals reading 'default', which is why
+ * changing the site's colour used to mean changing the same word three times
+ * and finding the fourth later.
+ */
+export const DEFAULT_PRESET = 'cyan'
+
 function defaultState(): ThemeState {
-  return { preset: 'default', overrides: {} }
+  return { preset: DEFAULT_PRESET, overrides: {} }
 }
 
 export function useTheme() {
@@ -137,7 +148,7 @@ export function useTheme() {
   function applyToDom() {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    const preset = PRESETS[state.value.preset] ?? PRESETS.default!
+    const preset = PRESETS[state.value.preset] ?? PRESETS[DEFAULT_PRESET]!
     for (const [k, v] of Object.entries(preset.vars)) {
       root.style.setProperty(k, v)
     }
@@ -159,7 +170,7 @@ export function useTheme() {
       const parsed = JSON.parse(raw)
       if (parsed && typeof parsed === 'object') {
         state.value = {
-          preset: typeof parsed.preset === 'string' && PRESETS[parsed.preset] ? parsed.preset : 'default',
+          preset: typeof parsed.preset === 'string' && PRESETS[parsed.preset] ? parsed.preset : DEFAULT_PRESET,
           overrides: parsed.overrides && typeof parsed.overrides === 'object' ? parsed.overrides : {},
         }
       }
@@ -203,7 +214,7 @@ export function useTheme() {
   function effectiveHex(key: ThemeOverrideKey): string {
     const o = state.value.overrides[key]
     if (o) return o
-    const preset = PRESETS[state.value.preset] ?? PRESETS.default!
+    const preset = PRESETS[state.value.preset] ?? PRESETS[DEFAULT_PRESET]!
     const target = OVERRIDE_TARGETS[key][0]!
     return rgbTripletToHex(preset.vars[target] ?? '0 0 0')
   }

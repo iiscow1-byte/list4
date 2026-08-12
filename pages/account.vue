@@ -163,14 +163,32 @@ const avatarHoverFileInput = ref<HTMLInputElement | null>(null)
  *
  * Offsets are the image's top-left corner relative to the stage's top-left,
  * in display pixels. `cropScale` multiplies the natural size.
+ *
+ * ## Why the stage measures itself
+ *
+ * All of the arithmetic here — the minimum zoom, the pan clamp, where a
+ * cursor is on the stage, and the region that gets saved — is in units of "the
+ * stage is N pixels across". That N used to be the constant 320 while the
+ * element it described was `width: 320px; max-width: 100%` inside a dialog with
+ * padding. On any window narrower than about 400px the element was *not* 320
+ * wide, and every one of those calculations was then wrong by the difference:
+ * dragging tracked faster than the pointer, the clamp let the image pull away
+ * from an edge, and — the part that made it look broken rather than fiddly —
+ * the saved picture was a crop of a 320-wide stage nobody had been looking at,
+ * so the result did not match the preview.
+ *
+ * So the stage reports its own size and everything reads that. The element is
+ * kept square by `aspect-ratio`, not by a hardcoded height, so it cannot become
+ * a rectangle the square maths does not describe.
  */
-const CROP_SIZE = 320   // px — stage edge on screen
-const CROP_OUT = 512    // px — saved image edge
+const CROP_MAX_STAGE = 320  // px — the widest the stage is allowed to be
+const CROP_OUT = 512        // px — saved image edge
 const CROP_MAX_ZOOM = 6
 
 const cropOpen = ref(false)
 const cropSrc = ref<string | null>(null)
 const cropImgEl = ref<HTMLImageElement | null>(null)
+const cropStageEl = ref<HTMLElement | null>(null)
 const cropNaturalW = ref(0)
 const cropNaturalH = ref(0)
 const cropScale = ref(1)
@@ -178,23 +196,61 @@ const cropOffsetX = ref(0)
 const cropOffsetY = ref(0)
 const cropIsDragging = ref(false)
 
+/**
+ * The stage's real edge length, in CSS pixels. Seeded to the maximum so the
+ * first frame is sane, then corrected the moment the element exists.
+ */
+const cropStageSize = ref(CROP_MAX_STAGE)
+let cropStageObserver: ResizeObserver | null = null
+
+function measureCropStage() {
+  const el = cropStageEl.value
+  if (!el) return
+  const next = el.getBoundingClientRect().width
+  if (next > 0 && Math.abs(next - cropStageSize.value) > 0.5) {
+    // Rescale the framing so the same part of the picture stays framed when the
+    // stage changes size (a rotated phone, a resized window). Without this the
+    // offsets are still in the old stage's units and the subject jumps.
+    const ratio = next / cropStageSize.value
+    cropStageSize.value = next
+    cropScale.value *= ratio
+    cropOffsetX.value *= ratio
+    cropOffsetY.value *= ratio
+    clampCropOffset()
+  }
+}
+
+// Watched rather than measured once: the dialog can open before layout settles,
+// and the window can change size while it is open.
+watch(cropStageEl, (el) => {
+  cropStageObserver?.disconnect()
+  cropStageObserver = null
+  if (!el || typeof ResizeObserver === 'undefined') return
+  cropStageObserver = new ResizeObserver(measureCropStage)
+  cropStageObserver.observe(el)
+  measureCropStage()
+})
+onBeforeUnmount(() => { cropStageObserver?.disconnect(); cropStageObserver = null })
+
 /** Smallest zoom that still covers the stage — never allow empty corners. */
 const cropMinScale = computed(() => {
   const min = Math.min(cropNaturalW.value || 1, cropNaturalH.value || 1)
-  return CROP_SIZE / min
+  return cropStageSize.value / min
 })
 
 function clampCropOffset() {
+  const stage = cropStageSize.value
   const w = cropNaturalW.value * cropScale.value
   const h = cropNaturalH.value * cropScale.value
-  cropOffsetX.value = Math.min(0, Math.max(CROP_SIZE - w, cropOffsetX.value))
-  cropOffsetY.value = Math.min(0, Math.max(CROP_SIZE - h, cropOffsetY.value))
+  cropOffsetX.value = Math.min(0, Math.max(stage - w, cropOffsetX.value))
+  cropOffsetY.value = Math.min(0, Math.max(stage - h, cropOffsetY.value))
 }
 
 /** Centre the image at the current zoom. */
 function centreCrop() {
-  cropOffsetX.value = (CROP_SIZE - cropNaturalW.value * cropScale.value) / 2
-  cropOffsetY.value = (CROP_SIZE - cropNaturalH.value * cropScale.value) / 2
+  const stage = cropStageSize.value
+  cropOffsetX.value = (stage - cropNaturalW.value * cropScale.value) / 2
+  cropOffsetY.value = (stage - cropNaturalH.value * cropScale.value) / 2
   clampCropOffset()
 }
 
@@ -207,6 +263,10 @@ function onCropImgLoad(e: Event) {
   const img = e.target as HTMLImageElement
   cropNaturalW.value = img.naturalWidth
   cropNaturalH.value = img.naturalHeight
+  // The image can finish loading before the stage has been laid out; without
+  // this the framing is computed against the seeded size and is wrong until
+  // something else nudges it.
+  measureCropStage()
   resetCrop()
 }
 
@@ -301,10 +361,10 @@ function onCropKeydown(e: KeyboardEvent) {
   }
   if (e.key === '+' || e.key === '=') {
     e.preventDefault()
-    zoomAt(cropScale.value * 1.12, CROP_SIZE / 2, CROP_SIZE / 2)
+    zoomAt(cropScale.value * 1.12, cropStageSize.value / 2, cropStageSize.value / 2)
   } else if (e.key === '-' || e.key === '_') {
     e.preventDefault()
-    zoomAt(cropScale.value / 1.12, CROP_SIZE / 2, CROP_SIZE / 2)
+    zoomAt(cropScale.value / 1.12, cropStageSize.value / 2, cropStageSize.value / 2)
   }
 }
 
@@ -313,7 +373,7 @@ function onCropKeydown(e: KeyboardEvent) {
  * what the avatar will look like at the sizes it's actually used.
  */
 function cropPreviewStyle(size: number) {
-  const r = size / CROP_SIZE
+  const r = size / cropStageSize.value
   return {
     position: 'absolute' as const,
     left: cropOffsetX.value * r + 'px',
@@ -352,13 +412,41 @@ function onHoverAvatarChange(e: Event) {
 }
 
 async function confirmCrop() {
-  if (!cropImgEl.value) return
+  const img = cropImgEl.value
+  if (!img || !cropNaturalW.value || !cropNaturalH.value) return
   avatarError.value = null
   avatarUploading.value = true
   const wasOpen = cropOpen.value
-  cropOpen.value = false
+
+  /**
+   * The framing, read *before* anything that could re-render.
+   *
+   * The `<img>` this draws from lives inside `v-if="cropOpen"`. Closing the
+   * dialog first and then reading the element is one microtask away from
+   * drawing a detached node, so the numbers are taken while it is certainly
+   * still on screen and the dialog is closed afterwards.
+   */
+  const stage = cropStageSize.value
+  const scale = cropScale.value
+  const offX = cropOffsetX.value
+  const offY = cropOffsetY.value
+
   try {
-    const ratio = CROP_OUT / CROP_SIZE
+    /**
+     * Which part of the *source image* the stage is showing, in the image's own
+     * pixels — the region from (-offset / scale) that is `stage / scale` across.
+     *
+     * Expressed as a source rectangle rather than by drawing the whole image
+     * into a scaled destination rectangle. The two are equivalent on paper, but
+     * the destination form encodes the display size into the output: it works
+     * only while the stage really is the size the constant claims, which is
+     * exactly the assumption that made this crop wrong on a narrow window. This
+     * form has no display size in it at all.
+     */
+    const srcSize = stage / scale
+    const sx = -offX / scale
+    const sy = -offY / scale
+
     const canvas = document.createElement('canvas')
     canvas.width = CROP_OUT
     canvas.height = CROP_OUT
@@ -371,12 +459,12 @@ async function confirmCrop() {
     ctx.fillStyle = '#18181b'
     ctx.fillRect(0, 0, CROP_OUT, CROP_OUT)
     ctx.drawImage(
-      cropImgEl.value,
-      cropOffsetX.value * ratio,
-      cropOffsetY.value * ratio,
-      cropNaturalW.value * cropScale.value * ratio,
-      cropNaturalH.value * cropScale.value * ratio,
+      img,
+      sx, sy, srcSize, srcSize,
+      0, 0, CROP_OUT, CROP_OUT,
     )
+
+    cropOpen.value = false
     const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.9))
     if (!blob) throw new Error('Crop failed.')
     const fd = new FormData()
@@ -1900,9 +1988,14 @@ function fmt(n: number | null | undefined) {
 
         <!-- Stage. Square, because avatars render as a rounded square on
              profiles and a circle everywhere else; the ring is only a guide. -->
+        <!-- `aspect-ratio` rather than a matching height: the width is capped
+             but can be smaller than the cap on a narrow window, and a fixed
+             height would then make this a rectangle while every calculation
+             behind it assumes a square. -->
         <div
+          ref="cropStageEl"
           class="relative mx-auto bg-black overflow-hidden select-none touch-none rounded-2xl ring-1 ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-accent"
-          :style="{ width: CROP_SIZE + 'px', height: CROP_SIZE + 'px', maxWidth: '100%' }"
+          :style="{ width: CROP_MAX_STAGE + 'px', maxWidth: '100%', aspectRatio: '1 / 1' }"
           :class="cropIsDragging ? 'cursor-grabbing' : 'cursor-grab'"
           tabindex="0"
           role="application"
@@ -1982,13 +2075,13 @@ function fmt(n: number | null | undefined) {
               step="0.01"
               :value="cropScale"
               class="w-full mt-1 accent-accent"
-              @input="(e) => zoomAt(Number((e.target as HTMLInputElement).value), CROP_SIZE / 2, CROP_SIZE / 2)"
+              @input="(e) => zoomAt(Number((e.target as HTMLInputElement).value), cropStageSize / 2, cropStageSize / 2)"
             />
           </label>
           <button
             type="button"
             class="btn btn-sm btn-ghost mt-4 shrink-0"
-            title="Fit the whole picture and centre it"
+            title="Zoom back out as far as it goes and centre the picture"
             @click="resetCrop"
           >Reset</button>
         </div>

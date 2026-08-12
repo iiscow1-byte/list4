@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { listDerivedPlayers } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
+import { aredlAvatarsForPlayers } from '~/server/utils/aredl-avatars'
 
 type Row = {
   player: string
@@ -160,6 +161,12 @@ function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: Res
     ...p,
     account_username: null as string | null,
     has_avatar: false,
+    /**
+     * A picture for a player with no account here. Null whenever `has_avatar`
+     * is true — the site's own avatar is the answer then, and sending both
+     * would invite a client to pick the wrong one.
+     */
+    aredl_avatar_url: null as string | null,
     clan: null as ClanBadge | null,
   }))
 
@@ -185,6 +192,24 @@ function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: Res
       const hit = byName.get(p.player.toLowerCase())
       p.account_username = hit?.username ?? null
       p.has_avatar = hit?.has_avatar ?? false
+    }
+
+    /**
+     * Faces for the rest of the page, from AREDL.
+     *
+     * Asked for only the rows that still have none — an account's own avatar is
+     * always the right picture and this must never override it — so a page
+     * where everyone has signed up costs one query that returns nothing.
+     */
+    const faceless = items.filter((p) => !p.has_avatar).map((p) => p.player)
+    if (faceless.length) {
+      const aredlFaces = aredlAvatarsForPlayers(db, faceless)
+      if (aredlFaces.size) {
+        for (const p of items) {
+          if (p.has_avatar) continue
+          p.aredl_avatar_url = aredlFaces.get(p.player.toLowerCase()) ?? null
+        }
+      }
     }
 
     // The clan tag rides along with the account, for the same reason and at the

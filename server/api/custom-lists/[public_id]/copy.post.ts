@@ -41,11 +41,14 @@ export default defineEventHandler((event) => {
       // Overrides come with the copy: they are part of what the list says about
       // its levels, and a copy that silently reverted to the ALL's video for
       // every row would not be a copy of what was on screen.
+      // `is_challenge` copies for the same reason the overrides do: it is the
+      // source list's own editorial call, visible on every row, and a copy that
+      // dropped it would differ from what was on screen.
       `INSERT INTO custom_list_items
          (list_id, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes,
-          ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url)
+          ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url, is_challenge)
        SELECT ?, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier, verification_url, notes,
-              ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url
+              ov_name, ov_creator, ov_difficulty, ov_gddl_tier, ov_verification_url, is_challenge
          FROM custom_list_items WHERE list_id = ?
         ORDER BY sort_order ASC`,
     ).run(newId, src.id)

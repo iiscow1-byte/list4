@@ -23,6 +23,14 @@ export type BuilderItem = {
   percent_to_qualify?: number | null
   fps?: string | null
   game_version?: string | null
+  /**
+   * Whether this list calls the level a challenge.
+   *
+   * The list's own answer, not the ALL's. A linked row does not inherit the
+   * main list's verdict: a list built to rank challenges by its own rules would
+   * have that overwritten on every save if it did.
+   */
+  is_challenge?: boolean | null
   /** Current ALL placement of the linked level — display only, not persisted. */
   position?: number | null
   /** Sheet placement of the linked level — the number shown as "#N". */
@@ -119,6 +127,7 @@ export function useListBuilder() {
         percent_to_qualify: i.percent_to_qualify ?? 100,
         fps: i.fps ?? null,
         game_version: i.game_version ?? null,
+        is_challenge: !!i.is_challenge,
         position: i.position ?? null,
         sheet_placement: i.sheet_placement ?? null,
       })),

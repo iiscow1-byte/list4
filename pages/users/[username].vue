@@ -42,9 +42,16 @@ const { data, error, refresh } = await useFetch<{
     isSelf: boolean; canFollow: boolean
     followers: { username: string; has_avatar: number }[]
     following: { name: string; username: string | null }[]
-    /** Whether this profile follows the viewer, and who you both follow. */
+    /** Whether this profile follows the viewer. */
     followsYou: boolean
     mutuals: number
+  }
+  friendship: {
+    state: 'self' | 'friends' | 'incoming' | 'outgoing' | 'none'
+    count: number
+    /** Friends you and this profile have in common. */
+    mutuals: number
+    canFriend: boolean
   }
   profileViews: number
   totalLevels: number
@@ -135,6 +142,50 @@ function openFollowList(mode: 'followers' | 'following') {
   followListMode.value = mode
   followListOpen.value = true
 }
+
+/**
+ * The friends you and this profile have in common.
+ *
+ * The chip has shown a count for a while and gone nowhere, which made it
+ * trivia. It opens the list now — and the list is the useful half, because
+ * "you both know these three people" is what tells you who somebody is.
+ *
+ * Fetched on open rather than with the page: most visitors never press it, and
+ * it needs a signed-in viewer to mean anything at all.
+ */
+type MutualFriend = {
+  account_id: number; username: string; has_avatar: boolean
+  country: string | null; role: string
+  clan_tag: string | null; clan_name: string | null; clan_color: string | null
+}
+const mutualsOpen = ref(false)
+const mutuals = ref<MutualFriend[]>([])
+const mutualsLoading = ref(false)
+
+async function openMutuals() {
+  mutualsOpen.value = true
+  if (mutuals.value.length) return
+  mutualsLoading.value = true
+  try {
+    const res = await $fetch<{ items: MutualFriend[] }>('/api/friends/mutual', {
+      query: { username: username.value },
+    })
+    mutuals.value = res.items
+  } catch {
+    mutuals.value = []
+  } finally {
+    mutualsLoading.value = false
+  }
+}
+
+/** The header's friend count reflects an add or remove without a page reload. */
+const friendCount = ref(0)
+watch(data, (d) => { friendCount.value = d?.friendship.count ?? 0 }, { immediate: true })
+function onFriendshipChanged(state: string) {
+  if (state === 'friends') friendCount.value++
+  else if (data.value?.friendship.state === 'friends') friendCount.value = Math.max(0, friendCount.value - 1)
+  refresh()
+}
 </script>
 
 <template>
@@ -162,16 +213,30 @@ function openFollowList(mode: 'followers' | 'following') {
         <!-- Chips, like the facts they sit beside. These used to be bare grey
              text dropped into a row of bordered chips, which is the one place
              a slot can quietly undo a component's own layout. -->
-        <span
-          v-if="data.follow.mutuals"
-          :class="profileChipClass()"
-          :title="`You and ${data.account.username} both follow ${data.follow.mutuals} of the same people`"
+        <!-- Friends in common, and a way to see who they are. A button rather
+             than a span: the count on its own was trivia you couldn't act on. -->
+        <button
+          v-if="data.friendship.mutuals"
+          type="button"
+          :class="[profileChipClass(), 'hover:border-accent/50 hover:text-accent transition-colors']"
+          :title="`See the ${data.friendship.mutuals} friend${data.friendship.mutuals === 1 ? '' : 's'} you and ${data.account.username} have in common`"
+          @click="openMutuals"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87" />
             <circle cx="9" cy="7" r="4" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
-          <span><span class="tabular-nums">{{ data.follow.mutuals }}</span> mutual{{ data.follow.mutuals === 1 ? '' : 's' }}</span>
+          <span><span class="tabular-nums">{{ data.friendship.mutuals }}</span> mutual friend{{ data.friendship.mutuals === 1 ? '' : 's' }}</span>
+        </button>
+        <span
+          v-if="friendCount"
+          :class="profileChipClass()"
+          :title="`${data.account.username} has ${friendCount} friend${friendCount === 1 ? '' : 's'}`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+          <span><span class="tabular-nums">{{ friendCount }}</span> friend{{ friendCount === 1 ? '' : 's' }}</span>
         </span>
         <span v-if="data.profileViews > 1" :class="profileChipClass()" title="Times this profile has been opened">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
@@ -186,14 +251,24 @@ function openFollowList(mode: 'followers' | 'following') {
           to="/account"
           class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
         >Edit profile</NuxtLink>
-        <FollowButton
-          v-else
-          :target="data.follow.target"
-          :initial-followed="data.follow.followed"
-          :can-follow="data.follow.canFollow"
-          :is-self="data.follow.isSelf"
-          :follower-count="data.follow.followerCount"
-        />
+        <template v-else>
+          <FollowButton
+            :target="data.follow.target"
+            :initial-followed="data.follow.followed"
+            :can-follow="data.follow.canFollow"
+            :is-self="data.follow.isSelf"
+            :follower-count="data.follow.followerCount"
+          />
+          <!-- Beside Follow, not instead of it. Following is "show me what they
+               do"; a friendship is mutual and is what the clan invites and the
+               mutual-friends count are built on. -->
+          <FriendButton
+            :username="data.account.username"
+            :initial-state="data.friendship.state"
+            :can-friend="data.friendship.canFriend"
+            @changed="onFriendshipChanged"
+          />
+        </template>
       </template>
     </ProfileHeader>
 
@@ -335,5 +410,64 @@ function openFollowList(mode: 'followers' | 'following') {
       :count="followListMode === 'followers' ? data.follow.followerCount : data.follow.followingCount"
       :who="data.account.username"
     />
+
+    <!-- Friends in common -->
+    <Teleport to="body">
+      <div
+        v-if="mutualsOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+        @click.self="mutualsOpen = false"
+      >
+        <div class="w-full max-w-sm max-h-[70vh] flex flex-col modal-panel overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+            <div class="min-w-0">
+              <h2 class="text-sm font-medium text-zinc-100">Mutual friends</h2>
+              <p class="text-[11px] text-zinc-500 truncate">
+                You and {{ data.account.username }} both know these people.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="text-zinc-500 hover:text-zinc-200 transition-colors text-lg leading-none shrink-0"
+              aria-label="Close"
+              @click="mutualsOpen = false"
+            >×</button>
+          </div>
+          <p v-if="mutualsLoading" class="p-4 text-xs text-zinc-500 text-center">Loading…</p>
+          <ul v-else-if="mutuals.length" class="overflow-y-auto divide-y divide-zinc-900">
+            <li v-for="m in mutuals" :key="m.account_id">
+              <NuxtLink
+                :to="`/users/${encodeURIComponent(m.username)}`"
+                class="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-900 transition-colors"
+                @click="mutualsOpen = false"
+              >
+                <span class="w-7 h-7 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden shrink-0 flex items-center justify-center text-xs font-bold text-zinc-500">
+                  <img
+                    v-if="m.has_avatar"
+                    :src="`/api/users/${encodeURIComponent(m.username)}/avatar`"
+                    class="w-full h-full object-cover"
+                    alt=""
+                    loading="lazy"
+                  />
+                  <span v-else>{{ m.username.charAt(0).toUpperCase() }}</span>
+                </span>
+                <span class="min-w-0 flex-1 truncate text-sm text-zinc-200 font-medium">{{ m.username }}</span>
+                <ClanTag
+                  v-if="m.clan_tag"
+                  :tag="m.clan_tag"
+                  :name="m.clan_name ?? m.clan_tag"
+                  :color="m.clan_color"
+                  size="sm"
+                  :link="false"
+                  class="shrink-0"
+                />
+                <CountryFlag :country="m.country" size="sm" class="shrink-0" />
+              </NuxtLink>
+            </li>
+          </ul>
+          <p v-else class="p-4 text-xs text-zinc-600 text-center">No friends in common.</p>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

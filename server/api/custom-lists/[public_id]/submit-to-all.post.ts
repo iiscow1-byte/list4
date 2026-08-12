@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { isValidTier } from '~/utils/tier-ordinal'
+import { uploadDatesForUrls, isYoutubeConfigured } from '~/server/utils/youtube-dates'
 
 /**
  * Submit several of a custom list's levels to the ALL list in one go.
@@ -67,6 +68,33 @@ export default defineEventHandler(async (event) => {
   const rows = Array.isArray(body.items) ? body.items.slice(0, MAX_BATCH) : []
   if (!rows.length) throw createError({ statusCode: 400, statusMessage: 'Nothing to submit.' })
 
+  /**
+   * Fill in the verification dates nobody typed, from the videos.
+   *
+   * This used to be the browser's job alone, and a row that arrived without a
+   * date was rejected with "Needs a verification date" — while carrying a
+   * YouTube link whose upload date is exactly that date. The client still fills
+   * them in as you edit (so you can see and correct them before submitting);
+   * this is the backstop for every way that can fail to happen: the lookup was
+   * still in flight when Submit was pressed, the page was opened on a slow
+   * connection, a link was pasted a moment before submitting, or the request
+   * simply errored.
+   *
+   * One batched call for the whole submission, before the transaction opens —
+   * a `fetch` inside an open SQLite transaction would hold a write lock across
+   * a third-party round trip.
+   *
+   * The video's upload date is not *always* the verification date, which is why
+   * a typed value always wins and is never overwritten. But for a level being
+   * carried over from a curated list it is right far more often than blank is,
+   * and a moderator reviews every row of this anyway.
+   */
+  const needDates = rows.filter((r) => !strOrNull(r.verify_date, 32) && strOrNull(r.verification_url, 500))
+  const resolvedDates = needDates.length
+    ? await uploadDatesForUrls(needDates.map((r) => strOrNull(r.verification_url, 500)))
+    : new Map<string, string>()
+  let autoDated = 0
+
   const placementSource = list.title.slice(0, 100)
   const insert = db.prepare(
     `INSERT INTO pending_levels
@@ -104,10 +132,21 @@ export default defineEventHandler(async (event) => {
 
       const verifier = strOrNull(r.verifier, 100)
       if (!verifier) { push('Needs a verifier.'); continue }
-      const verifyDate = strOrNull(r.verify_date, 32)
-      if (!verifyDate) { push('Needs a verification date.'); continue }
       const verificationUrl = strOrNull(r.verification_url, 500)
       if (!verificationUrl) { push('Needs a verification video link.'); continue }
+
+      // Typed wins; otherwise the video's upload date, resolved above.
+      let verifyDate = strOrNull(r.verify_date, 32)
+      if (!verifyDate) {
+        const fromVideo = resolvedDates.get(verificationUrl)
+        if (fromVideo) { verifyDate = fromVideo; autoDated++ }
+      }
+      if (!verifyDate) {
+        push(isYoutubeConfigured()
+          ? "Needs a verification date — couldn't read one from the video."
+          : 'Needs a verification date.')
+        continue
+      }
 
       const gddlTier = strOrNull(r.gddl_tier, 32)
       if (gddlTier && !isValidTier(gddlTier)) {
@@ -140,6 +179,8 @@ export default defineEventHandler(async (event) => {
     ok: true,
     submitted: results.filter((r) => r.status === 'submitted').length,
     skipped: results.filter((r) => r.status === 'skipped').length,
+    /** How many dates the server read off the videos, so the page can say so. */
+    autoDated,
     results,
   }
 })

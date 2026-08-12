@@ -26,6 +26,12 @@ export type ClanSummary = {
   description: string | null
   color: string | null
   icon_url: string | null
+  /** An uploaded icon exists — see `utils/clan-images.ts` for which one wins. */
+  has_icon: boolean
+  banner_url: string | null
+  has_banner: boolean
+  invite_only: number
+  created_at: string
   owner_username: string | null
   members: number
   /** Distinct levels beaten by anybody in the clan. */
@@ -48,7 +54,10 @@ export type ClanSummary = {
  */
 export function clanLeaderboard(db: DatabaseSync): ClanSummary[] {
   const rows = db.prepare(`
-    SELECT c.id, c.tag, c.name, c.description, c.color, c.icon_url,
+    SELECT c.id, c.tag, c.name, c.description, c.color, c.icon_url, c.banner_url,
+           c.invite_only, c.created_at,
+           (c.icon_blob   IS NOT NULL) AS has_icon,
+           (c.banner_blob IS NOT NULL) AS has_banner,
            o.username AS owner_username,
            COUNT(DISTINCT m.account_id) AS members,
            COUNT(DISTINCT r.level_id)   AS levels,
@@ -88,7 +97,12 @@ export function clanLeaderboard(db: DatabaseSync): ClanSummary[] {
     })
   }
 
-  return rows.map((c) => ({ ...c, hardest: hardest.get(c.id) ?? null }))
+  return rows.map((c: any) => ({
+    ...c,
+    has_icon: !!c.has_icon,
+    has_banner: !!c.has_banner,
+    hardest: hardest.get(c.id) ?? null,
+  })) as ClanSummary[]
 }
 
 export type ClanMember = {

@@ -81,7 +81,12 @@ async function fetchAllPages<T>(path: string, perPage = 200): Promise<T[]> {
 
 type LbEntry = {
   rank: number
-  user: { id: string; username: string; global_name: string; country: number | null; discord_id: string | null }
+  user: {
+    id: string; username: string; global_name: string
+    country: number | null; discord_id: string | null
+    /** Discord avatar *hash*, not a URL — see `utils/discord-avatar.ts`. */
+    discord_avatar: string | null
+  }
   country: number | null
   total_points: number
   pack_points: number
@@ -136,14 +141,15 @@ export async function importAredl(report?: ProgressReporter) {
   console.log('[aredl] Writing players…')
   const insPlayer = db.prepare(`
     INSERT INTO aredl_players
-      (uuid, username, global_name, country, discord_id, total_points, pack_points,
+      (uuid, username, global_name, country, discord_id, discord_avatar, total_points, pack_points,
        extremes, rank, hardest_uuid, hardest_name, fetched_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(uuid) DO UPDATE SET
       username = excluded.username,
       global_name = excluded.global_name,
       country = excluded.country,
       discord_id = excluded.discord_id,
+      discord_avatar = excluded.discord_avatar,
       total_points = excluded.total_points,
       pack_points = excluded.pack_points,
       extremes = excluded.extremes,
@@ -161,6 +167,7 @@ export async function importAredl(report?: ProgressReporter) {
         e.user.global_name,
         e.user.country ?? null,
         e.user.discord_id ?? null,
+        e.user.discord_avatar ?? null,
         e.total_points ?? 0,
         e.pack_points ?? 0,
         e.extremes ?? 0,
