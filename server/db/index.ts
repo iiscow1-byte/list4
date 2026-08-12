@@ -1846,9 +1846,21 @@ function initSchema(db: DatabaseSync) {
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS idx_page_views_day ON page_views(day);
 
+    -- One row per person per day. The hours column is a 24-bit mask: bit 9 set
+    -- means this reader was here some time between 09:00 and 10:00 UTC.
+    --
+    -- A mask rather than a table. "How many people were here at 3pm" is a
+    -- question about people, so it cannot be answered by dividing the hourly
+    -- view counts -- one person reading forty pages is forty views and one
+    -- person, and the whole tab exists to keep those apart. The obvious shape
+    -- is a row per person per hour, which is twenty-four times this table for
+    -- one extra fact per row. An integer holds the same fact exactly, costs
+    -- nothing per hour, and folds with OR, so concurrent writes cannot lose a
+    -- bit the way a read-modify-write would.
     CREATE TABLE IF NOT EXISTS visit_uniques (
       day     TEXT NOT NULL,
       visitor TEXT NOT NULL,
+      hours   INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (day, visitor)
     ) WITHOUT ROWID;
 
@@ -1935,6 +1947,15 @@ function initSchema(db: DatabaseSync) {
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS idx_custom_list_view_days_day ON custom_list_view_days(day);
   `)
+
+  // A database that predates the mask has rows without it. Zero is the honest
+  // value for those days: it means "we were not recording the hour", and the
+  // hourly figures divide by the days that actually carry data rather than by
+  // the window, so an un-recorded day lowers nothing.
+  const visitCols = db.prepare(`PRAGMA table_info(visit_uniques)`).all() as { name: string }[]
+  if (!visitCols.some((c) => c.name === 'hours')) {
+    db.exec(`ALTER TABLE visit_uniques ADD COLUMN hours INTEGER NOT NULL DEFAULT 0`)
+  }
 
   /**
    * Clans — groups of players, ranked together.

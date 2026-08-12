@@ -302,6 +302,28 @@ export default defineEventHandler((event) => {
     item.is_challenge = rank != null ? 1 : 0
   }
 
+  /**
+   * How many times each level on this page has been opened.
+   *
+   * A second query rather than a join. The two paths above are a CTE over a
+   * window function and a filtered scan, and threading a join through both to
+   * carry one integer is two more chances to change a row count — which on the
+   * ranked path would silently change the ranks themselves. This reads at most
+   * `pageSize` rows by primary key.
+   *
+   * A level nobody has opened has no row at all, which is a zero. The number is
+   * public: it is the same figure the level's own page shows, and it is the
+   * only thing on a list row that reflects readers rather than curators.
+   */
+  if (items.length) {
+    const ids = (items as any[]).map((i) => i.id)
+    const viewRows = db.prepare(
+      `SELECT level_id, views FROM level_views WHERE level_id IN (${ids.map(() => '?').join(',')})`,
+    ).all(...ids) as { level_id: number; views: number }[]
+    const viewsById = new Map(viewRows.map((r) => [r.level_id, r.views]))
+    for (const item of items as any[]) item.views = viewsById.get(item.id) ?? 0
+  }
+
   if (tierFrac) {
     const uniqueTiers = [...new Set(
       (items as any[]).filter((i) => i.gddl_tier).map((i) => i.gddl_tier as string),

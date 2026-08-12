@@ -11,6 +11,7 @@
     "postinstall": "nuxt prepare",
     "make-admin": "node --experimental-strip-types --no-warnings scripts/make-admin.ts",
     "purge-accounts": "node --experimental-strip-types --no-warnings scripts/purge-accounts.ts",
+    "reset-analytics": "node --experimental-strip-types --no-warnings scripts/reset-analytics.ts",
     "import": "node --experimental-strip-types --no-warnings server/db/import.ts",
     "import:aredl": "node --experimental-strip-types --no-warnings server/db/import-aredl.ts",
     "import:aredl-history": "node --experimental-strip-types --no-warnings server/db/import-aredl-history.ts",

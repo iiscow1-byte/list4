@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import { tierColor, textOn } from '~/utils/tier-colors'
+import { compactCount, viewsLabel } from '~/utils/format-count'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
 
@@ -21,6 +22,8 @@ type LevelRow = {
   challenge_list_position?: number | null
   is_challenge?: boolean | number | null
   challenge_rank?: number | null
+  /** How many times the level's page has been opened. Public, and everyone's. */
+  views?: number | null
 }
 
 const props = defineProps<{
@@ -1124,6 +1127,18 @@ watch(
             </span>
             <span class="relative truncate flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
+            <!-- How many people have opened it. Everything else on this row is
+                 what curators decided; this is the one thing readers did. It
+                 sits last, is compact, and is absent until somebody has been —
+                 a list of "0" against every level is worse than no column. -->
+            <span
+              v-if="(lvl.views ?? 0) > 0"
+              class="relative shrink-0 inline-flex items-center gap-1 text-[10px] tabular-nums text-zinc-400 group-hover:text-zinc-300 drop-shadow-sm"
+              :title="`${viewsLabel(lvl.views)} of this level`"
+            >
+              <NavIcon name="eye" class="w-3 h-3 shrink-0 opacity-70" />
+              {{ compactCount(lvl.views) }}
+            </span>
           </NuxtLink>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">

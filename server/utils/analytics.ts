@@ -252,7 +252,19 @@ export function recordPageView(path: string, visitor: string | null): void {
       `INSERT INTO page_views_hourly (day, hour, views) VALUES (?, ?, 1)
        ON CONFLICT(day, hour) DO UPDATE SET views = views + 1`, day, hour)
     if (visitor) {
-      write(`INSERT OR IGNORE INTO visit_uniques (day, visitor) VALUES (?, ?)`, day, visitor)
+      /**
+       * The visitor row, and the hour they were seen in, folded into it.
+       *
+       * `hours` is a 24-bit mask and the update ORs the new bit in, so a reader
+       * who comes back at seven and again at nine is one row carrying both. It
+       * has to be OR rather than a read-then-write: two requests in the same
+       * second would otherwise each read the old mask and the second would
+       * write back a value missing the first one's bit.
+       */
+      write(
+        `INSERT INTO visit_uniques (day, visitor, hours) VALUES (?, ?, ?)
+         ON CONFLICT(day, visitor) DO UPDATE SET hours = hours | excluded.hours`,
+        day, visitor, 1 << hour)
     }
   } catch { /* analytics must never break a page */ }
 }

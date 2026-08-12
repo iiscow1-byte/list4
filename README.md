@@ -596,6 +596,14 @@ Nothing here identifies a reader. What is stored is a daily count per *shape* of
 URL, the same split by hour, a daily set of salted visitor hashes, and running
 totals per level, profile and custom list. See `server/utils/analytics.ts`.
 
+Some of it is **public**, deliberately. A level's view count is on its page and
+on its row in the main list, for everyone: it is the only figure on a list row
+that comes from readers rather than from curators, and a list that says which
+levels people actually open is more useful than one that doesn't. The list
+endpoint attaches it with a second query keyed on the page's ids rather than a
+join — the ranked path is a CTE over a window function, and a join that changed
+its row count would change the ranks themselves.
+
 ### What counts as a view
 
 This is the part that was wrong, in three separate ways, and each one inflated
@@ -622,8 +630,8 @@ statistic worse than having none.
 | table | one row per | answers |
 |---|---|---|
 | `page_views` | day × URL shape | how much, and of what |
-| `page_views_hourly` | day × hour | *when* |
-| `visit_uniques` | day × visitor hash | how many people |
+| `page_views_hourly` | day × hour | *when*, in views |
+| `visit_uniques` | day × visitor hash | how many people, and *when*, in people |
 | `account_days` | day × account | who was signed in, and who logged in |
 | `level_views` / `level_view_days` | level / day × level | ever, and lately |
 | `custom_list_views` / `..._view_days` | list / day × list | the same, for a list |
@@ -631,6 +639,21 @@ statistic worse than having none.
 
 The running totals are never pruned; the per-day tables are, after 400 days —
 enough to compare a month with the same month last year.
+
+**`visit_uniques.hours` is a 24-bit mask**, not a table. "How many people were
+here at three" is a question about *people*, so it cannot be derived by dividing
+the hourly view counts — one reader opening forty pages between nine and ten is
+forty views and one person, and keeping those apart is the point of the whole
+tab. The obvious shape is a row per person per hour, which is twenty-four times
+this table to carry one extra fact per row. An integer holds it exactly, costs
+nothing per hour, and folds with `|`, so two requests in the same second cannot
+lose a bit the way a read-then-write would.
+
+Reading it back is `hours & (1 << h)`. Note what the buckets then are: summing
+people across the twenty-four hours gives **person-hours**, not people — somebody
+here at nine and again at two is one visitor and two of them. That is right for a
+bucket and wrong for a headline, which is why it is drawn as its own line rather
+than offered anywhere as "visitors".
 
 **`account_days` deliberately carries two facts.** "How many accounts logged in
 today" is almost never the question people mean: a session lasts weeks, so
@@ -654,12 +677,47 @@ Two more traps worth naming, because both give a number that looks right:
 - **A per-day series must be zero-filled.** A day with no traffic has no row, and
   a chart that skips it silently compresses time.
 
+An average over hours divides by **the days that carry data**, not by the width
+of the window. A 90-day range on a site that has been counting for nine of them
+would otherwise report a tenth of the truth. Views and people count their days
+separately, because they can genuinely differ: a database that predates the hour
+mask has view rows for days whose visitor rows carry no hours, and those days are
+not evidence about people.
+
+### Starting over
+
+`npm run reset-analytics` zeroes every counter. Dry run by default; `--apply`
+does it, after writing a `VACUUM INTO` backup beside the database.
+
+There is a reason to want this and it is not housekeeping. Everything counted
+before v1.20.0 came from a version that counted wrong in the inflating
+direction, and an inflated history makes a corrected present look like a
+collapse in traffic. Zeroing draws a line: what follows was counted by the rules
+above.
+
+Two things to know before running it. Some of what it clears is **public** — the
+view count on every level row, every custom list and every profile goes back to
+zero for readers, not just in the admin tab. And it reads `LIST_DB_PATH` like
+every other script here, so pointing it at production is
+`LIST_DB_PATH=/data/list.db npm run reset-analytics -- --apply`; without that it
+resets whatever `data/list.db` happens to be sitting in the working copy, which
+is usually a dev database with nothing in it.
+
 ### Checking it
 
 `scratchpad/r22/verify.mjs` drives real traffic through a real server and then
 re-derives every figure the tab shows with its own SQL. "The data is accurate"
 is not assertable in the abstract; it means the number on screen equals the
 number in the table, for the window the label claims.
+
+`scratchpad/r24/` does the same for the hours, in two halves, because they prove
+different things. `verify.mjs` re-derives every bucket with SQLite's own bit
+operators, so agreeing means two independent computations agree rather than one
+being printed twice. `inject.mjs` + `expect.mjs` write a distribution across
+several days and hours — including readers present in more than one — and check
+the endpoint against answers worked out on paper, which is the half that catches
+an averaging or double-counting mistake a single run in a single hour never
+could.
 
 ## Countries
 

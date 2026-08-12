@@ -36,6 +36,10 @@ const PATHS: Record<string, string> = {
   inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z',
   // The source of truth behind the whole list.
   sheet: 'M4 4h16v16H4V4ZM4 9h16M4 14.5h16M9.5 4v16M15 4v16',
+  // How many times something has been opened. The pupil is an arc rather than
+  // a <circle> because this renders exactly one <path> — two subpaths in one
+  // `d` draw the same mark without the component growing a second element.
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
 }
 
 const d = computed(() => PATHS[props.name] ?? PATHS.info!)

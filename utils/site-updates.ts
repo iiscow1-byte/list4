@@ -22,6 +22,20 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.21.0',
+    date: '2026-08-12',
+    title: 'The hours, drawn properly — and every level’s view count on the list',
+    tags: ['List', 'Admin', 'UI'],
+    changes: [
+      'Every level shows how many times it has been opened, on its own row in the main list as well as on its page. It is the one number on a list row that comes from readers rather than from curators, and everybody can see it.',
+      'The by-hour panel is a chart rather than a row of bars: an axis with real numbers, gridlines to read them against, and a hover that says exactly what each hour was. The old shape could only ever answer "which bar is tallest".',
+      'It counts people as well as views. One reader working through forty pages between nine and ten is forty views and one person, and which of those a busy hour is made of is the whole reason to look at it. Nothing new is stored about anyone: each visitor’s existing daily row now remembers which hours it was seen in, and nothing else.',
+      'Looking at today puts the typical day behind it as a dashed line, so "is this busy?" has an answer on the same axis instead of in another chart.',
+      'Chart axes label their gridlines in even steps. Four gaps into a maximum of five used to produce a ladder reading 5, 4, 3, 1, 0 — nothing wrong with the drawing, only with the numbers written on it.',
+      'There is now a way to start the counting over (npm run reset-analytics). The counters filled before v1.20.0 came from a version that counted every arrival twice, counted 404s, counted admin tabs, and let the view beacon be fired as often as anyone liked — and an inflated history makes a corrected present look like a collapse.',
+    ],
+  },
+  {
     version: '1.20.1',
     date: '2026-08-12',
     title: 'Imports counted apart, and a notice when roles change',

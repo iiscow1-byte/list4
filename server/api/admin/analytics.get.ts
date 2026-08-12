@@ -100,27 +100,71 @@ export default defineEventHandler((event) => {
   )
 
   /**
-   * The shape of a day, summed over the window.
+   * The shape of a day: twenty-four buckets, whatever the range.
    *
-   * Twenty-four buckets whatever the range, so a week and a year both answer
-   * "when is this site read". `perDay` divides by the days that actually have
-   * data rather than by the window, so a range that reaches back before
-   * counting began doesn't report an average of half of nothing.
+   * Both figures, as everywhere else — how many pages were opened in each hour,
+   * and how many *people* were here in it. The second cannot be derived from
+   * the first: one reader working through forty pages between nine and ten is
+   * forty views and one person, and which of those two a spike is made of is
+   * the entire question.
+   *
+   * People come from the 24-bit mask on `visit_uniques`. Folding the masks in
+   * JavaScript rather than writing twenty-four `SUM((hours >> n) & 1)` columns
+   * keeps it one grouped scan over a few hundred distinct masks.
    */
-  const hourRows = rows<{ hour: number; views: number }>(
+  const foldMasks = (sql: string, ...params: unknown[]): number[] => {
+    const out = new Array<number>(24).fill(0)
+    for (const r of rows<{ hours: number; n: number }>(sql, ...params)) {
+      for (let h = 0; h < 24; h++) if (r.hours & (1 << h)) out[h]! += r.n
+    }
+    return out
+  }
+
+  const viewsByHour = new Map(rows<{ hour: number; views: number }>(
     `SELECT hour, SUM(views) AS views FROM page_views_hourly
-      WHERE day >= date('now', ?) GROUP BY hour`, since)
+      WHERE day >= date('now', ?) GROUP BY hour`, since).map((r) => [r.hour, r.views]))
+  const todayViewsByHour = new Map(rows<{ hour: number; views: number }>(
+    `SELECT hour, views FROM page_views_hourly WHERE day = date('now')`).map((r) => [r.hour, r.views]))
+  const peopleByHour = foldMasks(
+    `SELECT hours, COUNT(*) AS n FROM visit_uniques
+      WHERE day >= date('now', ?) AND hours != 0 GROUP BY hours`, since)
+  const todayPeopleByHour = foldMasks(
+    `SELECT hours, COUNT(*) AS n FROM visit_uniques
+      WHERE day = date('now') AND hours != 0 GROUP BY hours`)
+
+  /**
+   * An average divides by the days that carry data, not by the window.
+   *
+   * A 90-day range on a site that has been counting for nine of them would
+   * otherwise report an average of a tenth of the truth. The two sources are
+   * counted separately because they can genuinely differ: a database that
+   * predates the hour mask has view rows for days whose visitor rows have no
+   * hours in them, and those days are not evidence about people.
+   */
   const hourDays = Math.max(1, one(
     `SELECT COUNT(DISTINCT day) AS n FROM page_views_hourly WHERE day >= date('now', ?)`, since))
-  const byHour = new Map(hourRows.map((r) => [r.hour, r.views]))
+  const peopleDays = Math.max(1, one(
+    `SELECT COUNT(DISTINCT day) AS n FROM visit_uniques
+      WHERE day >= date('now', ?) AND hours != 0`, since))
+
+  const round1 = (n: number) => Math.round(n * 10) / 10
   const hourly = Array.from({ length: 24 }, (_, hour) => {
-    const views = byHour.get(hour) ?? 0
-    return { hour, views, perDay: Math.round((views / hourDays) * 10) / 10 }
+    const views = viewsByHour.get(hour) ?? 0
+    const people = peopleByHour[hour] ?? 0
+    return {
+      hour,
+      /** Totals across the whole window. */
+      views,
+      people,
+      /** …and the same divided out, which is what makes ranges comparable. */
+      avgViews: round1(views / hourDays),
+      avgPeople: round1(people / peopleDays),
+      todayViews: todayViewsByHour.get(hour) ?? 0,
+      todayPeople: todayPeopleByHour[hour] ?? 0,
+    }
   })
-  const todayHourRows = rows<{ hour: number; views: number }>(
-    `SELECT hour, views FROM page_views_hourly WHERE day = date('now')`)
-  const todayByHour = new Map(todayHourRows.map((r) => [r.hour, r.views]))
-  const hourlyToday = Array.from({ length: 24 }, (_, hour) => ({ hour, views: todayByHour.get(hour) ?? 0 }))
+  /** What the averages above were divided by, so the chart can say so. */
+  const hourlyMeta = { viewDays: hourDays, peopleDays }
 
   // ----------------------------------------------------------------- totals
   const totals = {
@@ -272,7 +316,7 @@ export default defineEventHandler((event) => {
     lifetime,
     daily,
     hourly,
-    hourlyToday,
+    hourlyMeta,
     topPages,
     topLevels,
     topLevelsAllTime,

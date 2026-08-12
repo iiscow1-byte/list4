@@ -34,8 +34,13 @@ type Analytics = {
   }
   lifetime: Record<string, number>
   daily: Day[]
-  hourly: { hour: number; views: number; perDay: number }[]
-  hourlyToday: { hour: number; views: number }[]
+  hourly: {
+    hour: number
+    views: number; people: number
+    avgViews: number; avgPeople: number
+    todayViews: number; todayPeople: number
+  }[]
+  hourlyMeta: { viewDays: number; peopleDays: number }
   topPages: { path: string; n: number }[]
   topLevels: { position: number; sheet_placement: number | null; name: string; n: number }[]
   topLevelsAllTime: { position: number; sheet_placement: number | null; name: string; n: number }[]
@@ -129,11 +134,18 @@ const growthChartSeries = computed(() => [
 ])
 
 /**
- * Views per hour.
+ * The shape of a day.
  *
- * `perDay` rather than the raw total, because a 90-day range would otherwise
- * make every bar ninety times taller than the same chart at 7 days and say
- * nothing more. The average is comparable across ranges.
+ * Averages rather than raw totals, because a 90-day range would otherwise make
+ * every bar ninety times taller than the same chart at 7 days while saying
+ * nothing more. An average is comparable across ranges — and it is divided by
+ * the days that actually carry data, not by the window, so a range reaching
+ * back before counting started doesn't report an average of half of nothing.
+ *
+ * Two series, like everywhere else on this tab: views are bars, people are a
+ * line on the right axis. One reader working through forty pages between nine
+ * and ten is forty views and one person, and which of those a busy hour is made
+ * of is the whole reason to look at it.
  */
 type HourMode = 'average' | 'today'
 const hourMode = ref<HourMode>('average')
@@ -141,20 +153,39 @@ const hourModel = computed({
   get: () => hourMode.value as string,
   set: (v: string) => { hourMode.value = v as HourMode },
 })
-const hourBars = computed(() => {
-  const src = hourMode.value === 'today'
-    ? (data.value?.hourlyToday ?? []).map((h) => ({ hour: h.hour, value: h.views }))
-    : (data.value?.hourly ?? []).map((h) => ({ hour: h.hour, value: h.perDay }))
-  const max = src.reduce((m, h) => Math.max(m, h.value), 0)
-  return src.map((h) => ({ ...h, pct: max > 0 ? (h.value / max) * 100 : 0, isMax: max > 0 && h.value === max }))
-})
-const peakHour = computed(() => {
-  const best = hourBars.value.reduce<{ hour: number; value: number } | null>(
-    (b, h) => (!b || h.value > b.value ? h : b), null)
-  return best && best.value > 0 ? best : null
-})
 /** `14` → `14:00`. UTC, like everything else that is counted. */
 const hourLabel = (h: number) => `${String(h).padStart(2, '0')}:00`
+const hourX = (v: string | number) => hourLabel(Number(v))
+
+const hourSeries = computed(() =>
+  hourMode.value === 'today'
+    ? [
+        { key: 'todayViews', label: 'Page views', color: COLORS.views, axis: 'left' as const, kind: 'bar' as const },
+        // The typical day, behind today, so "is this busy?" has an answer on
+        // the same axis rather than in another chart.
+        { key: 'avgViews', label: 'Average day', color: '#71717a', axis: 'left' as const, kind: 'line' as const, dashed: true },
+        { key: 'todayPeople', label: 'People', color: COLORS.visitors, axis: 'right' as const, kind: 'line' as const },
+      ]
+    : [
+        { key: 'avgViews', label: 'Page views', color: COLORS.views, axis: 'left' as const, kind: 'bar' as const },
+        { key: 'avgPeople', label: 'People', color: COLORS.visitors, axis: 'right' as const, kind: 'line' as const },
+      ],
+)
+
+const peakHour = computed(() => {
+  let best: { hour: number; value: number } | null = null
+  for (const h of data.value?.hourly ?? []) {
+    const value = hourMode.value === 'today' ? h.todayViews : h.avgViews
+    if (!best || value > best.value) best = { hour: h.hour, value }
+  }
+  return best && best.value > 0 ? best : null
+})
+/** What the averages are divided by — an average over one day is not an average. */
+const hourBasis = computed(() => {
+  const m = data.value?.hourlyMeta
+  if (hourMode.value === 'today' || !m) return ''
+  return `over ${m.viewDays} day${m.viewDays === 1 ? '' : 's'}`
+})
 
 /**
  * The headline. Views and people are separate tiles, never one figure with the
@@ -319,9 +350,10 @@ const shownLevels = computed(() =>
           <section class="card p-4">
             <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
               <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">
-                Views by hour
+                By hour
                 <span class="ml-2 normal-case tracking-normal text-zinc-600">
-                  UTC<template v-if="peakHour"> · busiest {{ hourLabel(peakHour.hour) }}</template>
+                  UTC<template v-if="hourBasis"> · averaged {{ hourBasis }}</template>
+                  <template v-if="peakHour"> · busiest {{ hourLabel(peakHour.hour) }}</template>
                 </span>
               </h2>
               <SegmentedControl
@@ -333,25 +365,17 @@ const shownLevels = computed(() =>
                 ]"
               />
             </div>
-            <div class="flex items-end gap-[3px] h-32">
-              <div
-                v-for="h in hourBars"
-                :key="h.hour"
-                class="flex-1 h-full flex items-end group"
-                :title="`${hourLabel(h.hour)} — ${hourMode === 'today' ? fmt(h.value) + ' views' : h.value.toLocaleString() + ' views a day on average'}`"
-              >
-                <div
-                  class="w-full rounded-t-sm transition-colors"
-                  :class="h.isMax ? 'bg-accent' : 'bg-accent/45 group-hover:bg-accent/70'"
-                  :style="{ height: `${Math.max(h.pct, h.value > 0 ? 2 : 0)}%` }"
-                />
-              </div>
-            </div>
-            <!-- Six labels, not twenty-four: the shape is the point. -->
-            <div class="flex justify-between text-[10px] text-zinc-600 mt-1.5 tabular-nums">
-              <span v-for="h in [0, 4, 8, 12, 16, 20]" :key="h">{{ hourLabel(h) }}</span>
-              <span>24:00</span>
-            </div>
+            <!-- Hours are buckets, not instants: `bar` puts the chart on a band
+                 scale, where 09:00 owns the width it represents. -->
+            <TimeChart
+              :points="data.hourly"
+              :series="hourSeries"
+              :height="200"
+              x-key="hour"
+              :x-format="hourX"
+              :x-every="4"
+              x-unit="hours"
+            />
           </section>
 
           <!-- What was added -->
