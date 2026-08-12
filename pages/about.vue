@@ -293,7 +293,7 @@ const coveragePct = computed(() => {
         <div class="flex flex-wrap gap-2 pt-1">
           <NuxtLink
             to="/levels/1"
-            class="inline-flex items-center gap-1.5 rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
+            class="btn btn-md btn-primary gap-1.5"
           >Browse the list →</NuxtLink>
           <NuxtLink
             to="/levels/submit"
@@ -301,17 +301,17 @@ const coveragePct = computed(() => {
           >Submit a level +</NuxtLink>
           <NuxtLink
             to="/records/submit"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
+            class="btn btn-md btn-ghost gap-1.5"
           >Submit a record +</NuxtLink>
           <NuxtLink
             to="/changelog"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
+            class="btn btn-md btn-ghost gap-1.5"
           >Changelog</NuxtLink>
           <a
             :href="ALL_SHEET_URL"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 text-zinc-300 font-medium text-sm px-4 py-2 hover:bg-zinc-900 hover:border-zinc-600 transition-colors"
+            class="btn btn-md btn-ghost gap-1.5"
           >Legacy ALL ↗</a>
         </div>
       </div>
@@ -363,7 +363,7 @@ const coveragePct = computed(() => {
              stack of identical grey blocks with the questions buried inside
              them, which is the one shape a FAQ must not have: it is read by
              scanning for a question and stopping. -->
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
+        <div class="card divide-y divide-zinc-900">
           <div v-for="(p, i) in landing.faq" :key="`f-${i}`" class="px-4 py-3.5">
             <template v-for="(part, j) in [paraParts(p)]" :key="j">
               <template v-for="(qa, k) in [faqParts(part.text)]" :key="k">
@@ -387,7 +387,7 @@ const coveragePct = computed(() => {
 
       <section v-if="landing?.statsViewerFaq?.length" class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Stats Viewer</h2>
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
+        <div class="card divide-y divide-zinc-900">
           <div v-for="(p, i) in landing.statsViewerFaq" :key="`s-${i}`" class="px-4 py-3.5">
             <template v-for="(qa, k) in [faqParts(p)]" :key="k">
               <h3 v-if="qa.question" class="text-sm font-semibold text-zinc-100 leading-snug">{{ qa.question }}</h3>
@@ -487,7 +487,7 @@ const coveragePct = computed(() => {
             </div>
           </article>
 
-          <article class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <article class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Record coverage</h2>
             <p class="mt-1.5 text-2xl font-bold tabular-nums text-zinc-50">{{ coveragePct.toFixed(1) }}%</p>
             <div class="mt-2 h-2 rounded-full bg-zinc-900 overflow-hidden">
@@ -502,7 +502,7 @@ const coveragePct = computed(() => {
         </div>
 
         <!-- Tier histogram: 45 ordinal buckets, so vertical bars -->
-        <section v-if="tierBuckets.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section v-if="tierBuckets.length" class="card p-4">
           <div class="flex items-baseline justify-between gap-3 flex-wrap">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Levels per tier</h2>
             <span class="text-[10px] text-zinc-600 tabular-nums">peak {{ fmt(tierMax) }}</span>
@@ -533,7 +533,7 @@ const coveragePct = computed(() => {
         </section>
 
         <!-- Verification year: also ordinal -->
-        <section v-if="stats.years.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section v-if="stats.years.length" class="card p-4">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Verified per year</h2>
           <div class="mt-3 overflow-x-auto">
             <div class="flex items-end gap-1.5 h-32 min-w-[24rem]">
@@ -558,7 +558,7 @@ const coveragePct = computed(() => {
 
         <!-- Nominal breakdowns: few buckets, so horizontal bars with names -->
         <div class="grid gap-4 lg:grid-cols-2">
-          <section v-if="stats.difficulties.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <section v-if="stats.difficulties.length" class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Difficulty</h2>
             <ul class="space-y-1.5">
               <li v-for="d in stats.difficulties" :key="d.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
@@ -574,7 +574,7 @@ const coveragePct = computed(() => {
             </ul>
           </section>
 
-          <section v-if="stats.ratings.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <section v-if="stats.ratings.length" class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Rating</h2>
             <ul class="space-y-1.5">
               <li v-for="r in stats.ratings" :key="r.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
@@ -591,7 +591,7 @@ const coveragePct = computed(() => {
           </section>
         </div>
 
-        <section v-if="stats.skillsets.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section v-if="stats.skillsets.length" class="card p-4">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Main skillset</h2>
           <ul class="grid gap-1.5 sm:grid-cols-2">
             <li v-for="s in stats.skillsets" :key="s.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
@@ -621,7 +621,7 @@ const coveragePct = computed(() => {
             v-model="listsSearch"
             type="search"
             placeholder="Search lists…"
-            class="ml-auto w-full sm:w-56 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm ml-auto sm:w-56 text-xs"
           />
         </div>
 

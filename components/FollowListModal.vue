@@ -100,7 +100,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         role="dialog"
         aria-modal="true"
         :aria-label="heading"
-        class="w-full max-w-md max-h-[75vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
+        class="w-full max-w-md max-h-[75vh] modal-panel flex flex-col"
       >
         <div class="px-4 py-3 border-b border-zinc-800 flex items-center gap-3">
           <h2 class="text-sm font-semibold text-zinc-100">
@@ -123,7 +123,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             v-model="search"
             type="search"
             placeholder="Search…"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md"
           />
         </div>
 

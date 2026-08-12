@@ -263,7 +263,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
 
           <div
             v-if="staffOpen"
-            class="absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden"
+            class="absolute right-0 top-full mt-1.5 w-60 popover z-30 overflow-hidden"
           >
             <p class="px-3 py-2 flex items-baseline gap-2 border-b border-zinc-900">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">List editors</span>

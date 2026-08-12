@@ -74,7 +74,7 @@ function fmt(n: number | null | undefined) {
           </span>
         </div>
 
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
@@ -100,7 +100,7 @@ function fmt(n: number | null | undefined) {
 
         <section
           v-if="data.offListCompleted.length"
-          class="rounded-md border border-zinc-800 bg-zinc-950/60"
+          class="card"
         >
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2">
             Other Pointercrate completions

@@ -1018,7 +1018,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               v-if="pendingDropdownOpen"
               ref="pendingPanelRef"
               role="menu"
-              class="fixed z-[60] min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60 ring-1 ring-black/40 p-1"
+              class="fixed z-[60] min-w-[11rem] popover p-1"
               :style="{ top: `${pendingMenuPos.top}px`, left: `${pendingMenuPos.left}px` }"
             >
               <button
@@ -1107,7 +1107,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
       <div class="container-tight py-8 max-w-3xl space-y-6">
 
         <!-- Placement repair -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h2 class="text-sm font-semibold text-zinc-100">Repair placements</h2>
@@ -1120,7 +1120,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="button"
               :disabled="repairingPlacements"
-              class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-ghost shrink-0 hover:border-accent/60 hover:text-accent"
               @click="repairPlacements"
             >{{ repairingPlacements ? 'Repairing…' : 'Repair now' }}</button>
           </div>
@@ -1130,7 +1130,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         </section>
 
         <!-- Site-owned levels -->
-        <section v-if="handover && handover.total > 0" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section v-if="handover && handover.total > 0" class="card p-4">
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h2 class="text-sm font-semibold text-zinc-100">Levels stored here, not on the sheet</h2>
@@ -1144,7 +1144,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="button"
               :disabled="handoverBusy != null || handover.matched === 0"
-              class="shrink-0 rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-primary shrink-0"
               @click="handOver('all')"
             >{{ handoverBusy === 'all' ? 'Handing over…' : `Hand over ${handover.matched} matched` }}</button>
           </div>
@@ -1172,7 +1172,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <button
                 type="button"
                 :disabled="handoverBusy != null || !h.sheet"
-                class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-[11px] px-2 py-0.5 disabled:opacity-30 transition-colors"
+                class="btn btn-sm btn-ghost shrink-0 hover:border-accent/60 hover:text-accent"
                 @click="handOver(h.level_id)"
               >{{ handoverBusy === h.level_id ? '…' : 'Hand over' }}</button>
             </li>
@@ -1182,7 +1182,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         </section>
 
         <!-- Placement snapshots -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <h2 class="text-sm font-semibold text-zinc-100">Placement backups</h2>
           <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
             The list's order as a file. Download one before anything risky; upload it back to
@@ -1194,13 +1194,13 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="button"
               :disabled="!!snapshotBusy"
-              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="downloadPlacements('json')"
             >{{ snapshotBusy === 'json' ? 'Building…' : 'Download placements (JSON)' }}</button>
             <button
               type="button"
               :disabled="!!snapshotBusy"
-              class="rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
               title="Editable in a spreadsheet"
               @click="downloadPlacements('csv')"
             >{{ snapshotBusy === 'csv' ? 'Building…' : 'Download (CSV)' }}</button>
@@ -1210,7 +1210,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
           <!-- Restore -->
           <div class="mt-4 pt-4 border-t border-zinc-900">
             <div class="flex items-center gap-3 flex-wrap">
-              <label class="text-xs text-zinc-300 cursor-pointer rounded border border-zinc-700 px-3 py-1.5 hover:border-accent/60 hover:text-accent transition-colors">
+              <label class="btn btn-sm btn-ghost cursor-pointer hover:border-accent/60 hover:text-accent">
                 Choose a placement file…
                 <input
                   ref="restoreFileInput"
@@ -1274,7 +1274,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <button
                 type="button"
                 :disabled="sheetResetBusy"
-                class="shrink-0 rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+                class="btn btn-sm btn-ghost shrink-0 hover:border-accent/60 hover:text-accent"
                 @click="sheetReset(false)"
               >{{ sheetResetBusy ? 'Checking…' : 'Preview' }}</button>
             </div>
@@ -1304,7 +1304,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         </section>
 
         <!-- Sheet vs. site reconciliation -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <h2 class="text-sm font-semibold text-zinc-100">Sheet vs. site report</h2>
           <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
             Everywhere the ALL sheet and this site disagree, as a downloadable file.
@@ -1332,13 +1332,13 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="button"
               :disabled="!!reportBusy"
-              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="downloadSheetReport('json')"
             >{{ reportBusy === 'json' ? 'Building…' : 'Download report (JSON)' }}</button>
             <button
               type="button"
               :disabled="!!reportBusy"
-              class="rounded border border-zinc-700 text-zinc-200 hover:border-accent/60 hover:text-accent text-xs px-3 py-1.5 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
               title="Drift points as a spreadsheet"
               @click="downloadSheetReport('csv')"
             >{{ reportBusy === 'csv' ? 'Building…' : 'Drift points (CSV)' }}</button>
@@ -1377,7 +1377,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         <section
           v-for="group in IMPORT_GROUPS"
           :key="group.heading"
-          class="rounded-md border border-zinc-800 bg-zinc-950/60 overflow-hidden"
+          class="card overflow-hidden"
         >
           <!-- Group heading / toggle -->
           <button
@@ -1422,14 +1422,14 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                   <button
                     type="button"
                     :disabled="importBusy[src.key] || importsStatus.queued.includes(src.key)"
-                    class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    class="btn btn-sm btn-primary"
                     @click="runImport(src.key)"
                   >{{ importsStatus.queued.includes(src.key) ? 'Queued' : importsStatus.running.includes(src.key) ? 'Queue' : 'Reimport' }}</button>
                   <button
                     v-if="src.pendingKey != null"
                     type="button"
                     :disabled="(importsStatus.pendingCounts[src.pendingKey] ?? 0) === 0"
-                    class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    class="btn btn-sm btn-ghost hover:border-red-600 hover:text-red-400"
                     @click="clearPending(src.pendingKey)"
                   >Clear</button>
                 </div>
@@ -1474,7 +1474,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
     <!-- Claims tab -->
     <div v-else-if="tab === 'claims'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-4xl">
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+        <section class="card">
           <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2 flex items-baseline gap-2">
             Pending claims
             <span class="text-[11px] text-zinc-600 normal-case tracking-normal">{{ claims.length }}</span>
@@ -1496,7 +1496,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 >Approve</button>
                 <button
                   type="button"
-                  class="rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-xs px-3 py-1.5 transition-colors"
+                  class="btn btn-sm btn-ghost hover:border-red-600 hover:text-red-400"
                   @click="decideClaim(c, 'reject')"
                 >Reject</button>
               </div>
@@ -1509,7 +1509,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
     <!-- Accounts tab -->
     <div v-else-if="tab === 'accounts'" class="flex-1 overflow-y-auto">
       <div class="container-tight py-8 max-w-4xl">
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+        <section class="card">
           <div class="px-4 pt-3 pb-2 flex items-center gap-3 flex-wrap">
             <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Accounts</h2>
             <input
@@ -1568,7 +1568,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 />
                 <button
                   type="button"
-                  class="rounded border border-zinc-700 hover:border-accent hover:text-accent text-xs px-2.5 py-1 transition-colors"
+                  class="btn btn-sm btn-ghost hover:border-accent hover:text-accent"
                   @click="setClaim(u)"
                 >Set</button>
               </div>
@@ -1626,7 +1626,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
           <div class="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-2.5 py-1.5 hover:border-accent/60 hover:text-accent transition-colors"
+              class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
               title="Post yesterday's completed changes — the same message the nightly scheduler sends"
               @click="postYesterday"
             >Post yesterday</button>
@@ -1640,7 +1640,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         </header>
 
         <!-- Add a webhook -->
-        <form class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 space-y-2.5" @submit.prevent="addWebhook">
+        <form class="card p-3 space-y-2.5" @submit.prevent="addWebhook">
           <div class="grid gap-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Webhook URL</span>
@@ -1648,7 +1648,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 v-model="newWebhookUrl"
                 type="url"
                 placeholder="https://discord.com/api/webhooks/…/…"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-sm mt-1 text-xs"
               />
             </label>
             <label class="block">
@@ -1656,7 +1656,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <input
                 v-model="newWebhookLabel"
                 placeholder="#changes in the ALL server"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-sm mt-1 text-xs"
               />
             </label>
           </div>
@@ -1665,7 +1665,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Posts</span>
               <select
                 v-model="newWebhookKind"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-sm mt-1 text-xs text-zinc-300"
               >
                 <option v-for="k in WEBHOOK_KINDS" :key="k.id" :value="k.id">{{ k.label }}</option>
               </select>
@@ -1673,7 +1673,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="submit"
               :disabled="webhookBusy || !newWebhookUrl.trim()"
-              class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-primary"
             >{{ webhookBusy ? 'Adding…' : 'Add webhook' }}</button>
             <p class="text-[10px] text-zinc-600 ml-auto max-w-xs leading-snug">
               The URL is a write credential for that channel. It's stored, then only
@@ -1686,7 +1686,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
         <section
           v-for="k in webhooksByKind"
           :key="k.id"
-          class="rounded-xl border border-zinc-800/80 bg-zinc-950/60 overflow-hidden"
+          class="card overflow-hidden"
         >
           <div class="px-3.5 py-2.5 flex items-center gap-2.5 border-b border-zinc-900">
             <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0" :class="k.tone">

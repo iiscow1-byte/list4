@@ -239,7 +239,7 @@ function avatarOf(username: string) {
           rows="2"
           maxlength="1000"
           placeholder="Write a comment…"
-          class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50 resize-none"
+          class="field field-sm flex-1 min-w-0"
         />
         <button
           type="submit"

@@ -131,9 +131,30 @@ function formatDay(ymd: string): string {
   })
 }
 
-const segBtn = 'px-2.5 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0'
-const segOn = 'bg-zinc-800 text-zinc-100'
-const segOff = 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
+/**
+ * The four filter rows are `SegmentedControl` now — same shape, same sizes, and
+ * each one finally tells a screen reader which option is on.
+ *
+ * The bridges below exist because the control speaks plain strings while these
+ * refs are a number and three unions. Converting at the boundary keeps the
+ * page's own types honest instead of widening them to suit a component.
+ */
+const kindModel = computed({
+  get: () => kindFilter.value as string,
+  set: (v: string) => { kindFilter.value = v as typeof kindFilter.value },
+})
+const rangeModel = computed({
+  get: () => String(range.value),
+  set: (v: string) => { range.value = Number(v) },
+})
+const viewModel = computed({
+  get: () => changelogView.value as string,
+  set: (v: string) => { changelogView.value = v as typeof changelogView.value },
+})
+const orderModel = computed({
+  get: () => changelogOrder.value as string,
+  set: (v: string) => { changelogOrder.value = v as typeof changelogOrder.value },
+})
 
 useHead({ title: 'Changelog — All Levels List' })
 </script>
@@ -163,55 +184,44 @@ useHead({ title: 'Changelog — All Levels List' })
             v-model="search"
             type="search"
             placeholder="Filter by level name…"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-[12px] placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm text-[12px]"
           />
         </div>
 
-        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-          <button
-            v-for="opt in [{ v: '', l: 'Everything' }, { v: 'add', l: 'Added' }, { v: 'move', l: 'Moved' }]"
-            :key="opt.v"
-            type="button"
-            :class="[segBtn, kindFilter === opt.v ? segOn : segOff]"
-            @click="kindFilter = opt.v as any"
-          >{{ opt.l }}</button>
-        </div>
+        <SegmentedControl
+          v-model="kindModel"
+          aria-label="Kind of change"
+          :options="[
+            { value: '', label: 'Everything' },
+            { value: 'add', label: 'Added' },
+            { value: 'move', label: 'Moved' },
+          ]"
+        />
 
-        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-          <button
-            v-for="r in RANGES"
-            :key="r.value"
-            type="button"
-            :class="[segBtn, range === r.value ? segOn : segOff]"
-            @click="range = r.value"
-          >{{ r.label }}</button>
-        </div>
+        <SegmentedControl
+          v-model="rangeModel"
+          aria-label="How far back"
+          :options="RANGES.map((r) => ({ value: String(r.value), label: r.label }))"
+        />
 
-        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-          <button
-            type="button"
-            :class="[segBtn, changelogView === 'all' ? segOn : segOff]"
-            @click="changelogView = 'all'"
-          >All levels</button>
-          <button
-            type="button"
-            :class="[segBtn, changelogView === 'challenge' ? 'bg-amber-900/60 text-amber-200' : segOff]"
-            @click="changelogView = 'challenge'"
-          >Challenges</button>
-        </div>
+        <SegmentedControl
+          v-model="viewModel"
+          aria-label="Which levels"
+          :options="[
+            { value: 'all', label: 'All levels' },
+            { value: 'challenge', label: 'Challenges' },
+          ]"
+        />
 
-        <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden ml-auto">
-          <button
-            type="button"
-            :class="[segBtn, changelogOrder === 'recent' ? segOn : segOff]"
-            @click="changelogOrder = 'recent'"
-          >Recent</button>
-          <button
-            type="button"
-            :class="[segBtn, changelogOrder === 'placement' ? segOn : segOff]"
-            @click="changelogOrder = 'placement'"
-          >Placement</button>
-        </div>
+        <SegmentedControl
+          v-model="orderModel"
+          aria-label="Order"
+          class="ml-auto"
+          :options="[
+            { value: 'recent', label: 'Recent' },
+            { value: 'placement', label: 'Placement' },
+          ]"
+        />
 
         <button
           type="button"

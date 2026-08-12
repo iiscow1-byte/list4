@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { SITE_VERSION } from '~/utils/site-updates'
-import { ALL_SHEET_URL } from '~/utils/sheet'
+import { SITE_NAV, navMatches, type NavLink } from '~/utils/site-nav'
 
 const route = useRoute()
 const { data: meRes } = useCurrentUser()
@@ -64,13 +64,33 @@ onMounted(() => {
 })
 watch(() => route.path, (p) => { if (p === '/updates') updatesUnread.value = false })
 
-const startsWith = (...prefixes: string[]) =>
-  prefixes.some((p) => route.path === p || route.path.startsWith(`${p}/`))
+/**
+ * Which menu covers the page you are on.
+ *
+ * Four hand-written `startsWith` chains lived here, each spelling out the same
+ * prefix rule; the prefixes are part of the nav definition now, so a section
+ * added to `SITE_NAV` lights up without anything here being edited. See
+ * `utils/site-nav.ts`.
+ */
+const activeMenus = computed(() => {
+  const out: Record<string, boolean> = {}
+  for (const menu of SITE_NAV) out[menu.key] = navMatches(route.path, menu)
+  return out
+})
 
-const buildActive = computed(() => startsWith('/builder', '/lists'))
-const listActive = computed(() => startsWith('/levels', '/awaiting', '/void', '/open-verifications'))
-const communityActive = computed(() => startsWith('/community', '/leaderboard', '/clans', '/changelog', '/users', '/about', '/updates'))
-const submitActive = computed(() => startsWith('/records', '/opinions') || route.path === '/levels/submit')
+/** Rows a signed-out visitor shouldn't be offered — currently only "My lists". */
+const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || !!me.value)
+
+/**
+ * The drawer that replaces all of this below `lg`.
+ *
+ * The header used to be one flat row with no responsive class on any of it:
+ * four dropdown triggers, admin, inbox, account and the socials menu, roughly
+ * 550px of controls inside a 343px phone viewport. It overflowed, and took the
+ * page's horizontal scrollbar with it.
+ */
+const menuOpen = ref(false)
+watch(() => route.fullPath, () => { menuOpen.value = false })
 </script>
 
 <template>
@@ -81,111 +101,48 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
         <span class="hidden lg:inline text-sm uppercase tracking-widest font-medium text-zinc-400 group-hover:text-zinc-200 transition-colors">Levels List</span>
       </NuxtLink>
 
-      <nav class="flex items-center gap-1">
-        <!-- Build your own list — the first menu -->
-        <NavMenu label="Build" to="/builder" :active="buildActive">
-          <NavMenuSection label="Your lists" first />
-          <NavMenuItem to="/builder" accent hint="Drag levels in and rank them yourself">
-            <template #icon><NavIcon name="build" /></template>
-            Build your own list
-          </NavMenuItem>
-          <NavMenuSection label="Discover" />
-          <NavMenuItem to="/lists" hint="Lists shared by the community">
-            <template #icon><NavIcon name="gallery" /></template>
-            Custom lists
-          </NavMenuItem>
-          <NavMenuItem v-if="me" to="/lists?view=mine" hint="Everything you've built, published or not">
-            <template #icon><NavIcon name="list" /></template>
-            My lists
-          </NavMenuItem>
+      <!-- The dropdown row is the wide-screen navigation; below `lg` it is
+           replaced by one button and `SiteNavDrawer`, which renders the same
+           `SITE_NAV` so the two can never disagree about what the site has. -->
+      <nav class="hidden lg:flex items-center gap-1 min-w-0" aria-label="Main">
+        <NavMenu
+          v-for="menu in SITE_NAV"
+          :key="menu.key"
+          :label="menu.label"
+          :to="menu.to"
+          :active="activeMenus[menu.key]"
+          :dot="menu.key === 'community' && updatesUnread"
+        >
+          <template v-for="(group, gi) in menu.groups" :key="group.label">
+            <NavMenuSection :label="group.label" :first="gi === 0" />
+            <NavMenuItem
+              v-for="link in visible(group.links)"
+              :key="link.label"
+              :to="link.to"
+              :href="link.href"
+              :hint="link.hint"
+              :accent="link.accent"
+            >
+              <template #icon><NavIcon :name="link.icon" /></template>
+              {{ link.label }}
+              <span
+                v-if="link.flag === 'updates' && updatesUnread"
+                class="ml-1.5 align-middle inline-block w-1.5 h-1.5 rounded-full bg-accent"
+                aria-label="new"
+              />
+            </NavMenuItem>
+          </template>
         </NavMenu>
+      </nav>
 
-        <!-- The list -->
-        <NavMenu label="List" to="/levels/1" :active="listActive">
-          <NavMenuSection label="Ranked" first />
-          <NavMenuItem to="/levels/1" hint="Every ranked level">
-            <template #icon><NavIcon name="list" /></template>
-            Main list
-          </NavMenuItem>
-          <NavMenuSection label="In progress" />
-          <NavMenuItem to="/awaiting" hint="Approved, not yet placed">
-            <template #icon><NavIcon name="clock" /></template>
-            Awaiting placement
-          </NavMenuItem>
-          <NavMenuItem to="/void" hint="No difficulty opinion yet">
-            <template #icon><NavIcon name="void" /></template>
-            Void list
-          </NavMenuItem>
-          <NavMenuItem to="/open-verifications" hint="Unverified levels looking for a verifier">
-            <template #icon><NavIcon name="verify" /></template>
-            Open verifications
-          </NavMenuItem>
-          <NavMenuSection label="Source" />
-          <NavMenuItem :href="ALL_SHEET_URL" hint="The Google Sheet this list is built from">
-            <template #icon><NavIcon name="sheet" /></template>
-            The ALL sheet
-          </NavMenuItem>
-        </NavMenu>
-
-        <!-- Community -->
-        <NavMenu label="Community" to="/community" :active="communityActive" :dot="updatesUnread">
-          <NavMenuSection label="People" first />
-          <NavMenuItem to="/community" hint="Activity from people you follow">
-            <template #icon><NavIcon name="users" /></template>
-            Community hub
-          </NavMenuItem>
-          <NavMenuItem to="/leaderboard" hint="Ranked players">
-            <template #icon><NavIcon name="trophy" /></template>
-            Leaderboard
-          </NavMenuItem>
-          <NavMenuItem to="/clans" hint="Groups of players, ranked together">
-            <template #icon><NavIcon name="users" /></template>
-            Clans
-          </NavMenuItem>
-          <NavMenuSection label="The list" />
-          <NavMenuItem to="/changelog" hint="Placements and movements">
-            <template #icon><NavIcon name="history" /></template>
-            Changelog
-          </NavMenuItem>
-          <NavMenuItem to="/updates" :hint="`What's new on the site — v${SITE_VERSION}`">
-            <template #icon><NavIcon name="sparkles" /></template>
-            List updates
-            <template v-if="updatesUnread">
-              <span class="ml-1.5 align-middle inline-block w-1.5 h-1.5 rounded-full bg-accent" aria-label="new" />
-            </template>
-          </NavMenuItem>
-          <NavMenuItem to="/about" hint="How the list works, and stats">
-            <template #icon><NavIcon name="info" /></template>
-            About &amp; stats
-          </NavMenuItem>
-        </NavMenu>
-
-        <!-- Submit -->
-        <NavMenu label="Submit" :active="submitActive">
-          <NavMenuSection label="Levels" first />
-          <NavMenuItem to="/levels/find" accent hint="Search Geometry Dash and submit from results">
-            <template #icon><NavIcon name="search" /></template>
-            Find a level
-          </NavMenuItem>
-          <NavMenuItem to="/levels/submit" hint="Add a level to the list">
-            <template #icon><NavIcon name="plus" /></template>
-            Submit a level
-          </NavMenuItem>
-          <NavMenuSection label="Your play" />
-          <NavMenuItem to="/records/submit" hint="Claim a completion">
-            <template #icon><NavIcon name="flag" /></template>
-            Submit a record
-          </NavMenuItem>
-          <NavMenuItem to="/opinions/submit" hint="Rate difficulty and enjoyment">
-            <template #icon><NavIcon name="star" /></template>
-            Submit an opinion
-          </NavMenuItem>
-        </NavMenu>
-
+      <!-- Your own corner of the header. This one never collapses: an avatar,
+           the theme picker and the menu button fit any screen, and everything
+           hidden from it below `sm` reappears inside the drawer. -->
+      <div class="flex items-center gap-1 shrink-0">
         <NuxtLink
           v-if="me?.role && me.role !== 'user'"
           to="/admin"
-          class="relative px-3 py-1.5 rounded-lg text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
+          class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
           active-class="text-accent bg-zinc-900"
         >
           {{ me.role === 'moderator' ? 'Mod' : 'Admin' }}
@@ -195,12 +152,12 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
           >{{ adminPendingCount > 99 ? '99+' : adminPendingCount }}</span>
         </NuxtLink>
 
-        <span class="w-px h-5 bg-zinc-800 mx-1" />
+        <span class="hidden sm:block w-px h-5 bg-zinc-800 mx-1" />
 
         <template v-if="me">
           <NuxtLink
             to="/inbox"
-            class="relative px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
             active-class="text-zinc-100 bg-zinc-900"
             aria-label="Inbox"
           >
@@ -235,16 +192,16 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
           </NuxtLink>
         </template>
         <template v-else>
-          <NuxtLink to="/login" class="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">Log in</NuxtLink>
+          <NuxtLink to="/login" class="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">Log in</NuxtLink>
           <NuxtLink
             v-if="signupsOpen"
             to="/signup"
-            class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-accent text-zinc-950 hover:bg-accent/90 transition-colors"
+            class="btn btn-md btn-primary hidden sm:inline-flex"
           >Sign up</NuxtLink>
         </template>
 
         <!-- Socials, collapsed into one menu instead of four loose icons -->
-        <NavMenu icon-only aria-label="Social links" align="right" width="min-w-[13rem]">
+        <NavMenu icon-only aria-label="Social links" align="right" width="min-w-[13rem]" class="hidden sm:flex">
           <template #trigger>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px]" aria-hidden="true">
               <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
@@ -307,7 +264,7 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
               role="dialog"
               aria-modal="true"
               aria-labelledby="credits-title"
-              class="relative w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl p-5"
+              class="relative w-full max-w-sm modal-panel p-5"
             >
               <button
                 type="button"
@@ -341,7 +298,36 @@ const submitActive = computed(() => startsWith('/records', '/opinions') || route
         </Teleport>
 
         <ThemeMenu />
-      </nav>
+
+        <!-- One button for everything the row above can't fit on a phone. -->
+        <button
+          type="button"
+          class="lg:hidden relative p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+          :aria-expanded="menuOpen"
+          aria-label="Open menu"
+          @click="menuOpen = true"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+          <!-- Anything waiting behind the button has to be visible on the
+               button, or the drawer is the only place it exists. -->
+          <span
+            v-if="inboxUnread + adminPendingCount > 0 || updatesUnread"
+            class="absolute top-1 right-1 w-2 h-2 rounded-full bg-accent ring-2 ring-zinc-950"
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+
+      <SiteNavDrawer
+        v-model:open="menuOpen"
+        :signed-in="!!me"
+        :role="me?.role"
+        :inbox-unread="inboxUnread"
+        :admin-pending="adminPendingCount"
+        :updates-unread="updatesUnread"
+      />
     </div>
   </header>
 </template>

@@ -87,7 +87,7 @@ watch(
         v-model="search"
         type="search"
         placeholder="Search…"
-        class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        class="field field-sm text-xs"
       />
     </div>
 

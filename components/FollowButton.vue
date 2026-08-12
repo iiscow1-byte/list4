@@ -93,7 +93,7 @@ async function openFollowers() {
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
         @click.self="showFollowers = false"
       >
-        <div class="w-80 max-h-[70vh] flex flex-col rounded-lg border border-zinc-800 bg-zinc-950 shadow-xl overflow-hidden">
+        <div class="w-80 max-h-[70vh] flex flex-col popover shadow-xl overflow-hidden">
           <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
             <span class="text-sm font-medium text-zinc-100">Followers <span class="text-zinc-500 tabular-nums">{{ count }}</span></span>
             <button

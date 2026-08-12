@@ -30,7 +30,7 @@ const emit = defineEmits<{ (e: 'titleClick'): void }>()
 </script>
 
 <template>
-  <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+  <section class="card overflow-hidden">
     <header class="flex items-baseline gap-2 px-4 pt-3.5 pb-2.5">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold min-w-0 truncate">
         <button

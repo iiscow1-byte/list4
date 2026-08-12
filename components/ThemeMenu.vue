@@ -70,7 +70,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
 
     <div
       v-if="open"
-      class="absolute right-0 top-full mt-2 w-72 rounded-md border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40 z-50"
+      class="absolute right-0 top-full mt-2 w-72 popover z-50"
     >
       <div class="px-4 py-3 border-b border-zinc-800">
         <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">Theme</p>

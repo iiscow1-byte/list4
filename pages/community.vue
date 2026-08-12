@@ -43,6 +43,10 @@ watch(me, loadFeed, { immediate: true })
 
 /** Show everything, or only one kind of activity. */
 const kind = ref<'' | 'record' | 'progress' | 'verify' | 'level'>('')
+const kindModel = computed({
+  get: () => kind.value as string,
+  set: (v: string) => { kind.value = v as any },
+})
 const shownFeed = computed(() =>
   kind.value ? feed.value.filter((i) => i.kind === kind.value) : feed.value,
 )
@@ -191,7 +195,7 @@ useHead({ title: 'Community — All Levels List' })
             v-model="playerQuery"
             type="search"
             placeholder="Search members, ALL, AREDL, Pointercrate and GDL…"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 pl-8 pr-8 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md pl-8 pr-8"
             @keydown.esc="clearPlayerSearch"
           />
           <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600 pointer-events-none" aria-hidden="true">
@@ -244,21 +248,17 @@ useHead({ title: 'Community — All Levels List' })
       <section class="card overflow-hidden">
         <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-center justify-between gap-2 flex-wrap">
           <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Following</h2>
-          <div v-if="me && feed.length" class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-            <button
-              v-for="opt in [
-                { v: '', l: 'All' },
-                { v: 'record', l: 'Completions' },
-                { v: 'progress', l: 'Progress' },
-                { v: 'verify', l: 'Verifs' },
-              ]"
-              :key="opt.v"
-              type="button"
-              class="px-2 py-0.5 text-[10px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-              :class="kind === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-              @click="kind = opt.v as any"
-            >{{ opt.l }}</button>
-          </div>
+          <SegmentedControl
+            v-if="me && feed.length"
+            v-model="kindModel"
+            aria-label="Filter activity"
+            :options="[
+              { value: '', label: 'All' },
+              { value: 'record', label: 'Completions' },
+              { value: 'progress', label: 'Progress' },
+              { value: 'verify', label: 'Verifications' },
+            ]"
+          />
           <NuxtLink v-else-if="me" to="/leaderboard" class="text-[11px] text-zinc-500 hover:text-accent transition-colors">Find players →</NuxtLink>
         </div>
 

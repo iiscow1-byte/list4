@@ -150,7 +150,7 @@ const tagList = computed(() => {
       <div class="shrink-0 flex flex-col items-end gap-1">
         <NuxtLink
           :to="`/open-verifications/${level.id}/submit-verification`"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-3 py-1.5 hover:bg-accent/90 transition-colors"
+          class="btn btn-md btn-primary"
         >
           Submit verification
         </NuxtLink>
@@ -172,55 +172,55 @@ const tagList = computed(() => {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
-          <input v-model="draft.verifier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verifier" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
-          <input v-model="draft.fps" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.fps" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
-          <input v-model="draft.game_version" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.game_version" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-          <input v-model="draft.gddl_tier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gddl_tier" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-          <input v-model="draft.difficulty" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.difficulty" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-          <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.enjoyment" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-          <input v-model="draft.main_skillset" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.main_skillset" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
-          <input v-model="draft.placement_source" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.placement_source" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Showcase URL</span>
-          <input v-model="draft.showcase_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.showcase_url" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
-          <input v-model="draft.tags" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.tags" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes</span>
-          <textarea v-model="draft.notes" rows="3" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <textarea v-model="draft.notes" rows="3" class="field field-md mt-1" />
         </label>
       </div>
 
@@ -228,12 +228,12 @@ const tagList = computed(() => {
         <button
           type="button"
           :disabled="saving"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
           @click="saveEdit"
         >{{ saving ? 'Saving…' : 'Save' }}</button>
         <button
           type="button"
-          class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
+          class="btn btn-md btn-ghost"
           @click="cancelEdit"
         >Cancel</button>
         <button
@@ -279,7 +279,7 @@ const tagList = computed(() => {
         </div>
       </div>
     </a>
-    <div v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6 px-6 py-12 text-center">
+    <div v-else class="card mb-6 px-6 py-12 text-center">
       <p class="text-sm text-zinc-400">Not verified — no showcase video provided.</p>
     </div>
 
@@ -337,12 +337,12 @@ const tagList = computed(() => {
       </div>
     </div>
 
-    <section v-if="level.notes" class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3 mb-6">
+    <section v-if="level.notes" class="card px-4 py-3 mb-6">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>
 
-    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+    <section class="card px-4 py-3">
       <CommentSection kind="open_verification" :target-id="level.id" />
     </section>
   </div>

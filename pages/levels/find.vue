@@ -90,7 +90,7 @@ useHead({ title: 'Find a level — All Levels List' })
       <button
         type="submit"
         :disabled="loading || !search.trim()"
-        class="shrink-0 rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+        class="btn btn-md btn-primary shrink-0"
       >{{ loading ? 'Searching…' : 'Search' }}</button>
     </form>
 
@@ -141,17 +141,17 @@ useHead({ title: 'Find a level — All Levels List' })
             <template v-if="r.on_list">
               <NuxtLink
                 :to="`/levels/${r.on_list.position}`"
-                class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 text-center hover:bg-accent/90 transition-colors"
+                class="btn btn-sm btn-primary text-center"
               >On the list · #{{ r.on_list.sheet_placement ?? r.on_list.position }}</NuxtLink>
               <NuxtLink
                 :to="`/records/submit?position=${r.on_list.position}`"
-                class="rounded-lg border border-zinc-700 text-zinc-300 text-xs px-3 py-1.5 text-center hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+                class="btn btn-sm btn-ghost text-center"
               >Submit a record</NuxtLink>
             </template>
             <template v-else>
               <NuxtLink
                 :to="`/levels/submit?gd_id=${r.gd_id}&name=${encodeURIComponent(r.name)}`"
-                class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 text-center hover:bg-accent/90 transition-colors"
+                class="btn btn-sm btn-primary text-center"
               >Submit to the list</NuxtLink>
               <span class="text-[10px] text-zinc-600 text-center">Not ranked yet</span>
             </template>

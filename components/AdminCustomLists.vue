@@ -228,13 +228,13 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         <button
           type="button"
           :disabled="busy || previewCount === 0"
-          class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+          class="btn btn-sm btn-primary"
           @click="create(false)"
         >{{ busy ? 'Creating…' : 'Create list' }}</button>
         <button
           type="button"
           :disabled="busy || previewCount === 0"
-          class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 py-1.5 hover:border-accent/60 hover:text-accent disabled:opacity-50 transition-colors"
+          class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
           @click="create(true)"
         >Create and open in builder</button>
         <span v-if="error" class="text-xs text-red-400">{{ error }}</span>

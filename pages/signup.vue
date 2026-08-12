@@ -65,7 +65,7 @@ async function submit() {
           v-model="username"
           autocomplete="username"
           required
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
         <span class="text-[11px] text-zinc-500 mt-1 block">3–32 chars: letters, numbers, underscore, hyphen.</span>
       </label>
@@ -77,7 +77,7 @@ async function submit() {
           autocomplete="new-password"
           required
           minlength="8"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
         <span class="text-[11px] text-zinc-500 mt-1 block">At least 8 characters.</span>
       </label>
@@ -87,7 +87,7 @@ async function submit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded bg-accent text-zinc-950 font-medium text-sm py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+        class="btn btn-md btn-primary w-full"
       >
         {{ loading ? 'Creating…' : 'Sign up' }}
       </button>

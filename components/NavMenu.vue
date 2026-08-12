@@ -151,7 +151,7 @@ async function toggle() {
         v-if="open"
         ref="panel"
         role="menu"
-        class="absolute top-full mt-2 rounded-xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-md shadow-2xl shadow-black/60 ring-1 ring-black/40 p-1.5 z-40"
+        class="absolute top-full mt-2 popover p-1.5 z-40"
         :class="[align === 'right' ? 'right-0' : 'left-0', width ?? 'min-w-[15rem]']"
         @keydown="onPanelKeydown"
       >

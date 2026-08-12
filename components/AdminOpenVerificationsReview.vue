@@ -162,7 +162,7 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
         </div>
 
         <!-- Showcase -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+        <section class="card">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Showcase</h3>
           <div v-if="showcaseYtId" class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800">
             <iframe
@@ -184,7 +184,7 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
           </dl>
         </section>
 
-        <section v-if="selected.tags" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+        <section v-if="selected.tags" class="card px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tags</h3>
           <div class="flex flex-wrap gap-1.5">
             <span v-for="t in selected.tags.split(',')" :key="t" class="text-[11px] px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900 text-zinc-300 capitalize">
@@ -193,7 +193,7 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
           </div>
         </section>
 
-        <section v-if="selected.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+        <section v-if="selected.notes" class="card px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
           <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ selected.notes }}</p>
         </section>
@@ -215,7 +215,7 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
               rows="2"
               maxlength="4000"
               placeholder="Why this can't be accepted as-is."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm mt-1 text-xs"
             />
           </label>
           <button

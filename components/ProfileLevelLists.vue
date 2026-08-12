@@ -96,7 +96,7 @@ function fmt(n: number | null) {
 </script>
 
 <template>
-  <section v-if="tabs.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+  <section v-if="tabs.length" class="card overflow-hidden">
     <div class="flex items-center gap-1 px-2 py-2 border-b border-zinc-800/80">
       <button
         v-for="t in tabs"

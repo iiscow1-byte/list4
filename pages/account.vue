@@ -735,6 +735,10 @@ const favoriteLevelPickerOpen = ref(false)
 // what the server will accept — no free-text level id to get wrong.
 const hardestRecordId = ref<number | null>(null)
 const bannerChoice = ref<'hardest' | 'favorite' | 'level' | 'none' | 'custom'>('hardest')
+const bannerChoiceModel = computed({
+  get: () => bannerChoice.value as string,
+  set: (v: string) => { bannerChoice.value = v as typeof bannerChoice.value },
+})
 
 /**
  * Staff decorations. Only shown to staff, and only *accepted* from staff — the
@@ -1034,7 +1038,7 @@ function fmt(n: number | null | undefined) {
         >{{ editing ? 'Editing…' : 'Edit profile' }}</button>
         <NuxtLink
           :to="`/users/${me.username}`"
-          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+          class="btn btn-sm btn-ghost"
         >View public ↗</NuxtLink>
       </template>
     </ProfileHeader>
@@ -1125,13 +1129,13 @@ function fmt(n: number | null | undefined) {
                     rows="3"
                     maxlength="1000"
                     placeholder="Tell people about yourself."
-                    class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   />
                 </label>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label class="block">
                     <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
-                    <input v-model="profile.pronouns" maxlength="64" placeholder="e.g. they/them" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                    <input v-model="profile.pronouns" maxlength="64" placeholder="e.g. they/them" class="field field-md mt-1" />
                   </label>
                   <!-- A list rather than a text box: the value draws a flag and
                        is meant to be comparable between profiles. -->
@@ -1147,7 +1151,7 @@ function fmt(n: number | null | undefined) {
                   </label>
                   <label class="block sm:col-span-2">
                     <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
-                    <input v-model="profile.subdivision" maxlength="64" placeholder="e.g. California" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                    <input v-model="profile.subdivision" maxlength="64" placeholder="e.g. California" class="field field-md mt-1" />
                   </label>
                 </div>
               </fieldset>
@@ -1159,7 +1163,7 @@ function fmt(n: number | null | undefined) {
                 </p>
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— a handle, not a link</span></span>
-                  <input v-model="profile.discord_handle" maxlength="64" placeholder="e.g. username" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                  <input v-model="profile.discord_handle" maxlength="64" placeholder="e.g. username" class="field field-md mt-1" />
                 </label>
                 <label v-for="link in SOCIAL_LINKS" :key="link.key" class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">{{ link.label }}</span>
@@ -1168,7 +1172,7 @@ function fmt(n: number | null | undefined) {
                     type="url"
                     maxlength="500"
                     :placeholder="link.example"
-                    class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                     :class="{ 'border-red-800': profile[link.key].trim() && !socialValid(link.key) }"
                   />
                   <span v-if="profile[link.key].trim() && !socialValid(link.key)" class="text-[11px] text-red-400 mt-1 block">
@@ -1184,7 +1188,7 @@ function fmt(n: number | null | undefined) {
                     v-model="profile.gd_username"
                     maxlength="20"
                     placeholder="your in-game name"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                     :class="{ 'border-red-800': !gdUsernameValid }"
                   />
                   <span v-if="!gdUsernameValid" class="text-[11px] text-red-400 mt-1 block">
@@ -1225,7 +1229,7 @@ function fmt(n: number | null | undefined) {
                     rows="2"
                     maxlength="500"
                     placeholder="Why do you love it?"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   />
                 </label>
 
@@ -1236,7 +1240,7 @@ function fmt(n: number | null | undefined) {
                   </p>
                   <select
                     v-model="hardestRecordId"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   >
                     <option :value="null">— none —</option>
                     <option v-for="r in completionOptions" :key="r.record_id" :value="r.record_id">
@@ -1257,22 +1261,18 @@ function fmt(n: number | null | undefined) {
                   <p class="text-[11px] text-zinc-600 mt-0.5">
                     Which level's art sits behind your name. The header above updates as you choose.
                   </p>
-                  <div class="mt-1.5 inline-flex rounded-lg border border-zinc-800 overflow-hidden flex-wrap">
-                    <button
-                      v-for="opt in [
-                        { v: 'hardest', l: 'Hardest completion' },
-                        { v: 'favorite', l: 'Favourite level' },
-                        { v: 'level', l: 'Any level' },
-                        ...(isStaffAccount ? [{ v: 'custom', l: 'Image' }] : []),
-                        { v: 'none', l: 'Plain' },
-                      ]"
-                      :key="opt.v"
-                      type="button"
-                      class="px-3 py-1.5 text-[11px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-                      :class="bannerChoice === opt.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-                      @click="bannerChoice = opt.v as any"
-                    >{{ opt.l }}</button>
-                  </div>
+                  <SegmentedControl
+                    v-model="bannerChoiceModel"
+                    class="mt-1.5"
+                    aria-label="What sits behind your name"
+                    :options="[
+                      { value: 'hardest', label: 'Hardest completion' },
+                      { value: 'favorite', label: 'Favourite level' },
+                      { value: 'level', label: 'Any level' },
+                      ...(isStaffAccount ? [{ value: 'custom', label: 'Image' }] : []),
+                      { value: 'none', label: 'Plain' },
+                    ]"
+                  />
 
                   <!-- "Any level" is the one option that needs a level of its
                        own, so its picker sits directly under the choices. -->
@@ -1309,7 +1309,7 @@ function fmt(n: number | null | undefined) {
                       v-model="bannerImageUrl"
                       type="url"
                       placeholder="https://…/background.png"
-                      class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      class="field field-md"
                     />
                     <p class="text-[11px] text-zinc-600 mt-1.5">
                       A direct image link. Wide works best — the header is about 1500&times;220.
@@ -1333,7 +1333,7 @@ function fmt(n: number | null | undefined) {
                         v-model="nameEmoji"
                         maxlength="16"
                         placeholder="👑"
-                        class="mt-0.5 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        class="field field-md mt-0.5"
                       />
                     </label>
                     <label class="block">
@@ -1342,7 +1342,7 @@ function fmt(n: number | null | undefined) {
                         v-model="nameBadge"
                         maxlength="24"
                         placeholder="Founder"
-                        class="mt-0.5 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                        class="field field-md mt-0.5"
                       />
                     </label>
                     <label class="block">
@@ -1381,7 +1381,7 @@ function fmt(n: number | null | undefined) {
                 <button
                   type="submit"
                   :disabled="profileSaving || !gdUsernameValid || !youtubeUrlValid || !allSocialsValid"
-                  class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                  class="btn btn-md btn-primary"
                 >{{ profileSaving ? 'Saving…' : 'Save' }}</button>
                 <button
                   type="button"
@@ -1425,7 +1425,7 @@ function fmt(n: number | null | undefined) {
         />
 
         <!-- Open-verification submission -->
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
               <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Submit open verification</h2>
@@ -1450,7 +1450,7 @@ function fmt(n: number | null | undefined) {
                   inputmode="numeric"
                   placeholder="e.g. 12345678"
                   required
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
               <label class="block sm:col-span-2">
@@ -1459,7 +1459,7 @@ function fmt(n: number | null | undefined) {
                   v-model="ovName"
                   required
                   placeholder="Level name"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
             </div>
@@ -1471,7 +1471,7 @@ function fmt(n: number | null | undefined) {
                 <input
                   v-model="ovFps"
                   placeholder="any"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
               <label class="block">
@@ -1479,13 +1479,13 @@ function fmt(n: number | null | undefined) {
                 <input
                   v-model="ovGameVersion"
                   placeholder="any"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
             </div>
 
             <!-- Showcase (replaces verification) -->
-            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="card p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
 
               <label class="block">
@@ -1496,7 +1496,7 @@ function fmt(n: number | null | undefined) {
                   v-model="ovShowcaseUrl"
                   type="url"
                   placeholder="https://www.youtube.com/watch?v=…"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
 
@@ -1517,20 +1517,20 @@ function fmt(n: number | null | undefined) {
                 <input
                   v-model="ovVerifier"
                   placeholder="Player name"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
             </fieldset>
 
             <!-- Difficulty opinion -->
-            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="card p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
                   <select
                     v-model="ovGddlTier"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   >
                     <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
                   </select>
@@ -1539,7 +1539,7 @@ function fmt(n: number | null | undefined) {
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
                   <select
                     v-model="ovDifficulty"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   >
                     <option v-for="d in OV_DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
                   </select>
@@ -1548,7 +1548,7 @@ function fmt(n: number | null | undefined) {
             </fieldset>
 
             <!-- Optional metadata -->
-            <fieldset class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+            <fieldset class="card p-4 space-y-3">
               <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
@@ -1556,14 +1556,14 @@ function fmt(n: number | null | undefined) {
                   <input
                     v-model="ovEnjoyment"
                     type="number" min="0" max="10" step="0.1" inputmode="decimal"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   />
                 </label>
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
                   <select
                     v-model="ovSkillset"
-                    class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-1"
                   >
                     <option v-for="s in OV_SKILLSET_OPTIONS" :key="s" :value="s">{{ s || '— none —' }}</option>
                   </select>
@@ -1593,7 +1593,7 @@ function fmt(n: number | null | undefined) {
                 rows="3"
                 maxlength="4000"
                 placeholder="Anything the moderator should know."
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
 
@@ -1601,7 +1601,7 @@ function fmt(n: number | null | undefined) {
               <button
                 type="submit"
                 :disabled="ovSubmitting"
-                class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                class="btn btn-md btn-primary"
               >{{ ovSubmitting ? 'Submitting…' : 'Submit for review' }}</button>
               <span v-if="ovSuccess" class="text-xs text-emerald-400">Submitted — pending review.</span>
               <span v-if="ovError" class="text-xs text-red-400">{{ ovError }}</span>
@@ -1617,7 +1617,7 @@ function fmt(n: number | null | undefined) {
           @refresh="loadProfileData()"
         />
 
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+        <section class="card overflow-hidden">
           <CommentSection
             kind="profile"
             :target-id="me.id"
@@ -1629,12 +1629,12 @@ function fmt(n: number | null | undefined) {
 
       <!-- Right panel: actions -->
       <aside class="space-y-3 lg:sticky lg:top-20 lg:self-start">
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="card p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Actions</h2>
           <div class="flex flex-col gap-1.5">
             <button
               type="button"
-              class="text-left text-sm px-3 py-1.5 rounded bg-accent text-zinc-950 font-medium hover:bg-accent/90 transition-colors"
+              class="btn btn-md btn-primary justify-start"
               @click="startEdit"
             >Edit profile</button>
 
@@ -1715,7 +1715,7 @@ function fmt(n: number | null | undefined) {
           <form v-else-if="claimOpen" class="mt-3 space-y-2" @submit.prevent="submitClaim">
             <select
               v-model="claimSource"
-              class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:border-accent/50"
+              class="field field-md"
             >
               <option value="all">Claim legacy ALL</option>
               <option value="aredl">Claim AREDL</option>
@@ -1726,7 +1726,7 @@ function fmt(n: number | null | undefined) {
               <input
                 v-model="claimInput"
                 :placeholder="claimSource === 'aredl' ? 'Search AREDL player name…' : claimSource === 'pointercrate' ? 'Search Pointercrate player name…' : claimSource === 'gdl' ? 'Search GDL player name…' : 'Exact leaderboard name'"
-                class="w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
+                class="field field-md"
                 autocomplete="off"
                 @input="claimAredlUuid = null; claimPcId = null; claimGdlId = null"
               />
@@ -1795,7 +1795,7 @@ function fmt(n: number | null | undefined) {
               <button
                 type="submit"
                 :disabled="claimSubmitting || !claimInput.trim()"
-                class="flex-1 rounded bg-accent text-zinc-950 text-xs font-medium py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+                class="btn btn-sm btn-primary flex-1"
               >Request</button>
               <button
                 type="button"
@@ -1807,7 +1807,7 @@ function fmt(n: number | null | undefined) {
           </form>
         </div>
 
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="card p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Profile picture</h2>
           <div class="flex items-center gap-2 flex-wrap">
             <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium px-2.5 py-1 cursor-pointer transition-colors">
@@ -1825,7 +1825,7 @@ function fmt(n: number | null | undefined) {
           <p v-if="avatarError" class="text-xs text-red-400 mt-1">{{ avatarError }}</p>
         </div>
 
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3 text-xs space-y-1">
+        <div class="card p-3 text-xs space-y-1">
           <NuxtLink :to="`/users/${me.username}`" class="block text-zinc-400 hover:text-accent transition-colors">View public profile ↗</NuxtLink>
           <template v-if="me.role !== 'user'">
             <NuxtLink to="/admin" class="block text-zinc-400 hover:text-accent transition-colors">{{ me.role === 'moderator' ? 'Mod' : 'Admin' }} panel →</NuxtLink>
@@ -1837,7 +1837,7 @@ function fmt(n: number | null | undefined) {
           >Log out</button>
         </div>
 
-        <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+        <div class="card p-3">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Preferences</h2>
           <label class="flex items-center gap-2 cursor-pointer select-none px-1">
             <input
@@ -1888,7 +1888,7 @@ function fmt(n: number | null | undefined) {
       @click.self="closeCrop"
       @keydown.esc="closeCrop"
     >
-      <div class="bg-zinc-900 rounded-2xl border border-zinc-800 p-5 w-full max-w-md space-y-4 shadow-2xl" @click.stop>
+      <div class="modal-panel p-5 w-full max-w-md space-y-4" @click.stop>
         <div>
           <h2 class="text-sm font-semibold text-zinc-100">Crop profile picture</h2>
           <p class="text-[11px] text-zinc-500 mt-0.5">
@@ -1985,7 +1985,7 @@ function fmt(n: number | null | undefined) {
           </label>
           <button
             type="button"
-            class="mt-4 shrink-0 rounded-lg border border-zinc-700 text-zinc-300 text-xs px-2.5 py-1.5 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+            class="btn btn-sm btn-ghost mt-4 shrink-0"
             title="Fit the whole picture and centre it"
             @click="resetCrop"
           >Reset</button>
@@ -1997,12 +1997,12 @@ function fmt(n: number | null | undefined) {
           <button
             type="button"
             :disabled="avatarUploading"
-            class="flex-1 rounded-lg bg-accent text-zinc-950 font-semibold text-sm py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+            class="btn btn-md btn-primary flex-1"
             @click="confirmCrop"
           >{{ avatarUploading ? 'Saving…' : 'Save picture' }}</button>
           <button
             type="button"
-            class="px-4 rounded-lg border border-zinc-700 text-sm py-2 hover:bg-zinc-800 transition-colors"
+            class="btn btn-md btn-ghost"
             @click="closeCrop"
           >Cancel</button>
         </div>

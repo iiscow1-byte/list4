@@ -60,7 +60,7 @@ async function submit() {
           v-model="username"
           autocomplete="username"
           required
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
       </label>
       <label class="block">
@@ -70,7 +70,7 @@ async function submit() {
           type="password"
           autocomplete="current-password"
           required
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
       </label>
 
@@ -79,7 +79,7 @@ async function submit() {
       <button
         type="submit"
         :disabled="loading"
-        class="w-full rounded bg-accent text-zinc-950 font-medium text-sm py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+        class="btn btn-md btn-primary w-full"
       >
         {{ loading ? 'Signing in…' : 'Log in' }}
       </button>

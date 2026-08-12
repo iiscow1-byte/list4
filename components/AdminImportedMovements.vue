@@ -220,13 +220,13 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
       <div class="ml-auto flex items-center gap-2">
         <button
           type="button"
-          class="rounded border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 transition-colors"
+          class="btn btn-sm btn-ghost"
           @click="pickAll(picked.size !== actionable.length)"
         >{{ picked.size === actionable.length ? 'Select none' : 'Select all' }}</button>
         <button
           type="button"
           :disabled="!picked.size || applyingAll"
-          class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+          class="btn btn-sm btn-primary"
           @click="applyPicked"
         >{{ applyingAll ? 'Moving…' : `Move ${picked.size} selected` }}</button>
       </div>
@@ -307,7 +307,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
                 <button
                   type="button"
                   :disabled="busyId != null"
-                  class="rounded bg-accent text-zinc-950 font-medium text-xs px-2.5 py-1 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+                  class="btn btn-sm btn-primary"
                   :title="`Move ${m.name} to #${(m.to_placement ?? m.to_position).toLocaleString()}`"
                   @click="applyOne(m)"
                 >{{ busyId === m.level_id ? '…' : 'Move' }}</button>

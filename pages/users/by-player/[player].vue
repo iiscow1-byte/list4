@@ -60,7 +60,7 @@ function fmt(n: number | null | undefined) {
            The leaderboard sends every row here now, including players the ALL
            itself has never heard of, so the page has to answer "who is this"
            for them — and the answer is the lists that do know them. -->
-      <section v-if="data.external?.length" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section v-if="data.external?.length" class="card p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Also ranked on</h2>
         <ul class="grid gap-px bg-zinc-800 rounded-lg overflow-hidden border border-zinc-800 sm:grid-cols-3">
           <li v-for="e in data.external" :key="e.source" class="bg-zinc-950">
@@ -87,7 +87,7 @@ function fmt(n: number | null | undefined) {
         </span>
       </div>
 
-      <section class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4">
+      <section class="card p-4">
         <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>

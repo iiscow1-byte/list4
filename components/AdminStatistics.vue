@@ -143,14 +143,14 @@ const LIFETIME_ROWS = [
 
         <p
           v-if="!data.totals.viewsAllTime"
-          class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-6 text-center text-sm text-zinc-500"
+          class="card px-4 py-6 text-center text-sm text-zinc-500"
         >
           Nothing counted yet. Views start being recorded the first time someone opens a
           page after this version went up.
         </p>
 
         <!-- Traffic -->
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Traffic</h2>
             <div class="flex items-center gap-3 text-[10px]">
@@ -180,7 +180,7 @@ const LIFETIME_ROWS = [
         </section>
 
         <!-- Growth -->
-        <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+        <section class="card p-4">
           <div class="flex items-baseline justify-between gap-3 flex-wrap mb-3">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">
               What was added
@@ -222,7 +222,7 @@ const LIFETIME_ROWS = [
 
         <div class="grid gap-4 lg:grid-cols-3">
           <!-- Everything, in total -->
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <section class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">All time</h2>
             <dl class="space-y-1">
               <div
@@ -238,7 +238,7 @@ const LIFETIME_ROWS = [
           </section>
 
           <!-- Where people go -->
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <section class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
               Most-read pages
               <span class="normal-case tracking-normal text-zinc-600">last {{ data.days }} days</span>
@@ -253,7 +253,7 @@ const LIFETIME_ROWS = [
           </section>
 
           <!-- Which levels people open -->
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <section class="card p-4">
             <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2.5">
               Most-viewed levels
               <span class="normal-case tracking-normal text-zinc-600">all time</span>

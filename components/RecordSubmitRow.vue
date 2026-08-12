@@ -50,14 +50,14 @@ const canClaimVerification = computed(
       v-model="search"
       placeholder="Level…"
       autocomplete="off"
-      class="w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+      class="field field-md"
       @focus="picker.openIfHasMatches()"
       @blur="picker.scheduleClose()"
     />
     <ul
       v-if="picker.open.value && picker.matches.value.length"
       :ref="picker.setScrollEl"
-      class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+      class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto popover divide-y divide-zinc-900"
       @scroll="picker.onScroll"
     >
       <li v-for="l in picker.matches.value" :key="l.position">

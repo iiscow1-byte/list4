@@ -283,7 +283,7 @@ watch(
           <input
             v-model="verifier"
             type="text" placeholder="Verifier name"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm mt-1 text-xs"
           />
         </label>
 
@@ -292,7 +292,7 @@ watch(
           <input
             v-model="skillset"
             type="text" placeholder="e.g. memory, timing"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm mt-1 text-xs"
           />
         </label>
 
@@ -330,7 +330,7 @@ watch(
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
           <select
             v-model="sort"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm mt-1 text-xs"
           >
             <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>

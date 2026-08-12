@@ -412,14 +412,14 @@ function confirm() {
           </div>
           <button
             type="button"
-            class="rounded border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:border-zinc-500 text-xs px-2.5 py-1.5 transition-colors"
+            class="btn btn-sm btn-ghost"
             @click="close"
           >Cancel</button>
           <button
             v-if="!confirmOnPick"
             type="button"
             :disabled="!comparePicked"
-            class="rounded bg-accent text-zinc-950 hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium px-2.5 py-1.5 transition-colors"
+            class="btn btn-sm btn-primary"
             @click="confirm"
           >Confirm</button>
         </footer>

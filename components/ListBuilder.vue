@@ -330,14 +330,14 @@ function copyShare() {
 <template>
   <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
     <!-- ── Palette ────────────────────────────────────────────────── -->
-    <aside class="rounded-xl border border-zinc-800 bg-zinc-950/70 overflow-hidden lg:sticky lg:top-20">
+    <aside class="card overflow-hidden lg:sticky lg:top-20">
       <div class="px-4 py-3 border-b border-zinc-800/80">
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Drag from the ALL list</h2>
         <input
           v-model="search"
           type="search"
           placeholder="Search levels…"
-          class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md"
         />
       </div>
       <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto p-1.5 space-y-1">
@@ -383,7 +383,7 @@ function copyShare() {
     </aside>
 
     <!-- ── The list being built ───────────────────────────────────── -->
-    <section class="rounded-xl border border-zinc-800 bg-zinc-950/70 overflow-hidden">
+    <section class="card overflow-hidden">
       <div class="px-4 py-3 border-b border-zinc-800/80 flex flex-wrap items-center gap-2">
         <input
           v-model="draft.title"
@@ -395,13 +395,13 @@ function copyShare() {
         <span class="text-[11px] text-zinc-500 tabular-nums">{{ draft.items.length }} level{{ draft.items.length === 1 ? '' : 's' }}</span>
         <button
           type="button"
-          class="rounded-lg border border-zinc-700 text-zinc-300 text-xs px-2.5 py-1 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+          class="btn btn-sm btn-ghost"
           @click="startNew"
         >New</button>
         <button
           type="button"
           :disabled="saving"
-          class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-sm btn-primary"
           @click="save"
         >{{ saving ? 'Saving…' : draft.publicId ? 'Save changes' : 'Save list' }}</button>
       </div>
@@ -441,15 +441,15 @@ function copyShare() {
         </label>
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at #1</span>
-          <input v-model.number="draft.maxPoints" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model.number="draft.maxPoints" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at the bottom</span>
-          <input v-model.number="draft.minPoints" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model.number="draft.minPoints" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Scored levels</span>
-          <input v-model.number="draft.scoredCount" inputmode="numeric" placeholder="0 = all" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model.number="draft.scoredCount" inputmode="numeric" placeholder="0 = all" class="field field-md mt-1" />
         </label>
         <p class="text-[10px] text-zinc-600 self-end pb-1.5">
           Points decay smoothly from #1 down to the last scored level.
@@ -518,27 +518,27 @@ function copyShare() {
           <li v-if="metaOpen === i" class="rounded-lg border border-zinc-800/70 bg-zinc-900/40 p-3 grid gap-2 sm:grid-cols-4">
             <label class="block sm:col-span-2">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verifier</span>
-              <input v-model="item.verifier" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="item.verifier" type="text" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">% to qualify</span>
-              <input v-model.number="item.percent_to_qualify" inputmode="numeric" placeholder="100" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model.number="item.percent_to_qualify" inputmode="numeric" placeholder="100" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">FPS</span>
-              <input v-model="item.fps" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="item.fps" type="text" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block sm:col-span-2">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification video</span>
-              <input v-model="item.verification_url" type="url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="item.verification_url" type="url" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Game version</span>
-              <input v-model="item.game_version" type="text" placeholder="2.2" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="item.game_version" type="text" placeholder="2.2" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
-              <input v-model="item.notes" type="text" maxlength="500" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="item.notes" type="text" maxlength="500" class="field field-sm mt-1 text-xs" />
             </label>
             <p v-if="item.level_id" class="text-[10px] text-zinc-600 sm:col-span-4">
               Name, creator and tier come from the ALL list for linked levels and can't be overridden here.
@@ -578,37 +578,37 @@ function copyShare() {
         <div v-if="manualOpen" class="px-4 pb-4 grid gap-2 sm:grid-cols-2">
           <label class="block sm:col-span-2">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Level name *</span>
-            <input v-model="manual.name" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" @keydown.enter.prevent="addManual" />
+            <input v-model="manual.name" type="text" class="field field-md mt-1" @keydown.enter.prevent="addManual" />
           </label>
           <label class="block">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Level ID</span>
-            <input v-model="manual.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.gd_id" inputmode="numeric" class="field field-md mt-1" />
           </label>
           <label class="block">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Creator</span>
-            <input v-model="manual.creator" type="text" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.creator" type="text" class="field field-md mt-1" />
           </label>
           <label class="block">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
-            <input v-model="manual.difficulty" type="text" placeholder="Extreme Demon" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.difficulty" type="text" placeholder="Extreme Demon" class="field field-md mt-1" />
           </label>
           <label class="block">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Tier</span>
-            <input v-model="manual.gddl_tier" type="text" placeholder="Tier 20" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.gddl_tier" type="text" placeholder="Tier 20" class="field field-md mt-1" />
           </label>
           <label class="block sm:col-span-2">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification URL</span>
-            <input v-model="manual.verification_url" type="url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.verification_url" type="url" class="field field-md mt-1" />
           </label>
           <label class="block sm:col-span-2">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
-            <input v-model="manual.notes" type="text" maxlength="500" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="manual.notes" type="text" maxlength="500" class="field field-md mt-1" />
           </label>
           <div class="sm:col-span-2">
             <button
               type="button"
               :disabled="!manual.name.trim()"
-              class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="addManual"
             >Add to list</button>
           </div>

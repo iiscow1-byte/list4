@@ -363,7 +363,7 @@ async function submit() {
 
     <form class="space-y-4" @submit.prevent="submit">
       <!-- Multi-row grid: level on the left, video URL on the right -->
-      <div v-if="multi" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <div v-if="multi" class="card p-4">
         <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">
           <span>Level <span class="text-red-400">*</span></span>
           <span>Video URL <span class="text-red-400">*</span></span>
@@ -382,7 +382,7 @@ async function submit() {
       <!-- Single mode: the level and the proof belong together, so they share
            one card. The picker needs its own relative wrapper — anchoring it to
            the card would make the dropdown wider than the input it belongs to. -->
-      <div v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+      <div v-else class="card p-4 space-y-3">
         <div class="relative">
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
@@ -390,7 +390,7 @@ async function submit() {
             v-model="levelSearch"
             placeholder="Search by name or position…"
             autocomplete="off"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
             @focus="levelPicker.openIfHasMatches()"
             @blur="levelPicker.scheduleClose()"
           />
@@ -398,7 +398,7 @@ async function submit() {
         <ul
           v-if="levelPicker.open.value && levelPicker.matches.value.length"
           :ref="levelPicker.setScrollEl"
-          class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+          class="absolute z-10 left-0 right-0 mt-1 max-h-64 overflow-y-auto popover divide-y divide-zinc-900"
           @scroll="levelPicker.onScroll"
         >
           <li v-for="l in levelPicker.matches.value" :key="l.position">
@@ -455,7 +455,7 @@ async function submit() {
             type="url"
             required
             placeholder="https://www.youtube.com/watch?v=…"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
 
@@ -474,7 +474,7 @@ async function submit() {
         </label>
       </div>
 
-      <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <div class="card p-4">
         <div class="relative">
           <label class="block">
             <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
@@ -482,7 +482,7 @@ async function submit() {
               v-model="holderName"
               placeholder="Player name"
               autocomplete="off"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
               @focus="holderOpen = holderMatches.length > 0"
               @blur="setTimeout(() => holderOpen = false, 150)"
             />
@@ -490,7 +490,7 @@ async function submit() {
           </label>
           <ul
             v-if="holderOpen && holderMatches.length"
-            class="absolute z-10 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 divide-y divide-zinc-900 shadow-lg"
+            class="absolute z-10 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto popover divide-y divide-zinc-900"
           >
             <li v-for="m in holderMatches" :key="`${m.source}:${m.name}`">
               <button
@@ -506,7 +506,7 @@ async function submit() {
         </div>
       </div>
 
-      <fieldset v-if="!multi" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3">
+      <fieldset v-if="!multi" class="card p-3">
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
           <button type="button" class="hover:text-zinc-300" @click="ratingOpen = !ratingOpen">
             Rate this level <span class="text-zinc-600 normal-case">applied if the record is approved</span>
@@ -519,7 +519,7 @@ async function submit() {
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
               <select
                 v-model="opinionTier"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               >
                 <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
               </select>
@@ -528,7 +528,7 @@ async function submit() {
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
               <select
                 v-model="opinionDifficulty"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               >
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
               </select>
@@ -539,13 +539,13 @@ async function submit() {
             <input
               v-model="opinionEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
         </div>
       </fieldset>
 
-      <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+      <div class="card p-4">
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">optional</span></span>
           <textarea
@@ -553,7 +553,7 @@ async function submit() {
             rows="3"
             maxlength="2000"
             placeholder="Anything the reviewer should know — device, framerate, a timestamp…"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
       </div>
@@ -579,7 +579,7 @@ async function submit() {
         <button
           type="submit"
           :disabled="submitting"
-          class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-5 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
         >{{ submitting ? 'Submitting…' : multi ? 'Submit records' : 'Submit record' }}</button>
         <span class="text-[11px] text-zinc-600">
           <span class="text-red-400">*</span> required

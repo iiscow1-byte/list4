@@ -212,14 +212,14 @@ function bar(p: ProgressPost) {
             type="text"
             placeholder="Search the list…"
             autocomplete="off"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
+            class="field field-md"
             @focus="picker.openIfHasMatches()"
             @blur="picker.scheduleClose()"
           />
           <div
             v-if="picker.open.value && picker.matches.value.length"
             :ref="(el) => picker.setScrollEl(el as Element | null)"
-            class="absolute left-0 right-0 z-10 mt-1 max-h-60 overflow-auto rounded-lg border border-zinc-800 bg-zinc-950 shadow-lg"
+            class="absolute left-0 right-0 z-10 mt-1 max-h-60 overflow-auto popover"
             @scroll="picker.onScroll()"
           >
             <button
@@ -241,7 +241,7 @@ function bar(p: ProgressPost) {
             v-model="form.level_name"
             type="text"
             placeholder="Type a name, for a level not on the list"
-            class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
+            class="field field-sm flex-1 min-w-0"
           />
         </div>
       </fieldset>
@@ -252,7 +252,7 @@ function bar(p: ProgressPost) {
           <input
             v-model="form.start_percent"
             type="number" min="0" max="100" required
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50"
+            class="field field-md tabular-nums"
           />
         </label>
         <label class="block">
@@ -260,7 +260,7 @@ function bar(p: ProgressPost) {
           <input
             v-model="form.end_percent"
             type="number" min="0" max="100" required
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50"
+            class="field field-md tabular-nums"
           />
         </label>
         <label class="block col-span-2 sm:col-span-1">
@@ -269,7 +269,7 @@ function bar(p: ProgressPost) {
             v-model="form.video_url"
             type="url"
             placeholder="https://…"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50"
+            class="field field-md"
           />
         </label>
       </div>
@@ -279,7 +279,7 @@ function bar(p: ProgressPost) {
         <button
           type="submit"
           :disabled="submitting"
-          class="ml-auto px-3 py-1.5 rounded-lg text-sm font-medium bg-accent text-zinc-950 hover:bg-accent/90 transition-colors disabled:opacity-50"
+          class="btn btn-md btn-primary ml-auto"
         >{{ submitting ? 'Posting…' : 'Post' }}</button>
       </div>
     </form>

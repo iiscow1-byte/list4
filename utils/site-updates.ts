@@ -22,6 +22,22 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.19.0',
+    date: '2026-08-10',
+    title: 'A menu that fits a phone, and one of everything else',
+    tags: ['UI', 'Access', 'Fixes'],
+    changes: [
+      'The site header works on a phone. It had no small-screen layout at all — four dropdown menus, admin, inbox, your account and the socials menu sat in one row about 550px wide inside a 343px screen, so the header ran off the side of the page and dragged a horizontal scrollbar with it. There is a menu button and a drawer now.',
+      'Both navigations are built from one list, so the drawer can never be missing a page the dropdowns have.',
+      'One card. The same box was being drawn at four different corner radii and two background shades — a player profile literally changed shape depending on whether that player had signed up.',
+      'One dropdown. Nine floating menus had four different shadows between them, so opening two on the same page showed two heights of the same object.',
+      'One button. The primary button existed in ten sizes; the outline button in twenty-eight. Every one of them is now one of two sizes and one of three intents.',
+      'One input. Two hundred and twenty-eight form fields were written out by hand at five different paddings. They are one control at two sizes, so a form is finally a column of boxes the same height.',
+      'The row of buttons that switches between views was written out nine times, at four sizes. It is one control now, and it finally tells a screen reader which option is selected.',
+      'The leaderboard’s search box was the only search box on the site with a different fill, and its page arrows were 24px tall — well under what a finger needs on the page most likely to be paged through on a phone.',
+    ],
+  },
+  {
     version: '1.18.0',
     date: '2026-08-10',
     title: 'Clan invites, and video dates that work again',

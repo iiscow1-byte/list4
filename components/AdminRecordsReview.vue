@@ -167,7 +167,7 @@ async function decide(action: 'approve' | 'reject') {
               rows="2"
               maxlength="4000"
               placeholder="Why this record can't be accepted."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm mt-1 text-xs"
             />
           </label>
           <button

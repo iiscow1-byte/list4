@@ -332,7 +332,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
             </p>
             <button
               type="button"
-              class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="editInBuilder"
             >Open in builder →</button>
           </section>
@@ -352,7 +352,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 :value="l.icon_url ?? ''"
                 :disabled="busy"
                 placeholder="https://…/icon.png"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
                 @change="patch({ icon_url: ($event.target as HTMLInputElement).value }, 'Icon updated.')"
               />
             </label>
@@ -431,7 +431,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 :value="l.banner_url ?? ''"
                 :disabled="busy"
                 placeholder="https://…/banner.png"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
                 @change="patch({ banner_url: ($event.target as HTMLInputElement).value }, 'Banner updated.')"
               />
               <span class="block text-[11px] text-zinc-600 mt-1">
@@ -503,7 +503,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                     v-model="t.name"
                     maxlength="40"
                     placeholder="Extreme"
-                    class="mt-0.5 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-0.5"
                   />
                 </label>
                 <label class="block w-24">
@@ -512,7 +512,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                     v-model.number="t.from_rank"
                     type="number"
                     min="1"
-                    class="mt-0.5 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-md mt-0.5 tabular-nums"
                   />
                 </label>
                 <label class="block">
@@ -535,13 +535,13 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
             <div class="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 py-1.5 hover:border-accent/60 hover:text-accent transition-colors"
+                class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
                 @click="addTier"
               >Add a tier</button>
               <button
                 type="button"
                 :disabled="busy"
-                class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+                class="btn btn-sm btn-primary"
                 @click="saveTiers"
               >{{ busy ? 'Saving…' : 'Save tiers' }}</button>
               <span class="text-[11px] text-zinc-600">
@@ -681,20 +681,20 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Discord invite</span>
                 <input
                   v-model="discordUrl" type="url" placeholder="https://discord.gg/…"
-                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
               <label class="block">
                 <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">YouTube channel</span>
                 <input
                   v-model="youtubeUrl" type="url" placeholder="https://youtube.com/@…"
-                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 />
               </label>
             </div>
             <button
               type="button" :disabled="busy"
-              class="rounded-lg border border-zinc-700 text-zinc-200 text-xs px-3 py-1.5 hover:border-accent/60 hover:text-accent disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
               @click="patch({ discord_url: discordUrl, youtube_url: youtubeUrl }, 'Links saved.')"
             >Save links</button>
           </section>

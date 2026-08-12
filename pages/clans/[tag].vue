@@ -203,14 +203,14 @@ const shownCompletions = computed(() => {
               v-if="data.viewer.isMember"
               type="button"
               :disabled="busy"
-              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-red-800 hover:text-red-300 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
               @click="act('leave')"
             >{{ data.viewer.isOwner && data.totals.members === 1 ? 'Disband' : 'Leave' }}</button>
             <button
               v-else-if="data.viewer.signedIn && !data.viewer.inAnotherClan"
               type="button"
               :disabled="busy || data.viewer.requested"
-              class="rounded-lg bg-accent text-zinc-950 px-3 py-1.5 text-xs font-semibold hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="act(data.viewer.requested ? 'cancel' : 'join')"
             >{{ data.viewer.requested ? 'Requested' : data.clan.invite_only ? 'Ask to join' : 'Join' }}</button>
             <button
@@ -226,7 +226,7 @@ const shownCompletions = computed(() => {
             <NuxtLink
               v-else-if="!data.viewer.signedIn"
               to="/login"
-              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
+              class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
             >Log in to join</NuxtLink>
           </div>
         </div>
@@ -251,13 +251,13 @@ const shownCompletions = computed(() => {
             <button
               type="button"
               :disabled="busy || data.viewer.inAnotherClan"
-              class="rounded-lg bg-accent text-zinc-950 px-3 py-1.5 text-xs font-semibold hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="act('join-invite')"
             >Accept</button>
             <button
               type="button"
               :disabled="busy"
-              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-red-800 hover:text-red-300 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
               @click="act('reject-invite')"
             >No thanks</button>
           </div>
@@ -426,13 +426,13 @@ const shownCompletions = computed(() => {
               v-model="inviteQuery"
               type="search"
               placeholder="Search accounts…"
-              class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm text-xs"
             />
             <input
               v-model="inviteNote"
               maxlength="300"
               placeholder="A note, optional"
-              class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[11px] placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md text-[11px]"
             />
 
             <p v-if="inviteSearching" class="text-[11px] text-zinc-600">searching…</p>

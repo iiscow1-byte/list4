@@ -1318,7 +1318,7 @@ const chartAredlSeries = computed(() =>
           v-if="!isPermanent && canPromote"
           type="button"
           :disabled="promoting"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
           @click="promote"
         >{{ promoting ? 'Updating…' : 'Update' }}</button>
         <!-- Edit, and next to it the one destructive action worth reaching
@@ -1349,7 +1349,7 @@ const chartAredlSeries = computed(() =>
         >
           <button
             type="button"
-            class="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+            class="btn btn-sm btn-ghost flex gap-1.5"
             :class="{ 'border-zinc-500 text-zinc-100': actionsOpen }"
             @click="actionsOpen = !actionsOpen"
           >
@@ -1361,7 +1361,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="actionsOpen"
             role="menu"
-            class="absolute right-0 top-full mt-1 min-w-[11rem] rounded-xl border border-zinc-800 bg-zinc-950 shadow-lg shadow-black/40 py-1 z-20"
+            class="absolute right-0 top-full mt-1 min-w-[11rem] popover py-1 z-20"
           >
             <NuxtLink
               v-if="canSubmitRecord"
@@ -1407,7 +1407,7 @@ const chartAredlSeries = computed(() =>
         <template v-if="canEdit && isPermanent && moveBelowActive">
           <button
             type="button"
-            class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1 transition-colors"
+            class="btn btn-sm btn-ghost"
             @click="stopMoveBelow"
           >Cancel pick</button>
           <span class="text-[11px] text-sky-400">← pick a level in the list</span>
@@ -1432,7 +1432,7 @@ const chartAredlSeries = computed(() =>
           rows="2"
           maxlength="2000"
           placeholder="Optional notes (why this level should move…)"
-          class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-sm text-xs"
         />
         <p v-if="pendingMoveError" class="text-xs text-red-400">{{ pendingMoveError }}</p>
         <button
@@ -1468,7 +1468,7 @@ const chartAredlSeries = computed(() =>
           >Continue →</button>
           <button
             type="button"
-            class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+            class="btn btn-sm btn-ghost"
             @click="stopGroupMove"
           >Cancel</button>
         </div>
@@ -1490,12 +1490,12 @@ const chartAredlSeries = computed(() =>
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="backGroupMove"
             >← Back</button>
             <button
               type="button"
-              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="stopGroupMove"
             >Cancel</button>
           </div>
@@ -1531,12 +1531,12 @@ const chartAredlSeries = computed(() =>
             >Send to move requests</button>
             <button
               type="button"
-              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="backGroupMove"
             >← Back</button>
             <button
               type="button"
-              class="rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="stopGroupMove"
             >Cancel</button>
           </div>
@@ -1555,7 +1555,7 @@ const chartAredlSeries = computed(() =>
         <!-- Always-visible: name, position, level ID -->
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
@@ -1564,7 +1564,7 @@ const chartAredlSeries = computed(() =>
 
             <!-- Small moves are the common case; typing five digits for them is
                  the slow part of curating. -->
-            <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden shrink-0">
+            <div class="segmented shrink-0">
               <button
                 v-for="n in NUDGES"
                 :key="n"
@@ -1577,7 +1577,7 @@ const chartAredlSeries = computed(() =>
 
             <button
               type="button"
-              class="shrink-0 rounded-lg border border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent text-xs px-2.5 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost shrink-0 hover:border-accent/60 hover:text-accent"
               title="Drag this level into place among its neighbours"
               @click="placementEditorOpen = true"
             >Drag…</button>
@@ -1591,7 +1591,7 @@ const chartAredlSeries = computed(() =>
             <button
               v-else
               type="button"
-              class="shrink-0 rounded-lg border border-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs px-2.5 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost shrink-0"
               @click="stopMoveBelow"
             >Cancel pick</button>
           </div>
@@ -1603,7 +1603,7 @@ const chartAredlSeries = computed(() =>
             <button
               type="button"
               :disabled="movingNow"
-              class="rounded-lg bg-accent text-zinc-950 font-semibold text-[11px] px-2.5 py-1 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-primary"
               title="Move now, without saving the rest of this form"
               @click="applyMoveOnly"
             >{{ movingNow ? 'Moving…' : 'Move now' }}</button>
@@ -1629,7 +1629,7 @@ const chartAredlSeries = computed(() =>
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="field field-md mt-1" />
         </label>
 
         <!-- Gameplay section -->
@@ -1648,23 +1648,23 @@ const chartAredlSeries = computed(() =>
           <div v-if="gameplayOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-              <input v-model="draft.gddl_tier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.gddl_tier" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-              <input v-model="draft.difficulty" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.difficulty" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-              <input v-model="draft.main_skillset" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.main_skillset" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
-              <input v-model="draft.enjoyment" inputmode="decimal" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.enjoyment" inputmode="decimal" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Year verified</span>
-              <input v-model="draft.year_verified" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.year_verified" inputmode="numeric" class="field field-md mt-1" />
             </label>
           </div>
         </div>
@@ -1685,11 +1685,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="creditsOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Creator(s) <span class="text-zinc-600 normal-case">— comma-separated</span></span>
-              <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.creator" placeholder="e.g. Knobbelboy, Riot" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
-              <input v-model="draft.verifier" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verifier" class="field field-md mt-1" />
             </label>
           </div>
         </div>
@@ -1710,11 +1710,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="verificationOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
-              <input v-model="draft.verification" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verification" class="field field-md mt-1" />
             </label>
             <label class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-              <input v-model="draft.verification_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.verification_url" class="field field-md mt-1" />
             </label>
           </div>
         </div>
@@ -1861,11 +1861,11 @@ const chartAredlSeries = computed(() =>
           <div v-if="apiOverridesOpen" class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Publisher</span>
-              <input v-model="draft.publisher" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.publisher" class="field field-md mt-1" />
             </label>
             <label class="block">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Rated</span>
-              <input v-model="draft.rated" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="draft.rated" class="field field-md mt-1" />
             </label>
             <label v-if="isAdminLevel" class="block sm:col-span-2">
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">
@@ -1875,7 +1875,7 @@ const chartAredlSeries = computed(() =>
                 v-model="draft.description_override"
                 rows="3"
                 placeholder="Leave blank to use the description pulled from GD."
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
           </div>
@@ -1886,12 +1886,12 @@ const chartAredlSeries = computed(() =>
         <button
           type="button"
           :disabled="saving"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
           @click="saveEdit"
         >{{ saving ? 'Saving…' : 'Save' }}</button>
         <button
           type="button"
-          class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
+          class="btn btn-md btn-ghost"
           @click="cancelEdit"
         >Cancel</button>
         <button
@@ -2019,7 +2019,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="infoOpen"
             ref="infoPanel"
-            class="absolute left-0 top-full mt-2 z-20 w-72 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+            class="absolute left-0 top-full mt-2 z-20 w-72 popover"
           >
             <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GD Info</span>
@@ -2184,7 +2184,7 @@ const chartAredlSeries = computed(() =>
           <div
             v-if="distOpen && hasDistribution"
             ref="distPanel"
-            class="absolute right-0 top-full mt-2 z-20 w-72 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/40"
+            class="absolute right-0 top-full mt-2 z-20 w-72 popover"
           >
             <div class="px-3 py-2 border-b border-zinc-800 flex items-center justify-between">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Rating distribution</span>
@@ -2204,7 +2204,7 @@ const chartAredlSeries = computed(() =>
       </div>
 
       <!-- Credits -->
-      <details v-if="creditRows.length" open class="group rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
+      <details v-if="creditRows.length" open class="group card mb-6">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Credits</h2>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
@@ -2218,7 +2218,7 @@ const chartAredlSeries = computed(() =>
       </details>
 
       <!-- Metadata block -->
-      <details v-if="infoRows.length" open class="group rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
+      <details v-if="infoRows.length" open class="group card mb-6">
         <summary class="px-4 py-3 flex items-center justify-between gap-2 cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-md">
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Information</h2>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
@@ -2241,7 +2241,7 @@ const chartAredlSeries = computed(() =>
         />
 
         <div v-if="historyByDay.length" class="space-y-4">
-          <div v-for="day in historyByDay" :key="day.date" class="rounded-xl border border-zinc-800 bg-zinc-950/60">
+          <div v-for="day in historyByDay" :key="day.date" class="card">
             <div class="px-4 py-2 border-b border-zinc-800 flex items-baseline justify-between gap-3">
               <h3 class="text-sm font-medium text-zinc-100">{{ day.label }}</h3>
               <span class="text-[11px] text-zinc-500 tabular-nums">

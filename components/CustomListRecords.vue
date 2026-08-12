@@ -93,7 +93,7 @@ async function removeRecord(id: number) {
     <div v-if="acceptsRecords && item" class="p-3 border-t border-zinc-800/80 shrink-0">
       <NuxtLink
         :to="to(`${pageBase}/submit?item=${item.id}`)"
-        class="block w-full text-center rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-2 hover:bg-accent/90 transition-colors"
+        class="btn btn-sm btn-primary block w-full text-center"
       >Submit a record</NuxtLink>
     </div>
   </aside>

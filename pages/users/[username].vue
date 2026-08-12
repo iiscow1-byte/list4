@@ -184,7 +184,7 @@ function openFollowList(mode: 'followers' | 'following') {
         <NuxtLink
           v-if="isOwnProfile"
           to="/account"
-          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
+          class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
         >Edit profile</NuxtLink>
         <FollowButton
           v-else
@@ -244,7 +244,7 @@ function openFollowList(mode: 'followers' | 'following') {
             @refresh="refresh()"
           />
 
-          <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden">
+          <section class="card overflow-hidden">
             <CommentSection
               kind="profile"
               :target-id="data.account.id"

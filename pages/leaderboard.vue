@@ -55,6 +55,11 @@ const me = computed(() => meRes.value?.account ?? null)
 
 type Tab = 'members' | 'global' | 'followed'
 const tab = ref<Tab>('global')
+// `SegmentedControl` speaks plain strings; the page's own type is narrower.
+const tabModel = computed({
+  get: () => tab.value as string,
+  set: (v: string) => { tab.value = v as Tab },
+})
 const search = ref('')
 const debounced = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -260,26 +265,22 @@ useHead({ title: 'Leaderboard — All Levels List' })
     </header>
 
     <div class="mb-4 flex flex-wrap items-center gap-3">
-      <div class="inline-flex rounded-lg border border-zinc-800 bg-zinc-950 overflow-hidden">
-        <button
-          v-for="t in [
-            { v: 'global', l: 'Global' },
-            { v: 'members', l: 'Members' },
-            { v: 'followed', l: 'Followed' },
-          ]"
-          :key="t.v"
-          type="button"
-          class="px-3 py-1.5 text-sm font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-          :class="tab === t.v ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'"
-          @click="tab = t.v as any"
-        >{{ t.l }}</button>
-      </div>
+      <SegmentedControl
+        v-model="tabModel"
+        size="md"
+        aria-label="Leaderboard source"
+        :options="[
+          { value: 'global', label: 'Global' },
+          { value: 'members', label: 'Members' },
+          { value: 'followed', label: 'Followed' },
+        ]"
+      />
       <div class="relative flex-1 min-w-[200px] max-w-md">
         <input
           v-model="search"
           type="search"
           placeholder="Search players or accounts…"
-          class="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+          class="field field-sm"
         />
       </div>
       <span v-if="total" class="text-[11px] text-zinc-600 tabular-nums ml-auto">
@@ -287,7 +288,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
       </span>
     </div>
 
-    <div v-if="tab === 'followed' && !me" class="text-sm text-zinc-500 rounded-xl border border-zinc-800/70 bg-zinc-950 px-4 py-12 text-center">
+    <div v-if="tab === 'followed' && !me" class="text-sm text-zinc-500 card px-4 py-12 text-center">
       <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink> to follow other profiles and see them here.
     </div>
 
@@ -330,7 +331,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
           </ol>
 
           <ol
-            class="divide-y divide-zinc-900 rounded-xl border border-zinc-800/70 bg-zinc-950 overflow-hidden transition-opacity"
+            class="divide-y divide-zinc-900 card overflow-hidden transition-opacity"
             :class="{ 'opacity-50': pending }"
           >
             <li v-for="(p, i) in listItems" :key="rowKey(p, i)" class="relative">
@@ -412,14 +413,14 @@ useHead({ title: 'Leaderboard — All Levels List' })
           <button
             type="button"
             :disabled="pending || page <= 1"
-            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="btn btn-sm btn-ghost"
             title="First page"
             @click="gotoPage(1)"
           >&laquo;</button>
           <button
             type="button"
             :disabled="pending || page <= 1"
-            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="btn btn-sm btn-ghost"
             title="Previous page"
             @click="gotoPage(page - 1)"
           >&lsaquo;</button>
@@ -430,7 +431,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
               type="number"
               min="1"
               :max="totalPages"
-              class="w-14 rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-center text-zinc-100 tabular-nums focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/30"
+              class="field field-sm w-14 text-center tabular-nums"
               @keydown.enter="onPageInputCommit"
               @blur="onPageInputCommit"
             />
@@ -439,14 +440,14 @@ useHead({ title: 'Leaderboard — All Levels List' })
           <button
             type="button"
             :disabled="pending || page >= totalPages"
-            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="btn btn-sm btn-ghost"
             title="Next page"
             @click="gotoPage(page + 1)"
           >&rsaquo;</button>
           <button
             type="button"
             :disabled="pending || page >= totalPages"
-            class="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-1 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            class="btn btn-sm btn-ghost"
             title="Last page"
             @click="gotoPage(totalPages)"
           >&raquo;</button>
@@ -456,7 +457,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
       <aside v-if="tab === 'followed'" class="space-y-3">
         <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold px-1">Recent activity</h2>
         <div v-if="feedLoading" class="text-xs text-zinc-600 px-1">loading…</div>
-        <ol v-else-if="feed.length" class="divide-y divide-zinc-900 rounded-xl border border-zinc-800/70 bg-zinc-950 overflow-hidden">
+        <ol v-else-if="feed.length" class="divide-y divide-zinc-900 card overflow-hidden">
           <li v-for="(item, idx) in feed" :key="`${item.kind}-${idx}-${item.at}`" class="px-3 py-2.5 text-xs">
             <div class="flex items-baseline gap-2">
               <ClanTag v-if="item.clan" :tag="item.clan.tag" :name="item.clan.name" :color="item.clan.color" size="sm" />
@@ -493,7 +494,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
             </div>
           </li>
         </ol>
-        <div v-else class="text-xs text-zinc-600 px-1 py-3 rounded-xl border border-zinc-800/70 bg-zinc-950 text-center">
+        <div v-else class="text-xs text-zinc-600 px-1 py-3 card text-center">
           No recent activity from people you follow.
         </div>
       </aside>

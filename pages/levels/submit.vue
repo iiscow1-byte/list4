@@ -661,7 +661,7 @@ const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py
 const label = 'text-[11px] uppercase tracking-widest text-zinc-500'
 const hint = 'text-zinc-600 normal-case tracking-normal'
 /** Shared chrome for the form's sections, collapsible or not. */
-const card = 'rounded-xl border border-zinc-800 bg-zinc-950/60'
+const card = 'card'
 const sectionHead = 'px-4 py-3 flex items-center gap-2'
 </script>
 
@@ -828,7 +828,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                   type="date"
                   :disabled="dateLoading"
                   required
-                  class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-40 disabled:cursor-wait"
+                  class="field field-md disabled:opacity-40 disabled:cursor-wait"
                 />
                 <span
                   v-if="dateLoading"
@@ -1070,7 +1070,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             rows="3"
             maxlength="4000"
             placeholder="Anything the moderator should know — context, comparisons, sources…"
-            class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md"
           />
         </div>
       </section>
@@ -1087,7 +1087,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
         <button
           type="submit"
           :disabled="submitting"
-          class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-5 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
         >{{ submitting ? 'Submitting…' : 'Submit for review' }}</button>
         <p v-if="firstMissing" class="text-[11px] text-amber-300/90">
           <button type="button" class="underline hover:no-underline" @click="focusField(firstMissing.field)">
@@ -1256,13 +1256,13 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             </div>
             <button
               type="button"
-              class="rounded border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:border-zinc-500 text-xs px-2.5 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="closeCompare"
             >Cancel</button>
             <button
               type="button"
               :disabled="!comparePicked"
-              class="rounded bg-accent text-zinc-950 hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium px-2.5 py-1.5 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="confirmCompare"
             >Confirm</button>
           </footer>

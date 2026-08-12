@@ -141,7 +141,7 @@ async function quickReject(id: number) {
           </div>
         </div>
 
-        <section v-if="selected.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+        <section v-if="selected.notes" class="card px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
           <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ selected.notes }}</p>
         </section>
@@ -184,7 +184,7 @@ async function quickReject(id: number) {
               rows="2"
               maxlength="2000"
               placeholder="Why this is being rejected."
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm mt-1 text-xs"
             />
           </label>
           <button

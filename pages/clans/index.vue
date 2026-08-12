@@ -127,13 +127,13 @@ async function create() {
         <button
           v-else-if="data?.signedIn"
           type="button"
-          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
+          class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
           @click="creating = !creating"
         >{{ creating ? 'Cancel' : 'Start a clan' }}</button>
         <NuxtLink
           v-else
           to="/login"
-          class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
+          class="btn btn-sm btn-ghost hover:border-accent/60 hover:text-accent"
         >Log in to start one</NuxtLink>
       </div>
     </header>
@@ -167,13 +167,13 @@ async function create() {
               type="button"
               :disabled="answering != null || !!data.mine"
               :title="data.mine ? 'Leave your current clan first' : undefined"
-              class="rounded-lg bg-accent text-zinc-950 px-3 py-1.5 text-xs font-semibold hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="answerInvite(inv, 'join-invite')"
             >Join</button>
             <button
               type="button"
               :disabled="answering != null"
-              class="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-400 hover:border-red-800 hover:text-red-300 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
               @click="answerInvite(inv, 'reject-invite')"
             >Dismiss</button>
           </div>
@@ -198,11 +198,11 @@ async function create() {
       </label>
       <label class="block">
         <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name</span>
-        <input v-model="form.name" maxlength="60" placeholder="The Skeleton Key" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        <input v-model="form.name" maxlength="60" placeholder="The Skeleton Key" class="field field-md mt-1" />
       </label>
       <label class="block sm:col-span-2">
         <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Description</span>
-        <textarea v-model="form.description" rows="2" maxlength="500" placeholder="What this clan is about." class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+        <textarea v-model="form.description" rows="2" maxlength="500" placeholder="What this clan is about." class="field field-md mt-1" />
       </label>
       <div class="flex items-center gap-4 sm:col-span-2 flex-wrap">
         <label class="flex items-center gap-2 text-xs text-zinc-400">
@@ -216,7 +216,7 @@ async function create() {
         <button
           type="submit"
           :disabled="busy || !form.tag.trim() || !form.name.trim() || !tagOk"
-          class="ml-auto rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+          class="btn btn-md btn-primary ml-auto"
         >{{ busy ? 'Creating…' : 'Create clan' }}</button>
       </div>
       <p v-if="error" class="sm:col-span-2 text-xs text-red-400">{{ error }}</p>
@@ -227,7 +227,7 @@ async function create() {
         v-model="search"
         type="search"
         placeholder="Search clans…"
-        class="w-full sm:w-64 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        class="field field-sm sm:w-64 text-xs"
       />
     </div>
 

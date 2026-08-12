@@ -261,12 +261,12 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
           <div class="flex items-center gap-2">
             <button
               type="button"
-              class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="toggleAll(true)"
             >Select all</button>
             <button
               type="button"
-              class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="toggleAll(false)"
             >Select none</button>
           </div>
@@ -278,13 +278,13 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
               <button
                 type="button"
                 :disabled="!bulkDate"
-                class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 disabled:opacity-40 transition-colors"
+                class="btn btn-sm btn-ghost"
                 @click="applyBulkDate"
               >Apply</button>
               <button
                 type="button"
                 :disabled="datesBusy"
-                class="rounded-lg border border-zinc-700 text-zinc-300 text-[11px] px-2.5 py-1 hover:border-zinc-500 disabled:opacity-40 transition-colors"
+                class="btn btn-sm btn-ghost"
                 title="Read each blank date from its verification video's upload date"
                 @click="fillDatesFromVideos()"
               >{{ datesBusy ? 'Reading videos…' : 'From videos' }}</button>
@@ -304,7 +304,7 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
             <button
               type="button"
               :disabled="busy || readyCount === 0"
-              class="mt-1 rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+              class="btn btn-sm btn-primary mt-1"
               @click="submitBatch"
             >{{ busy ? 'Submitting…' : `Submit ${readyCount} level${readyCount === 1 ? '' : 's'}` }}</button>
           </div>

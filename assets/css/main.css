@@ -74,10 +74,120 @@
   .rank-badge {
     @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded text-sm font-semibold;
   }
-  /* Surface used by the refreshed cards across the site. */
+  /*
+   * The card. One surface, one radius, one background.
+   *
+   * There were four radii in use for the same box — `rounded-md`, `-lg`, `-xl`
+   * and `.card` itself — and two background opacities, so a page's boxes
+   * disagreed with the boxes on the page next to it and sometimes with the box
+   * directly above them. The external player pages used `rounded-md` while
+   * `/users/:name` used `rounded-xl`, which meant a player profile changed
+   * shape depending on whether they had signed up.
+   *
+   * Anything that is a panel of content uses this. A row inside one, a dropdown,
+   * a chip and an input are all different things and keep their own radii.
+   */
   .card {
-    @apply rounded-xl border border-zinc-800 bg-zinc-950/70;
+    @apply rounded-xl border border-zinc-800 bg-zinc-950/60;
   }
+  /*
+   * Anything that floats over the page: a dropdown, a context menu, an
+   * autocomplete list.
+   *
+   * There were nine of these and no two agreed. Four shadows (`lg/40`,
+   * `xl/40`, `xl/50`, `2xl/60`), three radii, and a ring on two of them — so
+   * opening two menus on the same page showed two different heights of
+   * elevation for the same kind of object. This is the header menu's
+   * treatment, which is the one people see most.
+   *
+   * Position, width and z-index stay at the call site; they are about where a
+   * particular menu goes, not about what a menu *is*.
+   */
+  .popover {
+    @apply rounded-xl border border-zinc-800 bg-zinc-950/95 backdrop-blur-md
+           shadow-2xl shadow-black/60 ring-1 ring-black/40;
+  }
+  /*
+   * A dialog: bigger than a popover, and the only surface that is fully opaque,
+   * because it sits over a dimmed page rather than over content it should hint
+   * at.
+   */
+  .modal-panel {
+    @apply rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60;
+  }
+  /*
+   * Buttons.
+   *
+   * The primary button existed in ten sizes — `text-xs px-3 py-1.5`, `text-sm
+   * px-4 py-2`, `px-4 py-1.5`, `px-3 py-2`, `px-3 py-1`, `px-5 py-2`,
+   * `text-[11px] px-2.5 py-1`, and three more — and in two orderings of the
+   * same classes, so even the identical ones didn't look identical to a grep.
+   * Two sizes and three intents cover every button on the site.
+   *
+   * Intent, not colour: `btn-primary` is "the thing this screen is for",
+   * `btn-ghost` is everything else, `btn-danger` is the one that destroys
+   * something. A page that wants a fourth intent almost always wants one of
+   * these three and a different label.
+   */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg font-medium
+           whitespace-nowrap transition-colors
+           disabled:opacity-50 disabled:cursor-not-allowed
+           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60;
+  }
+  .btn-sm {
+    @apply text-xs px-3 py-1.5;
+  }
+  .btn-md {
+    @apply text-sm px-4 py-2;
+  }
+  .btn-primary {
+    @apply bg-accent text-zinc-950 font-semibold hover:bg-accent/90;
+  }
+  .btn-ghost {
+    @apply border border-zinc-700 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 hover:bg-zinc-900;
+  }
+  .btn-danger {
+    @apply border border-red-900/60 text-red-300 hover:bg-red-950/40 hover:border-red-800;
+  }
+
+  /*
+   * Text inputs, selects and textareas.
+   *
+   * Four paddings were in use for the same box, and the placeholder colour was
+   * written two ways — `placeholder-zinc-600` and `placeholder:text-zinc-600`.
+   * Both happen to generate valid CSS in Tailwind 3, so this was never a bug,
+   * only two spellings of one rule sitting in adjacent files.
+   */
+  .field {
+    @apply w-full rounded-lg border border-zinc-800 bg-zinc-900 text-sm text-zinc-100
+           placeholder:text-zinc-600
+           focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent;
+  }
+  /*
+   * The two sizes control padding only. Text size is `.field`'s `text-sm`, and
+   * the handful of genuinely tiny inputs keep their own `text-xs` on top —
+   * which is a deliberate exception rather than a fifth accidental variant.
+   */
+  .field-sm {
+    @apply px-2.5 py-1.5;
+  }
+  .field-md {
+    @apply px-3 py-2;
+  }
+
+  /*
+   * The joined row of buttons: a segmented toggle, or a row of related actions.
+   *
+   * `SegmentedControl` is the toggle version and is what most call sites want.
+   * A few rows — the level page's nudge buttons — are *actions* rather than a
+   * choice, with nothing selected and nothing to select, so they keep their own
+   * buttons and borrow only the shell.
+   */
+  .segmented {
+    @apply inline-flex rounded-lg border border-zinc-800 overflow-hidden max-w-full;
+  }
+
   /*
    * A strip that scrolls sideways without a scrollbar under it.
    *

@@ -67,7 +67,7 @@ function pick(val: string) {
     </div>
     <ul
       v-if="open"
-      class="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded border border-zinc-800 bg-zinc-950 shadow-xl divide-y divide-zinc-900/60"
+      class="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-y-auto popover divide-y divide-zinc-900/60"
     >
       <li v-if="emptyLabel">
         <button

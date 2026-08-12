@@ -59,14 +59,21 @@ const counts = computed(() => {
 })
 
 /** The chip row only renders when at least two sources are present. */
-const visibleChips = computed<{ value: Filter; label: string; count: number }[]>(() => {
-  const out: { value: Filter; label: string; count: number }[] = [
-    { value: 'all', label: 'All', count: props.records.length },
-  ]
-  if (counts.value.site) out.push({ value: 'site', label: 'ALL', count: counts.value.site })
-  if (counts.value.aredl) out.push({ value: 'aredl', label: 'AREDL', count: counts.value.aredl })
-  if (counts.value.pointercrate) out.push({ value: 'pointercrate', label: 'PC', count: counts.value.pointercrate })
+type Chip = { value: Filter; label: string; count: number; title: string }
+const visibleChips = computed<Chip[]>(() => {
+  const chip = (value: Filter, label: string, count: number): Chip => ({
+    value, label, count,
+    title: `${count} record${count === 1 ? '' : 's'}`,
+  })
+  const out: Chip[] = [chip('all', 'All', props.records.length)]
+  if (counts.value.site) out.push(chip('site', 'ALL', counts.value.site))
+  if (counts.value.aredl) out.push(chip('aredl', 'AREDL', counts.value.aredl))
+  if (counts.value.pointercrate) out.push(chip('pointercrate', 'PC', counts.value.pointercrate))
   return out
+})
+const filterModel = computed({
+  get: () => filter.value as string,
+  set: (v: string) => { filter.value = v as Filter },
 })
 const showFilter = computed(() => visibleChips.value.length >= 3)
 
@@ -106,20 +113,12 @@ async function deleteRecord(id: number) {
           class="tabular-nums text-zinc-700"
         >of {{ records.length }}</span>
       </h2>
-      <div v-if="showFilter" class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          v-for="chip in visibleChips"
-          :key="chip.value"
-          type="button"
-          class="px-2.5 py-1 text-[10px] font-medium transition-colors border-l border-zinc-800 first:border-l-0"
-          :class="filter === chip.value ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          :title="`${chip.count} record${chip.count === 1 ? '' : 's'}`"
-          @click="filter = chip.value"
-        >
-          {{ chip.label }}
-          <span class="tabular-nums ml-1 opacity-60">{{ chip.count }}</span>
-        </button>
-      </div>
+      <SegmentedControl
+        v-if="showFilter"
+        v-model="filterModel"
+        aria-label="Which list these records came from"
+        :options="visibleChips"
+      />
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto">

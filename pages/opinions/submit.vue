@@ -138,21 +138,21 @@ async function submit() {
           type="url"
           required
           placeholder="https://www.youtube.com/watch?v=…"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
         <span class="block text-[11px] text-zinc-500 mt-1">
           Opinions are only accepted if you completed the level in at most two runs.
         </span>
       </label>
 
-      <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+      <fieldset class="card p-4 space-y-3">
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Your ratings</legend>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
             <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
             <select
               v-model="gddlTier"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             >
               <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
             </select>
@@ -161,7 +161,7 @@ async function submit() {
             <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
             <select
               v-model="difficulty"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             >
               <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
             </select>
@@ -172,12 +172,12 @@ async function submit() {
           <input
             v-model="enjoyment"
             type="number" min="0" max="10" step="0.1" inputmode="decimal"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
       </fieldset>
 
-      <fieldset v-if="kind === 'main'" class="rounded-md border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
+      <fieldset v-if="kind === 'main'" class="card p-4 space-y-3">
         <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement</legend>
         <label class="flex items-start gap-2 cursor-pointer select-none">
           <input v-model="requestRelocation" type="checkbox" class="mt-0.5 accent-accent" />
@@ -216,7 +216,7 @@ async function submit() {
               v-model="requestedPosition"
               type="number" inputmode="numeric" min="1"
               placeholder="e.g. 42"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
         </div>
@@ -228,7 +228,7 @@ async function submit() {
           v-model="notes"
           rows="3"
           maxlength="4000"
-          class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-md mt-1"
         />
       </label>
 
@@ -236,7 +236,7 @@ async function submit() {
         <button
           type="submit"
           :disabled="submitting"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
         >{{ submitting ? 'Submitting…' : 'Submit opinion' }}</button>
         <span v-if="success" class="text-xs text-emerald-400">Submitted — pending review.</span>
         <span v-if="error" class="text-xs text-red-400">{{ error }}</span>

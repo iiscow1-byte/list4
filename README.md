@@ -654,6 +654,79 @@ icon. `utils/social-links.ts` is one table of service, field, placeholder, host
 list, icon and handle-extractor, so the settings form and the profile can't end
 up knowing about different sets of them.
 
+## The UI vocabulary
+
+`assets/css/main.css` holds every shared surface and control the site draws:
+`.card`, `.popover`, `.modal-panel`, `.segmented`, `.btn` + `.btn-sm|md` +
+`.btn-primary|ghost|danger`, and `.field` + `.field-sm|md`. Nothing outside that
+file should be spelling out what a button or a card looks like.
+
+The split matters more than the names. **Shape, size and colour are three
+decisions, and each class makes exactly one of them** — `.btn` is geometry with
+no colour, `.btn-sm` is padding with no colour, `.btn-primary` is colour with no
+geometry. Written any other way you get what was there before: ten primary
+buttons that were each *nearly* the same.
+
+What it replaced, measured rather than guessed:
+
+| | before | after |
+|---|---|---|
+| primary button | 10 sizes | 2 |
+| outline button | 28 shapes | 2 |
+| form field | 228 hand-written, 5 paddings | 2 sizes |
+| card surface | 4 radii, 2 backgrounds | 1 |
+| floating panel | 9 panels, 4 shadows | 1 |
+| segmented row | 9 copies, 4 sizes | 1 component |
+
+Two things are deliberately *not* unified:
+
+- **A modal is not a popover.** It sits over a dimmed page rather than over
+  content it should still hint at, so it is the only opaque surface and the only
+  one with a bigger radius.
+- **`.segmented` is the shell, `SegmentedControl` is the toggle.** Most joined
+  rows are a choice and use the component; the level page's nudge buttons are
+  *actions* with nothing selected, so they borrow the shell and keep their own
+  buttons.
+
+`SegmentedControl` also carries `aria-pressed`, which none of the nine
+hand-written rows did — nine sets of buttons with no indication of which was on.
+
+### Utilities beat components, and that is load-bearing
+
+These are `@layer components`, so a utility at the call site always wins. That
+is why `class="btn btn-ghost hover:border-accent/60"` still turns accent on
+hover, and why `:class` toggles on a segmented button still override the base.
+It is also the trap: `class="btn ... inline-block"` would beat `.btn`'s
+`inline-flex` and quietly take its centring back off.
+
+## The navigation
+
+`utils/site-nav.ts` is the site's navigation **as data** — four menus, their
+groups, their rows, and the route prefixes that light each one up.
+`SiteHeader.vue` renders it as dropdowns from `lg` up; `SiteNavDrawer.vue`
+renders the same array as a drawer below that.
+
+It is data because there are two navigations and they must never disagree about
+what the site contains. Written twice, a page added to one is a page missing
+from the other and nothing would ever notice.
+
+**The header had no small-screen layout at all.** Four dropdown triggers, the
+admin link, the inbox link, the account link and the socials menu sat in one
+flat `flex` row with no responsive class on any of it — roughly 550px of
+controls inside a 343px phone viewport, so the header overflowed and took the
+page's horizontal scrollbar with it. Below `lg` that row is now one button and a
+drawer; the avatar, theme picker and menu button stay, because those three fit
+anything.
+
+Two details worth keeping:
+
+- **The closed button carries a dot** when anything is waiting — unread inbox,
+  pending reviews, an unread release. Otherwise the only place an unread count
+  exists on a phone is inside the drawer you have to open to find it.
+- **`match` is whole segments.** `/levels` lights the List menu for `/levels/1`
+  and never for `/levelsomething`. Submit claims `/levels/submit` explicitly,
+  and both menus answering for it is correct — it genuinely belongs to both.
+
 ## Badges
 
 `utils/badge-styles.ts` is the whole visual vocabulary: `BADGE_BASE` (shape),

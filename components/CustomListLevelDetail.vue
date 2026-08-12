@@ -314,12 +314,12 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <NuxtLink
             v-if="item.rank > 1"
             :to="to(`${listPath}/${item.rank - 1}`)"
-            class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+            class="card px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
           >← Harder</NuxtLink>
           <NuxtLink
             v-if="item.rank < totalItems"
             :to="to(`${listPath}/${item.rank + 1}`)"
-            class="rounded-lg border border-zinc-800 bg-zinc-950/60 px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
+            class="card px-2 py-1 text-[11px] text-zinc-400 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
           >Easier →</NuxtLink>
         </nav>
       </header>
@@ -461,12 +461,12 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <button
             type="submit"
             :disabled="busy"
-            class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-50 transition-colors"
+            class="btn btn-sm btn-primary"
           >{{ busy ? 'Saving…' : 'Save' }}</button>
           <button
             type="button"
             :disabled="busy"
-            class="rounded-lg border border-zinc-700 text-zinc-300 text-xs px-3 py-1.5 hover:border-zinc-500 disabled:opacity-50 transition-colors"
+            class="btn btn-sm btn-ghost"
             @click="seed()"
           >Reset</button>
           <button
@@ -491,7 +491,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       <a
         v-else-if="item.verification_url"
         :href="item.verification_url" target="_blank" rel="noopener"
-        class="inline-block rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors"
+        class="btn btn-md btn-ghost hover:border-accent/50 hover:text-accent"
       >Watch the verification ↗</a>
 
       <!-- Stats -->

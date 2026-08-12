@@ -232,39 +232,39 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
-          <input v-model="draft.name" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
-          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
-          <input v-model="draft.gd_id" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.gd_id" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
-          <input v-model="draft.verify_date" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verify_date" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Days</span>
-          <input v-model="draft.days" inputmode="numeric" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.days" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon ranking</span>
-          <input v-model="draft.demon_ranking" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.demon_ranking" class="field field-md mt-1" />
         </label>
         <label class="block">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
-          <input v-model="draft.placement_source" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.placement_source" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
-          <input v-model="draft.verification" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verification" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
           <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-          <input v-model="draft.verification_url" class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+          <input v-model="draft.verification_url" class="field field-md mt-1" />
         </label>
       </div>
 
@@ -272,12 +272,12 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
         <button
           type="button"
           :disabled="saving"
-          class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+          class="btn btn-md btn-primary"
           @click="saveEdit"
         >{{ saving ? 'Saving…' : 'Save' }}</button>
         <button
           type="button"
-          class="rounded border border-zinc-700 text-sm px-4 py-1.5 hover:border-zinc-600 transition-colors"
+          class="btn btn-md btn-ghost"
           @click="cancelEdit"
         >Cancel</button>
         <button
@@ -359,7 +359,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier <span class="text-red-400">*</span></span>
               <select
                 v-model="pendingTier"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               >
                 <option value="">— select —</option>
                 <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t }}</option>
@@ -369,7 +369,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty <span class="text-red-400">*</span></span>
               <select
                 v-model="pendingDifficulty"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               >
                 <option value="">— select —</option>
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d }}</option>
@@ -383,7 +383,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               <input
                 v-model="pendingVerifier"
                 placeholder="Player name"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
             <label class="block">
@@ -391,7 +391,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               <input
                 v-model="pendingVerifyDate"
                 type="date"
-                class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
           </div>
@@ -402,7 +402,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               v-model="pendingVideoUrl"
               type="url"
               placeholder="https://www.youtube.com/watch?v=…"
-              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
 
@@ -411,7 +411,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
             <input
               v-model="pendingEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
-              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
 
@@ -421,7 +421,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               v-model="pendingNote"
               rows="2"
               maxlength="4000"
-              class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
 
@@ -477,7 +477,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
     </div>
 
     <!-- Source / verification metadata -->
-    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60">
+    <section class="card">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Source</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>

@@ -157,7 +157,7 @@ useHead(() => ({ title: list.value ? `Submit a record — ${list.value.title}` :
           <button
             type="submit"
             :disabled="busy || belowQualifying"
-            class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+            class="btn btn-md btn-primary"
           >{{ busy ? 'Submitting…' : 'Submit record' }}</button>
           <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
           <span v-else-if="done" class="text-xs text-emerald-400">{{ done }}</span>

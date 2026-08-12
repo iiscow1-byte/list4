@@ -208,7 +208,7 @@ function onMove(e: MouseEvent) {
 <template>
   <details
     v-if="hasData"
-    class="group rounded-xl border border-zinc-800 bg-zinc-950/60 overflow-hidden"
+    class="group card overflow-hidden"
     @toggle="onToggle"
   >
     <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 list-none hover:bg-zinc-900/40 transition-colors">

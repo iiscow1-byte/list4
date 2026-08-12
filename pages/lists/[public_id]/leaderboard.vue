@@ -105,7 +105,7 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
         <NuxtLink
           v-if="!pending && l.accepts_records"
           :to="`/lists/${publicId}/submit`"
-          class="inline-block mt-4 rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-4 py-2 hover:bg-accent/90 transition-colors"
+          class="btn btn-sm btn-primary mt-4"
         >Be the first to submit →</NuxtLink>
       </div>
 

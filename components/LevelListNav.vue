@@ -652,7 +652,7 @@ watch(
           <div
             v-if="variantOpen"
             role="menu"
-            class="absolute left-0 top-full mt-1.5 w-60 rounded-xl border border-zinc-800 bg-zinc-950 shadow-xl shadow-black/50 z-30 overflow-hidden py-1"
+            class="absolute left-0 top-full mt-1.5 w-60 popover z-30 overflow-hidden py-1"
           >
             <button
               v-for="v in VARIANTS"
@@ -751,7 +751,7 @@ watch(
           role="dialog"
           aria-modal="true"
           aria-label="Advanced search"
-          class="relative w-full max-w-4xl max-h-[90vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
+          class="relative w-full max-w-4xl max-h-[90vh] modal-panel flex flex-col"
         >
           <div class="px-4 py-3 border-b border-zinc-800 shrink-0 space-y-2.5">
             <div class="flex items-center justify-between gap-3">
@@ -867,7 +867,7 @@ watch(
                 <input
                   v-model="creator"
                   type="text" placeholder="Creator name"
-                  class="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-sm mt-1 text-xs"
                 />
               </label>
 
@@ -879,7 +879,7 @@ watch(
                   :option-objects="sources.map(s => ({ label: `${s.source} (${s.count.toLocaleString()})`, value: s.source }))"
                   empty-label="All sources"
                   class="mt-1"
-                  input-class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  input-class="field field-sm pr-7 text-xs"
                 />
               </div>
 
@@ -934,7 +934,7 @@ watch(
                   v-model="sort"
                   :option-objects="[...SORTS]"
                   class="mt-1"
-                  input-class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 pr-7 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  input-class="field field-sm pr-7 text-xs"
                 />
               </div>
 

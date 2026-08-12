@@ -185,7 +185,7 @@ async function submit() {
             type="url"
             required
             placeholder="https://www.youtube.com/watch?v=…"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
 
@@ -208,7 +208,7 @@ async function submit() {
               v-model="verifierName"
               placeholder="Player name"
               autocomplete="off"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
             <span class="text-[11px] text-zinc-500 mt-0.5 block">Defaults to you.</span>
           </label>
@@ -218,7 +218,7 @@ async function submit() {
             <input
               v-model="verificationTitle"
               placeholder="Video title"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
 
@@ -227,7 +227,7 @@ async function submit() {
             <input
               v-model="verifyDate"
               type="date"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
 
@@ -239,13 +239,13 @@ async function submit() {
               inputmode="numeric"
               min="1"
               placeholder="e.g. 5000"
-              class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-md mt-1"
             />
           </label>
         </div>
 
         <!-- Difficulty opinion -->
-        <fieldset class="rounded-md border border-zinc-800 bg-zinc-950/60 p-3">
+        <fieldset class="card p-3">
           <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
             Difficulty opinion <span class="text-zinc-600 normal-case tracking-normal">— pre-filled from open verification, editable</span>
           </legend>
@@ -255,7 +255,7 @@ async function submit() {
                 <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
                 <select
                   v-model="opinionTier"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 >
                   <option v-for="t in TIER_OPTIONS" :key="t" :value="t">{{ t || '— none —' }}</option>
                 </select>
@@ -264,7 +264,7 @@ async function submit() {
                 <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
                 <select
                   v-model="opinionDifficulty"
-                  class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                  class="field field-md mt-1"
                 >
                   <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
                 </select>
@@ -275,14 +275,14 @@ async function submit() {
               <input
                 v-model="opinionEnjoyment"
                 type="number" min="0" max="10" step="0.1" inputmode="decimal"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
           </div>
         </fieldset>
 
         <!-- Extra metadata (collapsible) -->
-        <div class="rounded-md border border-zinc-800 bg-zinc-950/40">
+        <div class="card">
           <button
             type="button"
             class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
@@ -300,7 +300,7 @@ async function submit() {
               <input
                 v-model="fpsOverride"
                 placeholder="e.g. 60"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
             <label class="block">
@@ -308,7 +308,7 @@ async function submit() {
               <input
                 v-model="gameVersionOverride"
                 placeholder="e.g. 2.2"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
             <label class="block">
@@ -316,7 +316,7 @@ async function submit() {
               <input
                 v-model="mainSkillsetOverride"
                 placeholder="e.g. Timing"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
             <label class="block">
@@ -324,7 +324,7 @@ async function submit() {
               <input
                 v-model="tagsOverride"
                 placeholder="e.g. old,buffed"
-                class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-md mt-1"
               />
             </label>
           </div>
@@ -336,7 +336,7 @@ async function submit() {
             v-model="note"
             rows="3"
             maxlength="2000"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
 
@@ -344,7 +344,7 @@ async function submit() {
           <button
             type="submit"
             :disabled="submitting"
-            class="rounded bg-accent text-zinc-950 font-medium text-sm px-4 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+            class="btn btn-md btn-primary"
           >{{ submitting ? 'Submitting…' : 'Submit verification' }}</button>
           <NuxtLink
             :to="`/open-verifications/${id}`"

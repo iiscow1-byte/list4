@@ -149,7 +149,7 @@ const tagList = computed(() => {
     </div>
 
     <!-- Verification metadata -->
-    <section class="rounded-xl border border-zinc-800 bg-zinc-950/60 mb-6">
+    <section class="card mb-6">
       <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ level.verifier ?? '—' }}</dd>
@@ -167,7 +167,7 @@ const tagList = computed(() => {
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.admin_notes }}</p>
     </section>
 
-    <section v-if="level.notes" class="rounded-xl border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+    <section v-if="level.notes" class="card px-4 py-3">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>

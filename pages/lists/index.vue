@@ -31,7 +31,15 @@ type View = 'discover' | 'mine'
 // the view survives a reload or a shared link.
 const route = useRoute()
 const view = ref<View>(route.query.view === 'mine' ? 'mine' : 'discover')
+const viewModel = computed({
+  get: () => view.value as string,
+  set: (v: string) => { view.value = v as any },
+})
 const sort = ref<'top' | 'new'>('top')
+const sortModel = computed({
+  get: () => sort.value as string,
+  set: (v: string) => { sort.value = v as any },
+})
 const search = ref('')
 
 const { data: meRes } = useCurrentUser()
@@ -138,43 +146,31 @@ useHead({ title: 'Custom lists — All Levels List' })
       </div>
       <NuxtLink
         to="/builder"
-        class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 transition-colors"
+        class="btn btn-md btn-primary"
       >Build your own →</NuxtLink>
     </header>
 
     <div class="flex flex-wrap items-center gap-2">
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          type="button"
-          class="px-3 py-1 text-[11px] font-medium transition-colors"
-          :class="view === 'discover' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="view = 'discover'"
-        >Discover</button>
-        <button
-          type="button"
-          class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800 flex items-center gap-1.5"
-          :class="view === 'mine' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="view = 'mine'"
-        >
-          My lists
-          <span v-if="myLists?.length" class="tabular-nums text-[10px] text-zinc-500">{{ myLists.length }}</span>
-        </button>
-      </div>
+      <!-- One control instead of two buttons that each spelled out their own
+           divider; the second wrote `border-l` by hand, so a third option
+           would have had none. -->
+      <SegmentedControl
+        v-model="viewModel"
+        aria-label="Which lists"
+        :options="[
+          { value: 'discover', label: 'Discover' },
+          { value: 'mine', label: 'My lists' },
+        ]"
+      />
 
-      <div class="inline-flex rounded-lg border border-zinc-800 overflow-hidden">
-        <button
-          type="button"
-          class="px-3 py-1 text-[11px] font-medium transition-colors"
-          :class="sort === 'top' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="sort = 'top'"
-        >Most liked</button>
-        <button
-          type="button"
-          class="px-3 py-1 text-[11px] font-medium transition-colors border-l border-zinc-800"
-          :class="sort === 'new' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          @click="sort = 'new'"
-        >{{ view === 'mine' ? 'Recently edited' : 'Newest' }}</button>
-      </div>
+      <SegmentedControl
+        v-model="sortModel"
+        aria-label="Sort lists"
+        :options="[
+          { value: 'top', label: 'Most liked' },
+          { value: 'new', label: view === 'mine' ? 'Recently edited' : 'Newest' },
+        ]"
+      />
 
       <input
         v-model="search"

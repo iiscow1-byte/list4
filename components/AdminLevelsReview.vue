@@ -1156,7 +1156,7 @@ watch(preview, (p) => {
             <button
               v-if="!editing"
               type="button"
-              class="shrink-0 rounded-lg border border-zinc-700 bg-zinc-950/70 hover:border-accent hover:text-accent text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost shrink-0 bg-zinc-950/70 hover:border-accent hover:text-accent"
               @click="startEdit"
             >Edit</button>
           </div>
@@ -1175,80 +1175,80 @@ watch(preview, (p) => {
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="block sm:col-span-2 text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Name</span>
-              <input v-model="editDraft.name" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.name" type="text" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Level ID</span>
-              <input v-model="editDraft.gd_id" type="text" inputmode="numeric" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.gd_id" type="text" inputmode="numeric" class="field field-sm mt-1 tabular-nums" />
             </label>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verifier</span>
-              <input v-model="editDraft.verifier" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.verifier" type="text" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verify date</span>
-              <input v-model="editDraft.verify_date" type="date" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.verify_date" type="date" class="field field-sm mt-1" />
             </label>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
-              <input v-model="editDraft.gddl_tier" type="text" placeholder="e.g. Tier 25" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.gddl_tier" type="text" placeholder="e.g. Tier 25" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Difficulty</span>
-              <input v-model="editDraft.difficulty" type="text" placeholder="e.g. Extreme Demon" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.difficulty" type="text" placeholder="e.g. Extreme Demon" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Rated</span>
-              <input v-model="editDraft.rated" type="text" placeholder="Rated / Featured / Epic / Legendary / Mythic / Challenge" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.rated" type="text" placeholder="Rated / Featured / Epic / Legendary / Mythic / Challenge" class="field field-sm mt-1" />
             </label>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Enjoyment</span>
-              <input v-model="editDraft.enjoyment" type="number" step="0.1" min="0" max="10" inputmode="decimal" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm tabular-nums focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.enjoyment" type="number" step="0.1" min="0" max="10" inputmode="decimal" class="field field-sm mt-1 tabular-nums" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Main skillset</span>
-              <input v-model="editDraft.main_skillset" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.main_skillset" type="text" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Source</span>
-              <input v-model="editDraft.placement_source" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.placement_source" type="text" class="field field-sm mt-1" />
             </label>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification title</span>
-              <input v-model="editDraft.verification" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.verification" type="text" class="field field-sm mt-1" />
             </label>
             <label class="block text-xs">
               <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verification URL</span>
-              <input v-model="editDraft.verification_url" type="url" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+              <input v-model="editDraft.verification_url" type="url" class="field field-sm mt-1" />
             </label>
           </div>
           <label class="block text-xs">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">comma-separated</span></span>
-            <input v-model="editDraft.tags" type="text" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <input v-model="editDraft.tags" type="text" class="field field-sm mt-1" />
           </label>
           <label class="block text-xs">
             <span class="text-[10px] uppercase tracking-widest text-zinc-500">Notes</span>
-            <textarea v-model="editDraft.notes" rows="3" class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+            <textarea v-model="editDraft.notes" rows="3" class="field field-sm mt-1 text-xs" />
           </label>
           <div class="flex items-center gap-2 pt-1">
             <button
               type="button"
               :disabled="editSaving"
-              class="rounded bg-accent text-zinc-950 font-medium text-xs px-3 py-1.5 hover:bg-accent/90 disabled:opacity-60 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="saveEdit"
             >{{ editSaving ? 'Saving…' : 'Save' }}</button>
             <button
               type="button"
               :disabled="editSaving"
-              class="rounded border border-zinc-700 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="cancelEdit"
             >Cancel</button>
           </div>
@@ -1325,7 +1325,7 @@ watch(preview, (p) => {
         </dl>
 
         <!-- Verification -->
-        <section class="rounded-md border border-zinc-800 bg-zinc-950/60">
+        <section class="card">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h3>
           <div v-if="verificationYtId" class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800">
             <iframe
@@ -1349,7 +1349,7 @@ watch(preview, (p) => {
           </dl>
         </section>
 
-        <section v-if="selected.tags" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+        <section v-if="selected.tags" class="card px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tags</h3>
           <div class="flex flex-wrap gap-1.5">
             <span v-for="t in selected.tags.split(',')" :key="t" class="text-[11px] px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900 text-zinc-300 capitalize">
@@ -1358,7 +1358,7 @@ watch(preview, (p) => {
           </div>
         </section>
 
-        <section v-if="selected.notes" class="rounded-md border border-zinc-800 bg-zinc-950/60 px-4 py-3">
+        <section v-if="selected.notes" class="card px-4 py-3">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
           <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ selected.notes }}</p>
         </section>
@@ -1384,7 +1384,7 @@ watch(preview, (p) => {
             type="number" inputmode="numeric" min="1"
             placeholder="position #"
             :disabled="goesToVoid && false"
-            class="w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md"
           />
           <div class="flex items-center gap-2 mt-1 flex-wrap">
             <p
@@ -1438,7 +1438,7 @@ watch(preview, (p) => {
             v-model="tierOverride"
             type="text"
             placeholder="e.g. Tier 15"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
             @input="autoSaveTierDifficulty"
           />
         </label>
@@ -1449,7 +1449,7 @@ watch(preview, (p) => {
             v-model="difficultyOverride"
             type="text"
             placeholder="e.g. Extreme Demon"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
             @input="autoSaveTierDifficulty"
           />
         </label>
@@ -1586,7 +1586,7 @@ watch(preview, (p) => {
             rows="2"
             maxlength="4000"
             placeholder="Why this can't be accepted as-is."
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-sm mt-1 text-xs"
           />
         </label>
         <label class="block">
@@ -1595,7 +1595,7 @@ watch(preview, (p) => {
             v-model="awaitPlacementSuggestion"
             type="number" inputmode="numeric" min="1"
             placeholder="position #"
-            class="mt-1 w-full rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="field field-md mt-1"
           />
         </label>
       </div>

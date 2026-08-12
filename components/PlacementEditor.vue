@@ -257,7 +257,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
         role="dialog"
         aria-modal="true"
         aria-label="Drag to place level"
-        class="relative w-full max-w-3xl h-[92vh] rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col"
+        class="relative w-full max-w-3xl h-[92vh] modal-panel flex flex-col"
       >
         <div class="px-4 py-3 border-b border-zinc-800 flex items-center gap-3">
           <div class="min-w-0">
@@ -383,13 +383,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
           <div class="ml-auto flex items-center gap-2">
             <button
               type="button"
-              class="rounded-lg border border-zinc-700 text-zinc-300 text-xs px-3 py-1.5 hover:border-zinc-500 transition-colors"
+              class="btn btn-sm btn-ghost"
               @click="close"
             >Cancel</button>
             <button
               type="button"
               :disabled="!dirty || applying"
-              class="rounded-lg bg-accent text-zinc-950 font-semibold text-xs px-4 py-1.5 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              class="btn btn-sm btn-primary"
               @click="apply"
             >{{ applying ? 'Applying…' : 'Apply move' }}</button>
           </div>

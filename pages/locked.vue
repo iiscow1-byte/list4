@@ -53,7 +53,7 @@ async function logout() {
     <div class="mt-6 flex items-center justify-center gap-2">
       <button
         type="button"
-        class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-500 hover:text-zinc-100 transition-colors"
+        class="btn btn-sm btn-ghost"
         @click="logout"
       >Log out</button>
       <a

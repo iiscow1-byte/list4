@@ -83,16 +83,16 @@ function kindLabel(kind: string) {
       <button
         v-if="unread > 0"
         type="button"
-        class="rounded border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:border-zinc-500 text-xs px-3 py-1.5 transition-colors"
+        class="btn btn-sm btn-ghost"
         @click="readAll"
       >Mark all read</button>
     </header>
 
     <div v-if="loading && !items.length" class="text-sm text-zinc-500">Loading…</div>
-    <div v-else-if="!items.length" class="rounded-xl border border-zinc-800 bg-zinc-950/60 p-6 text-center text-sm text-zinc-500">
+    <div v-else-if="!items.length" class="card p-6 text-center text-sm text-zinc-500">
       Nothing here yet.
     </div>
-    <ul v-else class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
+    <ul v-else class="card divide-y divide-zinc-900">
       <li
         v-for="m in items"
         :key="m.id"

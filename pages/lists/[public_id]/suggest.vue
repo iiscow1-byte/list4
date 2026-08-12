@@ -203,7 +203,7 @@ useHead(() => ({ title: list.value ? `Submit a level — ${list.value.title}` : 
         <div class="sm:col-span-2 flex items-center gap-3 pt-1">
           <button
             type="submit" :disabled="submitting || !name.trim()"
-            class="rounded-lg bg-accent text-zinc-950 font-semibold text-sm px-4 py-2 hover:bg-accent/90 disabled:opacity-40 transition-colors"
+            class="btn btn-md btn-primary"
           >{{ submitting ? 'Sending…' : canEdit ? 'Add to list' : 'Submit level' }}</button>
           <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
         </div>
