@@ -31,6 +31,7 @@ type Stats = {
   totalPlayers: number
   levelsWithRecords: number
   totalVisits: number
+  totalVisitors: number
   visitsSince: string | null
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string; gd_id: number | null } | null
   tiers: { tier: string; count: number }[]
@@ -245,6 +246,14 @@ const headline = computed(() => {
       // the site did, and a total with no beginning can't be read.
       hint: longDay(s.visitsSince) ? `Since ${longDay(s.visitsSince)}` : 'Counting from today',
     },
+    // Its own tile rather than a footnote on the one above: how many pages were
+    // opened and how many people opened them are different facts, and a single
+    // "visits" number gets read as whichever one the reader had in mind.
+    {
+      label: 'People',
+      value: fmt(s.totalVisitors),
+      hint: 'Counted once a day, anonymously',
+    },
   ]
 })
 
@@ -450,9 +459,9 @@ const coveragePct = computed(() => {
 
       <template v-else>
         <!-- Headline numbers -->
-        <!-- Five tiles now the visit counter is among them: a five-wide row is
-             what keeps them one size rather than leaving a stray on its own. -->
-        <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+        <!-- Six, now that people are their own tile beside pages read: the row
+             splits 2/3/6 rather than leaving a stray on a line of its own. -->
+        <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <div v-for="h in headline" :key="h.label" class="bg-zinc-950 px-4 py-3.5">
             <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ h.label }}</dt>
             <dd class="tabular-nums text-2xl font-bold text-zinc-50 mt-0.5">{{ h.value }}</dd>

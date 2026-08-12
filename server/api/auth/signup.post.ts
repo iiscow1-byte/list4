@@ -3,6 +3,7 @@ import { getDb } from '~/server/db'
 import { hashPassword, createSession, setSessionCookie } from '~/server/utils/auth'
 import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
 import { assertClean } from '~/server/utils/profanity-guard'
+import { touchAccountDay } from '~/server/utils/analytics'
 
 const BOOTSTRAP_ADMIN = (process.env.BOOTSTRAP_ADMIN_USERNAME || 'Gerg').toLowerCase()
 
@@ -41,5 +42,7 @@ export default defineEventHandler(async (event) => {
 
   const token = createSession(Number(result.lastInsertRowid))
   setSessionCookie(event, token)
+  // Signing up ends with a session, so it is a sign-in on the day it happened.
+  touchAccountDay(Number(result.lastInsertRowid), true)
   return { username, role }
 })

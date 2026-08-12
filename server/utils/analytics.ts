@@ -5,16 +5,23 @@ import { getDb } from '~/server/db'
 /**
  * Counting how much the site is read, without keeping a record of who read it.
  *
- * Two numbers are worth having — how many pages were opened, and how many
- * people opened them — and everything here exists to produce those two and
- * nothing else. There is no per-request row, no address stored, no account
- * attached to a view. What is kept is a daily count per *shape* of URL, a daily
- * set of opaque visitor hashes, and a running total per level.
+ * Two numbers are worth having, and they are **different numbers**: how many
+ * pages were opened, and how many people opened them. Everything here exists to
+ * produce those two and nothing else. There is no per-request row, no address
+ * stored, no account attached to a view. What is kept is a daily count per
+ * *shape* of URL, the same split by hour, a daily set of opaque visitor hashes,
+ * and running totals per level and per custom list.
  */
 
 /** Today, UTC, as `YYYY-MM-DD`. The whole table keys on this. */
 export function today(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+/** The day and the hour, together, so both writes agree about which day it is. */
+export function nowParts(): { day: string; hour: number } {
+  const d = new Date()
+  return { day: d.toISOString().slice(0, 10), hour: d.getUTCHours() }
 }
 
 /**
@@ -133,44 +140,188 @@ export function isPrefetch(purpose: string | undefined, secPurpose: string | und
 }
 
 /**
+ * Only a page that was actually delivered counts as read.
+ *
+ * A redirect isn't a page — the homepage answers 302 to `/levels/1`, so every
+ * arrival at the site was being counted twice, once for the redirect and once
+ * for the page it pointed at. A 404 isn't one either, and a 500 certainly
+ * isn't. This is why the count happens when the response finishes rather than
+ * when the request arrives: the status is the whole question.
+ */
+export function isDeliveredPage(status: number): boolean {
+  return status >= 200 && status < 300
+}
+
+/**
+ * How often the same reader may re-count the same page.
+ *
+ * `/api/analytics/view` has to be open — it is a beacon fired by a browser that
+ * may be closing — and an open counter with no ceiling is not a statistic, it
+ * is a suggestion. Fifty POSTs used to be fifty views. A person re-opening the
+ * same page inside a quarter of a minute is a refresh, a double-click or a
+ * script; past that it is a second reading and counts.
+ *
+ * In memory rather than in the database on purpose: it is a throttle, not a
+ * record, and losing it on restart costs at most one extra view per reader.
+ */
+const REPEAT_WINDOW_MS = 15_000
+/** Nobody reads two thousand pages a day. Past this, a "reader" is a program. */
+const DAILY_VIEW_CAP = 2_000
+const lastSeen = new Map<string, number>()
+const perVisitorToday = new Map<string, { day: string; n: number }>()
+
+/** Bounded, because this process is long-lived and the keys are unbounded. */
+function remember(key: string, at: number): void {
+  if (lastSeen.size > 20_000) {
+    const cutoff = at - REPEAT_WINDOW_MS
+    for (const [k, t] of lastSeen) if (t < cutoff) lastSeen.delete(k)
+    // Still full: the traffic is real and the window is short, so start over
+    // rather than grow. One over-count per reader is the worst case.
+    if (lastSeen.size > 20_000) lastSeen.clear()
+  }
+  lastSeen.set(key, at)
+}
+
+/**
+ * Whether this view is a new one, or the same one arriving again.
+ *
+ * Exported so the tests can drive it directly — the behaviour that matters is
+ * "the same reader, the same page, twice in a second, counts once", and that is
+ * not something you can see from the outside without waiting fifteen seconds.
+ */
+export function shouldCountView(visitor: string | null, path: string, at = Date.now()): boolean {
+  if (!visitor) return true
+  const day = today()
+  const seen = perVisitorToday.get(visitor)
+  const count = seen && seen.day === day ? seen.n : 0
+  if (count >= DAILY_VIEW_CAP) return false
+
+  const key = `${visitor}|${path}`
+  const last = lastSeen.get(key)
+  if (last != null && at - last < REPEAT_WINDOW_MS) return false
+
+  remember(key, at)
+  perVisitorToday.set(visitor, { day, n: count + 1 })
+  return true
+}
+
+/** For tests, and for nothing else: the throttle is process-wide state. */
+export function resetViewThrottle(): void {
+  lastSeen.clear()
+  perVisitorToday.clear()
+}
+
+/**
  * Record one page view.
  *
- * Both writes are `INSERT … ON CONFLICT`, so this is two indexed upserts and
- * no reads. Failures are swallowed: a counter is never worth failing a page
- * render over, and the one thing worse than missing analytics is a site that
- * goes down because of them.
+ * Three indexed upserts and no reads. Failures are swallowed: a counter is
+ * never worth failing a page render over, and the one thing worse than missing
+ * analytics is a site that goes down because of them.
  */
 export function recordPageView(path: string, visitor: string | null): void {
   try {
+    /**
+     * Throttled on the *actual* path, stored against the shape.
+     *
+     * Those are different keys and it matters here more than anywhere: every
+     * level shares one shape, so throttling on the shape would treat clicking
+     * through twenty levels in a minute as one page opened twice. Reading down
+     * the list is the main thing anyone does on this site.
+     */
+    if (!shouldCountView(visitor, (path.split('?')[0] ?? '/'))) return
     const db = getDb()
-    const day = today()
-    db.prepare(
+    const { day, hour } = nowParts()
+    const shape = normalisePath(path)
+
+    /**
+     * Three independent writes, each in its own try.
+     *
+     * They were one block, which meant a failure in any of them silently took
+     * the ones after it with it — a missing hourly table stopped every visitor
+     * being recorded, and the only symptom was a visitor count of zero beside a
+     * healthy view count. These count different things and none of them is a
+     * reason to give up on the others.
+     */
+    const write = (sql: string, ...params: unknown[]) => {
+      try { db.prepare(sql).run(...params as never[]) } catch { /* one counter, not all of them */ }
+    }
+    write(
       `INSERT INTO page_views (day, path, views) VALUES (?, ?, 1)
-       ON CONFLICT(day, path) DO UPDATE SET views = views + 1`,
-    ).run(day, normalisePath(path))
+       ON CONFLICT(day, path) DO UPDATE SET views = views + 1`, day, shape)
+    write(
+      `INSERT INTO page_views_hourly (day, hour, views) VALUES (?, ?, 1)
+       ON CONFLICT(day, hour) DO UPDATE SET views = views + 1`, day, hour)
     if (visitor) {
-      db.prepare(
-        `INSERT OR IGNORE INTO visit_uniques (day, visitor) VALUES (?, ?)`,
-      ).run(day, visitor)
+      write(`INSERT OR IGNORE INTO visit_uniques (day, visitor) VALUES (?, ?)`, day, visitor)
     }
   } catch { /* analytics must never break a page */ }
 }
 
-/** Record one view of one level, against its id rather than its position. */
-export function recordLevelView(levelId: number): void {
+/**
+ * Which accounts were here today, and which of them signed in.
+ *
+ * Memoised per process so an account that loads forty pages writes one row, not
+ * forty. `login` forces the write through, because the row may already exist
+ * from earlier browsing and the login still has to be counted.
+ */
+const touchedToday = new Set<string>()
+export function touchAccountDay(accountId: number | null | undefined, login = false): void {
+  if (!accountId) return
   try {
+    const day = today()
+    const key = `${day}|${accountId}`
+    if (!login && touchedToday.has(key)) return
+    if (touchedToday.size > 50_000) touchedToday.clear()
+    touchedToday.add(key)
     getDb().prepare(
+      `INSERT INTO account_days (day, account_id, logins) VALUES (?, ?, ?)
+       ON CONFLICT(day, account_id) DO UPDATE SET logins = logins + ?`,
+    ).run(day, accountId, login ? 1 : 0, login ? 1 : 0)
+  } catch { /* as above */ }
+}
+
+/**
+ * The reader behind a request, as the opaque daily hash.
+ *
+ * The three per-thing counters below need it for the same reason page views do
+ * — so opening the same level fifty times in a loop is one view, not fifty —
+ * and each of them was deriving it separately or not at all. One helper, so a
+ * level, a profile and a list all count the same way.
+ */
+export function viewerOf(event: { node?: unknown }): string | null {
+  try {
+    const ip = getRequestIP(event as never, { xForwardedFor: true }) ?? ''
+    const ua = getHeader(event as never, 'user-agent') ?? ''
+    return visitorHash(getDb(), ip, ua, today())
+  } catch {
+    return null
+  }
+}
+
+/** Record one view of one level, against its id rather than its position. */
+export function recordLevelView(levelId: number, viewer: string | null = null): void {
+  try {
+    if (!shouldCountView(viewer, 'level:' + levelId)) return
+    const db = getDb()
+    db.prepare(
       `INSERT INTO level_views (level_id, views, last_viewed_at)
        VALUES (?, 1, datetime('now'))
        ON CONFLICT(level_id) DO UPDATE SET
          views = views + 1, last_viewed_at = datetime('now')`,
     ).run(levelId)
+    try {
+      db.prepare(
+        `INSERT INTO level_view_days (day, level_id, views) VALUES (?, ?, 1)
+         ON CONFLICT(day, level_id) DO UPDATE SET views = views + 1`,
+      ).run(today(), levelId)
+    } catch { /* the running total is the one that matters */ }
   } catch { /* as above */ }
 }
 
 /** The same for a profile. Against the account id, so a rename keeps the count. */
-export function recordProfileView(accountId: number): void {
+export function recordProfileView(accountId: number, viewer: string | null = null): void {
   try {
+    if (!shouldCountView(viewer, 'profile:' + accountId)) return
     getDb().prepare(
       `INSERT INTO profile_views (account_id, views, last_viewed_at)
        VALUES (?, 1, datetime('now'))
@@ -180,21 +331,46 @@ export function recordProfileView(accountId: number): void {
   } catch { /* as above */ }
 }
 
-/**
- * Drop the visitor hashes the counts no longer need.
- *
- * `page_views` and `level_views` are counts and stay; this table is the only
- * one with a row per person, so it is the only one with a reason to be
- * forgotten. A year and a bit is enough to compare a month with the same month
- * last year.
- */
-const UNIQUE_RETENTION_DAYS = 400
-export function pruneVisitUniques(): number {
+/** …and for a custom list, so its owner can see whether anyone read it. */
+export function recordListView(listId: number, viewer: string | null = null): void {
   try {
-    return getDb().prepare(
-      `DELETE FROM visit_uniques WHERE day < date('now', ?)`,
-    ).run(`-${UNIQUE_RETENTION_DAYS} days`).changes as number
-  } catch {
-    return 0
+    if (!shouldCountView(viewer, 'list:' + listId)) return
+    const db = getDb()
+    db.prepare(
+      `INSERT INTO custom_list_views (list_id, views, last_viewed_at)
+       VALUES (?, 1, datetime('now'))
+       ON CONFLICT(list_id) DO UPDATE SET
+         views = views + 1, last_viewed_at = datetime('now')`,
+    ).run(listId)
+    try {
+      db.prepare(
+        `INSERT INTO custom_list_view_days (day, list_id, views) VALUES (?, ?, 1)
+         ON CONFLICT(day, list_id) DO UPDATE SET views = views + 1`,
+      ).run(today(), listId)
+    } catch { /* the running total is the one that matters */ }
+  } catch { /* as above */ }
+}
+
+/**
+ * Drop the per-day detail the counts no longer need.
+ *
+ * The running totals (`page_views`, `level_views`, `custom_list_views`) are the
+ * history and stay forever. The tables pruned here are the ones with a row per
+ * day per thing: they exist to answer "lately", and a year and a bit is enough
+ * to compare a month with the same month last year.
+ *
+ * `visit_uniques` is the one with a row per *person* and so the one with a
+ * reason to be forgotten rather than merely a size.
+ */
+const RETENTION_DAYS = 400
+export function pruneAnalytics(): number {
+  let removed = 0
+  const cutoff = `-${RETENTION_DAYS} days`
+  for (const table of ['visit_uniques', 'page_views_hourly', 'level_view_days', 'custom_list_view_days', 'account_days']) {
+    try {
+      removed += getDb().prepare(`DELETE FROM ${table} WHERE day < date('now', ?)`)
+        .run(cutoff).changes as number
+    } catch { /* a missing table on an old database is not worth failing over */ }
   }
+  return removed
 }

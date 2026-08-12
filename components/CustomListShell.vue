@@ -13,7 +13,7 @@ const props = defineProps<{
   title?: string
 }>()
 
-const { list, error, canEdit, editors, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
+const { list, error, canEdit, editors, views, pendingCount, suggestionCount, liked, toggleLike } = useCustomList(() => props.publicId)
 const { standalone } = useStandaloneList()
 
 /** The list's colour, on every one of its pages rather than just the first. */
@@ -36,6 +36,7 @@ const accentStyle = computed(() => listAccentStyle(list.value))
          pass them. -->
     <CustomListBar
       :list="list"
+      :views="views"
       :staff="editors"
       :can-edit="canEdit"
       :pending-count="pendingCount"

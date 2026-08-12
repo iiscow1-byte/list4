@@ -3,7 +3,7 @@ import { getPlayerStats, getCompletedLevels, getCreatedLevels, getVerifiedLevels
 import { computeDerivedStats } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { isFollowing } from '~/server/utils/follows'
-import { looksAutomated, recordProfileView } from '~/server/utils/analytics'
+import { looksAutomated, recordProfileView, viewerOf } from '~/server/utils/analytics'
 import { clanForAccount } from '~/server/utils/clans'
 
 export default defineEventHandler((event) => {
@@ -162,7 +162,7 @@ export default defineEventHandler((event) => {
     `SELECT COALESCE(views, 0) AS n FROM profile_views WHERE account_id = ?`,
   ).get(acc.id) as { n: number } | undefined)?.n ?? 0
   if (!me || me.id !== acc.id) {
-    if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordProfileView(acc.id)
+    if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordProfileView(acc.id, viewerOf(event))
   }
 
   // The profile owner's published lists. Private drafts stay hidden unless

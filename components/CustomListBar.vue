@@ -30,6 +30,8 @@ const props = defineProps<{
     items: any[]
     packs?: any[]
   }
+  /** Times the list has been opened. Shown beside the likes. */
+  views?: number
   /** Owner first, then editors — see `loadEditors`. */
   staff?: { id: number; username: string; role: 'owner' | 'editor'; has_avatar: boolean }[]
   canEdit?: boolean
@@ -333,6 +335,20 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           <span aria-hidden="true">{{ liked ? '★' : '☆' }}</span>
           <span class="tabular-nums">{{ list.likes }}</span>
         </button>
+
+        <!-- How many people opened it. Somebody who spends an evening building
+             a list and shares it had no way to find out whether anyone read
+             it; likes only count the ones who felt strongly. -->
+        <span
+          v-if="views"
+          class="shrink-0 inline-flex items-center gap-1 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-500"
+          :title="`Opened ${views.toLocaleString()} time${views === 1 ? '' : 's'}. Your own visits aren't counted.`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+          </svg>
+          <span class="tabular-nums">{{ views.toLocaleString() }}</span>
+        </span>
 
         <!-- Standalone mode hides the site's own header, so this is the only
              way back to the rest of the site. It drops the flag deliberately:

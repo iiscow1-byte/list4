@@ -569,44 +569,80 @@ to already know about.
 
 ## Counting how much the site is read
 
-Two numbers are worth having — how many pages were opened, and how many people
-opened them — and the whole of `server/utils/analytics.ts` exists to produce
-those two and nothing else. There is no per-request row, no address stored and
-no account attached to a view, so there is nothing to drill into and the admin
-tab says so rather than implying a detail it deliberately doesn't keep.
+Two numbers, and they are **different numbers**: how many pages were opened
+(views) and how many people opened them (visitors). They are kept apart in
+every table, every figure and every chart, because the ratio between them is
+the interesting part — four thousand views from two hundred people is a site
+being read, and four thousand from six is a script.
 
-Three tables:
+Nothing here identifies a reader. What is stored is a daily count per *shape* of
+URL, the same split by hour, a daily set of salted visitor hashes, and running
+totals per level, profile and custom list. See `server/utils/analytics.ts`.
 
-| table | one row per | holds |
+### What counts as a view
+
+This is the part that was wrong, in three separate ways, and each one inflated
+the numbers rather than losing them — which is the direction that makes a
+statistic worse than having none.
+
+- **Only a delivered page.** The count happens when the response *finishes*, so
+  the status is known. The homepage answers `302` to `/levels/1`, so counting on
+  arrival scored **every single arrival at the site twice** — once for the
+  redirect and once for the page. Every 404 counted as something somebody read.
+- **Only a path change.** The client beacon fires on `router.afterEach`, and
+  `?tab=`, `?view=` and every admin tab are written with `router.replace` — so
+  flicking through fifteen admin tabs scored fifteen views of `/admin`.
+- **Only once per reader per page per fifteen seconds.**
+  `/api/analytics/view` has to be open: it is a beacon fired by a page that may
+  be closing, so it cannot require anything a closing page might not have. Open
+  and uncapped, it was not a statistic — fifty posts of one path were fifty
+  views. `shouldCountView` throttles a repeat and caps one reader at 2,000 views
+  a day. The same throttle covers level, profile and list views, so a loop
+  cannot inflate those either.
+
+### The tables
+
+| table | one row per | answers |
 |---|---|---|
-| `page_views` | path *shape* per day | views |
-| `visit_uniques` | visitor per day | nothing but an opaque hash |
-| `level_views` / `profile_views` | level / account | a running total |
+| `page_views` | day × URL shape | how much, and of what |
+| `page_views_hourly` | day × hour | *when* |
+| `visit_uniques` | day × visitor hash | how many people |
+| `account_days` | day × account | who was signed in, and who logged in |
+| `level_views` / `level_view_days` | level / day × level | ever, and lately |
+| `custom_list_views` / `..._view_days` | list / day × list | the same, for a list |
+| `profile_views` | account | ever |
 
-**Path shapes, not paths.** `/levels/4021` and `/levels/9` both count as
-`/levels/:position`; keeping them apart would add a row per level per day for no
-benefit, and would let a crawler inventing URLs grow the table without bound
-(everything unrecognised collapses to `/other`). Per-level numbers are counted
-separately against the level's **id** — a position moves the moment anything is
-placed above it, so counting by position would follow the slot rather than the
-level. Same reasoning for profiles and account ids.
+The running totals are never pruned; the per-day tables are, after 400 days —
+enough to compare a month with the same month last year.
 
-**The visitor hash** is `sha256(day | per-install salt | address | user agent)`
-truncated to 16 characters. The day is part of the input, so the same person
-tomorrow is a different value and nothing here can follow anyone across days;
-the salt lives in `site_meta` rather than in memory, because a restart would
-otherwise re-salt everything and count every returning reader as new. It is
-deliberately weak as an identifier and adequate as a counter. `visit_uniques` is
-the only table with a row per person, so it is the only one that is pruned (400
-days); the counts themselves are never dropped.
+**`account_days` deliberately carries two facts.** "How many accounts logged in
+today" is almost never the question people mean: a session lasts weeks, so
+counting login *events* reports a handful of people on a busy day. The row
+existing means the account was here; the `logins` column counts the times it
+actually typed a password. Both are shown.
 
-**Both halves of a visit.** The server middleware sees document requests — the
-first page of a visit and a refresh — and nothing after it, because Nuxt renders
-every subsequent page in the browser without asking the server for one. Reading
-the middleware alone would report the first page of each visit as the whole
-visit, so `plugins/analytics.client.ts` reports the rest, and `POST
-/api/analytics/view` counts them exactly the same way. Bots that say what they
-are, prefetches, and the server's own internal fetches are all skipped.
+### Every window means the same thing
+
+`days` selects a window ending **today, inclusive**, and every series, every
+top-list and every total in `range` uses it. Most-viewed levels used to read the
+running totals — all time — under a heading that said thirty days, beside a page
+list that really was thirty days. It reads `level_view_days` now, and all-time is
+offered separately because it is a fair question, just a different one.
+
+Two more traps worth naming, because both give a number that looks right:
+
+- **Visitors over a range are distinct people, not the sum of the daily counts.**
+  The same person on Monday and Tuesday is one visitor and two visitor-days.
+  Both are shown, and labelled.
+- **A per-day series must be zero-filled.** A day with no traffic has no row, and
+  a chart that skips it silently compresses time.
+
+### Checking it
+
+`scratchpad/r22/verify.mjs` drives real traffic through a real server and then
+re-derives every figure the tab shows with its own SQL. "The data is accurate"
+is not assertable in the abstract; it means the number on screen equals the
+number in the table, for the window the label claims.
 
 ## Countries
 

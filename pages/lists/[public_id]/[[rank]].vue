@@ -11,7 +11,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const {
-  list, error, refresh, canEdit, base, editors,
+  list, error, refresh, canEdit, base, editors, views,
   pendingCount, suggestionCount, liked, toggleLike,
 } = useCustomList(publicId)
 const { standalone, to } = useStandaloneList()
@@ -77,6 +77,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
     <CustomListBar
       :list="list"
+      :views="views"
       :staff="editors"
       :can-edit="canEdit"
       :pending-count="pendingCount"

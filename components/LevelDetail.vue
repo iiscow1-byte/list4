@@ -600,7 +600,7 @@ const visibleTiles1 = computed<Tile1[]>(() => {
   if (props.level.verify_date)              out.push('verify_date')
   // Only once somebody other than the first reader has been here: "1 view" on
   // a page you are the first to open is a fact about you, not about the level.
-  if ((props.level.views ?? 0) > 1)         out.push('views')
+  if ((props.level.views ?? 0) > 0)         out.push('views')
   return out
 })
 

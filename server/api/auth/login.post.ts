@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { verifyPassword, createSession, setSessionCookie } from '~/server/utils/auth'
+import { touchAccountDay } from '~/server/utils/analytics'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -24,5 +25,9 @@ export default defineEventHandler(async (event) => {
   }
   const token = createSession(row.id)
   setSessionCookie(event, token)
+  // The one place an actual sign-in happens. Sessions carry no `created_at`, so
+  // without this the site could say who was *here* on a day and never how many
+  // of them had signed in on it.
+  touchAccountDay(row.id, true)
   return { username: row.username, role: row.role }
 })

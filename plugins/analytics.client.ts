@@ -23,7 +23,11 @@ export default defineNuxtPlugin((nuxtApp) => {
       firstDone = true
       if (!from.name) return
     }
-    if (to.fullPath === from.fullPath) return
+    // The *path*, not the full path. `?tab=stats` on the About page, `?view=mine`
+    // on the lists gallery and every admin tab write a new query with
+    // `router.replace`, which fires this hook — so flicking through the admin
+    // panel's fifteen tabs used to score fifteen views of `/admin`.
+    if (to.path === from.path) return
 
     try {
       const body = JSON.stringify({ path: to.path })

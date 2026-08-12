@@ -1876,6 +1876,64 @@ function initSchema(db: DatabaseSync) {
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     ) WITHOUT ROWID;
+
+    -- The same page views, split by hour of the day (UTC).
+    --
+    -- A day total says how much the site is read; the hours say *when*, which
+    -- is the number that tells you when to post something and when a spike was
+    -- one person refreshing at 3am. Twenty-four rows a day, so a year of this
+    -- is under nine thousand rows.
+    CREATE TABLE IF NOT EXISTS page_views_hourly (
+      day   TEXT    NOT NULL,
+      hour  INTEGER NOT NULL,
+      views INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, hour)
+    ) WITHOUT ROWID;
+
+    -- Which accounts were here on a given day, and which of them actually
+    -- signed in.
+    --
+    -- Two different questions and one table, because "logged in today" is
+    -- almost never what someone wants: a session lasts weeks, so counting
+    -- login *events* would report a handful of people on a busy day. The row
+    -- existing means the account was here; the logins column counts the times
+    -- it typed a password.
+    CREATE TABLE IF NOT EXISTS account_days (
+      day        TEXT    NOT NULL,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      logins     INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, account_id)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_account_days_day ON account_days(day);
+
+    -- Per-level views, by day.
+    --
+    -- level_views is the running total and answers "how many"; this answers
+    -- "how many *lately*", which is the only way a most-viewed list can respect
+    -- the date range shown above it. One row per level actually opened per day,
+    -- so it grows with traffic rather than with the size of the list.
+    CREATE TABLE IF NOT EXISTS level_view_days (
+      day      TEXT    NOT NULL,
+      level_id INTEGER NOT NULL,
+      views    INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, level_id)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_level_view_days_day ON level_view_days(day);
+
+    -- The same pair for a custom list. Somebody who builds a list wants to know
+    -- whether anybody read it, and until now the site could not say.
+    CREATE TABLE IF NOT EXISTS custom_list_views (
+      list_id        INTEGER PRIMARY KEY REFERENCES custom_lists(id) ON DELETE CASCADE,
+      views          INTEGER NOT NULL DEFAULT 0,
+      last_viewed_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS custom_list_view_days (
+      day     TEXT    NOT NULL,
+      list_id INTEGER NOT NULL,
+      views   INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (day, list_id)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_custom_list_view_days_day ON custom_list_view_days(day);
   `)
 
   /**

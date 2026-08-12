@@ -12,6 +12,8 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
     can_manage: boolean
     editors: { id: number; username: string }[]
     liked_by_me: boolean
+    /** Times this list has been opened by somebody other than its owner. */
+    views: number
   }>(() => `/api/custom-lists/${id.value}`, { key: () => `custom-list-${id.value}` })
   const { data, error, refresh, pending } = req
 
@@ -20,6 +22,7 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
   const canManage = computed(() => !!data.value?.can_manage)
   const editors = computed(() => data.value?.editors ?? [])
   const base = computed(() => `/lists/${id.value}`)
+  const views = computed(() => data.value?.views ?? 0)
 
   // The owner's pending-record count drives the Queue tab badge, so it's
   // fetched alongside the list rather than only on the queue page.
@@ -57,7 +60,7 @@ export function useCustomList(publicId: MaybeRefOrGetter<string>) {
     // second, so their derived state exists in the server-rendered HTML.
     req,
     data, error, pending, refresh,
-    list, canEdit, canManage, editors, base,
+    list, canEdit, canManage, editors, base, views,
     pendingCount, suggestionCount, refreshPending, liked, toggleLike,
   }
 }

@@ -22,6 +22,25 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.20.0',
+    date: '2026-08-12',
+    title: 'Statistics you can trust, and the hours behind them',
+    tags: ['Admin', 'Access', 'Fixes'],
+    changes: [
+      'The view counter could be written to by anyone. `/api/analytics/view` has to be open — it is a beacon a closing page fires — and fifty posts of the same path were fifty views. The same reader opening the same page inside fifteen seconds now counts once, and no single reader can add more than two thousand views to the site total in a day.',
+      'Every arrival at the site was counted twice. The homepage answers a redirect to the top of the list, and both the redirect and the page it pointed at were scored as pages read. Only a page that was actually delivered counts now — which also stops every 404 counting as something somebody read.',
+      'Flicking through the admin panel’s fifteen tabs used to score fifteen views. Changing a query no longer counts as opening a page.',
+      'Views and unique visitors are separate figures everywhere, with the ratio between them shown: four thousand views from two hundred people is a site being read, and four thousand from six is somebody’s script.',
+      'Statistics shows views by the hour — as an average day over the range, or as today so far — with the busiest hour called out.',
+      'Statistics shows how many accounts were signed in each day, and how many of them logged in fresh.',
+      'The charts are charts now: a y-axis with real numbers, gridlines, dates along the bottom, up to four series at once and a readout of every one of them for the day under the pointer.',
+      '"Most-viewed levels" said thirty days and answered all-time. It respects the range now, and offers all-time as its own separate answer.',
+      '"Accounts with records" counted anything ever submitted, including records still waiting for review. It counts accepted ones.',
+      'A custom list shows how many times it has been opened, so somebody who builds one can find out whether anybody read it. The owner’s own visits are not counted.',
+      'Your own profile view count is always visible on your account page rather than only once it passes one, and a level shows its view count from the first view rather than the second.',
+    ],
+  },
+  {
     version: '1.19.0',
     date: '2026-08-10',
     title: 'A menu that fits a phone, and one of everything else',

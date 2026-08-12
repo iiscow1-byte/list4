@@ -3,7 +3,7 @@ import { communityStats } from '~/server/utils/opinions'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
 import { isChallengeSql } from '~/server/utils/challenge-expr'
 import { otherListsFor } from '~/server/utils/other-lists'
-import { looksAutomated, recordLevelView } from '~/server/utils/analytics'
+import { looksAutomated, recordLevelView, viewerOf } from '~/server/utils/analytics'
 import { clanTagsForPlayers } from '~/server/utils/clans'
 
 const IS_CHALLENGE_L = isChallengeSql('l', 'c')
@@ -35,7 +35,7 @@ export default defineEventHandler((event) => {
   const viewRow = db.prepare(`SELECT views FROM level_views WHERE level_id = ?`)
     .get(level.id) as { views: number } | undefined
   const views = viewRow?.views ?? 0
-  if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordLevelView(level.id)
+  if (!looksAutomated(getHeader(event, 'user-agent') ?? '')) recordLevelView(level.id, viewerOf(event))
 
   // Resolve the submitter's username (only set for site submissions; sheet
   // imports have submitted_by = NULL).

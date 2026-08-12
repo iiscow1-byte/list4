@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
+import { getCurrentAccount } from '~/server/utils/auth'
 import {
-  isPageRequest, looksAutomated, recordPageView, today, visitorHash,
+  isPageRequest, looksAutomated, recordPageView, today, touchAccountDay, visitorHash,
 } from '~/server/utils/analytics'
 
 /**
@@ -15,6 +16,11 @@ import {
  * in the body, and the endpoint deliberately can't be used to record anything
  * about a person: the visitor hash is derived here, from the connection, the
  * same way the middleware derives it.
+ *
+ * It has to be open — it is a beacon, fired by a browser that may be closing —
+ * and an open counter with no ceiling is not a statistic. Fifty posts of the
+ * same path used to be fifty views; `recordPageView` now throttles a repeat of
+ * the same page by the same reader, so they are one. See `shouldCountView`.
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ path?: unknown }>(event) ?? {}
@@ -34,5 +40,6 @@ export default defineEventHandler(async (event) => {
   } catch { /* counted as a view without a person attached */ }
 
   recordPageView(raw, visitor)
+  try { touchAccountDay(getCurrentAccount(event)?.id) } catch { /* not signed in */ }
   return { ok: true }
 })

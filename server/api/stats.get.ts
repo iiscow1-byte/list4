@@ -140,6 +140,16 @@ export default defineEventHandler((event) => {
    * as the count: a total with no start is unreadable, and this one started
    * being counted long after the site did.
    */
+  /**
+   * Views and people are two numbers and the page prints both.
+   *
+   * One "visits" figure invites being read as either, and the two differ by an
+   * order of magnitude — which is the interesting part rather than a detail to
+   * hide behind a single total.
+   */
+  const totalVisitors = (db.prepare(
+    `SELECT COUNT(DISTINCT visitor) AS n FROM visit_uniques`,
+  ).get() as { n: number }).n
   const totalVisits = (db.prepare(
     `SELECT COALESCE(SUM(views), 0) AS n FROM page_views`,
   ).get() as { n: number }).n
@@ -168,6 +178,7 @@ export default defineEventHandler((event) => {
     totalPlayers,
     levelsWithRecords,
     totalVisits,
+    totalVisitors,
     visitsSince,
     hardest: hardest ?? null,
     tiers,
