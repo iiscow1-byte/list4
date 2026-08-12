@@ -140,7 +140,7 @@ export const SITE_NAV: NavMenu[] = [
       {
         label: 'Your play',
         links: [
-          { label: 'Submit a record', to: '/records/submit', hint: 'Claim a completion', icon: 'flag' },
+          { label: 'Submit a record', to: '/records/submit', hint: 'Claim a completion', icon: 'medal' },
           { label: 'Submit an opinion', to: '/opinions/submit', hint: 'Rate difficulty and enjoyment', icon: 'star' },
         ],
       },

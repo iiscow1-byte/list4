@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
+import { importedPendingSql, submittedPendingSql } from '~/server/utils/pending-source'
 
 export default defineEventHandler((event) => {
   requireMod(event)
@@ -10,19 +11,16 @@ export default defineEventHandler((event) => {
   // via from_gdtpl_id — TSL etc.). Splitting the queues keeps each tab focused
   // on the rows that match its workflow.
   //
-  // Every importer's marker column has to appear in *both* branches. Miss one
-  // and its rows vanish from the imported queue and simultaneously turn up in
-  // the user-submissions queue, because "not from any importer" is how that
-  // side is defined — which is exactly what happened to the challenge sheet.
-  const IMPORTED = [
-    'p.from_gdl_id IS NOT NULL',
-    'p.from_gdtpl_id IS NOT NULL',
-    'p.from_acs_id IS NOT NULL',
-    'p.from_sheet_pending = 1',
-  ]
+  // The definition of "imported" lives in one place — see the util. Every
+  // importer's marker has to appear in it, because "not from any importer" is
+  // how the submissions side is defined: miss one and its rows vanish from the
+  // imported queue and turn up in the submissions queue, which is exactly what
+  // happened to the challenge sheet. The statistics count the two apart now
+  // too, and a second copy of the list would be a second chance to get it
+  // wrong.
   const sourceFilter = source === 'gdl_import'
-    ? `AND (${IMPORTED.join(' OR ')})`
-    : `AND NOT (${IMPORTED.join(' OR ')})`
+    ? `AND ${importedPendingSql('p')}`
+    : `AND ${submittedPendingSql('p')}`
   const db = getDb()
   // Potential-duplicate detection: an imported level whose name (case-
   // insensitive) matches an existing ALL-list level with a different gd_id.

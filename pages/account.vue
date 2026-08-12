@@ -1025,8 +1025,7 @@ function fmt(n: number | null | undefined) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
           </svg>
-          <span class="tabular-nums">{{ profileData.profileViews.toLocaleString() }}</span>
-          profile view{{ profileData.profileViews === 1 ? '' : 's' }}
+          <span><span class="tabular-nums">{{ profileData.profileViews.toLocaleString() }}</span> profile view{{ profileData.profileViews === 1 ? '' : 's' }}</span>
         </span>
       </template>
 

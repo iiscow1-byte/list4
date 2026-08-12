@@ -567,6 +567,23 @@ Invites surface in three places on purpose: the clan's own page, `/clans`, and
 the inbox. An invite you can only answer from the clan's page is one you have
 to already know about.
 
+## A submission is not an import
+
+Both land in `pending_levels`, and there is no column saying which — it is
+inferred from *which* importer's marker is set. `server/utils/pending-source.ts`
+holds that list, and the review queue and the statistics both read it.
+
+It is one definition because of how the complement works: "submitted by a
+person" is defined as *not from any importer*, so forgetting to add a new
+importer's column doesn't just lose its rows from the imported queue — it moves
+them into the submissions queue. That is not hypothetical; it is what happened
+to the challenge sheet. **Adding an importer means adding its column there, and
+nowhere else.**
+
+The statistics count the two apart for a plainer reason: an importer arrives in
+the thousands, so one mirror refresh buried every real submission the site had
+ever had under a single day's bar.
+
 ## Counting how much the site is read
 
 Two numbers, and they are **different numbers**: how many pages were opened

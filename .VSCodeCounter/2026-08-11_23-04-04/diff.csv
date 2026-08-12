@@ -1,0 +1,544 @@
+"filename", "language", "JSON", "TypeScript", "JSON with Comments", "JavaScript", "PostCSS", "Markdown", "HTML", "XML", "vue", "comment", "blank", "total"
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-levels-sample.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-openapi.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-records-sample.json", "JSON", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.claude\settings.local.json", "JSON", -170, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -171
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\README.md", "Markdown", 0, 0, 0, 0, 0, -81, 0, 0, 0, 0, -31, -112
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\app.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -5, 0, -1, -6
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\assets\css\main.css", "PostCSS", 0, 0, 0, 0, -58, 0, 0, 0, 0, -10, -6, -74
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminAwaitingReview.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -608, -7, -32, -647
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminLevelsReview.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -874, -11, -45, -930
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminOpenVerificationsReview.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -225, -5, -17, -247
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminOpinionsReview.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -190, -3, -18, -211
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminRecordsReview.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -186, -3, -17, -206
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AwaitingLevelDetail.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -154, -4, -11, -169
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AwaitingListNav.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -377, 0, -36, -413
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\CommentSection.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -162, -2, -18, -182
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\DifficultyFace.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -64, 0, -9, -73
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\FollowButton.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -125, -1, -12, -138
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelComparisonDrawer.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -421, -1, -28, -450
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelDetail.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -1307, -23, -85, -1415
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelListNav.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -805, -14, -58, -877
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelRecords.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -122, -2, -9, -133
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\OpenVerLevelDetail.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -325, -4, -20, -349
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\OpenVerListNav.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -326, 0, -34, -360
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ProfileLevelLists.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -104, 0, -10, -114
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ProgressPosts.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -262, 0, -18, -280
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\RecordCharts.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -178, -2, -12, -192
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\RecordSubmitRow.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -91, -1, -9, -101
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SearchableSelect.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -85, 0, -9, -94
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SiteFooter.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -22, 0, -3, -25
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SiteHeader.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -207, -1, -14, -222
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ThemeMenu.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -125, 0, -17, -142
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\VoidLevelDetail.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -453, -6, -31, -490
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\VoidListNav.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -112, 0, -14, -126
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useAredlTopThreshold.ts", "TypeScript", 0, -11, 0, 0, 0, 0, 0, 0, 0, -9, -3, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useCurrentUser.ts", "TypeScript", 0, -24, 0, 0, 0, 0, 0, 0, 0, -4, -2, -30
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useLevelPicker.ts", "TypeScript", 0, -115, 0, 0, 0, 0, 0, 0, 0, -10, -13, -138
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useProfanityFilter.ts", "TypeScript", 0, -26, 0, 0, 0, 0, 0, 0, 0, 0, -8, -34
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useTheme.ts", "TypeScript", 0, -189, 0, 0, 0, 0, 0, 0, 0, -13, -20, -222
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useTierDecimal.ts", "TypeScript", 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -1, -2
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-aredl-335.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-docs.html", "HTML", 0, 0, 0, 0, 0, 0, -114, 0, 0, -2, -25, -141
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-gdl-335.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-getprofile-335.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-getuser-335.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-levels.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-openapi.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-pc-335.json", "JSON", -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\landing.html", "HTML", 0, 0, 0, 0, 0, 0, -70, 0, 0, 0, -2, -72
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\main.html", "HTML", 0, 0, 0, 0, 0, 0, -70, 0, 0, 0, -2, -72
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\voidlist.html", "HTML", 0, 0, 0, 0, 0, 0, -70, 0, 0, 0, -2, -72
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\voidlist2.html", "HTML", 0, 0, 0, 0, 0, 0, -70, 0, 0, 0, -2, -72
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\error.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -21, 0, -2, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\layouts\default.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -9, 0, -1, -10
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\layouts\level.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -8, 0, -1, -9
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\admin.ts", "TypeScript", 0, -10, 0, 0, 0, 0, 0, 0, 0, -4, -1, -15
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\auth.ts", "TypeScript", 0, -6, 0, 0, 0, 0, 0, 0, 0, -4, -1, -11
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\mod.ts", "TypeScript", 0, -10, 0, 0, 0, 0, 0, 0, 0, -6, -1, -17
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\nuxt.config.ts", "TypeScript", 0, -33, 0, 0, 0, 0, 0, 0, 0, 0, -1, -34
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\package-lock.json", "JSON", -11881, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -11882
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\package.json", "JSON", -32, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -33
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\account.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -1154, -13, -73, -1240
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\admin.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -582, -8, -43, -633
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\aredl-players\[uuid].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -128, 0, -11, -139
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\awaiting\[id].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -23, 0, -5, -28
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\awaiting\index.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -27, 0, -4, -31
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\gdl-players\[id].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -132, 0, -12, -144
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\inbox.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -117, 0, -8, -125
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\index.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -314, -10, -28, -352
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\leaderboard.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -308, -3, -16, -327
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\levels\[position].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -76, 0, -7, -83
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\levels\submit.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -775, -8, -49, -832
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\login.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -66, 0, -8, -74
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\[id]\index.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -23, 0, -5, -28
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\[id]\submit-verification.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -325, -5, -28, -358
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\index.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -28, 0, -4, -32
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\opinions\submit.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -230, 0, -22, -252
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\pointercrate-players\[pc_id].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -120, 0, -11, -131
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\records\submit.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -426, -1, -32, -459
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\signup.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -69, 0, -8, -77
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users\[username].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -159, 0, -15, -174
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users\by-player\[player].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -91, 0, -9, -100
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\void\[position].vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -23, 0, -5, -28
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\void\index.vue", "vue", 0, 0, 0, 0, 0, 0, 0, 0, -4, 0, -2, -6
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\plugins\theme.client.ts", "TypeScript", 0, -5, 0, 0, 0, 0, 0, 0, 0, -4, -1, -10
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\public\favicon.svg", "XML", 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, -1, -2
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\railway.json", "JSON", -14, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -15
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\avatar.delete.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, 0, -2, -9
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\avatar.post.ts", "TypeScript", 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, -5, -25
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.delete.ts", "TypeScript", 0, -9, 0, 0, 0, 0, 0, 0, 0, 0, -2, -11
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.get.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, 0, -2, -14
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.post.ts", "TypeScript", 0, -88, 0, 0, 0, 0, 0, 0, 0, -11, -16, -115
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox.get.ts", "TypeScript", 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, -2, -22
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox\[id].post.ts", "TypeScript", 0, -22, 0, 0, 0, 0, 0, 0, 0, -4, -4, -30
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox\read-all.post.ts", "TypeScript", 0, -9, 0, 0, 0, 0, 0, 0, 0, 0, -2, -11
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\index.patch.ts", "TypeScript", 0, -46, 0, 0, 0, 0, 0, 0, 0, 0, -8, -54
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\progress.post.ts", "TypeScript", 0, -67, 0, 0, 0, 0, 0, 0, 0, -3, -12, -82
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\progress\[id].delete.ts", "TypeScript", 0, -16, 0, 0, 0, 0, 0, 0, 0, 0, -2, -18
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels\[uuid]\promote.post.ts", "TypeScript", 0, -76, 0, 0, 0, 0, 0, 0, 0, -15, -12, -103
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels\index.get.ts", "TypeScript", 0, -13, 0, 0, 0, 0, 0, 0, 0, -4, -2, -19
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\awaiting\[id].post.ts", "TypeScript", 0, -127, 0, 0, 0, 0, 0, 0, 0, -10, -12, -149
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\ban.post.ts", "TypeScript", 0, -41, 0, 0, 0, 0, 0, 0, 0, -7, -4, -52
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\changes\[levelId].delete.ts", "TypeScript", 0, -21, 0, 0, 0, 0, 0, 0, 0, -4, -4, -29
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\claims.get.ts", "TypeScript", 0, -13, 0, 0, 0, 0, 0, 0, 0, 0, -2, -15
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\claims\[id].post.ts", "TypeScript", 0, -72, 0, 0, 0, 0, 0, 0, 0, 0, -6, -78
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\counts.get.ts", "TypeScript", 0, -15, 0, 0, 0, 0, 0, 0, 0, 0, -3, -18
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id].delete.ts", "TypeScript", 0, -14, 0, 0, 0, 0, 0, 0, 0, 0, -2, -16
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id].patch.ts", "TypeScript", 0, -37, 0, 0, 0, 0, 0, 0, 0, -1, -6, -44
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id]\test.post.ts", "TypeScript", 0, -21, 0, 0, 0, 0, 0, 0, 0, -1, -3, -25
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\index.get.ts", "TypeScript", 0, -17, 0, 0, 0, 0, 0, 0, 0, 0, -2, -19
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\index.post.ts", "TypeScript", 0, -31, 0, 0, 0, 0, 0, 0, 0, 0, -7, -38
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\post-now.post.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, -5, -2, -14
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\post-yesterday.post.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, -5, -2, -14
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\start.post.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, -5, -2, -19
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\status.get.ts", "TypeScript", 0, -6, 0, 0, 0, 0, 0, 0, 0, 0, -2, -8
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\stop.post.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, 0, -2, -9
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\index.delete.ts", "TypeScript", 0, -25, 0, 0, 0, 0, 0, 0, 0, -5, -6, -36
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\index.patch.ts", "TypeScript", 0, -66, 0, 0, 0, 0, 0, 0, 0, -10, -10, -86
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\move.post.ts", "TypeScript", 0, -59, 0, 0, 0, 0, 0, 0, 0, -15, -11, -85
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\promote.post.ts", "TypeScript", 0, -13, 0, 0, 0, 0, 0, 0, 0, -4, -4, -21
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\pending.get.ts", "TypeScript", 0, -22, 0, 0, 0, 0, 0, 0, 0, 0, -2, -24
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\pending\[id].post.ts", "TypeScript", 0, -226, 0, 0, 0, 0, 0, 0, 0, -24, -16, -266
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\placement-preview.get.ts", "TypeScript", 0, -46, 0, 0, 0, 0, 0, 0, 0, -5, -8, -59
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\tier-midpoint.get.ts", "TypeScript", 0, -17, 0, 0, 0, 0, 0, 0, 0, -6, -4, -27
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].delete.ts", "TypeScript", 0, -14, 0, 0, 0, 0, 0, 0, 0, -4, -5, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].patch.ts", "TypeScript", 0, -49, 0, 0, 0, 0, 0, 0, 0, -3, -8, -60
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].post.ts", "TypeScript", 0, -51, 0, 0, 0, 0, 0, 0, 0, -5, -6, -62
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\pending.get.ts", "TypeScript", 0, -19, 0, 0, 0, 0, 0, 0, 0, 0, -2, -21
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\opinions\[id].post.ts", "TypeScript", 0, -44, 0, 0, 0, 0, 0, 0, 0, -1, -7, -52
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\opinions\pending.get.ts", "TypeScript", 0, -36, 0, 0, 0, 0, 0, 0, 0, -3, -4, -43
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\position-history\[id].delete.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, 0, -2, -14
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\[id].delete.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, 0, -4, -16
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\[id].post.ts", "TypeScript", 0, -59, 0, 0, 0, 0, 0, 0, 0, -5, -6, -70
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\bulk-approve.post.ts", "TypeScript", 0, -33, 0, 0, 0, 0, 0, 0, 0, 0, -6, -39
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\pending.get.ts", "TypeScript", 0, -24, 0, 0, 0, 0, 0, 0, 0, 0, -2, -26
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\role.post.ts", "TypeScript", 0, -43, 0, 0, 0, 0, 0, 0, 0, 0, -10, -53
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\set-claim.post.ts", "TypeScript", 0, -23, 0, 0, 0, 0, 0, 0, 0, -6, -5, -34
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\users.get.ts", "TypeScript", 0, -23, 0, 0, 0, 0, 0, 0, 0, 0, -3, -26
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\index.delete.ts", "TypeScript", 0, -23, 0, 0, 0, 0, 0, 0, 0, -4, -5, -32
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\index.patch.ts", "TypeScript", 0, -44, 0, 0, 0, 0, 0, 0, 0, -3, -8, -55
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\move.post.ts", "TypeScript", 0, -41, 0, 0, 0, 0, 0, 0, 0, -5, -6, -52
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl-players\[uuid].get.ts", "TypeScript", 0, -106, 0, 0, 0, 0, 0, 0, 0, -26, -15, -147
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl-players\search.get.ts", "TypeScript", 0, -17, 0, 0, 0, 0, 0, 0, 0, -4, -2, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl\top-threshold.get.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, -6, -2, -15
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\login.post.ts", "TypeScript", 0, -26, 0, 0, 0, 0, 0, 0, 0, 0, -3, -29
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\logout.post.ts", "TypeScript", 0, -7, 0, 0, 0, 0, 0, 0, 0, 0, -2, -9
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\me.get.ts", "TypeScript", 0, -4, 0, 0, 0, 0, 0, 0, 0, 0, -2, -6
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\signup.post.ts", "TypeScript", 0, -25, 0, 0, 0, 0, 0, 0, 0, 0, -6, -31
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting\levels.get.ts", "TypeScript", 0, -82, 0, 0, 0, 0, 0, 0, 0, 0, -15, -97
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting\levels\[id].get.ts", "TypeScript", 0, -19, 0, 0, 0, 0, 0, 0, 0, 0, -2, -21
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\changes\recent.get.ts", "TypeScript", 0, -15, 0, 0, 0, 0, 0, 0, 0, -6, -4, -25
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\[id].delete.ts", "TypeScript", 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, -5, -25
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\index.get.ts", "TypeScript", 0, -32, 0, 0, 0, 0, 0, 0, 0, 0, -5, -37
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\index.post.ts", "TypeScript", 0, -64, 0, 0, 0, 0, 0, 0, 0, -1, -9, -74
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\feed\followed.get.ts", "TypeScript", 0, -84, 0, 0, 0, 0, 0, 0, 0, -9, -10, -103
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\followers.get.ts", "TypeScript", 0, -16, 0, 0, 0, 0, 0, 0, 0, 0, -4, -20
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.delete.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, 0, -4, -16
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.get.ts", "TypeScript", 0, -11, 0, 0, 0, 0, 0, 0, 0, 0, -2, -13
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.post.ts", "TypeScript", 0, -20, 0, 0, 0, 0, 0, 0, 0, -2, -6, -28
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gd\level\[id].get.ts", "TypeScript", 0, -44, 0, 0, 0, 0, 0, 0, 0, -7, -9, -60
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gdl-players\[id].get.ts", "TypeScript", 0, -58, 0, 0, 0, 0, 0, 0, 0, -15, -8, -81
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gdl-players\search.get.ts", "TypeScript", 0, -17, 0, 0, 0, 0, 0, 0, 0, -4, -2, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\landing.get.ts", "TypeScript", 0, -120, 0, 0, 0, 0, 0, 0, 0, -6, -13, -139
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\leaderboard.get.ts", "TypeScript", 0, -94, 0, 0, 0, 0, 0, 0, 0, -9, -16, -119
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\leaderboard\global.get.ts", "TypeScript", 0, -244, 0, 0, 0, 0, 0, 0, 0, -34, -23, -301
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels.get.ts", "TypeScript", 0, -211, 0, 0, 0, 0, 0, 0, 0, -35, -34, -280
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position].get.ts", "TypeScript", 0, -153, 0, 0, 0, 0, 0, 0, 0, -28, -15, -196
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position]\estimated-gdl-placement.get.ts", "TypeScript", 0, -37, 0, 0, 0, 0, 0, 0, 0, 0, -7, -44
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position]\estimated-placement.get.ts", "TypeScript", 0, -37, 0, 0, 0, 0, 0, 0, 0, -3, -7, -47
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\by-gd-id\[gd_id].get.ts", "TypeScript", 0, -13, 0, 0, 0, 0, 0, 0, 0, -4, -4, -21
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\sources.get.ts", "TypeScript", 0, -15, 0, 0, 0, 0, 0, 0, 0, 0, -3, -18
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\submit.post.ts", "TypeScript", 0, -117, 0, 0, 0, 0, 0, 0, 0, -5, -22, -144
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\tier-midpoint.get.ts", "TypeScript", 0, -14, 0, 0, 0, 0, 0, 0, 0, -2, -4, -20
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\version.get.ts", "TypeScript", 0, -8, 0, 0, 0, 0, 0, 0, 0, 0, -2, -10
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\[id]\submit-verification.post.ts", "TypeScript", 0, -139, 0, 0, 0, 0, 0, 0, 0, -15, -16, -170
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\levels.get.ts", "TypeScript", 0, -76, 0, 0, 0, 0, 0, 0, 0, 0, -15, -91
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\levels\[id].get.ts", "TypeScript", 0, -21, 0, 0, 0, 0, 0, 0, 0, 0, -2, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\submit.post.ts", "TypeScript", 0, -83, 0, 0, 0, 0, 0, 0, 0, -2, -17, -102
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\opinions\index.post.ts", "TypeScript", 0, -76, 0, 0, 0, 0, 0, 0, 0, -1, -15, -92
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\pointercrate-players\[pc_id].get.ts", "TypeScript", 0, -58, 0, 0, 0, 0, 0, 0, 0, -14, -8, -80
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\pointercrate-players\search.get.ts", "TypeScript", 0, -17, 0, 0, 0, 0, 0, 0, 0, -4, -2, -23
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\records\index.post.ts", "TypeScript", 0, -67, 0, 0, 0, 0, 0, 0, 0, -9, -12, -88
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\stats.get.ts", "TypeScript", 0, -104, 0, 0, 0, 0, 0, 0, 0, -8, -10, -122
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\[username].get.ts", "TypeScript", 0, -54, 0, 0, 0, 0, 0, 0, 0, -8, -9, -71
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\[username]\avatar.get.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, 0, -4, -16
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\by-player\[player].get.ts", "TypeScript", 0, -62, 0, 0, 0, 0, 0, 0, 0, -9, -10, -81
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\search.get.ts", "TypeScript", 0, -26, 0, 0, 0, 0, 0, 0, 0, -5, -7, -38
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels.get.ts", "TypeScript", 0, -33, 0, 0, 0, 0, 0, 0, 0, 0, -5, -38
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels\[position].get.ts", "TypeScript", 0, -18, 0, 0, 0, 0, 0, 0, 0, 0, -2, -20
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels\[position]\submit.post.ts", "TypeScript", 0, -76, 0, 0, 0, 0, 0, 0, 0, -5, -10, -91
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\youtube\upload-date.get.ts", "TypeScript", 0, -108, 0, 0, 0, 0, 0, 0, 0, -4, -5, -117
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\backfill-gd-cache.ts", "TypeScript", 0, -347, 0, 0, 0, 0, 0, 0, 0, -23, -42, -412
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\clear-temporary-levels.ts", "TypeScript", 0, -44, 0, 0, 0, 0, 0, 0, 0, -10, -10, -64
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\diff-sheet.ts", "TypeScript", 0, -187, 0, 0, 0, 0, 0, 0, 0, -10, -17, -214
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-aredl.ts", "TypeScript", 0, -253, 0, 0, 0, 0, 0, 0, 0, -16, -18, -287
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-gdl.ts", "TypeScript", 0, -327, 0, 0, 0, 0, 0, 0, 0, -32, -24, -383
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-pointercrate.ts", "TypeScript", 0, -187, 0, 0, 0, 0, 0, 0, 0, -46, -15, -248
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import.ts", "TypeScript", 0, -562, 0, 0, 0, 0, 0, 0, 0, -147, -74, -783
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\index.ts", "TypeScript", 0, -804, 0, 0, 0, 0, 0, 0, 0, -122, -39, -965
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\plugins\daily-changes-discord.ts", "TypeScript", 0, -22, 0, 0, 0, 0, 0, 0, 0, -8, -4, -34
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\plugins\db-init.ts", "TypeScript", 0, -37, 0, 0, 0, 0, 0, 0, 0, -17, -3, -57
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\auth.ts", "TypeScript", 0, -124, 0, 0, 0, 0, 0, 0, 0, -4, -17, -145
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\changes.ts", "TypeScript", 0, -104, 0, 0, 0, 0, 0, 0, 0, -24, -10, -138
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\daily-discord.ts", "TypeScript", 0, -67, 0, 0, 0, 0, 0, 0, 0, -21, -13, -101
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\discord.ts", "TypeScript", 0, -176, 0, 0, 0, 0, 0, 0, 0, -31, -20, -227
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\follows.ts", "TypeScript", 0, -29, 0, 0, 0, 0, 0, 0, 0, -8, -8, -45
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\gd-cache-warmer.ts", "TypeScript", 0, -166, 0, 0, 0, 0, 0, 0, 0, -20, -24, -210
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\gd-fetch.ts", "TypeScript", 0, -307, 0, 0, 0, 0, 0, 0, 0, -49, -32, -388
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\inbox.ts", "TypeScript", 0, -36, 0, 0, 0, 0, 0, 0, 0, 0, -3, -39
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\leaderboard-discord.ts", "TypeScript", 0, -60, 0, 0, 0, 0, 0, 0, 0, -9, -13, -82
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\leaderboard.ts", "TypeScript", 0, -70, 0, 0, 0, 0, 0, 0, 0, -19, -10, -99
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\opinions.ts", "TypeScript", 0, -86, 0, 0, 0, 0, 0, 0, 0, -16, -18, -120
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\points.ts", "TypeScript", 0, -137, 0, 0, 0, 0, 0, 0, 0, -40, -13, -190
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\profile.ts", "TypeScript", 0, -66, 0, 0, 0, 0, 0, 0, 0, -6, -10, -82
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\tailwind.config.js", "JavaScript", 0, 0, 0, -39, 0, 0, 0, 0, 0, -4, -1, -44
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\tsconfig.json", "JSON with Comments", 0, 0, -3, 0, 0, 0, 0, 0, 0, 0, -1, -4
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\challenge-sources.ts", "TypeScript", 0, -12, 0, 0, 0, 0, 0, 0, 0, -4, -4, -20
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\country-codes.ts", "TypeScript", 0, -41, 0, 0, 0, 0, 0, 0, 0, -8, -2, -51
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\role-styles.ts", "TypeScript", 0, -15, 0, 0, 0, 0, 0, 0, 0, -5, -2, -22
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\stat-colors.ts", "TypeScript", 0, -45, 0, 0, 0, 0, 0, 0, 0, -5, -5, -55
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\tier-colors.ts", "TypeScript", 0, -60, 0, 0, 0, 0, 0, 0, 0, -13, -4, -77
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\tier-shortcut.ts", "TypeScript", 0, -8, 0, 0, 0, 0, 0, 0, 0, -7, -2, -17
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\worker\boomlings-proxy.js", "JavaScript", 0, 0, 0, -28, 0, 0, 0, 0, 0, -7, -5, -40
+"c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\worker\local-proxy.js", "JavaScript", 0, 0, 0, -52, 0, 0, 0, 0, 0, -13, -6, -71
+"d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\details.md", "Markdown", 0, 0, 0, 0, 0, 232, 0, 0, 0, 0, 6, 238
+"d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\diff-details.md", "Markdown", 0, 0, 0, 0, 0, 232, 0, 0, 0, 0, 6, 238
+"d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\diff.md", "Markdown", 0, 0, 0, 0, 0, 118, 0, 0, 0, 0, 7, 125
+"d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\results.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\results.md", "Markdown", 0, 0, 0, 0, 0, 118, 0, 0, 0, 0, 7, 125
+"d:\Downloads\All Levels List\list4\.aredl-levels-sample.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\.aredl-openapi.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\.aredl-records-sample.json", "JSON", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+"d:\Downloads\All Levels List\list4\.claude\settings.local.json", "JSON", 174, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 175
+"d:\Downloads\All Levels List\list4\README.md", "Markdown", 0, 0, 0, 0, 0, 1156, 0, 0, 0, 0, 283, 1439
+"d:\Downloads\All Levels List\list4\assets\css\main.css", "PostCSS", 0, 0, 0, 0, 117, 0, 0, 0, 0, 91, 10, 218
+"d:\Downloads\All Levels List\list4\composables\useAredlTopThreshold.ts", "TypeScript", 0, 11, 0, 0, 0, 0, 0, 0, 0, 9, 3, 23
+"d:\Downloads\All Levels List\list4\composables\useCurrentUser.ts", "TypeScript", 0, 33, 0, 0, 0, 0, 0, 0, 0, 17, 4, 54
+"d:\Downloads\All Levels List\list4\composables\useCustomList.ts", "TypeScript", 0, 47, 0, 0, 0, 0, 0, 0, 0, 13, 7, 67
+"d:\Downloads\All Levels List\list4\composables\useLevelPicker.ts", "TypeScript", 0, 115, 0, 0, 0, 0, 0, 0, 0, 10, 13, 138
+"d:\Downloads\All Levels List\list4\composables\useListBuilder.ts", "TypeScript", 0, 102, 0, 0, 0, 0, 0, 0, 0, 19, 10, 131
+"d:\Downloads\All Levels List\list4\composables\useProfanityFilter.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 10, 7, 36
+"d:\Downloads\All Levels List\list4\composables\useStandaloneList.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 28, 6, 52
+"d:\Downloads\All Levels List\list4\composables\useTheme.ts", "TypeScript", 0, 189, 0, 0, 0, 0, 0, 0, 0, 13, 20, 222
+"d:\Downloads\All Levels List\list4\composables\useTierCurve.ts", "TypeScript", 0, 11, 0, 0, 0, 0, 0, 0, 0, 22, 3, 36
+"d:\Downloads\All Levels List\list4\composables\useTierDecimal.ts", "TypeScript", 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2
+"d:\Downloads\All Levels List\list4\dev\gsv-aredl-335.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-docs.html", "HTML", 0, 0, 0, 0, 0, 0, 114, 0, 0, 2, 25, 141
+"d:\Downloads\All Levels List\list4\dev\gsv-gdl-335.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-getprofile-335.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-getuser-335.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-levels.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-openapi.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\gsv-pc-335.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+"d:\Downloads\All Levels List\list4\dev\landing.html", "HTML", 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 2, 72
+"d:\Downloads\All Levels List\list4\dev\main.html", "HTML", 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 2, 72
+"d:\Downloads\All Levels List\list4\dev\voidlist.html", "HTML", 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 2, 72
+"d:\Downloads\All Levels List\list4\dev\voidlist2.html", "HTML", 0, 0, 0, 0, 0, 0, 70, 0, 0, 0, 2, 72
+"d:\Downloads\All Levels List\list4\middleware\admin.ts", "TypeScript", 0, 10, 0, 0, 0, 0, 0, 0, 0, 4, 1, 15
+"d:\Downloads\All Levels List\list4\middleware\auth.ts", "TypeScript", 0, 6, 0, 0, 0, 0, 0, 0, 0, 4, 1, 11
+"d:\Downloads\All Levels List\list4\middleware\lockdown.global.ts", "TypeScript", 0, 10, 0, 0, 0, 0, 0, 0, 0, 16, 4, 30
+"d:\Downloads\All Levels List\list4\middleware\mod.ts", "TypeScript", 0, 10, 0, 0, 0, 0, 0, 0, 0, 6, 1, 17
+"d:\Downloads\All Levels List\list4\nuxt.config.ts", "TypeScript", 0, 50, 0, 0, 0, 0, 0, 0, 0, 16, 1, 67
+"d:\Downloads\All Levels List\list4\package-lock.json", "JSON", 11881, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 11882
+"d:\Downloads\All Levels List\list4\package.json", "JSON", 43, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44
+"d:\Downloads\All Levels List\list4\plugins\analytics.client.ts", "TypeScript", 0, 24, 0, 0, 0, 0, 0, 0, 0, 23, 4, 51
+"d:\Downloads\All Levels List\list4\plugins\theme.client.ts", "TypeScript", 0, 5, 0, 0, 0, 0, 0, 0, 0, 4, 1, 10
+"d:\Downloads\All Levels List\list4\public\favicon.svg", "XML", 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 2
+"d:\Downloads\All Levels List\list4\railway.json", "JSON", 14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 15
+"d:\Downloads\All Levels List\list4\scripts\make-admin.ts", "TypeScript", 0, 99, 0, 0, 0, 0, 0, 0, 0, 19, 12, 130
+"d:\Downloads\All Levels List\list4\scripts\purge-accounts.ts", "TypeScript", 0, 154, 0, 0, 0, 0, 0, 0, 0, 29, 28, 211
+"d:\Downloads\All Levels List\list4\server\api\account\avatar.delete.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"d:\Downloads\All Levels List\list4\server\api\account\avatar.post.ts", "TypeScript", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 5, 25
+"d:\Downloads\All Levels List\list4\server\api\account\claim.delete.ts", "TypeScript", 0, 28, 0, 0, 0, 0, 0, 0, 0, 10, 6, 44
+"d:\Downloads\All Levels List\list4\server\api\account\claim.get.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14
+"d:\Downloads\All Levels List\list4\server\api\account\claim.post.ts", "TypeScript", 0, 88, 0, 0, 0, 0, 0, 0, 0, 11, 16, 115
+"d:\Downloads\All Levels List\list4\server\api\account\claim\records.post.ts", "TypeScript", 0, 23, 0, 0, 0, 0, 0, 0, 0, 11, 6, 40
+"d:\Downloads\All Levels List\list4\server\api\account\inbox.get.ts", "TypeScript", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 2, 22
+"d:\Downloads\All Levels List\list4\server\api\account\inbox\[id].post.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 4, 4, 30
+"d:\Downloads\All Levels List\list4\server\api\account\inbox\read-all.post.ts", "TypeScript", 0, 9, 0, 0, 0, 0, 0, 0, 0, 0, 2, 11
+"d:\Downloads\All Levels List\list4\server\api\account\index.patch.ts", "TypeScript", 0, 156, 0, 0, 0, 0, 0, 0, 0, 43, 17, 216
+"d:\Downloads\All Levels List\list4\server\api\account\progress.post.ts", "TypeScript", 0, 67, 0, 0, 0, 0, 0, 0, 0, 3, 12, 82
+"d:\Downloads\All Levels List\list4\server\api\account\progress\[id].delete.ts", "TypeScript", 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 2, 18
+"d:\Downloads\All Levels List\list4\server\api\admin\analytics.get.ts", "TypeScript", 0, 173, 0, 0, 0, 0, 0, 0, 0, 74, 21, 268
+"d:\Downloads\All Levels List\list4\server\api\admin\aredl-levels\[uuid]\promote.post.ts", "TypeScript", 0, 76, 0, 0, 0, 0, 0, 0, 0, 15, 12, 103
+"d:\Downloads\All Levels List\list4\server\api\admin\aredl-levels\index.get.ts", "TypeScript", 0, 13, 0, 0, 0, 0, 0, 0, 0, 4, 2, 19
+"d:\Downloads\All Levels List\list4\server\api\admin\awaiting\[id].post.ts", "TypeScript", 0, 167, 0, 0, 0, 0, 0, 0, 0, 12, 14, 193
+"d:\Downloads\All Levels List\list4\server\api\admin\ban.post.ts", "TypeScript", 0, 41, 0, 0, 0, 0, 0, 0, 0, 7, 4, 52
+"d:\Downloads\All Levels List\list4\server\api\admin\changes\[levelId].delete.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 4, 4, 29
+"d:\Downloads\All Levels List\list4\server\api\admin\claims.get.ts", "TypeScript", 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 2, 15
+"d:\Downloads\All Levels List\list4\server\api\admin\claims\[id].post.ts", "TypeScript", 0, 80, 0, 0, 0, 0, 0, 0, 0, 4, 8, 92
+"d:\Downloads\All Levels List\list4\server\api\admin\counts.get.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 5, 4, 30
+"d:\Downloads\All Levels List\list4\server\api\admin\custom-list-from-levels.post.ts", "TypeScript", 0, 67, 0, 0, 0, 0, 0, 0, 0, 11, 10, 88
+"d:\Downloads\All Levels List\list4\server\api\admin\custom-list-preview.get.ts", "TypeScript", 0, 25, 0, 0, 0, 0, 0, 0, 0, 6, 6, 37
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id].delete.ts", "TypeScript", 0, 14, 0, 0, 0, 0, 0, 0, 0, 0, 2, 16
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id].patch.ts", "TypeScript", 0, 41, 0, 0, 0, 0, 0, 0, 0, 1, 6, 48
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id]\test.post.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 1, 3, 25
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\index.get.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 3, 3, 24
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\index.post.ts", "TypeScript", 0, 31, 0, 0, 0, 0, 0, 0, 0, 0, 7, 38
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\post-now.post.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 5, 2, 14
+"d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\post-yesterday.post.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 5, 2, 14
+"d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\start.post.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 5, 2, 19
+"d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\status.get.ts", "TypeScript", 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 2, 8
+"d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\stop.post.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\apply.post.ts", "TypeScript", 0, 53, 0, 0, 0, 0, 0, 0, 0, 12, 8, 73
+"d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\dismiss.post.ts", "TypeScript", 0, 35, 0, 0, 0, 0, 0, 0, 0, 7, 7, 49
+"d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\index.get.ts", "TypeScript", 0, 26, 0, 0, 0, 0, 0, 0, 0, 8, 7, 41
+"d:\Downloads\All Levels List\list4\server\api\admin\imports\clear-pending.post.ts", "TypeScript", 0, 52, 0, 0, 0, 0, 0, 0, 0, 4, 4, 60
+"d:\Downloads\All Levels List\list4\server\api\admin\imports\run.post.ts", "TypeScript", 0, 81, 0, 0, 0, 0, 0, 0, 0, 14, 8, 103
+"d:\Downloads\All Levels List\list4\server\api\admin\imports\status.get.ts", "TypeScript", 0, 39, 0, 0, 0, 0, 0, 0, 0, 0, 4, 43
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\challenge.post.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 25, 7, 54
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\index.delete.ts", "TypeScript", 0, 25, 0, 0, 0, 0, 0, 0, 0, 5, 6, 36
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\index.patch.ts", "TypeScript", 0, 72, 0, 0, 0, 0, 0, 0, 0, 13, 10, 95
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\move.post.ts", "TypeScript", 0, 49, 0, 0, 0, 0, 0, 0, 0, 12, 7, 68
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\promote.post.ts", "TypeScript", 0, 13, 0, 0, 0, 0, 0, 0, 0, 4, 4, 21
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\to-awaiting.post.ts", "TypeScript", 0, 59, 0, 0, 0, 0, 0, 0, 0, 8, 8, 75
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\group-move-request.post.ts", "TypeScript", 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 10, 43
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\group-move.post.ts", "TypeScript", 0, 71, 0, 0, 0, 0, 0, 0, 0, 6, 14, 91
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\pending.get.ts", "TypeScript", 0, 68, 0, 0, 0, 0, 0, 0, 0, 15, 2, 85
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\pending\[id].post.ts", "TypeScript", 0, 266, 0, 0, 0, 0, 0, 0, 0, 31, 18, 315
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\placement-preview.get.ts", "TypeScript", 0, 46, 0, 0, 0, 0, 0, 0, 0, 5, 8, 59
+"d:\Downloads\All Levels List\list4\server\api\admin\levels\tier-midpoint.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 6, 4, 27
+"d:\Downloads\All Levels List\list4\server\api\admin\mark-seen.post.ts", "TypeScript", 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 5, 37
+"d:\Downloads\All Levels List\list4\server\api\admin\movements\[id].post.ts", "TypeScript", 0, 88, 0, 0, 0, 0, 0, 0, 0, 3, 13, 104
+"d:\Downloads\All Levels List\list4\server\api\admin\movements\index.get.ts", "TypeScript", 0, 26, 0, 0, 0, 0, 0, 0, 0, 0, 2, 28
+"d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].delete.ts", "TypeScript", 0, 14, 0, 0, 0, 0, 0, 0, 0, 4, 5, 23
+"d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].patch.ts", "TypeScript", 0, 49, 0, 0, 0, 0, 0, 0, 0, 3, 8, 60
+"d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].post.ts", "TypeScript", 0, 51, 0, 0, 0, 0, 0, 0, 0, 5, 6, 62
+"d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\pending.get.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 2, 21
+"d:\Downloads\All Levels List\list4\server\api\admin\opinions\[id].post.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 1, 7, 52
+"d:\Downloads\All Levels List\list4\server\api\admin\opinions\pending.get.ts", "TypeScript", 0, 36, 0, 0, 0, 0, 0, 0, 0, 3, 4, 43
+"d:\Downloads\All Levels List\list4\server\api\admin\placements\export.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 7, 4, 28
+"d:\Downloads\All Levels List\list4\server\api\admin\placements\reset-to-sheet.post.ts", "TypeScript", 0, 29, 0, 0, 0, 0, 0, 0, 0, 9, 5, 43
+"d:\Downloads\All Levels List\list4\server\api\admin\placements\restore.post.ts", "TypeScript", 0, 46, 0, 0, 0, 0, 0, 0, 0, 13, 10, 69
+"d:\Downloads\All Levels List\list4\server\api\admin\position-history\[id].delete.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14
+"d:\Downloads\All Levels List\list4\server\api\admin\records\[id].delete.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 4, 16
+"d:\Downloads\All Levels List\list4\server\api\admin\records\[id].post.ts", "TypeScript", 0, 59, 0, 0, 0, 0, 0, 0, 0, 5, 6, 70
+"d:\Downloads\All Levels List\list4\server\api\admin\records\bulk-approve.post.ts", "TypeScript", 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 6, 39
+"d:\Downloads\All Levels List\list4\server\api\admin\records\pending.get.ts", "TypeScript", 0, 24, 0, 0, 0, 0, 0, 0, 0, 0, 2, 26
+"d:\Downloads\All Levels List\list4\server\api\admin\repair-placements.post.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 7, 4, 29
+"d:\Downloads\All Levels List\list4\server\api\admin\role.post.ts", "TypeScript", 0, 43, 0, 0, 0, 0, 0, 0, 0, 0, 10, 53
+"d:\Downloads\All Levels List\list4\server\api\admin\seen-counts.get.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 2, 14
+"d:\Downloads\All Levels List\list4\server\api\admin\set-claim.post.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 14, 6, 64
+"d:\Downloads\All Levels List\list4\server\api\admin\sheet-handover\apply.post.ts", "TypeScript", 0, 24, 0, 0, 0, 0, 0, 0, 0, 10, 7, 41
+"d:\Downloads\All Levels List\list4\server\api\admin\sheet-handover\index.get.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 4, 2, 18
+"d:\Downloads\All Levels List\list4\server\api\admin\sheet-report.get.ts", "TypeScript", 0, 162, 0, 0, 0, 0, 0, 0, 0, 42, 17, 221
+"d:\Downloads\All Levels List\list4\server\api\admin\submit-all.post.ts", "TypeScript", 0, 112, 0, 0, 0, 0, 0, 0, 0, 9, 14, 135
+"d:\Downloads\All Levels List\list4\server\api\admin\users.get.ts", "TypeScript", 0, 46, 0, 0, 0, 0, 0, 0, 0, 10, 6, 62
+"d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\index.delete.ts", "TypeScript", 0, 23, 0, 0, 0, 0, 0, 0, 0, 4, 5, 32
+"d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\index.patch.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 3, 8, 55
+"d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\move.post.ts", "TypeScript", 0, 41, 0, 0, 0, 0, 0, 0, 0, 5, 6, 52
+"d:\Downloads\All Levels List\list4\server\api\analytics\view.post.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 19, 5, 46
+"d:\Downloads\All Levels List\list4\server\api\aredl-players\[uuid].get.ts", "TypeScript", 0, 109, 0, 0, 0, 0, 0, 0, 0, 24, 16, 149
+"d:\Downloads\All Levels List\list4\server\api\aredl-players\search.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 4, 2, 23
+"d:\Downloads\All Levels List\list4\server\api\aredl\top-threshold.get.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 6, 2, 15
+"d:\Downloads\All Levels List\list4\server\api\auth\login.post.ts", "TypeScript", 0, 28, 0, 0, 0, 0, 0, 0, 0, 3, 3, 34
+"d:\Downloads\All Levels List\list4\server\api\auth\logout.post.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 0, 2, 9
+"d:\Downloads\All Levels List\list4\server\api\auth\me.get.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 13, 3, 38
+"d:\Downloads\All Levels List\list4\server\api\auth\signup.post.ts", "TypeScript", 0, 37, 0, 0, 0, 0, 0, 0, 0, 5, 7, 49
+"d:\Downloads\All Levels List\list4\server\api\awaiting\levels.get.ts", "TypeScript", 0, 82, 0, 0, 0, 0, 0, 0, 0, 0, 15, 97
+"d:\Downloads\All Levels List\list4\server\api\awaiting\levels\[id].get.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 0, 2, 21
+"d:\Downloads\All Levels List\list4\server\api\changes\recent.get.ts", "TypeScript", 0, 15, 0, 0, 0, 0, 0, 0, 0, 6, 4, 25
+"d:\Downloads\All Levels List\list4\server\api\clans\[tag]\index.get.ts", "TypeScript", 0, 77, 0, 0, 0, 0, 0, 0, 0, 14, 9, 100
+"d:\Downloads\All Levels List\list4\server\api\clans\[tag]\invitable.get.ts", "TypeScript", 0, 40, 0, 0, 0, 0, 0, 0, 0, 13, 5, 58
+"d:\Downloads\All Levels List\list4\server\api\clans\[tag]\membership.post.ts", "TypeScript", 0, 205, 0, 0, 0, 0, 0, 0, 0, 45, 19, 269
+"d:\Downloads\All Levels List\list4\server\api\clans\index.get.ts", "TypeScript", 0, 13, 0, 0, 0, 0, 0, 0, 0, 10, 2, 25
+"d:\Downloads\All Levels List\list4\server\api\clans\index.post.ts", "TypeScript", 0, 55, 0, 0, 0, 0, 0, 0, 0, 11, 10, 76
+"d:\Downloads\All Levels List\list4\server\api\comments\[id].delete.ts", "TypeScript", 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 5, 25
+"d:\Downloads\All Levels List\list4\server\api\comments\index.get.ts", "TypeScript", 0, 48, 0, 0, 0, 0, 0, 0, 0, 5, 5, 58
+"d:\Downloads\All Levels List\list4\server\api\comments\index.post.ts", "TypeScript", 0, 79, 0, 0, 0, 0, 0, 0, 0, 6, 9, 94
+"d:\Downloads\All Levels List\list4\server\api\community.get.ts", "TypeScript", 0, 52, 0, 0, 0, 0, 0, 0, 0, 9, 8, 69
+"d:\Downloads\All Levels List\list4\server\api\community\players.get.ts", "TypeScript", 0, 180, 0, 0, 0, 0, 0, 0, 0, 27, 14, 221
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].delete.ts", "TypeScript", 0, 16, 0, 0, 0, 0, 0, 0, 0, 1, 4, 21
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].get.ts", "TypeScript", 0, 30, 0, 0, 0, 0, 0, 0, 0, 12, 3, 45
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].patch.ts", "TypeScript", 0, 174, 0, 0, 0, 0, 0, 0, 0, 26, 9, 209
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\changes.get.ts", "TypeScript", 0, 35, 0, 0, 0, 0, 0, 0, 0, 2, 7, 44
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\copy.post.ts", "TypeScript", 0, 47, 0, 0, 0, 0, 0, 0, 0, 7, 5, 59
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.delete.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 4, 6, 32
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 1, 4, 22
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.post.ts", "TypeScript", 0, 47, 0, 0, 0, 0, 0, 0, 0, 1, 9, 57
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id].delete.ts", "TypeScript", 0, 40, 0, 0, 0, 0, 0, 0, 0, 8, 6, 54
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id].patch.ts", "TypeScript", 0, 75, 0, 0, 0, 0, 0, 0, 0, 26, 15, 116
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id]\link.post.ts", "TypeScript", 0, 69, 0, 0, 0, 0, 0, 0, 0, 20, 9, 98
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\leaderboard.get.ts", "TypeScript", 0, 16, 0, 0, 0, 0, 0, 0, 0, 1, 4, 21
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\like.post.ts", "TypeScript", 0, 39, 0, 0, 0, 0, 0, 0, 0, 5, 7, 51
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\move.post.ts", "TypeScript", 0, 64, 0, 0, 0, 0, 0, 0, 0, 20, 11, 95
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending.get.ts", "TypeScript", 0, 41, 0, 0, 0, 0, 0, 0, 0, 3, 8, 52
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending.post.ts", "TypeScript", 0, 88, 0, 0, 0, 0, 0, 0, 0, 6, 11, 105
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending\[pending_id].post.ts", "TypeScript", 0, 65, 0, 0, 0, 0, 0, 0, 0, 1, 10, 76
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records.get.ts", "TypeScript", 0, 38, 0, 0, 0, 0, 0, 0, 0, 4, 7, 49
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records.post.ts", "TypeScript", 0, 92, 0, 0, 0, 0, 0, 0, 0, 15, 12, 119
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records\[record_id].delete.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 1, 6, 28
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records\[record_id].post.ts", "TypeScript", 0, 57, 0, 0, 0, 0, 0, 0, 0, 5, 9, 71
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\submit-to-all.post.ts", "TypeScript", 0, 110, 0, 0, 0, 0, 0, 0, 0, 16, 20, 146
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\webhooks.get.ts", "TypeScript", 0, 29, 0, 0, 0, 0, 0, 0, 0, 6, 6, 41
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\webhooks.post.ts", "TypeScript", 0, 110, 0, 0, 0, 0, 0, 0, 0, 3, 10, 123
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\index.get.ts", "TypeScript", 0, 30, 0, 0, 0, 0, 0, 0, 0, 8, 5, 43
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\index.post.ts", "TypeScript", 0, 46, 0, 0, 0, 0, 0, 0, 0, 1, 5, 52
+"d:\Downloads\All Levels List\list4\server\api\custom-lists\public.get.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 6, 8, 58
+"d:\Downloads\All Levels List\list4\server\api\feed\followed.get.ts", "TypeScript", 0, 116, 0, 0, 0, 0, 0, 0, 0, 16, 14, 146
+"d:\Downloads\All Levels List\list4\server\api\follows\followers.get.ts", "TypeScript", 0, 24, 0, 0, 0, 0, 0, 0, 0, 6, 5, 35
+"d:\Downloads\All Levels List\list4\server\api\follows\following.get.ts", "TypeScript", 0, 40, 0, 0, 0, 0, 0, 0, 0, 16, 6, 62
+"d:\Downloads\All Levels List\list4\server\api\follows\index.delete.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 4, 16
+"d:\Downloads\All Levels List\list4\server\api\follows\index.get.ts", "TypeScript", 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13
+"d:\Downloads\All Levels List\list4\server\api\follows\index.post.ts", "TypeScript", 0, 20, 0, 0, 0, 0, 0, 0, 0, 2, 6, 28
+"d:\Downloads\All Levels List\list4\server\api\gd\level\[id].get.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 7, 9, 60
+"d:\Downloads\All Levels List\list4\server\api\gd\search.get.ts", "TypeScript", 0, 87, 0, 0, 0, 0, 0, 0, 0, 16, 10, 113
+"d:\Downloads\All Levels List\list4\server\api\gdl-players\[id].get.ts", "TypeScript", 0, 61, 0, 0, 0, 0, 0, 0, 0, 14, 9, 84
+"d:\Downloads\All Levels List\list4\server\api\gdl-players\search.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 4, 2, 23
+"d:\Downloads\All Levels List\list4\server\api\landing.get.ts", "TypeScript", 0, 120, 0, 0, 0, 0, 0, 0, 0, 6, 13, 139
+"d:\Downloads\All Levels List\list4\server\api\leaderboard.get.ts", "TypeScript", 0, 144, 0, 0, 0, 0, 0, 0, 0, 30, 24, 198
+"d:\Downloads\All Levels List\list4\server\api\leaderboard\global.get.ts", "TypeScript", 0, 282, 0, 0, 0, 0, 0, 0, 0, 52, 25, 359
+"d:\Downloads\All Levels List\list4\server\api\levels.get.ts", "TypeScript", 0, 235, 0, 0, 0, 0, 0, 0, 0, 49, 41, 325
+"d:\Downloads\All Levels List\list4\server\api\levels\[position].get.ts", "TypeScript", 0, 175, 0, 0, 0, 0, 0, 0, 0, 50, 20, 245
+"d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-cl-placement.get.ts", "TypeScript", 0, 46, 0, 0, 0, 0, 0, 0, 0, 6, 7, 59
+"d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-gdl-placement.get.ts", "TypeScript", 0, 37, 0, 0, 0, 0, 0, 0, 0, 0, 7, 44
+"d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-placement.get.ts", "TypeScript", 0, 37, 0, 0, 0, 0, 0, 0, 0, 3, 7, 47
+"d:\Downloads\All Levels List\list4\server\api\levels\by-gd-id\[gd_id].get.ts", "TypeScript", 0, 13, 0, 0, 0, 0, 0, 0, 0, 4, 4, 21
+"d:\Downloads\All Levels List\list4\server\api\levels\by-placement\[placement].get.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 10, 5, 36
+"d:\Downloads\All Levels List\list4\server\api\levels\sources.get.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 5, 26
+"d:\Downloads\All Levels List\list4\server\api\levels\submit.post.ts", "TypeScript", 0, 119, 0, 0, 0, 0, 0, 0, 0, 5, 22, 146
+"d:\Downloads\All Levels List\list4\server\api\levels\tier-curve.get.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 7, 2, 16
+"d:\Downloads\All Levels List\list4\server\api\levels\tier-midpoint.get.ts", "TypeScript", 0, 14, 0, 0, 0, 0, 0, 0, 0, 2, 4, 20
+"d:\Downloads\All Levels List\list4\server\api\levels\version.get.ts", "TypeScript", 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 2, 10
+"d:\Downloads\All Levels List\list4\server\api\list-sources.get.ts", "TypeScript", 0, 87, 0, 0, 0, 0, 0, 0, 0, 21, 9, 117
+"d:\Downloads\All Levels List\list4\server\api\movements\index.post.ts", "TypeScript", 0, 30, 0, 0, 0, 0, 0, 0, 0, 1, 10, 41
+"d:\Downloads\All Levels List\list4\server\api\open-verifications\[id]\submit-verification.post.ts", "TypeScript", 0, 140, 0, 0, 0, 0, 0, 0, 0, 15, 16, 171
+"d:\Downloads\All Levels List\list4\server\api\open-verifications\levels.get.ts", "TypeScript", 0, 76, 0, 0, 0, 0, 0, 0, 0, 0, 15, 91
+"d:\Downloads\All Levels List\list4\server\api\open-verifications\levels\[id].get.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 0, 2, 23
+"d:\Downloads\All Levels List\list4\server\api\open-verifications\submit.post.ts", "TypeScript", 0, 84, 0, 0, 0, 0, 0, 0, 0, 2, 17, 103
+"d:\Downloads\All Levels List\list4\server\api\opinions\index.post.ts", "TypeScript", 0, 77, 0, 0, 0, 0, 0, 0, 0, 1, 15, 93
+"d:\Downloads\All Levels List\list4\server\api\pointercrate-players\[pc_id].get.ts", "TypeScript", 0, 61, 0, 0, 0, 0, 0, 0, 0, 13, 9, 83
+"d:\Downloads\All Levels List\list4\server\api\pointercrate-players\search.get.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 4, 2, 23
+"d:\Downloads\All Levels List\list4\server\api\records\index.post.ts", "TypeScript", 0, 68, 0, 0, 0, 0, 0, 0, 0, 9, 12, 89
+"d:\Downloads\All Levels List\list4\server\api\stats.get.ts", "TypeScript", 0, 147, 0, 0, 0, 0, 0, 0, 0, 32, 13, 192
+"d:\Downloads\All Levels List\list4\server\api\users\[username].get.ts", "TypeScript", 0, 144, 0, 0, 0, 0, 0, 0, 0, 50, 20, 214
+"d:\Downloads\All Levels List\list4\server\api\users\[username]\avatar.get.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 4, 16
+"d:\Downloads\All Levels List\list4\server\api\users\by-player\[player].get.ts", "TypeScript", 0, 123, 0, 0, 0, 0, 0, 0, 0, 21, 17, 161
+"d:\Downloads\All Levels List\list4\server\api\users\search.get.ts", "TypeScript", 0, 26, 0, 0, 0, 0, 0, 0, 0, 5, 7, 38
+"d:\Downloads\All Levels List\list4\server\api\void\levels.get.ts", "TypeScript", 0, 33, 0, 0, 0, 0, 0, 0, 0, 0, 5, 38
+"d:\Downloads\All Levels List\list4\server\api\void\levels\[position].get.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 0, 2, 20
+"d:\Downloads\All Levels List\list4\server\api\void\levels\[position]\submit.post.ts", "TypeScript", 0, 77, 0, 0, 0, 0, 0, 0, 0, 5, 10, 92
+"d:\Downloads\All Levels List\list4\server\api\youtube\upload-date.get.ts", "TypeScript", 0, 84, 0, 0, 0, 0, 0, 0, 0, 53, 14, 151
+"d:\Downloads\All Levels List\list4\server\db\backfill-gd-cache.ts", "TypeScript", 0, 347, 0, 0, 0, 0, 0, 0, 0, 23, 42, 412
+"d:\Downloads\All Levels List\list4\server\db\clear-temporary-levels.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 10, 10, 64
+"d:\Downloads\All Levels List\list4\server\db\diff-sheet.ts", "TypeScript", 0, 187, 0, 0, 0, 0, 0, 0, 0, 10, 17, 214
+"d:\Downloads\All Levels List\list4\server\db\import-acs.ts", "TypeScript", 0, 343, 0, 0, 0, 0, 0, 0, 0, 103, 46, 492
+"d:\Downloads\All Levels List\list4\server\db\import-aredl-history.ts", "TypeScript", 0, 150, 0, 0, 0, 0, 0, 0, 0, 34, 15, 199
+"d:\Downloads\All Levels List\list4\server\db\import-aredl.ts", "TypeScript", 0, 266, 0, 0, 0, 0, 0, 0, 0, 23, 18, 307
+"d:\Downloads\All Levels List\list4\server\db\import-ccl.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 5, 4, 27
+"d:\Downloads\All Levels List\list4\server\db\import-cl.ts", "TypeScript", 0, 213, 0, 0, 0, 0, 0, 0, 0, 21, 20, 254
+"d:\Downloads\All Levels List\list4\server\db\import-ddl.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 5, 4, 27
+"d:\Downloads\All Levels List\list4\server\db\import-edi.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 4, 4, 26
+"d:\Downloads\All Levels List\list4\server\db\import-gdl.ts", "TypeScript", 0, 394, 0, 0, 0, 0, 0, 0, 0, 44, 30, 468
+"d:\Downloads\All Levels List\list4\server\db\import-gdtpl.ts", "TypeScript", 0, 269, 0, 0, 0, 0, 0, 0, 0, 62, 24, 355
+"d:\Downloads\All Levels List\list4\server\db\import-gsv.ts", "TypeScript", 0, 158, 0, 0, 0, 0, 0, 0, 0, 23, 15, 196
+"d:\Downloads\All Levels List\list4\server\db\import-ll.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 4, 4, 26
+"d:\Downloads\All Levels List\list4\server\db\import-mscl.ts", "TypeScript", 0, 116, 0, 0, 0, 0, 0, 0, 0, 25, 15, 156
+"d:\Downloads\All Levels List\list4\server\db\import-pointercrate.ts", "TypeScript", 0, 190, 0, 0, 0, 0, 0, 0, 0, 46, 15, 251
+"d:\Downloads\All Levels List\list4\server\db\import-sfl.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 4, 4, 26
+"d:\Downloads\All Levels List\list4\server\db\import-tcl.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 5, 4, 27
+"d:\Downloads\All Levels List\list4\server\db\import-tsl.ts", "TypeScript", 0, 18, 0, 0, 0, 0, 0, 0, 0, 6, 4, 28
+"d:\Downloads\All Levels List\list4\server\db\import.ts", "TypeScript", 0, 976, 0, 0, 0, 0, 0, 0, 0, 312, 122, 1410
+"d:\Downloads\All Levels List\list4\server\db\index.ts", "TypeScript", 0, 1531, 0, 0, 0, 0, 0, 0, 0, 409, 71, 2011
+"d:\Downloads\All Levels List\list4\server\middleware\00.lockdown.ts", "TypeScript", 0, 27, 0, 0, 0, 0, 0, 0, 0, 19, 9, 55
+"d:\Downloads\All Levels List\list4\server\middleware\10.analytics.ts", "TypeScript", 0, 29, 0, 0, 0, 0, 0, 0, 0, 23, 8, 60
+"d:\Downloads\All Levels List\list4\server\plugins\00.env.ts", "TypeScript", 0, 16, 0, 0, 0, 0, 0, 0, 0, 22, 4, 42
+"d:\Downloads\All Levels List\list4\server\plugins\00.internal-fetch.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 20, 8, 49
+"d:\Downloads\All Levels List\list4\server\plugins\daily-changes-discord.ts", "TypeScript", 0, 22, 0, 0, 0, 0, 0, 0, 0, 8, 4, 34
+"d:\Downloads\All Levels List\list4\server\plugins\db-init.ts", "TypeScript", 0, 82, 0, 0, 0, 0, 0, 0, 0, 26, 5, 113
+"d:\Downloads\All Levels List\list4\server\plugins\gsv-daily-refresh.ts", "TypeScript", 0, 35, 0, 0, 0, 0, 0, 0, 0, 8, 6, 49
+"d:\Downloads\All Levels List\list4\server\plugins\sheet-refresh.ts", "TypeScript", 0, 26, 0, 0, 0, 0, 0, 0, 0, 18, 5, 49
+"d:\Downloads\All Levels List\list4\server\utils\analytics.ts", "TypeScript", 0, 211, 0, 0, 0, 0, 0, 0, 0, 141, 25, 377
+"d:\Downloads\All Levels List\list4\server\utils\auth.ts", "TypeScript", 0, 140, 0, 0, 0, 0, 0, 0, 0, 21, 16, 177
+"d:\Downloads\All Levels List\list4\server\utils\challenge-expr.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 25, 1, 45
+"d:\Downloads\All Levels List\list4\server\utils\challenge-rank.ts", "TypeScript", 0, 24, 0, 0, 0, 0, 0, 0, 0, 18, 6, 48
+"d:\Downloads\All Levels List\list4\server\utils\changes.ts", "TypeScript", 0, 149, 0, 0, 0, 0, 0, 0, 0, 45, 11, 205
+"d:\Downloads\All Levels List\list4\server\utils\claim-records.ts", "TypeScript", 0, 172, 0, 0, 0, 0, 0, 0, 0, 57, 20, 249
+"d:\Downloads\All Levels List\list4\server\utils\clans.ts", "TypeScript", 0, 162, 0, 0, 0, 0, 0, 0, 0, 69, 17, 248
+"d:\Downloads\All Levels List\list4\server\utils\custom-list-pending.ts", "TypeScript", 0, 35, 0, 0, 0, 0, 0, 0, 0, 11, 8, 54
+"d:\Downloads\All Levels List\list4\server\utils\custom-list-perms.ts", "TypeScript", 0, 60, 0, 0, 0, 0, 0, 0, 0, 23, 11, 94
+"d:\Downloads\All Levels List\list4\server\utils\custom-list-scoring.ts", "TypeScript", 0, 131, 0, 0, 0, 0, 0, 0, 0, 47, 18, 196
+"d:\Downloads\All Levels List\list4\server\utils\custom-list-webhooks.ts", "TypeScript", 0, 50, 0, 0, 0, 0, 0, 0, 0, 10, 9, 69
+"d:\Downloads\All Levels List\list4\server\utils\custom-lists.ts", "TypeScript", 0, 313, 0, 0, 0, 0, 0, 0, 0, 92, 37, 442
+"d:\Downloads\All Levels List\list4\server\utils\daily-discord.ts", "TypeScript", 0, 78, 0, 0, 0, 0, 0, 0, 0, 32, 16, 126
+"d:\Downloads\All Levels List\list4\server\utils\discord.ts", "TypeScript", 0, 276, 0, 0, 0, 0, 0, 0, 0, 69, 35, 380
+"d:\Downloads\All Levels List\list4\server\utils\follows.ts", "TypeScript", 0, 29, 0, 0, 0, 0, 0, 0, 0, 8, 8, 45
+"d:\Downloads\All Levels List\list4\server\utils\gd-cache-warmer.ts", "TypeScript", 0, 166, 0, 0, 0, 0, 0, 0, 0, 20, 24, 210
+"d:\Downloads\All Levels List\list4\server\utils\gd-fetch.ts", "TypeScript", 0, 307, 0, 0, 0, 0, 0, 0, 0, 49, 32, 388
+"d:\Downloads\All Levels List\list4\server\utils\import-estimates.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 33, 5, 57
+"d:\Downloads\All Levels List\list4\server\utils\imported-movements.ts", "TypeScript", 0, 235, 0, 0, 0, 0, 0, 0, 0, 130, 28, 393
+"d:\Downloads\All Levels List\list4\server\utils\imports-state.ts", "TypeScript", 0, 66, 0, 0, 0, 0, 0, 0, 0, 34, 9, 109
+"d:\Downloads\All Levels List\list4\server\utils\inbox.ts", "TypeScript", 0, 36, 0, 0, 0, 0, 0, 0, 0, 0, 3, 39
+"d:\Downloads\All Levels List\list4\server\utils\internal-token.ts", "TypeScript", 0, 3, 0, 0, 0, 0, 0, 0, 0, 18, 2, 23
+"d:\Downloads\All Levels List\list4\server\utils\leaderboard-discord.ts", "TypeScript", 0, 59, 0, 0, 0, 0, 0, 0, 0, 10, 11, 80
+"d:\Downloads\All Levels List\list4\server\utils\leaderboard.ts", "TypeScript", 0, 70, 0, 0, 0, 0, 0, 0, 0, 19, 10, 99
+"d:\Downloads\All Levels List\list4\server\utils\level-slice.ts", "TypeScript", 0, 17, 0, 0, 0, 0, 0, 0, 0, 7, 4, 28
+"d:\Downloads\All Levels List\list4\server\utils\list-sources.ts", "TypeScript", 0, 144, 0, 0, 0, 0, 0, 0, 0, 24, 14, 182
+"d:\Downloads\All Levels List\list4\server\utils\move-level.ts", "TypeScript", 0, 104, 0, 0, 0, 0, 0, 0, 0, 47, 19, 170
+"d:\Downloads\All Levels List\list4\server\utils\opinions.ts", "TypeScript", 0, 88, 0, 0, 0, 0, 0, 0, 0, 21, 18, 127
+"d:\Downloads\All Levels List\list4\server\utils\other-lists.ts", "TypeScript", 0, 94, 0, 0, 0, 0, 0, 0, 0, 49, 11, 154
+"d:\Downloads\All Levels List\list4\server\utils\password.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 9, 4, 25
+"d:\Downloads\All Levels List\list4\server\utils\placement-snapshot.ts", "TypeScript", 0, 355, 0, 0, 0, 0, 0, 0, 0, 115, 49, 519
+"d:\Downloads\All Levels List\list4\server\utils\placement-sync.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 41, 9, 94
+"d:\Downloads\All Levels List\list4\server\utils\points.ts", "TypeScript", 0, 142, 0, 0, 0, 0, 0, 0, 0, 43, 13, 198
+"d:\Downloads\All Levels List\list4\server\utils\profanity-guard.ts", "TypeScript", 0, 9, 0, 0, 0, 0, 0, 0, 0, 15, 2, 26
+"d:\Downloads\All Levels List\list4\server\utils\profile.ts", "TypeScript", 0, 77, 0, 0, 0, 0, 0, 0, 0, 12, 10, 99
+"d:\Downloads\All Levels List\list4\server\utils\sheet-handover.ts", "TypeScript", 0, 103, 0, 0, 0, 0, 0, 0, 0, 55, 12, 170
+"d:\Downloads\All Levels List\list4\server\utils\site-access.ts", "TypeScript", 0, 37, 0, 0, 0, 0, 0, 0, 0, 32, 10, 79
+"d:\Downloads\All Levels List\list4\server\utils\tier-curve.ts", "TypeScript", 0, 42, 0, 0, 0, 0, 0, 0, 0, 33, 10, 85
+"d:\Downloads\All Levels List\list4\server\utils\tier-repair.ts", "TypeScript", 0, 45, 0, 0, 0, 0, 0, 0, 0, 17, 8, 70
+"d:\Downloads\All Levels List\list4\server\utils\unclaim.ts", "TypeScript", 0, 80, 0, 0, 0, 0, 0, 0, 0, 20, 13, 113
+"d:\Downloads\All Levels List\list4\server\utils\webhook-mask.ts", "TypeScript", 0, 4, 0, 0, 0, 0, 0, 0, 0, 9, 1, 14
+"d:\Downloads\All Levels List\list4\server\utils\xlsx.ts", "TypeScript", 0, 159, 0, 0, 0, 0, 0, 0, 0, 63, 26, 248
+"d:\Downloads\All Levels List\list4\tailwind.config.js", "JavaScript", 0, 0, 0, 39, 0, 0, 0, 0, 0, 4, 1, 44
+"d:\Downloads\All Levels List\list4\tsconfig.json", "JSON with Comments", 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 1, 4
+"d:\Downloads\All Levels List\list4\utils\badge-styles.ts", "TypeScript", 0, 44, 0, 0, 0, 0, 0, 0, 0, 53, 8, 105
+"d:\Downloads\All Levels List\list4\utils\challenge-compare.ts", "TypeScript", 0, 12, 0, 0, 0, 0, 0, 0, 0, 33, 2, 47
+"d:\Downloads\All Levels List\list4\utils\challenge-sources.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 33, 5, 57
+"d:\Downloads\All Levels List\list4\utils\clan-tag.ts", "TypeScript", 0, 3, 0, 0, 0, 0, 0, 0, 0, 12, 1, 16
+"d:\Downloads\All Levels List\list4\utils\countries.ts", "TypeScript", 0, 53, 0, 0, 0, 0, 0, 0, 0, 50, 7, 110
+"d:\Downloads\All Levels List\list4\utils\country-codes.ts", "TypeScript", 0, 41, 0, 0, 0, 0, 0, 0, 0, 8, 2, 51
+"d:\Downloads\All Levels List\list4\utils\custom-list-colors.ts", "TypeScript", 0, 43, 0, 0, 0, 0, 0, 0, 0, 64, 11, 118
+"d:\Downloads\All Levels List\list4\utils\gd-links.ts", "TypeScript", 0, 16, 0, 0, 0, 0, 0, 0, 0, 16, 6, 38
+"d:\Downloads\All Levels List\list4\utils\level-records.ts", "TypeScript", 0, 39, 0, 0, 0, 0, 0, 0, 0, 32, 7, 78
+"d:\Downloads\All Levels List\list4\utils\level-thumbs.ts", "TypeScript", 0, 98, 0, 0, 0, 0, 0, 0, 0, 82, 18, 198
+"d:\Downloads\All Levels List\list4\utils\lis.ts", "TypeScript", 0, 19, 0, 0, 0, 0, 0, 0, 0, 19, 3, 41
+"d:\Downloads\All Levels List\list4\utils\list-progress.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 12, 1, 20
+"d:\Downloads\All Levels List\list4\utils\list-source-catalog.ts", "TypeScript", 0, 68, 0, 0, 0, 0, 0, 0, 0, 44, 10, 122
+"d:\Downloads\All Levels List\list4\utils\lockdown.ts", "TypeScript", 0, 7, 0, 0, 0, 0, 0, 0, 0, 10, 3, 20
+"d:\Downloads\All Levels List\list4\utils\profanity.ts", "TypeScript", 0, 140, 0, 0, 0, 0, 0, 0, 0, 79, 18, 237
+"d:\Downloads\All Levels List\list4\utils\profile-chips.ts", "TypeScript", 0, 23, 0, 0, 0, 0, 0, 0, 0, 19, 5, 47
+"d:\Downloads\All Levels List\list4\utils\prose.ts", "TypeScript", 0, 21, 0, 0, 0, 0, 0, 0, 0, 29, 4, 54
+"d:\Downloads\All Levels List\list4\utils\role-styles.ts", "TypeScript", 0, 47, 0, 0, 0, 0, 0, 0, 0, 33, 5, 85
+"d:\Downloads\All Levels List\list4\utils\sheet.ts", "TypeScript", 0, 2, 0, 0, 0, 0, 0, 0, 0, 9, 1, 12
+"d:\Downloads\All Levels List\list4\utils\site-nav.ts", "TypeScript", 0, 119, 0, 0, 0, 0, 0, 0, 0, 35, 7, 161
+"d:\Downloads\All Levels List\list4\utils\site-updates.ts", "TypeScript", 0, 398, 0, 0, 0, 0, 0, 0, 0, 16, 4, 418
+"d:\Downloads\All Levels List\list4\utils\social-links.ts", "TypeScript", 0, 74, 0, 0, 0, 0, 0, 0, 0, 24, 7, 105
+"d:\Downloads\All Levels List\list4\utils\stat-colors.ts", "TypeScript", 0, 45, 0, 0, 0, 0, 0, 0, 0, 5, 5, 55
+"d:\Downloads\All Levels List\list4\utils\tier-colors.ts", "TypeScript", 0, 65, 0, 0, 0, 0, 0, 0, 0, 21, 5, 91
+"d:\Downloads\All Levels List\list4\utils\tier-ordinal.ts", "TypeScript", 0, 201, 0, 0, 0, 0, 0, 0, 0, 150, 33, 384
+"d:\Downloads\All Levels List\list4\utils\tier-shortcut.ts", "TypeScript", 0, 8, 0, 0, 0, 0, 0, 0, 0, 7, 2, 17
+"d:\Downloads\All Levels List\list4\worker\boomlings-proxy.js", "JavaScript", 0, 0, 0, 28, 0, 0, 0, 0, 0, 7, 5, 40
+"d:\Downloads\All Levels List\list4\worker\local-proxy.js", "JavaScript", 0, 0, 0, 52, 0, 0, 0, 0, 0, 13, 6, 71
+"Total", "-", 16, 12155, 0, 0, 59, 1775, 0, 0, -13153, 4314, 844, 6010

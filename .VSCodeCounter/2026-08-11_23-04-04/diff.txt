@@ -1,0 +1,783 @@
+Date : 2026-08-11 23:04:04
+Directory : d:\Downloads\All Levels List\list4
+Total : 542 files,  852 codes, 4314 comments, 844 blanks, all 6010 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| TypeScript         |        432 |     12,155 |      4,371 |      1,558 |     18,084 |
+| Markdown           |          6 |      1,775 |          0 |        278 |      2,053 |
+| PostCSS            |          2 |         59 |         81 |          4 |        144 |
+| JSON               |         29 |         16 |          0 |          0 |         16 |
+| JSON with Comments |          2 |          0 |          0 |          0 |          0 |
+| JavaScript         |          6 |          0 |          0 |          0 |          0 |
+| HTML               |         10 |          0 |          0 |          0 |          0 |
+| XML                |          2 |          0 |          0 |          0 |          0 |
+| vue                |         53 |    -13,153 |       -138 |       -996 |    -14,287 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                 | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                    |        319 |     36,232 |      5,735 |      3,135 |     45,102 |
+| . (Files)                                                                                                            |         10 |     13,188 |         20 |        290 |     13,498 |
+| .VSCodeCounter                                                                                                       |          5 |        701 |          0 |         26 |        727 |
+| .VSCodeCounter\2026-05-06_23-12-40                                                                                   |          5 |        701 |          0 |         26 |        727 |
+| .claude                                                                                                              |          1 |        174 |          0 |          1 |        175 |
+| assets                                                                                                               |          1 |        117 |         91 |         10 |        218 |
+| assets\css                                                                                                           |          1 |        117 |         91 |         10 |        218 |
+| c:\                                                                                                                  |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users                                                                                                             |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1                                                                                                       |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents                                                                                             |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents\code                                                                                        |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents\code\Geometry dash                                                                          |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL                                                                      |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4                                                                |        223 |    -35,380 |     -1,421 |     -2,291 |    -39,092 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4 (Files)                                                        |         12 |    -12,111 |         -4 |        -41 |    -12,156 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.claude                                                        |          1 |       -170 |          0 |         -1 |       -171 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\assets                                                         |          1 |        -58 |        -10 |         -6 |        -74 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\assets\css                                                     |          1 |        -58 |        -10 |         -6 |        -74 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components                                                     |         26 |     -7,910 |        -90 |       -586 |     -8,586 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables                                                    |          6 |       -366 |        -36 |        -47 |       -449 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev                                                            |         12 |       -401 |         -2 |        -33 |       -436 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\layouts                                                        |          2 |        -17 |          0 |         -2 |        -19 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware                                                     |          3 |        -26 |        -14 |         -3 |        -43 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages                                                          |         23 |     -5,200 |        -48 |       -405 |     -5,653 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages (Files)                                                  |          7 |     -2,610 |        -34 |       -184 |     -2,828 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\aredl-players                                            |          1 |       -128 |          0 |        -11 |       -139 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\awaiting                                                 |          2 |        -50 |          0 |         -9 |        -59 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\gdl-players                                              |          1 |       -132 |          0 |        -12 |       -144 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\levels                                                   |          2 |       -851 |         -8 |        -56 |       -915 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications                                       |          3 |       -376 |         -5 |        -37 |       -418 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications (Files)                               |          1 |        -28 |          0 |         -4 |        -32 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\[id]                                  |          2 |       -348 |         -5 |        -33 |       -386 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\opinions                                                 |          1 |       -230 |          0 |        -22 |       -252 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\pointercrate-players                                     |          1 |       -120 |          0 |        -11 |       -131 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\records                                                  |          1 |       -426 |         -1 |        -32 |       -459 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users                                                    |          2 |       -250 |          0 |        -24 |       -274 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users (Files)                                            |          1 |       -159 |          0 |        -15 |       -174 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users\by-player                                          |          1 |        -91 |          0 |         -9 |       -100 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\void                                                     |          2 |        -27 |          0 |         -7 |        -34 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\plugins                                                        |          1 |         -5 |         -4 |         -1 |        -10 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\public                                                         |          1 |         -1 |          0 |         -1 |         -2 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server                                                         |        127 |     -8,854 |     -1,151 |     -1,135 |    -11,140 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api                                                     |        104 |     -4,656 |       -473 |       -698 |     -5,827 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api (Files)                                             |          4 |       -529 |        -58 |        -73 |       -660 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account                                             |         11 |       -316 |        -18 |        -57 |       -391 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account (Files)                                     |          8 |       -269 |        -14 |        -49 |       -332 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox                                       |          2 |        -31 |         -4 |         -6 |        -41 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\progress                                    |          1 |        -16 |          0 |         -2 |        -18 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin                                               |         43 |     -1,561 |       -165 |       -225 |     -1,951 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin (Files)                                       |          6 |       -158 |        -13 |        -27 |       -198 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels                                  |          2 |        -89 |        -19 |        -14 |       -122 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels (Files)                          |          1 |        -13 |         -4 |         -2 |        -19 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels\[uuid]                           |          1 |        -76 |        -15 |        -12 |       -103 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\awaiting                                      |          1 |       -127 |        -10 |        -12 |       -149 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\changes                                       |          1 |        -21 |         -4 |         -4 |        -29 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\claims                                        |          1 |        -72 |          0 |         -6 |        -78 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks                              |          7 |       -134 |        -12 |        -24 |       -170 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks (Files)                      |          6 |       -113 |        -11 |        -21 |       -145 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id]                         |          1 |        -21 |         -1 |         -3 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache                                      |          3 |        -25 |         -5 |         -6 |        -36 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels                                        |          8 |       -474 |        -69 |        -61 |       -604 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels (Files)                                |          3 |        -85 |        -11 |        -14 |       -110 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]                             |          4 |       -163 |        -34 |        -31 |       -228 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\pending                                |          1 |       -226 |        -24 |        -16 |       -266 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications                            |          4 |       -133 |        -12 |        -21 |       -166 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\opinions                                      |          2 |        -80 |         -4 |        -11 |        -95 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\position-history                              |          1 |        -12 |          0 |         -2 |        -14 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records                                       |          4 |       -128 |         -5 |        -18 |       -151 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void                                          |          3 |       -108 |        -12 |        -19 |       -139 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]                               |          3 |       -108 |        -12 |        -19 |       -139 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl                                               |          1 |         -7 |         -6 |         -2 |        -15 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl-players                                       |          2 |       -123 |        -30 |        -17 |       -170 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth                                                |          4 |        -62 |          0 |        -13 |        -75 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting                                            |          2 |       -101 |          0 |        -17 |       -118 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting (Files)                                    |          1 |        -82 |          0 |        -15 |        -97 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting\levels                                     |          1 |        -19 |          0 |         -2 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\changes                                             |          1 |        -15 |         -6 |         -4 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments                                            |          3 |       -116 |         -1 |        -19 |       -136 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\feed                                                |          1 |        -84 |         -9 |        -10 |       -103 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows                                             |          4 |        -59 |         -2 |        -16 |        -77 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gd                                                  |          1 |        -44 |         -7 |         -9 |        -60 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gd\level                                            |          1 |        -44 |         -7 |         -9 |        -60 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gdl-players                                         |          2 |        -75 |        -19 |        -10 |       -104 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\leaderboard                                         |          1 |       -244 |        -34 |        -23 |       -301 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels                                              |          8 |       -394 |        -42 |        -64 |       -500 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels (Files)                                      |          5 |       -307 |        -35 |        -46 |       -388 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position]                                   |          2 |        -74 |         -3 |        -14 |        -91 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\by-gd-id                                     |          1 |        -13 |         -4 |         -4 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications                                  |          4 |       -319 |        -17 |        -50 |       -386 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications (Files)                          |          2 |       -159 |         -2 |        -32 |       -193 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\[id]                             |          1 |       -139 |        -15 |        -16 |       -170 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\levels                           |          1 |        -21 |          0 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\opinions                                            |          1 |        -76 |         -1 |        -15 |        -92 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\pointercrate-players                                |          2 |        -75 |        -18 |        -10 |       -103 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\records                                             |          1 |        -67 |         -9 |        -12 |        -88 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users                                               |          4 |       -154 |        -22 |        -30 |       -206 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users (Files)                                       |          2 |        -80 |        -13 |        -16 |       -109 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\[username]                                    |          1 |        -12 |          0 |         -4 |        -16 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\by-player                                     |          1 |        -62 |         -9 |        -10 |        -81 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void                                                |          3 |       -127 |         -5 |        -17 |       -149 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void (Files)                                        |          1 |        -33 |          0 |         -5 |        -38 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels                                         |          2 |        -94 |         -5 |        -12 |       -111 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels (Files)                                 |          1 |        -18 |          0 |         -2 |        -20 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels\[position]                              |          1 |        -76 |         -5 |        -10 |        -91 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\youtube                                             |          1 |       -108 |         -4 |         -5 |       -117 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db                                                      |          8 |     -2,711 |       -406 |       -239 |     -3,356 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\plugins                                                 |          2 |        -59 |        -25 |         -7 |        -91 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils                                                   |         13 |     -1,428 |       -247 |       -191 |     -1,866 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils                                                          |          6 |       -181 |        -42 |        -19 |       -242 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\worker                                                         |          2 |        -80 |        -20 |        -11 |       -111 |
+| composables                                                                                                          |         10 |        546 |        141 |         74 |        761 |
+| dev                                                                                                                  |         12 |        401 |          2 |         33 |        436 |
+| middleware                                                                                                           |          4 |         36 |         30 |          7 |         73 |
+| plugins                                                                                                              |          2 |         29 |         27 |          5 |         61 |
+| public                                                                                                               |          1 |          1 |          0 |          1 |          2 |
+| scripts                                                                                                              |          2 |        253 |         48 |         40 |        341 |
+| server                                                                                                               |        243 |     19,094 |      4,461 |      2,457 |     26,012 |
+| server\api                                                                                                           |        172 |      9,160 |      1,546 |      1,325 |     12,031 |
+| server\api (Files)                                                                                                   |          6 |        785 |        147 |        108 |      1,040 |
+| server\api\account                                                                                                   |         12 |        468 |         82 |         76 |        626 |
+| server\api\account (Files)                                                                                           |          8 |        398 |         67 |         62 |        527 |
+| server\api\account\claim                                                                                             |          1 |         23 |         11 |          6 |         40 |
+| server\api\account\inbox                                                                                             |          2 |         31 |          4 |          6 |         41 |
+| server\api\account\progress                                                                                          |          1 |         16 |          0 |          2 |         18 |
+| server\api\admin                                                                                                     |         68 |      3,060 |        498 |        432 |      3,990 |
+| server\api\admin (Files)                                                                                             |         14 |        809 |        185 |        111 |      1,105 |
+| server\api\admin\aredl-levels                                                                                        |          2 |         89 |         19 |         14 |        122 |
+| server\api\admin\aredl-levels (Files)                                                                                |          1 |         13 |          4 |          2 |         19 |
+| server\api\admin\aredl-levels\[uuid]                                                                                 |          1 |         76 |         15 |         12 |        103 |
+| server\api\admin\awaiting                                                                                            |          1 |        167 |         12 |         14 |        193 |
+| server\api\admin\changes                                                                                             |          1 |         21 |          4 |          4 |         29 |
+| server\api\admin\claims                                                                                              |          1 |         80 |          4 |          8 |         92 |
+| server\api\admin\discord-webhooks                                                                                    |          7 |        139 |         15 |         25 |        179 |
+| server\api\admin\discord-webhooks (Files)                                                                            |          6 |        118 |         14 |         22 |        154 |
+| server\api\admin\discord-webhooks\[id]                                                                               |          1 |         21 |          1 |          3 |         25 |
+| server\api\admin\gd-cache                                                                                            |          3 |         25 |          5 |          6 |         36 |
+| server\api\admin\imported-movements                                                                                  |          3 |        114 |         27 |         22 |        163 |
+| server\api\admin\imports                                                                                             |          3 |        172 |         18 |         16 |        206 |
+| server\api\admin\levels                                                                                              |         12 |        741 |        130 |         98 |        969 |
+| server\api\admin\levels (Files)                                                                                      |          5 |        235 |         32 |         38 |        305 |
+| server\api\admin\levels\[position]                                                                                   |          6 |        240 |         67 |         42 |        349 |
+| server\api\admin\levels\pending                                                                                      |          1 |        266 |         31 |         18 |        315 |
+| server\api\admin\movements                                                                                           |          2 |        114 |          3 |         15 |        132 |
+| server\api\admin\open-verifications                                                                                  |          4 |        133 |         12 |         21 |        166 |
+| server\api\admin\opinions                                                                                            |          2 |         80 |          4 |         11 |         95 |
+| server\api\admin\placements                                                                                          |          3 |         92 |         29 |         19 |        140 |
+| server\api\admin\position-history                                                                                    |          1 |         12 |          0 |          2 |         14 |
+| server\api\admin\records                                                                                             |          4 |        128 |          5 |         18 |        151 |
+| server\api\admin\sheet-handover                                                                                      |          2 |         36 |         14 |          9 |         59 |
+| server\api\admin\void                                                                                                |          3 |        108 |         12 |         19 |        139 |
+| server\api\admin\void\[position]                                                                                     |          3 |        108 |         12 |         19 |        139 |
+| server\api\analytics                                                                                                 |          1 |         22 |         19 |          5 |         46 |
+| server\api\aredl                                                                                                     |          1 |          7 |          6 |          2 |         15 |
+| server\api\aredl-players                                                                                             |          2 |        126 |         28 |         18 |        172 |
+| server\api\auth                                                                                                      |          4 |         94 |         21 |         15 |        130 |
+| server\api\awaiting                                                                                                  |          2 |        101 |          0 |         17 |        118 |
+| server\api\awaiting (Files)                                                                                          |          1 |         82 |          0 |         15 |         97 |
+| server\api\awaiting\levels                                                                                           |          1 |         19 |          0 |          2 |         21 |
+| server\api\changes                                                                                                   |          1 |         15 |          6 |          4 |         25 |
+| server\api\clans                                                                                                     |          5 |        390 |         93 |         45 |        528 |
+| server\api\clans (Files)                                                                                             |          2 |         68 |         21 |         12 |        101 |
+| server\api\clans\[tag]                                                                                               |          3 |        322 |         72 |         33 |        427 |
+| server\api\comments                                                                                                  |          3 |        147 |         11 |         19 |        177 |
+| server\api\community                                                                                                 |          1 |        180 |         27 |         14 |        221 |
+| server\api\custom-lists                                                                                              |         27 |      1,462 |        209 |        216 |      1,887 |
+| server\api\custom-lists (Files)                                                                                      |          6 |        340 |         54 |         34 |        428 |
+| server\api\custom-lists\[public_id]                                                                                  |         21 |      1,122 |        155 |        182 |      1,459 |
+| server\api\custom-lists\[public_id] (Files)                                                                          |         15 |        795 |         94 |        127 |      1,016 |
+| server\api\custom-lists\[public_id]\items                                                                            |          3 |        184 |         54 |         30 |        268 |
+| server\api\custom-lists\[public_id]\items (Files)                                                                    |          2 |        115 |         34 |         21 |        170 |
+| server\api\custom-lists\[public_id]\items\[item_id]                                                                  |          1 |         69 |         20 |          9 |         98 |
+| server\api\custom-lists\[public_id]\pending                                                                          |          1 |         65 |          1 |         10 |         76 |
+| server\api\custom-lists\[public_id]\records                                                                          |          2 |         78 |          6 |         15 |         99 |
+| server\api\feed                                                                                                      |          1 |        116 |         16 |         14 |        146 |
+| server\api\follows                                                                                                   |          5 |        107 |         24 |         23 |        154 |
+| server\api\gd                                                                                                        |          2 |        131 |         23 |         19 |        173 |
+| server\api\gd (Files)                                                                                                |          1 |         87 |         16 |         10 |        113 |
+| server\api\gd\level                                                                                                  |          1 |         44 |          7 |          9 |         60 |
+| server\api\gdl-players                                                                                               |          2 |         78 |         18 |         11 |        107 |
+| server\api\leaderboard                                                                                               |          1 |        282 |         52 |         25 |        359 |
+| server\api\levels                                                                                                    |         11 |        498 |         87 |         85 |        670 |
+| server\api\levels (Files)                                                                                            |          6 |        344 |         64 |         55 |        463 |
+| server\api\levels\[position]                                                                                         |          3 |        120 |          9 |         21 |        150 |
+| server\api\levels\by-gd-id                                                                                           |          1 |         13 |          4 |          4 |         21 |
+| server\api\levels\by-placement                                                                                       |          1 |         21 |         10 |          5 |         36 |
+| server\api\movements                                                                                                 |          1 |         30 |          1 |         10 |         41 |
+| server\api\open-verifications                                                                                        |          4 |        321 |         17 |         50 |        388 |
+| server\api\open-verifications (Files)                                                                                |          2 |        160 |          2 |         32 |        194 |
+| server\api\open-verifications\[id]                                                                                   |          1 |        140 |         15 |         16 |        171 |
+| server\api\open-verifications\levels                                                                                 |          1 |         21 |          0 |          2 |         23 |
+| server\api\opinions                                                                                                  |          1 |         77 |          1 |         15 |         93 |
+| server\api\pointercrate-players                                                                                      |          2 |         78 |         17 |         11 |        106 |
+| server\api\records                                                                                                   |          1 |         68 |          9 |         12 |         89 |
+| server\api\users                                                                                                     |          4 |        305 |         76 |         48 |        429 |
+| server\api\users (Files)                                                                                             |          2 |        170 |         55 |         27 |        252 |
+| server\api\users\[username]                                                                                          |          1 |         12 |          0 |          4 |         16 |
+| server\api\users\by-player                                                                                           |          1 |        123 |         21 |         17 |        161 |
+| server\api\void                                                                                                      |          3 |        128 |          5 |         17 |        150 |
+| server\api\void (Files)                                                                                              |          1 |         33 |          0 |          5 |         38 |
+| server\api\void\levels                                                                                               |          2 |         95 |          5 |         12 |        112 |
+| server\api\void\levels (Files)                                                                                       |          1 |         18 |          0 |          2 |         20 |
+| server\api\void\levels\[position]                                                                                    |          1 |         77 |          5 |         10 |         92 |
+| server\api\youtube                                                                                                   |          1 |         84 |         53 |         14 |        151 |
+| server\db                                                                                                            |         21 |      5,310 |      1,178 |        488 |      6,976 |
+| server\middleware                                                                                                    |          2 |         56 |         42 |         17 |        115 |
+| server\plugins                                                                                                       |          6 |        202 |        102 |         32 |        336 |
+| server\utils                                                                                                         |         42 |      4,366 |      1,593 |        595 |      6,554 |
+| utils                                                                                                                |         26 |      1,612 |        895 |        180 |      2,687 |
+| worker                                                                                                               |          2 |         80 |         20 |         11 |        111 |
++----------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                                                             | language           | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-levels-sample.json                                      | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-openapi.json                                            | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.aredl-records-sample.json                                     | JSON               |          0 |          0 |         -1 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\.claude\settings.local.json                                    | JSON               |       -170 |          0 |         -1 |       -171 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\README.md                                                      | Markdown           |        -81 |          0 |        -31 |       -112 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\app.vue                                                        | vue                |         -5 |          0 |         -1 |         -6 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\assets\css\main.css                                            | PostCSS            |        -58 |        -10 |         -6 |        -74 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminAwaitingReview.vue                             | vue                |       -608 |         -7 |        -32 |       -647 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminLevelsReview.vue                               | vue                |       -874 |        -11 |        -45 |       -930 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminOpenVerificationsReview.vue                    | vue                |       -225 |         -5 |        -17 |       -247 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminOpinionsReview.vue                             | vue                |       -190 |         -3 |        -18 |       -211 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AdminRecordsReview.vue                              | vue                |       -186 |         -3 |        -17 |       -206 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AwaitingLevelDetail.vue                             | vue                |       -154 |         -4 |        -11 |       -169 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\AwaitingListNav.vue                                 | vue                |       -377 |          0 |        -36 |       -413 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\CommentSection.vue                                  | vue                |       -162 |         -2 |        -18 |       -182 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\DifficultyFace.vue                                  | vue                |        -64 |          0 |         -9 |        -73 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\FollowButton.vue                                    | vue                |       -125 |         -1 |        -12 |       -138 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelComparisonDrawer.vue                           | vue                |       -421 |         -1 |        -28 |       -450 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelDetail.vue                                     | vue                |     -1,307 |        -23 |        -85 |     -1,415 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelListNav.vue                                    | vue                |       -805 |        -14 |        -58 |       -877 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\LevelRecords.vue                                    | vue                |       -122 |         -2 |         -9 |       -133 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\OpenVerLevelDetail.vue                              | vue                |       -325 |         -4 |        -20 |       -349 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\OpenVerListNav.vue                                  | vue                |       -326 |          0 |        -34 |       -360 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ProfileLevelLists.vue                               | vue                |       -104 |          0 |        -10 |       -114 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ProgressPosts.vue                                   | vue                |       -262 |          0 |        -18 |       -280 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\RecordCharts.vue                                    | vue                |       -178 |         -2 |        -12 |       -192 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\RecordSubmitRow.vue                                 | vue                |        -91 |         -1 |         -9 |       -101 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SearchableSelect.vue                                | vue                |        -85 |          0 |         -9 |        -94 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SiteFooter.vue                                      | vue                |        -22 |          0 |         -3 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\SiteHeader.vue                                      | vue                |       -207 |         -1 |        -14 |       -222 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\ThemeMenu.vue                                       | vue                |       -125 |          0 |        -17 |       -142 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\VoidLevelDetail.vue                                 | vue                |       -453 |         -6 |        -31 |       -490 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\components\VoidListNav.vue                                     | vue                |       -112 |          0 |        -14 |       -126 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useAredlTopThreshold.ts                            | TypeScript         |        -11 |         -9 |         -3 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useCurrentUser.ts                                  | TypeScript         |        -24 |         -4 |         -2 |        -30 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useLevelPicker.ts                                  | TypeScript         |       -115 |        -10 |        -13 |       -138 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useProfanityFilter.ts                              | TypeScript         |        -26 |          0 |         -8 |        -34 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useTheme.ts                                        | TypeScript         |       -189 |        -13 |        -20 |       -222 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\composables\useTierDecimal.ts                                  | TypeScript         |         -1 |          0 |         -1 |         -2 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-aredl-335.json                                         | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-docs.html                                              | HTML               |       -114 |         -2 |        -25 |       -141 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-gdl-335.json                                           | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-getprofile-335.json                                    | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-getuser-335.json                                       | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-levels.json                                            | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-openapi.json                                           | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\gsv-pc-335.json                                            | JSON               |         -1 |          0 |          0 |         -1 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\landing.html                                               | HTML               |        -70 |          0 |         -2 |        -72 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\main.html                                                  | HTML               |        -70 |          0 |         -2 |        -72 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\voidlist.html                                              | HTML               |        -70 |          0 |         -2 |        -72 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\dev\voidlist2.html                                             | HTML               |        -70 |          0 |         -2 |        -72 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\error.vue                                                      | vue                |        -21 |          0 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\layouts\default.vue                                            | vue                |         -9 |          0 |         -1 |        -10 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\layouts\level.vue                                              | vue                |         -8 |          0 |         -1 |         -9 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\admin.ts                                            | TypeScript         |        -10 |         -4 |         -1 |        -15 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\auth.ts                                             | TypeScript         |         -6 |         -4 |         -1 |        -11 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\middleware\mod.ts                                              | TypeScript         |        -10 |         -6 |         -1 |        -17 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\nuxt.config.ts                                                 | TypeScript         |        -33 |          0 |         -1 |        -34 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\package-lock.json                                              | JSON               |    -11,881 |          0 |         -1 |    -11,882 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\package.json                                                   | JSON               |        -32 |          0 |         -1 |        -33 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\account.vue                                              | vue                |     -1,154 |        -13 |        -73 |     -1,240 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\admin.vue                                                | vue                |       -582 |         -8 |        -43 |       -633 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\aredl-players\[uuid].vue                                 | vue                |       -128 |          0 |        -11 |       -139 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\awaiting\[id].vue                                        | vue                |        -23 |          0 |         -5 |        -28 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\awaiting\index.vue                                       | vue                |        -27 |          0 |         -4 |        -31 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\gdl-players\[id].vue                                     | vue                |       -132 |          0 |        -12 |       -144 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\inbox.vue                                                | vue                |       -117 |          0 |         -8 |       -125 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\index.vue                                                | vue                |       -314 |        -10 |        -28 |       -352 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\leaderboard.vue                                          | vue                |       -308 |         -3 |        -16 |       -327 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\levels\[position].vue                                    | vue                |        -76 |          0 |         -7 |        -83 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\levels\submit.vue                                        | vue                |       -775 |         -8 |        -49 |       -832 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\login.vue                                                | vue                |        -66 |          0 |         -8 |        -74 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\[id]\index.vue                        | vue                |        -23 |          0 |         -5 |        -28 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\[id]\submit-verification.vue          | vue                |       -325 |         -5 |        -28 |       -358 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\open-verifications\index.vue                             | vue                |        -28 |          0 |         -4 |        -32 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\opinions\submit.vue                                      | vue                |       -230 |          0 |        -22 |       -252 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\pointercrate-players\[pc_id].vue                         | vue                |       -120 |          0 |        -11 |       -131 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\records\submit.vue                                       | vue                |       -426 |         -1 |        -32 |       -459 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\signup.vue                                               | vue                |        -69 |          0 |         -8 |        -77 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users\[username].vue                                     | vue                |       -159 |          0 |        -15 |       -174 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\users\by-player\[player].vue                             | vue                |        -91 |          0 |         -9 |       -100 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\void\[position].vue                                      | vue                |        -23 |          0 |         -5 |        -28 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\pages\void\index.vue                                           | vue                |         -4 |          0 |         -2 |         -6 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\plugins\theme.client.ts                                        | TypeScript         |         -5 |         -4 |         -1 |        -10 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\public\favicon.svg                                             | XML                |         -1 |          0 |         -1 |         -2 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\railway.json                                                   | JSON               |        -14 |          0 |         -1 |        -15 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\avatar.delete.ts                            | TypeScript         |         -7 |          0 |         -2 |         -9 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\avatar.post.ts                              | TypeScript         |        -20 |          0 |         -5 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.delete.ts                             | TypeScript         |         -9 |          0 |         -2 |        -11 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.get.ts                                | TypeScript         |        -12 |          0 |         -2 |        -14 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\claim.post.ts                               | TypeScript         |        -88 |        -11 |        -16 |       -115 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox.get.ts                                | TypeScript         |        -20 |          0 |         -2 |        -22 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox\[id].post.ts                          | TypeScript         |        -22 |         -4 |         -4 |        -30 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\inbox\read-all.post.ts                      | TypeScript         |         -9 |          0 |         -2 |        -11 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\index.patch.ts                              | TypeScript         |        -46 |          0 |         -8 |        -54 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\progress.post.ts                            | TypeScript         |        -67 |         -3 |        -12 |        -82 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\account\progress\[id].delete.ts                     | TypeScript         |        -16 |          0 |         -2 |        -18 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels\[uuid]\promote.post.ts           | TypeScript         |        -76 |        -15 |        -12 |       -103 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\aredl-levels\index.get.ts                     | TypeScript         |        -13 |         -4 |         -2 |        -19 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\awaiting\[id].post.ts                         | TypeScript         |       -127 |        -10 |        -12 |       -149 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\ban.post.ts                                   | TypeScript         |        -41 |         -7 |         -4 |        -52 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\changes\[levelId].delete.ts                   | TypeScript         |        -21 |         -4 |         -4 |        -29 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\claims.get.ts                                 | TypeScript         |        -13 |          0 |         -2 |        -15 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\claims\[id].post.ts                           | TypeScript         |        -72 |          0 |         -6 |        -78 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\counts.get.ts                                 | TypeScript         |        -15 |          0 |         -3 |        -18 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id].delete.ts               | TypeScript         |        -14 |          0 |         -2 |        -16 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id].patch.ts                | TypeScript         |        -37 |         -1 |         -6 |        -44 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\[id]\test.post.ts            | TypeScript         |        -21 |         -1 |         -3 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\index.get.ts                 | TypeScript         |        -17 |          0 |         -2 |        -19 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\index.post.ts                | TypeScript         |        -31 |          0 |         -7 |        -38 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\post-now.post.ts             | TypeScript         |         -7 |         -5 |         -2 |        -14 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\discord-webhooks\post-yesterday.post.ts       | TypeScript         |         -7 |         -5 |         -2 |        -14 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\start.post.ts                        | TypeScript         |        -12 |         -5 |         -2 |        -19 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\status.get.ts                        | TypeScript         |         -6 |          0 |         -2 |         -8 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\gd-cache\stop.post.ts                         | TypeScript         |         -7 |          0 |         -2 |         -9 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\index.delete.ts             | TypeScript         |        -25 |         -5 |         -6 |        -36 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\index.patch.ts              | TypeScript         |        -66 |        -10 |        -10 |        -86 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\move.post.ts                | TypeScript         |        -59 |        -15 |        -11 |        -85 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\[position]\promote.post.ts             | TypeScript         |        -13 |         -4 |         -4 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\pending.get.ts                         | TypeScript         |        -22 |          0 |         -2 |        -24 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\pending\[id].post.ts                   | TypeScript         |       -226 |        -24 |        -16 |       -266 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\placement-preview.get.ts               | TypeScript         |        -46 |         -5 |         -8 |        -59 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\levels\tier-midpoint.get.ts                   | TypeScript         |        -17 |         -6 |         -4 |        -27 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].delete.ts             | TypeScript         |        -14 |         -4 |         -5 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].patch.ts              | TypeScript         |        -49 |         -3 |         -8 |        -60 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\[id].post.ts               | TypeScript         |        -51 |         -5 |         -6 |        -62 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\open-verifications\pending.get.ts             | TypeScript         |        -19 |          0 |         -2 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\opinions\[id].post.ts                         | TypeScript         |        -44 |         -1 |         -7 |        -52 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\opinions\pending.get.ts                       | TypeScript         |        -36 |         -3 |         -4 |        -43 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\position-history\[id].delete.ts               | TypeScript         |        -12 |          0 |         -2 |        -14 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\[id].delete.ts                        | TypeScript         |        -12 |          0 |         -4 |        -16 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\[id].post.ts                          | TypeScript         |        -59 |         -5 |         -6 |        -70 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\bulk-approve.post.ts                  | TypeScript         |        -33 |          0 |         -6 |        -39 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\records\pending.get.ts                        | TypeScript         |        -24 |          0 |         -2 |        -26 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\role.post.ts                                  | TypeScript         |        -43 |          0 |        -10 |        -53 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\set-claim.post.ts                             | TypeScript         |        -23 |         -6 |         -5 |        -34 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\users.get.ts                                  | TypeScript         |        -23 |          0 |         -3 |        -26 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\index.delete.ts               | TypeScript         |        -23 |         -4 |         -5 |        -32 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\index.patch.ts                | TypeScript         |        -44 |         -3 |         -8 |        -55 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\admin\void\[position]\move.post.ts                  | TypeScript         |        -41 |         -5 |         -6 |        -52 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl-players\[uuid].get.ts                         | TypeScript         |       -106 |        -26 |        -15 |       -147 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl-players\search.get.ts                         | TypeScript         |        -17 |         -4 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\aredl\top-threshold.get.ts                          | TypeScript         |         -7 |         -6 |         -2 |        -15 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\login.post.ts                                  | TypeScript         |        -26 |          0 |         -3 |        -29 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\logout.post.ts                                 | TypeScript         |         -7 |          0 |         -2 |         -9 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\me.get.ts                                      | TypeScript         |         -4 |          0 |         -2 |         -6 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\auth\signup.post.ts                                 | TypeScript         |        -25 |          0 |         -6 |        -31 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting\levels.get.ts                              | TypeScript         |        -82 |          0 |        -15 |        -97 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\awaiting\levels\[id].get.ts                         | TypeScript         |        -19 |          0 |         -2 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\changes\recent.get.ts                               | TypeScript         |        -15 |         -6 |         -4 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\[id].delete.ts                             | TypeScript         |        -20 |          0 |         -5 |        -25 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\index.get.ts                               | TypeScript         |        -32 |          0 |         -5 |        -37 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\comments\index.post.ts                              | TypeScript         |        -64 |         -1 |         -9 |        -74 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\feed\followed.get.ts                                | TypeScript         |        -84 |         -9 |        -10 |       -103 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\followers.get.ts                            | TypeScript         |        -16 |          0 |         -4 |        -20 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.delete.ts                             | TypeScript         |        -12 |          0 |         -4 |        -16 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.get.ts                                | TypeScript         |        -11 |          0 |         -2 |        -13 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\follows\index.post.ts                               | TypeScript         |        -20 |         -2 |         -6 |        -28 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gd\level\[id].get.ts                                | TypeScript         |        -44 |         -7 |         -9 |        -60 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gdl-players\[id].get.ts                             | TypeScript         |        -58 |        -15 |         -8 |        -81 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\gdl-players\search.get.ts                           | TypeScript         |        -17 |         -4 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\landing.get.ts                                      | TypeScript         |       -120 |         -6 |        -13 |       -139 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\leaderboard.get.ts                                  | TypeScript         |        -94 |         -9 |        -16 |       -119 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\leaderboard\global.get.ts                           | TypeScript         |       -244 |        -34 |        -23 |       -301 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels.get.ts                                       | TypeScript         |       -211 |        -35 |        -34 |       -280 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position].get.ts                            | TypeScript         |       -153 |        -28 |        -15 |       -196 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position]\estimated-gdl-placement.get.ts    | TypeScript         |        -37 |          0 |         -7 |        -44 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\[position]\estimated-placement.get.ts        | TypeScript         |        -37 |         -3 |         -7 |        -47 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\by-gd-id\[gd_id].get.ts                      | TypeScript         |        -13 |         -4 |         -4 |        -21 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\sources.get.ts                               | TypeScript         |        -15 |          0 |         -3 |        -18 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\submit.post.ts                               | TypeScript         |       -117 |         -5 |        -22 |       -144 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\tier-midpoint.get.ts                         | TypeScript         |        -14 |         -2 |         -4 |        -20 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\levels\version.get.ts                               | TypeScript         |         -8 |          0 |         -2 |        -10 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\[id]\submit-verification.post.ts | TypeScript         |       -139 |        -15 |        -16 |       -170 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\levels.get.ts                    | TypeScript         |        -76 |          0 |        -15 |        -91 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\levels\[id].get.ts               | TypeScript         |        -21 |          0 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\open-verifications\submit.post.ts                   | TypeScript         |        -83 |         -2 |        -17 |       -102 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\opinions\index.post.ts                              | TypeScript         |        -76 |         -1 |        -15 |        -92 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\pointercrate-players\[pc_id].get.ts                 | TypeScript         |        -58 |        -14 |         -8 |        -80 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\pointercrate-players\search.get.ts                  | TypeScript         |        -17 |         -4 |         -2 |        -23 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\records\index.post.ts                               | TypeScript         |        -67 |         -9 |        -12 |        -88 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\stats.get.ts                                        | TypeScript         |       -104 |         -8 |        -10 |       -122 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\[username].get.ts                             | TypeScript         |        -54 |         -8 |         -9 |        -71 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\[username]\avatar.get.ts                      | TypeScript         |        -12 |          0 |         -4 |        -16 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\by-player\[player].get.ts                     | TypeScript         |        -62 |         -9 |        -10 |        -81 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\users\search.get.ts                                 | TypeScript         |        -26 |         -5 |         -7 |        -38 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels.get.ts                                  | TypeScript         |        -33 |          0 |         -5 |        -38 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels\[position].get.ts                       | TypeScript         |        -18 |          0 |         -2 |        -20 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\void\levels\[position]\submit.post.ts               | TypeScript         |        -76 |         -5 |        -10 |        -91 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\api\youtube\upload-date.get.ts                          | TypeScript         |       -108 |         -4 |         -5 |       -117 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\backfill-gd-cache.ts                                 | TypeScript         |       -347 |        -23 |        -42 |       -412 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\clear-temporary-levels.ts                            | TypeScript         |        -44 |        -10 |        -10 |        -64 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\diff-sheet.ts                                        | TypeScript         |       -187 |        -10 |        -17 |       -214 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-aredl.ts                                      | TypeScript         |       -253 |        -16 |        -18 |       -287 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-gdl.ts                                        | TypeScript         |       -327 |        -32 |        -24 |       -383 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import-pointercrate.ts                               | TypeScript         |       -187 |        -46 |        -15 |       -248 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\import.ts                                            | TypeScript         |       -562 |       -147 |        -74 |       -783 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\db\index.ts                                             | TypeScript         |       -804 |       -122 |        -39 |       -965 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\plugins\daily-changes-discord.ts                        | TypeScript         |        -22 |         -8 |         -4 |        -34 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\plugins\db-init.ts                                      | TypeScript         |        -37 |        -17 |         -3 |        -57 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\auth.ts                                           | TypeScript         |       -124 |         -4 |        -17 |       -145 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\changes.ts                                        | TypeScript         |       -104 |        -24 |        -10 |       -138 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\daily-discord.ts                                  | TypeScript         |        -67 |        -21 |        -13 |       -101 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\discord.ts                                        | TypeScript         |       -176 |        -31 |        -20 |       -227 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\follows.ts                                        | TypeScript         |        -29 |         -8 |         -8 |        -45 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\gd-cache-warmer.ts                                | TypeScript         |       -166 |        -20 |        -24 |       -210 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\gd-fetch.ts                                       | TypeScript         |       -307 |        -49 |        -32 |       -388 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\inbox.ts                                          | TypeScript         |        -36 |          0 |         -3 |        -39 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\leaderboard-discord.ts                            | TypeScript         |        -60 |         -9 |        -13 |        -82 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\leaderboard.ts                                    | TypeScript         |        -70 |        -19 |        -10 |        -99 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\opinions.ts                                       | TypeScript         |        -86 |        -16 |        -18 |       -120 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\points.ts                                         | TypeScript         |       -137 |        -40 |        -13 |       -190 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\server\utils\profile.ts                                        | TypeScript         |        -66 |         -6 |        -10 |        -82 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\tailwind.config.js                                             | JavaScript         |        -39 |         -4 |         -1 |        -44 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\tsconfig.json                                                  | JSON with Comments |         -3 |          0 |         -1 |         -4 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\challenge-sources.ts                                     | TypeScript         |        -12 |         -4 |         -4 |        -20 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\country-codes.ts                                         | TypeScript         |        -41 |         -8 |         -2 |        -51 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\role-styles.ts                                           | TypeScript         |        -15 |         -5 |         -2 |        -22 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\stat-colors.ts                                           | TypeScript         |        -45 |         -5 |         -5 |        -55 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\tier-colors.ts                                           | TypeScript         |        -60 |        -13 |         -4 |        -77 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\utils\tier-shortcut.ts                                         | TypeScript         |         -8 |         -7 |         -2 |        -17 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\worker\boomlings-proxy.js                                      | JavaScript         |        -28 |         -7 |         -5 |        -40 |
+| c:\Users\gerg1\Documents\code\Geometry dash\ALL\list4\worker\local-proxy.js                                          | JavaScript         |        -52 |        -13 |         -6 |        -71 |
+| d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\details.md                                     | Markdown           |        232 |          0 |          6 |        238 |
+| d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\diff-details.md                                | Markdown           |        232 |          0 |          6 |        238 |
+| d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\diff.md                                        | Markdown           |        118 |          0 |          7 |        125 |
+| d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\results.json                                   | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\.VSCodeCounter\2026-05-06_23-12-40\results.md                                     | Markdown           |        118 |          0 |          7 |        125 |
+| d:\Downloads\All Levels List\list4\.aredl-levels-sample.json                                                         | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\.aredl-openapi.json                                                               | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\.aredl-records-sample.json                                                        | JSON               |          0 |          0 |          1 |          1 |
+| d:\Downloads\All Levels List\list4\.claude\settings.local.json                                                       | JSON               |        174 |          0 |          1 |        175 |
+| d:\Downloads\All Levels List\list4\README.md                                                                         | Markdown           |      1,156 |          0 |        283 |      1,439 |
+| d:\Downloads\All Levels List\list4\assets\css\main.css                                                               | PostCSS            |        117 |         91 |         10 |        218 |
+| d:\Downloads\All Levels List\list4\composables\useAredlTopThreshold.ts                                               | TypeScript         |         11 |          9 |          3 |         23 |
+| d:\Downloads\All Levels List\list4\composables\useCurrentUser.ts                                                     | TypeScript         |         33 |         17 |          4 |         54 |
+| d:\Downloads\All Levels List\list4\composables\useCustomList.ts                                                      | TypeScript         |         47 |         13 |          7 |         67 |
+| d:\Downloads\All Levels List\list4\composables\useLevelPicker.ts                                                     | TypeScript         |        115 |         10 |         13 |        138 |
+| d:\Downloads\All Levels List\list4\composables\useListBuilder.ts                                                     | TypeScript         |        102 |         19 |         10 |        131 |
+| d:\Downloads\All Levels List\list4\composables\useProfanityFilter.ts                                                 | TypeScript         |         19 |         10 |          7 |         36 |
+| d:\Downloads\All Levels List\list4\composables\useStandaloneList.ts                                                  | TypeScript         |         18 |         28 |          6 |         52 |
+| d:\Downloads\All Levels List\list4\composables\useTheme.ts                                                           | TypeScript         |        189 |         13 |         20 |        222 |
+| d:\Downloads\All Levels List\list4\composables\useTierCurve.ts                                                       | TypeScript         |         11 |         22 |          3 |         36 |
+| d:\Downloads\All Levels List\list4\composables\useTierDecimal.ts                                                     | TypeScript         |          1 |          0 |          1 |          2 |
+| d:\Downloads\All Levels List\list4\dev\gsv-aredl-335.json                                                            | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-docs.html                                                                 | HTML               |        114 |          2 |         25 |        141 |
+| d:\Downloads\All Levels List\list4\dev\gsv-gdl-335.json                                                              | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-getprofile-335.json                                                       | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-getuser-335.json                                                          | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-levels.json                                                               | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-openapi.json                                                              | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\gsv-pc-335.json                                                               | JSON               |          1 |          0 |          0 |          1 |
+| d:\Downloads\All Levels List\list4\dev\landing.html                                                                  | HTML               |         70 |          0 |          2 |         72 |
+| d:\Downloads\All Levels List\list4\dev\main.html                                                                     | HTML               |         70 |          0 |          2 |         72 |
+| d:\Downloads\All Levels List\list4\dev\voidlist.html                                                                 | HTML               |         70 |          0 |          2 |         72 |
+| d:\Downloads\All Levels List\list4\dev\voidlist2.html                                                                | HTML               |         70 |          0 |          2 |         72 |
+| d:\Downloads\All Levels List\list4\middleware\admin.ts                                                               | TypeScript         |         10 |          4 |          1 |         15 |
+| d:\Downloads\All Levels List\list4\middleware\auth.ts                                                                | TypeScript         |          6 |          4 |          1 |         11 |
+| d:\Downloads\All Levels List\list4\middleware\lockdown.global.ts                                                     | TypeScript         |         10 |         16 |          4 |         30 |
+| d:\Downloads\All Levels List\list4\middleware\mod.ts                                                                 | TypeScript         |         10 |          6 |          1 |         17 |
+| d:\Downloads\All Levels List\list4\nuxt.config.ts                                                                    | TypeScript         |         50 |         16 |          1 |         67 |
+| d:\Downloads\All Levels List\list4\package-lock.json                                                                 | JSON               |     11,881 |          0 |          1 |     11,882 |
+| d:\Downloads\All Levels List\list4\package.json                                                                      | JSON               |         43 |          0 |          1 |         44 |
+| d:\Downloads\All Levels List\list4\plugins\analytics.client.ts                                                       | TypeScript         |         24 |         23 |          4 |         51 |
+| d:\Downloads\All Levels List\list4\plugins\theme.client.ts                                                           | TypeScript         |          5 |          4 |          1 |         10 |
+| d:\Downloads\All Levels List\list4\public\favicon.svg                                                                | XML                |          1 |          0 |          1 |          2 |
+| d:\Downloads\All Levels List\list4\railway.json                                                                      | JSON               |         14 |          0 |          1 |         15 |
+| d:\Downloads\All Levels List\list4\scripts\make-admin.ts                                                             | TypeScript         |         99 |         19 |         12 |        130 |
+| d:\Downloads\All Levels List\list4\scripts\purge-accounts.ts                                                         | TypeScript         |        154 |         29 |         28 |        211 |
+| d:\Downloads\All Levels List\list4\server\api\account\avatar.delete.ts                                               | TypeScript         |          7 |          0 |          2 |          9 |
+| d:\Downloads\All Levels List\list4\server\api\account\avatar.post.ts                                                 | TypeScript         |         20 |          0 |          5 |         25 |
+| d:\Downloads\All Levels List\list4\server\api\account\claim.delete.ts                                                | TypeScript         |         28 |         10 |          6 |         44 |
+| d:\Downloads\All Levels List\list4\server\api\account\claim.get.ts                                                   | TypeScript         |         12 |          0 |          2 |         14 |
+| d:\Downloads\All Levels List\list4\server\api\account\claim.post.ts                                                  | TypeScript         |         88 |         11 |         16 |        115 |
+| d:\Downloads\All Levels List\list4\server\api\account\claim\records.post.ts                                          | TypeScript         |         23 |         11 |          6 |         40 |
+| d:\Downloads\All Levels List\list4\server\api\account\inbox.get.ts                                                   | TypeScript         |         20 |          0 |          2 |         22 |
+| d:\Downloads\All Levels List\list4\server\api\account\inbox\[id].post.ts                                             | TypeScript         |         22 |          4 |          4 |         30 |
+| d:\Downloads\All Levels List\list4\server\api\account\inbox\read-all.post.ts                                         | TypeScript         |          9 |          0 |          2 |         11 |
+| d:\Downloads\All Levels List\list4\server\api\account\index.patch.ts                                                 | TypeScript         |        156 |         43 |         17 |        216 |
+| d:\Downloads\All Levels List\list4\server\api\account\progress.post.ts                                               | TypeScript         |         67 |          3 |         12 |         82 |
+| d:\Downloads\All Levels List\list4\server\api\account\progress\[id].delete.ts                                        | TypeScript         |         16 |          0 |          2 |         18 |
+| d:\Downloads\All Levels List\list4\server\api\admin\analytics.get.ts                                                 | TypeScript         |        173 |         74 |         21 |        268 |
+| d:\Downloads\All Levels List\list4\server\api\admin\aredl-levels\[uuid]\promote.post.ts                              | TypeScript         |         76 |         15 |         12 |        103 |
+| d:\Downloads\All Levels List\list4\server\api\admin\aredl-levels\index.get.ts                                        | TypeScript         |         13 |          4 |          2 |         19 |
+| d:\Downloads\All Levels List\list4\server\api\admin\awaiting\[id].post.ts                                            | TypeScript         |        167 |         12 |         14 |        193 |
+| d:\Downloads\All Levels List\list4\server\api\admin\ban.post.ts                                                      | TypeScript         |         41 |          7 |          4 |         52 |
+| d:\Downloads\All Levels List\list4\server\api\admin\changes\[levelId].delete.ts                                      | TypeScript         |         21 |          4 |          4 |         29 |
+| d:\Downloads\All Levels List\list4\server\api\admin\claims.get.ts                                                    | TypeScript         |         13 |          0 |          2 |         15 |
+| d:\Downloads\All Levels List\list4\server\api\admin\claims\[id].post.ts                                              | TypeScript         |         80 |          4 |          8 |         92 |
+| d:\Downloads\All Levels List\list4\server\api\admin\counts.get.ts                                                    | TypeScript         |         21 |          5 |          4 |         30 |
+| d:\Downloads\All Levels List\list4\server\api\admin\custom-list-from-levels.post.ts                                  | TypeScript         |         67 |         11 |         10 |         88 |
+| d:\Downloads\All Levels List\list4\server\api\admin\custom-list-preview.get.ts                                       | TypeScript         |         25 |          6 |          6 |         37 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id].delete.ts                                  | TypeScript         |         14 |          0 |          2 |         16 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id].patch.ts                                   | TypeScript         |         41 |          1 |          6 |         48 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\[id]\test.post.ts                               | TypeScript         |         21 |          1 |          3 |         25 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\index.get.ts                                    | TypeScript         |         18 |          3 |          3 |         24 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\index.post.ts                                   | TypeScript         |         31 |          0 |          7 |         38 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\post-now.post.ts                                | TypeScript         |          7 |          5 |          2 |         14 |
+| d:\Downloads\All Levels List\list4\server\api\admin\discord-webhooks\post-yesterday.post.ts                          | TypeScript         |          7 |          5 |          2 |         14 |
+| d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\start.post.ts                                           | TypeScript         |         12 |          5 |          2 |         19 |
+| d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\status.get.ts                                           | TypeScript         |          6 |          0 |          2 |          8 |
+| d:\Downloads\All Levels List\list4\server\api\admin\gd-cache\stop.post.ts                                            | TypeScript         |          7 |          0 |          2 |          9 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\apply.post.ts                                 | TypeScript         |         53 |         12 |          8 |         73 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\dismiss.post.ts                               | TypeScript         |         35 |          7 |          7 |         49 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imported-movements\index.get.ts                                  | TypeScript         |         26 |          8 |          7 |         41 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imports\clear-pending.post.ts                                    | TypeScript         |         52 |          4 |          4 |         60 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imports\run.post.ts                                              | TypeScript         |         81 |         14 |          8 |        103 |
+| d:\Downloads\All Levels List\list4\server\api\admin\imports\status.get.ts                                            | TypeScript         |         39 |          0 |          4 |         43 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\challenge.post.ts                              | TypeScript         |         22 |         25 |          7 |         54 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\index.delete.ts                                | TypeScript         |         25 |          5 |          6 |         36 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\index.patch.ts                                 | TypeScript         |         72 |         13 |         10 |         95 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\move.post.ts                                   | TypeScript         |         49 |         12 |          7 |         68 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\promote.post.ts                                | TypeScript         |         13 |          4 |          4 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\[position]\to-awaiting.post.ts                            | TypeScript         |         59 |          8 |          8 |         75 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\group-move-request.post.ts                                | TypeScript         |         33 |          0 |         10 |         43 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\group-move.post.ts                                        | TypeScript         |         71 |          6 |         14 |         91 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\pending.get.ts                                            | TypeScript         |         68 |         15 |          2 |         85 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\pending\[id].post.ts                                      | TypeScript         |        266 |         31 |         18 |        315 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\placement-preview.get.ts                                  | TypeScript         |         46 |          5 |          8 |         59 |
+| d:\Downloads\All Levels List\list4\server\api\admin\levels\tier-midpoint.get.ts                                      | TypeScript         |         17 |          6 |          4 |         27 |
+| d:\Downloads\All Levels List\list4\server\api\admin\mark-seen.post.ts                                                | TypeScript         |         32 |          0 |          5 |         37 |
+| d:\Downloads\All Levels List\list4\server\api\admin\movements\[id].post.ts                                           | TypeScript         |         88 |          3 |         13 |        104 |
+| d:\Downloads\All Levels List\list4\server\api\admin\movements\index.get.ts                                           | TypeScript         |         26 |          0 |          2 |         28 |
+| d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].delete.ts                                | TypeScript         |         14 |          4 |          5 |         23 |
+| d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].patch.ts                                 | TypeScript         |         49 |          3 |          8 |         60 |
+| d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\[id].post.ts                                  | TypeScript         |         51 |          5 |          6 |         62 |
+| d:\Downloads\All Levels List\list4\server\api\admin\open-verifications\pending.get.ts                                | TypeScript         |         19 |          0 |          2 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\admin\opinions\[id].post.ts                                            | TypeScript         |         44 |          1 |          7 |         52 |
+| d:\Downloads\All Levels List\list4\server\api\admin\opinions\pending.get.ts                                          | TypeScript         |         36 |          3 |          4 |         43 |
+| d:\Downloads\All Levels List\list4\server\api\admin\placements\export.get.ts                                         | TypeScript         |         17 |          7 |          4 |         28 |
+| d:\Downloads\All Levels List\list4\server\api\admin\placements\reset-to-sheet.post.ts                                | TypeScript         |         29 |          9 |          5 |         43 |
+| d:\Downloads\All Levels List\list4\server\api\admin\placements\restore.post.ts                                       | TypeScript         |         46 |         13 |         10 |         69 |
+| d:\Downloads\All Levels List\list4\server\api\admin\position-history\[id].delete.ts                                  | TypeScript         |         12 |          0 |          2 |         14 |
+| d:\Downloads\All Levels List\list4\server\api\admin\records\[id].delete.ts                                           | TypeScript         |         12 |          0 |          4 |         16 |
+| d:\Downloads\All Levels List\list4\server\api\admin\records\[id].post.ts                                             | TypeScript         |         59 |          5 |          6 |         70 |
+| d:\Downloads\All Levels List\list4\server\api\admin\records\bulk-approve.post.ts                                     | TypeScript         |         33 |          0 |          6 |         39 |
+| d:\Downloads\All Levels List\list4\server\api\admin\records\pending.get.ts                                           | TypeScript         |         24 |          0 |          2 |         26 |
+| d:\Downloads\All Levels List\list4\server\api\admin\repair-placements.post.ts                                        | TypeScript         |         18 |          7 |          4 |         29 |
+| d:\Downloads\All Levels List\list4\server\api\admin\role.post.ts                                                     | TypeScript         |         43 |          0 |         10 |         53 |
+| d:\Downloads\All Levels List\list4\server\api\admin\seen-counts.get.ts                                               | TypeScript         |         12 |          0 |          2 |         14 |
+| d:\Downloads\All Levels List\list4\server\api\admin\set-claim.post.ts                                                | TypeScript         |         44 |         14 |          6 |         64 |
+| d:\Downloads\All Levels List\list4\server\api\admin\sheet-handover\apply.post.ts                                     | TypeScript         |         24 |         10 |          7 |         41 |
+| d:\Downloads\All Levels List\list4\server\api\admin\sheet-handover\index.get.ts                                      | TypeScript         |         12 |          4 |          2 |         18 |
+| d:\Downloads\All Levels List\list4\server\api\admin\sheet-report.get.ts                                              | TypeScript         |        162 |         42 |         17 |        221 |
+| d:\Downloads\All Levels List\list4\server\api\admin\submit-all.post.ts                                               | TypeScript         |        112 |          9 |         14 |        135 |
+| d:\Downloads\All Levels List\list4\server\api\admin\users.get.ts                                                     | TypeScript         |         46 |         10 |          6 |         62 |
+| d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\index.delete.ts                                  | TypeScript         |         23 |          4 |          5 |         32 |
+| d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\index.patch.ts                                   | TypeScript         |         44 |          3 |          8 |         55 |
+| d:\Downloads\All Levels List\list4\server\api\admin\void\[position]\move.post.ts                                     | TypeScript         |         41 |          5 |          6 |         52 |
+| d:\Downloads\All Levels List\list4\server\api\analytics\view.post.ts                                                 | TypeScript         |         22 |         19 |          5 |         46 |
+| d:\Downloads\All Levels List\list4\server\api\aredl-players\[uuid].get.ts                                            | TypeScript         |        109 |         24 |         16 |        149 |
+| d:\Downloads\All Levels List\list4\server\api\aredl-players\search.get.ts                                            | TypeScript         |         17 |          4 |          2 |         23 |
+| d:\Downloads\All Levels List\list4\server\api\aredl\top-threshold.get.ts                                             | TypeScript         |          7 |          6 |          2 |         15 |
+| d:\Downloads\All Levels List\list4\server\api\auth\login.post.ts                                                     | TypeScript         |         28 |          3 |          3 |         34 |
+| d:\Downloads\All Levels List\list4\server\api\auth\logout.post.ts                                                    | TypeScript         |          7 |          0 |          2 |          9 |
+| d:\Downloads\All Levels List\list4\server\api\auth\me.get.ts                                                         | TypeScript         |         22 |         13 |          3 |         38 |
+| d:\Downloads\All Levels List\list4\server\api\auth\signup.post.ts                                                    | TypeScript         |         37 |          5 |          7 |         49 |
+| d:\Downloads\All Levels List\list4\server\api\awaiting\levels.get.ts                                                 | TypeScript         |         82 |          0 |         15 |         97 |
+| d:\Downloads\All Levels List\list4\server\api\awaiting\levels\[id].get.ts                                            | TypeScript         |         19 |          0 |          2 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\changes\recent.get.ts                                                  | TypeScript         |         15 |          6 |          4 |         25 |
+| d:\Downloads\All Levels List\list4\server\api\clans\[tag]\index.get.ts                                               | TypeScript         |         77 |         14 |          9 |        100 |
+| d:\Downloads\All Levels List\list4\server\api\clans\[tag]\invitable.get.ts                                           | TypeScript         |         40 |         13 |          5 |         58 |
+| d:\Downloads\All Levels List\list4\server\api\clans\[tag]\membership.post.ts                                         | TypeScript         |        205 |         45 |         19 |        269 |
+| d:\Downloads\All Levels List\list4\server\api\clans\index.get.ts                                                     | TypeScript         |         13 |         10 |          2 |         25 |
+| d:\Downloads\All Levels List\list4\server\api\clans\index.post.ts                                                    | TypeScript         |         55 |         11 |         10 |         76 |
+| d:\Downloads\All Levels List\list4\server\api\comments\[id].delete.ts                                                | TypeScript         |         20 |          0 |          5 |         25 |
+| d:\Downloads\All Levels List\list4\server\api\comments\index.get.ts                                                  | TypeScript         |         48 |          5 |          5 |         58 |
+| d:\Downloads\All Levels List\list4\server\api\comments\index.post.ts                                                 | TypeScript         |         79 |          6 |          9 |         94 |
+| d:\Downloads\All Levels List\list4\server\api\community.get.ts                                                       | TypeScript         |         52 |          9 |          8 |         69 |
+| d:\Downloads\All Levels List\list4\server\api\community\players.get.ts                                               | TypeScript         |        180 |         27 |         14 |        221 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].delete.ts                                     | TypeScript         |         16 |          1 |          4 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].get.ts                                        | TypeScript         |         30 |         12 |          3 |         45 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id].patch.ts                                      | TypeScript         |        174 |         26 |          9 |        209 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\changes.get.ts                                | TypeScript         |         35 |          2 |          7 |         44 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\copy.post.ts                                  | TypeScript         |         47 |          7 |          5 |         59 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.delete.ts                             | TypeScript         |         22 |          4 |          6 |         32 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.get.ts                                | TypeScript         |         17 |          1 |          4 |         22 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\editors.post.ts                               | TypeScript         |         47 |          1 |          9 |         57 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id].delete.ts                     | TypeScript         |         40 |          8 |          6 |         54 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id].patch.ts                      | TypeScript         |         75 |         26 |         15 |        116 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\items\[item_id]\link.post.ts                  | TypeScript         |         69 |         20 |          9 |         98 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\leaderboard.get.ts                            | TypeScript         |         16 |          1 |          4 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\like.post.ts                                  | TypeScript         |         39 |          5 |          7 |         51 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\move.post.ts                                  | TypeScript         |         64 |         20 |         11 |         95 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending.get.ts                                | TypeScript         |         41 |          3 |          8 |         52 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending.post.ts                               | TypeScript         |         88 |          6 |         11 |        105 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\pending\[pending_id].post.ts                  | TypeScript         |         65 |          1 |         10 |         76 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records.get.ts                                | TypeScript         |         38 |          4 |          7 |         49 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records.post.ts                               | TypeScript         |         92 |         15 |         12 |        119 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records\[record_id].delete.ts                 | TypeScript         |         21 |          1 |          6 |         28 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\records\[record_id].post.ts                   | TypeScript         |         57 |          5 |          9 |         71 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\submit-to-all.post.ts                         | TypeScript         |        110 |         16 |         20 |        146 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\webhooks.get.ts                               | TypeScript         |         29 |          6 |          6 |         41 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\[public_id]\webhooks.post.ts                              | TypeScript         |        110 |          3 |         10 |        123 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\index.get.ts                                              | TypeScript         |         30 |          8 |          5 |         43 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\index.post.ts                                             | TypeScript         |         46 |          1 |          5 |         52 |
+| d:\Downloads\All Levels List\list4\server\api\custom-lists\public.get.ts                                             | TypeScript         |         44 |          6 |          8 |         58 |
+| d:\Downloads\All Levels List\list4\server\api\feed\followed.get.ts                                                   | TypeScript         |        116 |         16 |         14 |        146 |
+| d:\Downloads\All Levels List\list4\server\api\follows\followers.get.ts                                               | TypeScript         |         24 |          6 |          5 |         35 |
+| d:\Downloads\All Levels List\list4\server\api\follows\following.get.ts                                               | TypeScript         |         40 |         16 |          6 |         62 |
+| d:\Downloads\All Levels List\list4\server\api\follows\index.delete.ts                                                | TypeScript         |         12 |          0 |          4 |         16 |
+| d:\Downloads\All Levels List\list4\server\api\follows\index.get.ts                                                   | TypeScript         |         11 |          0 |          2 |         13 |
+| d:\Downloads\All Levels List\list4\server\api\follows\index.post.ts                                                  | TypeScript         |         20 |          2 |          6 |         28 |
+| d:\Downloads\All Levels List\list4\server\api\gd\level\[id].get.ts                                                   | TypeScript         |         44 |          7 |          9 |         60 |
+| d:\Downloads\All Levels List\list4\server\api\gd\search.get.ts                                                       | TypeScript         |         87 |         16 |         10 |        113 |
+| d:\Downloads\All Levels List\list4\server\api\gdl-players\[id].get.ts                                                | TypeScript         |         61 |         14 |          9 |         84 |
+| d:\Downloads\All Levels List\list4\server\api\gdl-players\search.get.ts                                              | TypeScript         |         17 |          4 |          2 |         23 |
+| d:\Downloads\All Levels List\list4\server\api\landing.get.ts                                                         | TypeScript         |        120 |          6 |         13 |        139 |
+| d:\Downloads\All Levels List\list4\server\api\leaderboard.get.ts                                                     | TypeScript         |        144 |         30 |         24 |        198 |
+| d:\Downloads\All Levels List\list4\server\api\leaderboard\global.get.ts                                              | TypeScript         |        282 |         52 |         25 |        359 |
+| d:\Downloads\All Levels List\list4\server\api\levels.get.ts                                                          | TypeScript         |        235 |         49 |         41 |        325 |
+| d:\Downloads\All Levels List\list4\server\api\levels\[position].get.ts                                               | TypeScript         |        175 |         50 |         20 |        245 |
+| d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-cl-placement.get.ts                        | TypeScript         |         46 |          6 |          7 |         59 |
+| d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-gdl-placement.get.ts                       | TypeScript         |         37 |          0 |          7 |         44 |
+| d:\Downloads\All Levels List\list4\server\api\levels\[position]\estimated-placement.get.ts                           | TypeScript         |         37 |          3 |          7 |         47 |
+| d:\Downloads\All Levels List\list4\server\api\levels\by-gd-id\[gd_id].get.ts                                         | TypeScript         |         13 |          4 |          4 |         21 |
+| d:\Downloads\All Levels List\list4\server\api\levels\by-placement\[placement].get.ts                                 | TypeScript         |         21 |         10 |          5 |         36 |
+| d:\Downloads\All Levels List\list4\server\api\levels\sources.get.ts                                                  | TypeScript         |         21 |          0 |          5 |         26 |
+| d:\Downloads\All Levels List\list4\server\api\levels\submit.post.ts                                                  | TypeScript         |        119 |          5 |         22 |        146 |
+| d:\Downloads\All Levels List\list4\server\api\levels\tier-curve.get.ts                                               | TypeScript         |          7 |          7 |          2 |         16 |
+| d:\Downloads\All Levels List\list4\server\api\levels\tier-midpoint.get.ts                                            | TypeScript         |         14 |          2 |          4 |         20 |
+| d:\Downloads\All Levels List\list4\server\api\levels\version.get.ts                                                  | TypeScript         |          8 |          0 |          2 |         10 |
+| d:\Downloads\All Levels List\list4\server\api\list-sources.get.ts                                                    | TypeScript         |         87 |         21 |          9 |        117 |
+| d:\Downloads\All Levels List\list4\server\api\movements\index.post.ts                                                | TypeScript         |         30 |          1 |         10 |         41 |
+| d:\Downloads\All Levels List\list4\server\api\open-verifications\[id]\submit-verification.post.ts                    | TypeScript         |        140 |         15 |         16 |        171 |
+| d:\Downloads\All Levels List\list4\server\api\open-verifications\levels.get.ts                                       | TypeScript         |         76 |          0 |         15 |         91 |
+| d:\Downloads\All Levels List\list4\server\api\open-verifications\levels\[id].get.ts                                  | TypeScript         |         21 |          0 |          2 |         23 |
+| d:\Downloads\All Levels List\list4\server\api\open-verifications\submit.post.ts                                      | TypeScript         |         84 |          2 |         17 |        103 |
+| d:\Downloads\All Levels List\list4\server\api\opinions\index.post.ts                                                 | TypeScript         |         77 |          1 |         15 |         93 |
+| d:\Downloads\All Levels List\list4\server\api\pointercrate-players\[pc_id].get.ts                                    | TypeScript         |         61 |         13 |          9 |         83 |
+| d:\Downloads\All Levels List\list4\server\api\pointercrate-players\search.get.ts                                     | TypeScript         |         17 |          4 |          2 |         23 |
+| d:\Downloads\All Levels List\list4\server\api\records\index.post.ts                                                  | TypeScript         |         68 |          9 |         12 |         89 |
+| d:\Downloads\All Levels List\list4\server\api\stats.get.ts                                                           | TypeScript         |        147 |         32 |         13 |        192 |
+| d:\Downloads\All Levels List\list4\server\api\users\[username].get.ts                                                | TypeScript         |        144 |         50 |         20 |        214 |
+| d:\Downloads\All Levels List\list4\server\api\users\[username]\avatar.get.ts                                         | TypeScript         |         12 |          0 |          4 |         16 |
+| d:\Downloads\All Levels List\list4\server\api\users\by-player\[player].get.ts                                        | TypeScript         |        123 |         21 |         17 |        161 |
+| d:\Downloads\All Levels List\list4\server\api\users\search.get.ts                                                    | TypeScript         |         26 |          5 |          7 |         38 |
+| d:\Downloads\All Levels List\list4\server\api\void\levels.get.ts                                                     | TypeScript         |         33 |          0 |          5 |         38 |
+| d:\Downloads\All Levels List\list4\server\api\void\levels\[position].get.ts                                          | TypeScript         |         18 |          0 |          2 |         20 |
+| d:\Downloads\All Levels List\list4\server\api\void\levels\[position]\submit.post.ts                                  | TypeScript         |         77 |          5 |         10 |         92 |
+| d:\Downloads\All Levels List\list4\server\api\youtube\upload-date.get.ts                                             | TypeScript         |         84 |         53 |         14 |        151 |
+| d:\Downloads\All Levels List\list4\server\db\backfill-gd-cache.ts                                                    | TypeScript         |        347 |         23 |         42 |        412 |
+| d:\Downloads\All Levels List\list4\server\db\clear-temporary-levels.ts                                               | TypeScript         |         44 |         10 |         10 |         64 |
+| d:\Downloads\All Levels List\list4\server\db\diff-sheet.ts                                                           | TypeScript         |        187 |         10 |         17 |        214 |
+| d:\Downloads\All Levels List\list4\server\db\import-acs.ts                                                           | TypeScript         |        343 |        103 |         46 |        492 |
+| d:\Downloads\All Levels List\list4\server\db\import-aredl-history.ts                                                 | TypeScript         |        150 |         34 |         15 |        199 |
+| d:\Downloads\All Levels List\list4\server\db\import-aredl.ts                                                         | TypeScript         |        266 |         23 |         18 |        307 |
+| d:\Downloads\All Levels List\list4\server\db\import-ccl.ts                                                           | TypeScript         |         18 |          5 |          4 |         27 |
+| d:\Downloads\All Levels List\list4\server\db\import-cl.ts                                                            | TypeScript         |        213 |         21 |         20 |        254 |
+| d:\Downloads\All Levels List\list4\server\db\import-ddl.ts                                                           | TypeScript         |         18 |          5 |          4 |         27 |
+| d:\Downloads\All Levels List\list4\server\db\import-edi.ts                                                           | TypeScript         |         18 |          4 |          4 |         26 |
+| d:\Downloads\All Levels List\list4\server\db\import-gdl.ts                                                           | TypeScript         |        394 |         44 |         30 |        468 |
+| d:\Downloads\All Levels List\list4\server\db\import-gdtpl.ts                                                         | TypeScript         |        269 |         62 |         24 |        355 |
+| d:\Downloads\All Levels List\list4\server\db\import-gsv.ts                                                           | TypeScript         |        158 |         23 |         15 |        196 |
+| d:\Downloads\All Levels List\list4\server\db\import-ll.ts                                                            | TypeScript         |         18 |          4 |          4 |         26 |
+| d:\Downloads\All Levels List\list4\server\db\import-mscl.ts                                                          | TypeScript         |        116 |         25 |         15 |        156 |
+| d:\Downloads\All Levels List\list4\server\db\import-pointercrate.ts                                                  | TypeScript         |        190 |         46 |         15 |        251 |
+| d:\Downloads\All Levels List\list4\server\db\import-sfl.ts                                                           | TypeScript         |         18 |          4 |          4 |         26 |
+| d:\Downloads\All Levels List\list4\server\db\import-tcl.ts                                                           | TypeScript         |         18 |          5 |          4 |         27 |
+| d:\Downloads\All Levels List\list4\server\db\import-tsl.ts                                                           | TypeScript         |         18 |          6 |          4 |         28 |
+| d:\Downloads\All Levels List\list4\server\db\import.ts                                                               | TypeScript         |        976 |        312 |        122 |      1,410 |
+| d:\Downloads\All Levels List\list4\server\db\index.ts                                                                | TypeScript         |      1,531 |        409 |         71 |      2,011 |
+| d:\Downloads\All Levels List\list4\server\middleware\00.lockdown.ts                                                  | TypeScript         |         27 |         19 |          9 |         55 |
+| d:\Downloads\All Levels List\list4\server\middleware\10.analytics.ts                                                 | TypeScript         |         29 |         23 |          8 |         60 |
+| d:\Downloads\All Levels List\list4\server\plugins\00.env.ts                                                          | TypeScript         |         16 |         22 |          4 |         42 |
+| d:\Downloads\All Levels List\list4\server\plugins\00.internal-fetch.ts                                               | TypeScript         |         21 |         20 |          8 |         49 |
+| d:\Downloads\All Levels List\list4\server\plugins\daily-changes-discord.ts                                           | TypeScript         |         22 |          8 |          4 |         34 |
+| d:\Downloads\All Levels List\list4\server\plugins\db-init.ts                                                         | TypeScript         |         82 |         26 |          5 |        113 |
+| d:\Downloads\All Levels List\list4\server\plugins\gsv-daily-refresh.ts                                               | TypeScript         |         35 |          8 |          6 |         49 |
+| d:\Downloads\All Levels List\list4\server\plugins\sheet-refresh.ts                                                   | TypeScript         |         26 |         18 |          5 |         49 |
+| d:\Downloads\All Levels List\list4\server\utils\analytics.ts                                                         | TypeScript         |        211 |        141 |         25 |        377 |
+| d:\Downloads\All Levels List\list4\server\utils\auth.ts                                                              | TypeScript         |        140 |         21 |         16 |        177 |
+| d:\Downloads\All Levels List\list4\server\utils\challenge-expr.ts                                                    | TypeScript         |         19 |         25 |          1 |         45 |
+| d:\Downloads\All Levels List\list4\server\utils\challenge-rank.ts                                                    | TypeScript         |         24 |         18 |          6 |         48 |
+| d:\Downloads\All Levels List\list4\server\utils\changes.ts                                                           | TypeScript         |        149 |         45 |         11 |        205 |
+| d:\Downloads\All Levels List\list4\server\utils\claim-records.ts                                                     | TypeScript         |        172 |         57 |         20 |        249 |
+| d:\Downloads\All Levels List\list4\server\utils\clans.ts                                                             | TypeScript         |        162 |         69 |         17 |        248 |
+| d:\Downloads\All Levels List\list4\server\utils\custom-list-pending.ts                                               | TypeScript         |         35 |         11 |          8 |         54 |
+| d:\Downloads\All Levels List\list4\server\utils\custom-list-perms.ts                                                 | TypeScript         |         60 |         23 |         11 |         94 |
+| d:\Downloads\All Levels List\list4\server\utils\custom-list-scoring.ts                                               | TypeScript         |        131 |         47 |         18 |        196 |
+| d:\Downloads\All Levels List\list4\server\utils\custom-list-webhooks.ts                                              | TypeScript         |         50 |         10 |          9 |         69 |
+| d:\Downloads\All Levels List\list4\server\utils\custom-lists.ts                                                      | TypeScript         |        313 |         92 |         37 |        442 |
+| d:\Downloads\All Levels List\list4\server\utils\daily-discord.ts                                                     | TypeScript         |         78 |         32 |         16 |        126 |
+| d:\Downloads\All Levels List\list4\server\utils\discord.ts                                                           | TypeScript         |        276 |         69 |         35 |        380 |
+| d:\Downloads\All Levels List\list4\server\utils\follows.ts                                                           | TypeScript         |         29 |          8 |          8 |         45 |
+| d:\Downloads\All Levels List\list4\server\utils\gd-cache-warmer.ts                                                   | TypeScript         |        166 |         20 |         24 |        210 |
+| d:\Downloads\All Levels List\list4\server\utils\gd-fetch.ts                                                          | TypeScript         |        307 |         49 |         32 |        388 |
+| d:\Downloads\All Levels List\list4\server\utils\import-estimates.ts                                                  | TypeScript         |         19 |         33 |          5 |         57 |
+| d:\Downloads\All Levels List\list4\server\utils\imported-movements.ts                                                | TypeScript         |        235 |        130 |         28 |        393 |
+| d:\Downloads\All Levels List\list4\server\utils\imports-state.ts                                                     | TypeScript         |         66 |         34 |          9 |        109 |
+| d:\Downloads\All Levels List\list4\server\utils\inbox.ts                                                             | TypeScript         |         36 |          0 |          3 |         39 |
+| d:\Downloads\All Levels List\list4\server\utils\internal-token.ts                                                    | TypeScript         |          3 |         18 |          2 |         23 |
+| d:\Downloads\All Levels List\list4\server\utils\leaderboard-discord.ts                                               | TypeScript         |         59 |         10 |         11 |         80 |
+| d:\Downloads\All Levels List\list4\server\utils\leaderboard.ts                                                       | TypeScript         |         70 |         19 |         10 |         99 |
+| d:\Downloads\All Levels List\list4\server\utils\level-slice.ts                                                       | TypeScript         |         17 |          7 |          4 |         28 |
+| d:\Downloads\All Levels List\list4\server\utils\list-sources.ts                                                      | TypeScript         |        144 |         24 |         14 |        182 |
+| d:\Downloads\All Levels List\list4\server\utils\move-level.ts                                                        | TypeScript         |        104 |         47 |         19 |        170 |
+| d:\Downloads\All Levels List\list4\server\utils\opinions.ts                                                          | TypeScript         |         88 |         21 |         18 |        127 |
+| d:\Downloads\All Levels List\list4\server\utils\other-lists.ts                                                       | TypeScript         |         94 |         49 |         11 |        154 |
+| d:\Downloads\All Levels List\list4\server\utils\password.ts                                                          | TypeScript         |         12 |          9 |          4 |         25 |
+| d:\Downloads\All Levels List\list4\server\utils\placement-snapshot.ts                                                | TypeScript         |        355 |        115 |         49 |        519 |
+| d:\Downloads\All Levels List\list4\server\utils\placement-sync.ts                                                    | TypeScript         |         44 |         41 |          9 |         94 |
+| d:\Downloads\All Levels List\list4\server\utils\points.ts                                                            | TypeScript         |        142 |         43 |         13 |        198 |
+| d:\Downloads\All Levels List\list4\server\utils\profanity-guard.ts                                                   | TypeScript         |          9 |         15 |          2 |         26 |
+| d:\Downloads\All Levels List\list4\server\utils\profile.ts                                                           | TypeScript         |         77 |         12 |         10 |         99 |
+| d:\Downloads\All Levels List\list4\server\utils\sheet-handover.ts                                                    | TypeScript         |        103 |         55 |         12 |        170 |
+| d:\Downloads\All Levels List\list4\server\utils\site-access.ts                                                       | TypeScript         |         37 |         32 |         10 |         79 |
+| d:\Downloads\All Levels List\list4\server\utils\tier-curve.ts                                                        | TypeScript         |         42 |         33 |         10 |         85 |
+| d:\Downloads\All Levels List\list4\server\utils\tier-repair.ts                                                       | TypeScript         |         45 |         17 |          8 |         70 |
+| d:\Downloads\All Levels List\list4\server\utils\unclaim.ts                                                           | TypeScript         |         80 |         20 |         13 |        113 |
+| d:\Downloads\All Levels List\list4\server\utils\webhook-mask.ts                                                      | TypeScript         |          4 |          9 |          1 |         14 |
+| d:\Downloads\All Levels List\list4\server\utils\xlsx.ts                                                              | TypeScript         |        159 |         63 |         26 |        248 |
+| d:\Downloads\All Levels List\list4\tailwind.config.js                                                                | JavaScript         |         39 |          4 |          1 |         44 |
+| d:\Downloads\All Levels List\list4\tsconfig.json                                                                     | JSON with Comments |          3 |          0 |          1 |          4 |
+| d:\Downloads\All Levels List\list4\utils\badge-styles.ts                                                             | TypeScript         |         44 |         53 |          8 |        105 |
+| d:\Downloads\All Levels List\list4\utils\challenge-compare.ts                                                        | TypeScript         |         12 |         33 |          2 |         47 |
+| d:\Downloads\All Levels List\list4\utils\challenge-sources.ts                                                        | TypeScript         |         19 |         33 |          5 |         57 |
+| d:\Downloads\All Levels List\list4\utils\clan-tag.ts                                                                 | TypeScript         |          3 |         12 |          1 |         16 |
+| d:\Downloads\All Levels List\list4\utils\countries.ts                                                                | TypeScript         |         53 |         50 |          7 |        110 |
+| d:\Downloads\All Levels List\list4\utils\country-codes.ts                                                            | TypeScript         |         41 |          8 |          2 |         51 |
+| d:\Downloads\All Levels List\list4\utils\custom-list-colors.ts                                                       | TypeScript         |         43 |         64 |         11 |        118 |
+| d:\Downloads\All Levels List\list4\utils\gd-links.ts                                                                 | TypeScript         |         16 |         16 |          6 |         38 |
+| d:\Downloads\All Levels List\list4\utils\level-records.ts                                                            | TypeScript         |         39 |         32 |          7 |         78 |
+| d:\Downloads\All Levels List\list4\utils\level-thumbs.ts                                                             | TypeScript         |         98 |         82 |         18 |        198 |
+| d:\Downloads\All Levels List\list4\utils\lis.ts                                                                      | TypeScript         |         19 |         19 |          3 |         41 |
+| d:\Downloads\All Levels List\list4\utils\list-progress.ts                                                            | TypeScript         |          7 |         12 |          1 |         20 |
+| d:\Downloads\All Levels List\list4\utils\list-source-catalog.ts                                                      | TypeScript         |         68 |         44 |         10 |        122 |
+| d:\Downloads\All Levels List\list4\utils\lockdown.ts                                                                 | TypeScript         |          7 |         10 |          3 |         20 |
+| d:\Downloads\All Levels List\list4\utils\profanity.ts                                                                | TypeScript         |        140 |         79 |         18 |        237 |
+| d:\Downloads\All Levels List\list4\utils\profile-chips.ts                                                            | TypeScript         |         23 |         19 |          5 |         47 |
+| d:\Downloads\All Levels List\list4\utils\prose.ts                                                                    | TypeScript         |         21 |         29 |          4 |         54 |
+| d:\Downloads\All Levels List\list4\utils\role-styles.ts                                                              | TypeScript         |         47 |         33 |          5 |         85 |
+| d:\Downloads\All Levels List\list4\utils\sheet.ts                                                                    | TypeScript         |          2 |          9 |          1 |         12 |
+| d:\Downloads\All Levels List\list4\utils\site-nav.ts                                                                 | TypeScript         |        119 |         35 |          7 |        161 |
+| d:\Downloads\All Levels List\list4\utils\site-updates.ts                                                             | TypeScript         |        398 |         16 |          4 |        418 |
+| d:\Downloads\All Levels List\list4\utils\social-links.ts                                                             | TypeScript         |         74 |         24 |          7 |        105 |
+| d:\Downloads\All Levels List\list4\utils\stat-colors.ts                                                              | TypeScript         |         45 |          5 |          5 |         55 |
+| d:\Downloads\All Levels List\list4\utils\tier-colors.ts                                                              | TypeScript         |         65 |         21 |          5 |         91 |
+| d:\Downloads\All Levels List\list4\utils\tier-ordinal.ts                                                             | TypeScript         |        201 |        150 |         33 |        384 |
+| d:\Downloads\All Levels List\list4\utils\tier-shortcut.ts                                                            | TypeScript         |          8 |          7 |          2 |         17 |
+| d:\Downloads\All Levels List\list4\worker\boomlings-proxy.js                                                         | JavaScript         |         28 |          7 |          5 |         40 |
+| d:\Downloads\All Levels List\list4\worker\local-proxy.js                                                             | JavaScript         |         52 |         13 |          6 |         71 |
+| Total                                                                                                                |                    |        852 |      4,314 |        844 |      6,010 |
++----------------------------------------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

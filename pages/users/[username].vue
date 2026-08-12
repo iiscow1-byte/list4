@@ -171,13 +171,13 @@ function openFollowList(mode: 'followers' | 'following') {
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87" />
             <circle cx="9" cy="7" r="4" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
           </svg>
-          <span class="tabular-nums">{{ data.follow.mutuals }}</span> mutual{{ data.follow.mutuals === 1 ? '' : 's' }}
+          <span><span class="tabular-nums">{{ data.follow.mutuals }}</span> mutual{{ data.follow.mutuals === 1 ? '' : 's' }}</span>
         </span>
         <span v-if="data.profileViews > 1" :class="profileChipClass()" title="Times this profile has been opened">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
           </svg>
-          <span class="tabular-nums">{{ data.profileViews.toLocaleString() }}</span> views
+          <span><span class="tabular-nums">{{ data.profileViews.toLocaleString() }}</span> views</span>
         </span>
       </template>
       <template #actions>

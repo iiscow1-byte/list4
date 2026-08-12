@@ -65,6 +65,8 @@ function kindLabel(kind: string) {
     case 'awaiting_removed': return 'Removed from awaiting'
     case 'role_changed': return 'Role changed'
     case 'comment': return 'New comment'
+    case 'clan': return 'Clan'
+    case 'staff': return 'Staff notice'
     default: return kind
   }
 }

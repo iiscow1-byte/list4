@@ -27,6 +27,10 @@ const PATHS: Record<string, string> = {
   search: 'm21 21-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z',
   plus: 'M12 5v14M5 12h14',
   flag: 'M4 21V4M4 4h11l-1.5 3.5L15 11H4',
+  // A record is a completion you have proved, so: a medal on a ribbon. The flag
+  // that used to sit here reads as "report this" or "start here" — neither of
+  // which is what submitting a run means.
+  medal: 'M12 15.5a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9ZM8.2 13.6 6.5 21l5.5-3 5.5 3-1.7-7.4M8.5 6.6 6.5 3M15.5 6.6 17.5 3',
   star: 'm12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.5 9.7l5.9-.9L12 3.5Z',
   heart: 'M12 21s-7-4.35-9-8.5A5 5 0 0 1 12 6a5 5 0 0 1 9 6.5C19 16.65 12 21 12 21z',
   inbox: 'M22 12h-6l-2 3h-4l-2-3H2M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z',

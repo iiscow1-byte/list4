@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
 import { pruneAnalytics } from '~/server/utils/analytics'
+import { importedPendingSql, submittedPendingSql } from '~/server/utils/pending-source'
 
 /**
  * What the site's traffic and its growth look like.
@@ -203,9 +204,19 @@ export default defineEventHandler((event) => {
     accounts: series(
       `SELECT DATE(created_at) AS day, COUNT(*) AS n FROM accounts
         WHERE created_at >= date('now', ?) GROUP BY day`),
+    /**
+     * Levels a *person* offered.
+     *
+     * The importers put their rows in the same table, and they arrive in the
+     * thousands — one mirror refresh buried every real submission the site had
+     * ever had under a single day's bar. They are their own series below.
+     */
     levelsSubmitted: series(
       `SELECT DATE(submitted_at) AS day, COUNT(*) AS n FROM pending_levels
-        WHERE submitted_at >= date('now', ?) GROUP BY day`),
+        WHERE submitted_at >= date('now', ?) AND ${submittedPendingSql()} GROUP BY day`),
+    levelsImported: series(
+      `SELECT DATE(submitted_at) AS day, COUNT(*) AS n FROM pending_levels
+        WHERE submitted_at >= date('now', ?) AND ${importedPendingSql()} GROUP BY day`),
     records: series(
       `SELECT DATE(submitted_at) AS day, COUNT(*) AS n FROM records
         WHERE submitted_at >= date('now', ?) GROUP BY day`),
@@ -232,7 +243,12 @@ export default defineEventHandler((event) => {
          JOIN records r ON r.player_name = COALESCE(a.claimed_player, a.username) COLLATE NOCASE
         WHERE r.permanent = 1`),
     levels: one(`SELECT COUNT(*) AS n FROM levels`),
-    levelsSubmitted: one(`SELECT COUNT(*) AS n FROM pending_levels`),
+    levelsSubmitted: one(`SELECT COUNT(*) AS n FROM pending_levels WHERE ${submittedPendingSql()}`),
+    levelsSubmittedPending: one(
+      `SELECT COUNT(*) AS n FROM pending_levels WHERE status = 'pending' AND ${submittedPendingSql()}`),
+    levelsImported: one(`SELECT COUNT(*) AS n FROM pending_levels WHERE ${importedPendingSql()}`),
+    levelsImportedPending: one(
+      `SELECT COUNT(*) AS n FROM pending_levels WHERE status = 'pending' AND ${importedPendingSql()}`),
     levelsPending: one(`SELECT COUNT(*) AS n FROM pending_levels WHERE status = 'pending'`),
     records: one(`SELECT COUNT(*) AS n FROM records`),
     recordsAccepted: one(`SELECT COUNT(*) AS n FROM records WHERE permanent = 1`),

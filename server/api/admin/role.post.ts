@@ -48,5 +48,35 @@ export default defineEventHandler(async (event) => {
     sent_by: me.id,
   })
 
-  return { ok: true, username: target.username, role }
+  /**
+   * …and everyone else who can hand out roles.
+   *
+   * A role change is the one action on this site that changes who can change
+   * the site, and until now the only person told about it was the person it
+   * happened to. An admin had no way to notice that another admin had promoted
+   * somebody, short of watching the user list.
+   *
+   * Sent to admins and above rather than to every moderator: the notice is
+   * about who holds power, and it is the people who can grant it who need to
+   * see it. The actor is skipped (they just did it) and so is the target (they
+   * have their own, better-worded message above).
+   */
+  const staff = db.prepare(
+    `SELECT id FROM accounts
+      WHERE role IN ('admin', 'owner', 'developer')
+        AND banned_at IS NULL
+        AND id NOT IN (?, ?)`,
+  ).all(me.id, target.id) as { id: number }[]
+
+  const direction = (ROLE_RANK[role] ?? 0) > (ROLE_RANK[oldRole] ?? 0) ? 'promoted' : 'changed'
+  for (const s of staff) {
+    sendInboxMessage(db, s.id, {
+      kind: 'staff',
+      subject: `${target.username} was ${direction} to ${role}`,
+      body: `${me.username} changed ${target.username}'s role from ${oldRole} to ${role}.`,
+      sent_by: me.id,
+    })
+  }
+
+  return { ok: true, username: target.username, role, notified: staff.length }
 })

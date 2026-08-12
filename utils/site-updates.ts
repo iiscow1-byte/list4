@@ -22,6 +22,18 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.20.1',
+    date: '2026-08-12',
+    title: 'Imports counted apart, and a notice when roles change',
+    tags: ['Admin', 'UI', 'Fixes'],
+    changes: [
+      '"Levels submitted" was mostly a graph of when the importers last ran. Mirrored levels share a table with real submissions, and they arrive in the thousands — one refresh buried every submission the site had ever had under a single day’s bar. The two are separate figures and separate lines now, each with its own pending count.',
+      'Admins are told in their inbox when somebody’s role changes: who did it, to whom, and from what. A role change is the one action that changes who can change the site, and until now the only person told was the one it happened to.',
+      'The Submit menu’s record icon is a medal rather than a flag — a flag reads as "report this", not "here is a run I finished".',
+      'Fixed the double space in "2  views" on a profile. The chips are a flex row, so the loose word beside the number was its own item and got the row’s gap on top of the space already in the text.',
+    ],
+  },
+  {
     version: '1.20.0',
     date: '2026-08-12',
     title: 'Statistics you can trust, and the hours behind them',

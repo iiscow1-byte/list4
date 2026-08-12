@@ -44,6 +44,16 @@ type Analytics = {
   growth: Record<string, Point[]>
 }
 
+/**
+ * Submitted by a person, or mirrored from another list.
+ *
+ * Both land in `pending_levels`, and until now the statistics counted them
+ * together — so "levels submitted" was mostly a graph of when the importers
+ * last ran. Which of the two a row is comes from
+ * `server/utils/pending-source.ts`, the same definition the review queue
+ * splits its tabs by.
+ */
+
 const days = ref(30)
 const { data, pending, refresh } = await useFetch<Analytics>('/api/admin/analytics', {
   query: computed(() => ({ days: days.value })),
@@ -100,7 +110,11 @@ const shownTraffic = computed(() =>
 /** Which growth series the second chart draws. */
 const GROWTH_SERIES = [
   { key: 'accounts', label: 'Accounts created', color: '#60a5fa' },
+  // Submissions and imports are separate series. They share a table, and an
+  // importer arrives in the thousands — one mirror refresh buried every real
+  // submission the site had ever had under a single day's bar.
   { key: 'levelsSubmitted', label: 'Levels submitted', color: '#f4c430' },
+  { key: 'levelsImported', label: 'Levels imported', color: '#94a3b8' },
   { key: 'records', label: 'Records submitted', color: '#34d399' },
   { key: 'customLists', label: 'Lists created', color: '#f472b6' },
   { key: 'comments', label: 'Comments', color: '#a78bfa' },
@@ -181,7 +195,9 @@ const LIFETIME_ROWS = [
   { key: 'accountsBanned', label: '…banned' },
   { key: 'levels', label: 'Levels on the list' },
   { key: 'levelsSubmitted', label: 'Levels submitted' },
-  { key: 'levelsPending', label: '…still pending' },
+  { key: 'levelsSubmittedPending', label: '…still pending' },
+  { key: 'levelsImported', label: 'Levels imported' },
+  { key: 'levelsImportedPending', label: '…still pending' },
   { key: 'records', label: 'Records submitted' },
   { key: 'recordsAccepted', label: '…accepted' },
   { key: 'recordsPending', label: '…still pending' },

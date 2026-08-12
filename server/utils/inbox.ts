@@ -8,6 +8,13 @@ export type InboxKind =
   | 'open_verification_rejected'
   | 'role_changed'
   | 'comment'
+  | 'clan'
+  /**
+   * Something a moderator or above should know about, sent to all of them
+   * rather than to one person. The first is a role change: who did it, to
+   * whom, and from what — which until now only the person themselves was told.
+   */
+  | 'staff'
 
 export function sendInboxMessage(
   db: DatabaseSync,
