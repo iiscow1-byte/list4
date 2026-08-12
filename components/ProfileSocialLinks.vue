@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SOCIAL_LINKS, socialHandle } from '~/utils/social-links'
 import { gdUserUrl } from '~/utils/gd-links'
+import { profileChipClass, PROFILE_CHIP_ICON } from '~/utils/profile-chips'
 
 /**
  * Where else to find someone, as a row of chips.
@@ -37,11 +38,11 @@ async function copyDiscord() {
   } catch { /* no clipboard permission — the handle is on screen anyway */ }
 }
 
-const chip = computed(() =>
-  'inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-950/70 transition-colors '
-  + (props.size === 'sm' ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]'),
-)
-const icon = computed(() => (props.size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'))
+// The same chip the facts beside these use — see `utils/profile-chips.ts`.
+// These two rows sit three inches apart in the same header and used to be two
+// different shapes.
+const chip = computed(() => profileChipClass(props.size ?? 'md'))
+const icon = computed(() => PROFILE_CHIP_ICON[props.size ?? 'md'])
 </script>
 
 <template>
@@ -52,7 +53,7 @@ const icon = computed(() => (props.size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'))
       :href="gdUrl"
       target="_blank"
       rel="noopener"
-      :class="[chip, 'text-zinc-400 hover:text-accent hover:border-accent/50']"
+      :class="[chip, 'hover:text-accent hover:border-accent/50']"
       :title="`${account!.gd_username} on gdbrowser`"
     >
       <GdCubeIcon :class="[icon, 'shrink-0']" />
@@ -65,7 +66,7 @@ const icon = computed(() => (props.size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'))
       :href="l.url"
       target="_blank"
       rel="noopener"
-      :class="[chip, 'text-zinc-400', l.def.tone]"
+      :class="[chip, l.def.tone]"
       :title="`${l.handle} on ${l.def.label}`"
     >
       <svg v-if="l.def.key === 'youtube_url'" viewBox="0 0 24 24" fill="currentColor" :class="[icon, 'shrink-0']" aria-hidden="true">
@@ -87,7 +88,7 @@ const icon = computed(() => (props.size === 'sm' ? 'w-3 h-3' : 'w-3.5 h-3.5'))
     <button
       v-if="discord"
       type="button"
-      :class="[chip, 'text-zinc-400 hover:text-[#5865F2] hover:border-indigo-900/60']"
+      :class="[chip, 'hover:text-[#5865F2] hover:border-indigo-900/60']"
       :title="copied ? 'Copied' : `Copy ${discord}`"
       @click="copyDiscord"
     >

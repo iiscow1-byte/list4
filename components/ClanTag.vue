@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { hexBadgeStyle } from '~/utils/badge-styles'
+import { textOn } from '~/utils/tier-colors'
 
 /**
  * The clan somebody is in, beside their name.
  *
- * Deliberately **not** shaped like the other badges. A role chip and a source
- * chip are the site talking about an account; a clan tag is part of how a
- * player writes their own name — `[TSK] Wolfy` is the form this community
- * already uses — so it reads as a prefix rather than as an annotation. Hence
- * brackets instead of an uppercase pill, tighter tracking, a squarer corner,
- * and the clan's own colour rather than one of the tone palette's.
+ * Deliberately **not** shaped like the other badges. A role chip is the site
+ * talking *about* an account; a clan tag is part of how a player writes their
+ * own name — `[TSK] Wolfy` is the form this community already uses — so it
+ * reads as a prefix rather than as an annotation.
  *
- * The brackets are dimmed against the tag so the three or four letters that
- * identify the clan are what the eye lands on, and so a row of names with tags
- * in it still scans as names.
+ * The revamp took the border off. A bordered chip in front of every name turned
+ * a leaderboard into a column of boxes, and the border was doing the same job as
+ * the tint behind it — twice, in the same three-letter space. What is left is a
+ * soft block of the clan's colour with the tag on it: still unmistakably a tag,
+ * a third of the visual weight. The brackets sit at 45% so the letters that
+ * identify the clan are what the eye lands on, and a row of names with tags in
+ * it still scans as names.
+ *
+ * Two variants:
+ * - `soft` (default) — the tinted block above, for beside a name.
+ * - `solid` — filled with the clan's own colour, for the one place on a page
+ *   where the clan *is* the subject: its own header, and the "your clan" chip.
+ *   The label colour is picked against the fill so a pale clan colour doesn't
+ *   produce white-on-yellow.
  *
  * It links to the clan unless told not to — on the clan's own page, and inside
  * something that is already a link, a nested anchor is invalid and swallows the
@@ -25,26 +34,41 @@ const props = withDefaults(defineProps<{
   name?: string | null
   color?: string | null
   size?: 'sm' | 'md'
+  variant?: 'soft' | 'solid'
   /** `false` inside another link, or on the clan's own page. */
   link?: boolean
-}>(), { size: 'md', link: true })
+}>(), { size: 'md', variant: 'soft', link: true })
 
-const style = computed(() => {
-  const hex = hexBadgeStyle(props.color)
-  // Without a colour the tag still has to be legible against the row, so it
-  // falls back to the site accent rather than to the surrounding text colour —
-  // a colourless tag that inherits looks like part of the username.
-  if (!hex) return undefined
-  return { backgroundColor: hex.backgroundColor, borderColor: hex.borderColor, color: hex.color }
+const hex = computed(() => {
+  const c = props.color
+  return c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : null
 })
 
-const title = computed(() => (props.name ? `${props.name} — [${props.tag}]` : `Clan [${props.tag}]`))
-const chip = computed(() =>
-  'shrink-0 inline-flex items-baseline rounded-[3px] border font-bold leading-none '
-  + 'whitespace-nowrap tracking-[0.08em] transition-colors '
-  + (props.size === 'sm' ? 'text-[9px] px-1 py-[3px]' : 'text-[10px] px-1.5 py-[3.5px]')
-  + (style.value ? '' : ' border-accent/40 bg-accent/10 text-accent'),
+const style = computed(() => {
+  const c = hex.value
+  if (!c) return undefined
+  return props.variant === 'solid'
+    ? { backgroundColor: c, color: textOn(c) }
+    // 20% tint, and the text at full strength. No border: the block is the
+    // shape, and an outline around a three-letter tag is one edge too many.
+    : { backgroundColor: `${c}2e`, color: c }
+})
+
+/** The fallback when a clan never picked a colour — the site accent, softly. */
+const fallback = computed(() =>
+  props.variant === 'solid'
+    ? 'bg-accent text-zinc-950'
+    : 'bg-accent/15 text-accent',
 )
+
+const title = computed(() => (props.name ? `${props.name} — [${props.tag}]` : `Clan [${props.tag}]`))
+
+const chip = computed(() => [
+  'shrink-0 inline-flex items-baseline rounded-[4px] font-bold leading-none align-middle',
+  'whitespace-nowrap tracking-[0.06em] transition-[filter,background-color] duration-150',
+  props.size === 'sm' ? 'text-[9px] px-[5px] py-[3px]' : 'text-[10px] px-1.5 py-[4px]',
+  style.value ? '' : fallback.value,
+].join(' '))
 </script>
 
 <template>
@@ -55,12 +79,12 @@ const chip = computed(() =>
     :style="style"
     :title="title"
     @click.stop
-  ><span class="opacity-50">[</span>{{ tag }}<span class="opacity-50">]</span></NuxtLink>
+  ><span class="opacity-45">[</span>{{ tag }}<span class="opacity-45">]</span></NuxtLink>
 
   <span
     v-else-if="tag"
     :class="chip"
     :style="style"
     :title="title"
-  ><span class="opacity-50">[</span>{{ tag }}<span class="opacity-50">]</span></span>
+  ><span class="opacity-45">[</span>{{ tag }}<span class="opacity-45">]</span></span>
 </template>

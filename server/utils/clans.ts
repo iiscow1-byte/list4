@@ -159,6 +159,30 @@ export function clanForAccount(db: DatabaseSync, accountId: number) {
   `).get(accountId) as { id: number; tag: string; name: string; color: string | null; role: string } | undefined
 }
 
+/**
+ * Every clan that has asked this account in.
+ *
+ * Plural on purpose: an account can hold invites from several clans at once,
+ * and being in one already doesn't retract the others — somebody can leave and
+ * take an older invite up. Ordered newest first, since the most recent ask is
+ * the one being thought about.
+ */
+export function invitesForAccount(db: DatabaseSync, accountId: number) {
+  return db.prepare(`
+    SELECT c.id, c.tag, c.name, c.color, c.icon_url,
+           i.message, i.created_at,
+           inv.username AS invited_by_username
+      FROM clan_invites i
+      JOIN clans c ON c.id = i.clan_id
+      LEFT JOIN accounts inv ON inv.id = i.invited_by
+     WHERE i.account_id = ?
+     ORDER BY i.created_at DESC
+  `).all(accountId) as {
+    id: number; tag: string; name: string; color: string | null; icon_url: string | null
+    message: string | null; created_at: string; invited_by_username: string | null
+  }[]
+}
+
 /** Just enough of a clan to print its tag beside a name. */
 export type ClanBadge = { tag: string; name: string; color: string | null }
 

@@ -22,6 +22,23 @@ export type SiteUpdate = {
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.18.0',
+    date: '2026-08-10',
+    title: 'Clan invites, and video dates that work again',
+    tags: ['Community', 'Profiles', 'UI', 'Fixes'],
+    changes: [
+      'Clans can invite people. An invite waits on the person rather than on the owner, shows up on the clans page and in your inbox, and can be taken up or turned down from either. Being invited gets you into an invite-only clan without having to ask first.',
+      'Verification dates read from a video\'s upload date work again. The key they need was never configured on the server, so the lookup had been quietly answering "no date" for every video ever asked about — including for every level in a custom list being handed to the ALL.',
+      'That lookup is also no longer something an anonymous script can spend: it needs a session, it caches what it has already resolved, and it says when it isn\'t configured instead of looking like it found nothing.',
+      'Where you are from, your pronouns and when you joined were one run of grey text with nothing between the facts. They are three chips now, each with an icon, matching the links beside them.',
+      'Badges are optically centred rather than nearly centred, easier to read at 9px, and role badges carry a dot of their own colour — which is the part of a role badge that actually says which role it is.',
+      'Clan tags lost their border. A bordered chip in front of every name turned a leaderboard into a column of boxes; the tag is now a soft block of the clan\'s colour, and its own page shows it filled.',
+      'The Progress panel draws each post as a bar — the run so far, and the part the post added — and no longer loads a YouTube player for every post on the page whether or not you wanted to watch any of them.',
+      'The About page opens with the four numbers people come to it for, splits each FAQ entry into its question and its answer, and says where to submit a level, a record or start a clan.',
+      'Fixed: the pending-levels queue ran the word "Between" straight into the level name after it.',
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-08-09',
     title: 'Clan tags, one badge, and records worth reading',

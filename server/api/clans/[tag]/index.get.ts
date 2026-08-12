@@ -38,6 +38,21 @@ export default defineEventHandler((event) => {
       ).all(clan.id).map((r: any) => ({ ...r, has_avatar: !!r.has_avatar }))
     : []
 
+  // …and the same for invites the clan has sent but nobody has answered. The
+  // owner needs to see these to avoid asking the same person twice, and to take
+  // an invite back.
+  const invites = isOwner
+    ? db.prepare(
+        `SELECT i.account_id, a.username, i.message, i.created_at,
+                (a.avatar_blob IS NOT NULL) AS has_avatar,
+                (SELECT 1 FROM clan_members m WHERE m.account_id = i.account_id) AS in_a_clan
+           FROM clan_invites i JOIN accounts a ON a.id = i.account_id
+          WHERE i.clan_id = ? ORDER BY i.created_at DESC`,
+      ).all(clan.id).map((r: any) => ({
+        ...r, has_avatar: !!r.has_avatar, in_a_clan: !!r.in_a_clan,
+      }))
+    : []
+
   const totals = {
     members: members.length,
     levels: completions.length,
@@ -45,6 +60,17 @@ export default defineEventHandler((event) => {
     points: completions.reduce((n, c) => n + (c.points ?? 0), 0),
     challenges: completions.filter((c) => c.is_challenge).length,
   }
+
+  // What the viewer was invited with, if anything — the message the owner sent
+  // is the difference between an invite and a notification.
+  const myInvite = me
+    ? db.prepare(
+        `SELECT i.message, i.created_at, inv.username AS invited_by_username
+           FROM clan_invites i LEFT JOIN accounts inv ON inv.id = i.invited_by
+          WHERE i.clan_id = ? AND i.account_id = ?`,
+      ).get(clan.id, me.id) as
+        { message: string | null; created_at: string; invited_by_username: string | null } | undefined
+    : undefined
 
   return {
     clan: {
@@ -57,6 +83,8 @@ export default defineEventHandler((event) => {
     members,
     completions,
     requests,
+    invites,
+    myInvite: myInvite ?? null,
     viewer: {
       signedIn: !!me,
       isOwner,
@@ -65,6 +93,7 @@ export default defineEventHandler((event) => {
       requested: !!me && !!db.prepare(
         `SELECT 1 FROM clan_join_requests WHERE clan_id = ? AND account_id = ?`,
       ).get(clan.id, me.id),
+      invited: !!myInvite,
     },
   }
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { countryName, normalizeCountry } from '~/utils/countries'
+import { profileChipClass } from '~/utils/profile-chips'
 
 /**
  * The top of a profile: cover, avatar, name, and the numbers under it.
@@ -15,10 +15,11 @@ import { countryName, normalizeCountry } from '~/utils/countries'
  * (a prefix the account chose), the name, the emoji (part of the name), the
  * staff-set badge, then the role — the site's own statement, last.
  *
- * Everything that is *about* somebody rather than part of their name — country,
- * region, the player they claim, when they joined — is one meta line under it.
- * The country used to be in both places: a flag beside the name and a second
- * flag with its name in the meta line, which read as two facts rather than one.
+ * Everything that is *about* somebody rather than part of their name — where
+ * they are, what to call them, when they joined — sits under it as chips, in
+ * `ProfileMeta`, sharing a shape with the social links beside them. It used to
+ * be one run of 11px grey text with nothing but a gap between the facts, which
+ * read as a sentence that had lost its punctuation.
  */
 type ShowcaseLevel = {
   position: number
@@ -48,8 +49,6 @@ const props = defineProps<{
   bannerImage?: string | null
   /** Tiles under the name. */
   stats?: ProfileStat[]
-  /** `joined March 2026`, worked out by the caller from `created_at`. */
-  joined?: string | null
 }>()
 
 const emit = defineEmits<{ (e: 'openList', mode: 'followers' | 'following'): void }>()
@@ -59,22 +58,6 @@ const avatarUrl = computed(() =>
     ? `/api/users/${encodeURIComponent(props.account.username)}/avatar`
     : null,
 )
-
-/**
- * Where somebody is, as one string.
- *
- * The flag beside the name is the picture of it; this is the words. Written out
- * here rather than in the template because "California, United States",
- * "California" and "United States" are three different sentences depending on
- * what the account filled in, and a template that tries to punctuate all three
- * ends up emitting a stray comma for the ones it didn't think about.
- */
-const location = computed(() => {
-  const region = (props.account?.subdivision ?? '').trim()
-  const country = countryName(normalizeCountry(props.account?.country))
-    ?? (props.account?.country ?? '').trim()
-  return [region, country].filter(Boolean).join(', ') || null
-})
 
 /**
  * Up to three emoji, as characters rather than as a string.
@@ -156,9 +139,10 @@ const emoji = computed(() => {
               :color="account.clan.color"
             />
             <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ account.username }}</h1>
-            <!-- The flag rides with the name; the country's *name* is in the
-                 meta line below, so this is a picture rather than a repeat. -->
-            <CountryFlag :country="account.country" class="shrink-0" />
+            <!-- No flag here. The country chip below carries the flag *and* the
+                 country's name, so a second flag beside the name was the same
+                 fact twice — which is the thing the meta row was rebuilt to
+                 stop. -->
             <!-- Sized to the meta line rather than to the heading: three emoji
                  at 24px next to a 30px name is a second heading. -->
             <span v-if="emoji" class="text-lg leading-none tracking-tight shrink-0" aria-hidden="true">{{ emoji }}</span>
@@ -167,15 +151,22 @@ const emoji = computed(() => {
             <slot name="name-suffix" />
           </div>
 
-          <p class="text-[11px] text-zinc-500 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span v-if="account.claimed_player">
-              playing as <span class="text-zinc-300">{{ account.claimed_player }}</span>
+          <ProfileMeta :account="account" :created-at="account.created_at" class="mt-2">
+            <!-- "Playing as" is the one fact here that is about the *list*
+                 rather than about the person, so it keeps the accent. -->
+            <span
+              v-if="account.claimed_player"
+              :class="profileChipClass()"
+              title="The name this account's records are filed under"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
+                <path d="M4 20v-1a6 6 0 0 1 12 0v1M20 8v6M17 11h6" />
+                <circle cx="10" cy="7" r="4" />
+              </svg>
+              <span class="truncate">Playing as <span class="text-zinc-200">{{ account.claimed_player }}</span></span>
             </span>
-            <span v-if="location">{{ location }}</span>
-            <span v-if="account.pronouns">{{ account.pronouns }}</span>
-            <span v-if="joined">joined {{ joined }}</span>
             <slot name="meta" />
-          </p>
+          </ProfileMeta>
         </div>
 
         <div class="pb-1 flex items-center gap-2 shrink-0 flex-wrap justify-end">

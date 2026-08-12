@@ -1927,5 +1927,26 @@ function initSchema(db: DatabaseSync) {
       created_at TEXT    NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (clan_id, account_id)
     );
+
+    -- The other direction: a clan asking somebody in.
+    --
+    -- Deliberately its own table rather than a flag on the request above. The
+    -- two look symmetrical and are not: a request is answered by the owner and
+    -- an invite is answered by the person, so the same row would need to record
+    -- who is allowed to accept it. Two tables say that by existing, and mean an
+    -- invite and a request can be outstanding at once without one silently
+    -- overwriting the other.
+    --
+    -- An account can hold invites from several clans at once; the primary key
+    -- is the pair, not the account.
+    CREATE TABLE IF NOT EXISTS clan_invites (
+      clan_id    INTEGER NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      invited_by INTEGER          REFERENCES accounts(id) ON DELETE SET NULL,
+      message    TEXT,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (clan_id, account_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_clan_invites_account ON clan_invites(account_id);
   `)
 }

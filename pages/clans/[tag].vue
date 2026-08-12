@@ -34,7 +34,12 @@ const { data, error, refresh } = await useFetch<{
   members: Member[]
   completions: Completion[]
   requests: { account_id: number; username: string; message: string | null; created_at: string; has_avatar: boolean }[]
-  viewer: { signedIn: boolean; isOwner: boolean; isMember: boolean; inAnotherClan: boolean; requested: boolean }
+  invites: { account_id: number; username: string; message: string | null; created_at: string; has_avatar: boolean; in_a_clan: boolean }[]
+  myInvite: { message: string | null; created_at: string; invited_by_username: string | null } | null
+  viewer: {
+    signedIn: boolean; isOwner: boolean; isMember: boolean
+    inAnotherClan: boolean; requested: boolean; invited: boolean
+  }
 }>(() => `/api/clans/${encodeURIComponent(tag.value)}`, { watch: [tag] })
 
 const { data: statsRes } = await useFetch<{ totalLevels: number }>('/api/stats')
@@ -60,17 +65,71 @@ async function act(action: string, accountId?: number, message?: string) {
   actionError.value = null
   notice.value = null
   try {
-    const res = await $fetch<{ disbanded?: boolean; requested?: boolean }>(
+    const res = await $fetch<{ disbanded?: boolean; requested?: boolean; joined?: boolean; declined?: boolean }>(
       `/api/clans/${encodeURIComponent(tag.value)}/membership`,
       { method: 'POST', body: { action, account_id: accountId, message } },
     )
     if (res.disbanded) { await navigateTo('/clans'); return }
-    notice.value = res.requested ? 'Asked to join — the owner has been told.' : null
+    notice.value = res.requested
+      ? 'Asked to join — the owner has been told.'
+      : res.joined ? 'You\'re in.' : null
     await refresh()
   } catch (e: any) {
     actionError.value = e?.data?.statusMessage ?? 'That didn\'t work.'
   } finally {
     busy.value = false
+  }
+}
+
+/**
+ * Inviting somebody.
+ *
+ * By account, not by name: two people can share a display name, and an invite
+ * that went to the wrong one is not a mistake anybody would notice until they
+ * turned up in the roster. The search answers with accounts and says which of
+ * them are already in a clan, rather than hiding those — "they're in [ZOD]" is
+ * the answer to "why isn't my friend in this list".
+ */
+type Invitable = {
+  id: number; username: string; claimed_player: string | null
+  has_avatar: boolean; clan_tag: string | null; invited: boolean
+}
+const inviteOpen = ref(false)
+const inviteQuery = ref('')
+const inviteNote = ref('')
+const inviteResults = ref<Invitable[]>([])
+const inviteSearching = ref(false)
+let inviteTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(inviteQuery, (q) => {
+  if (inviteTimer) clearTimeout(inviteTimer)
+  if (q.trim().length < 2) { inviteResults.value = []; return }
+  inviteTimer = setTimeout(async () => {
+    inviteSearching.value = true
+    try {
+      const res = await $fetch<{ items: Invitable[] }>(
+        `/api/clans/${encodeURIComponent(tag.value)}/invitable`,
+        { query: { q: q.trim() } },
+      )
+      inviteResults.value = res.items
+    } catch {
+      inviteResults.value = []
+    } finally {
+      inviteSearching.value = false
+    }
+  }, 220)
+})
+onBeforeUnmount(() => { if (inviteTimer) clearTimeout(inviteTimer) })
+
+async function invite(person: Invitable) {
+  await act('invite', person.id, inviteNote.value.trim() || undefined)
+  if (!actionError.value) {
+    notice.value = person.clan_tag
+      ? `Invited ${person.username}. They're in [${person.clan_tag}] — they can take it up after leaving.`
+      : `Invited ${person.username}.`
+    inviteQuery.value = ''
+    inviteResults.value = []
+    inviteNote.value = ''
   }
 }
 
@@ -112,7 +171,14 @@ const shownCompletions = computed(() => {
             <div class="flex items-baseline gap-2 flex-wrap">
               <!-- `link` off: this is the clan's own page, so the tag has
                    nowhere to go. -->
-              <ClanTag :tag="data.clan.tag" :name="data.clan.name" :color="data.clan.color" :link="false" class="self-center" />
+              <ClanTag
+                :tag="data.clan.tag"
+                :name="data.clan.name"
+                :color="data.clan.color"
+                variant="solid"
+                :link="false"
+                class="self-center"
+              />
               <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">{{ data.clan.name }}</h1>
               <Badge v-if="data.clan.invite_only" tone="quiet" title="The owner adds people">Invite only</Badge>
             </div>
@@ -162,6 +228,38 @@ const shownCompletions = computed(() => {
               to="/login"
               class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-accent/60 hover:text-accent transition-colors"
             >Log in to join</NuxtLink>
+          </div>
+        </div>
+
+        <!-- You have been asked in. This sits above the numbers because it is
+             the only thing on the page that is waiting on you. -->
+        <div
+          v-if="data.viewer.invited && !data.viewer.isMember"
+          class="mt-4 rounded-xl border border-accent/40 bg-accent/[0.07] px-4 py-3 flex flex-wrap items-center gap-3"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-zinc-100">
+              <span class="font-semibold">{{ data.myInvite?.invited_by_username ?? 'The owner' }}</span>
+              invited you to join this clan.
+            </p>
+            <p v-if="data.myInvite?.message" class="mt-0.5 text-xs text-zinc-400 italic">“{{ data.myInvite.message }}”</p>
+            <p v-else-if="data.viewer.inAnotherClan" class="mt-0.5 text-xs text-zinc-500">
+              Leave your current clan first, and the invite will still be here.
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              :disabled="busy || data.viewer.inAnotherClan"
+              class="rounded-lg bg-accent text-zinc-950 px-3 py-1.5 text-xs font-semibold hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              @click="act('join-invite')"
+            >Accept</button>
+            <button
+              type="button"
+              :disabled="busy"
+              class="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-red-800 hover:text-red-300 disabled:opacity-50 transition-colors"
+              @click="act('reject-invite')"
+            >No thanks</button>
           </div>
         </div>
 
@@ -307,6 +405,94 @@ const shownCompletions = computed(() => {
               <p v-if="r.message" class="mt-0.5 text-[11px] text-zinc-500 truncate">“{{ r.message }}”</p>
             </li>
           </ul>
+        </section>
+
+        <!-- Inviting, owner only -->
+        <section v-if="data.viewer.isOwner" class="card overflow-hidden">
+          <button
+            type="button"
+            class="w-full px-3 py-2.5 flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500 font-semibold hover:text-zinc-300 transition-colors"
+            @click="inviteOpen = !inviteOpen"
+          >
+            Invite someone
+            <span v-if="data.invites.length" class="tabular-nums text-zinc-600 normal-case tracking-normal">
+              {{ data.invites.length }} waiting
+            </span>
+            <span class="ml-auto text-zinc-600 transition-transform" :class="inviteOpen ? 'rotate-180' : ''">▾</span>
+          </button>
+
+          <div v-if="inviteOpen" class="px-3 pb-3 space-y-2 border-t border-zinc-900 pt-3">
+            <input
+              v-model="inviteQuery"
+              type="search"
+              placeholder="Search accounts…"
+              class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            <input
+              v-model="inviteNote"
+              maxlength="300"
+              placeholder="A note, optional"
+              class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-[11px] placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+
+            <p v-if="inviteSearching" class="text-[11px] text-zinc-600">searching…</p>
+            <p v-else-if="inviteQuery.trim().length === 1" class="text-[11px] text-zinc-600">Two letters or more.</p>
+            <p v-else-if="inviteQuery.trim().length > 1 && !inviteResults.length" class="text-[11px] text-zinc-600">
+              No account matches “{{ inviteQuery.trim() }}”.
+            </p>
+
+            <ul v-if="inviteResults.length" class="space-y-1">
+              <li
+                v-for="person in inviteResults"
+                :key="person.id"
+                class="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-zinc-900 transition-colors"
+              >
+                <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center">
+                  <img
+                    v-if="person.has_avatar"
+                    :src="`/api/users/${encodeURIComponent(person.username)}/avatar`"
+                    class="w-full h-full object-cover" alt="" loading="lazy"
+                  />
+                  <span v-else class="text-[8px] font-bold uppercase text-zinc-500">{{ person.username.charAt(0) }}</span>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-xs text-zinc-200">{{ person.username }}</span>
+                  <!-- Said rather than hidden: "already in a clan" is the answer
+                       to "why can't I find them". -->
+                  <span v-if="person.clan_tag" class="block text-[10px] text-zinc-600">in [{{ person.clan_tag }}]</span>
+                </span>
+                <button
+                  v-if="!person.invited"
+                  type="button"
+                  :disabled="busy"
+                  class="shrink-0 rounded border border-accent/50 text-accent px-2 py-0.5 text-[11px] hover:bg-accent/10 disabled:opacity-50 transition-colors"
+                  @click="invite(person)"
+                >Invite</button>
+                <span v-else class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-600">Invited</span>
+              </li>
+            </ul>
+
+            <!-- Outstanding invites, so the same person isn't asked twice. -->
+            <div v-if="data.invites.length" class="pt-2 border-t border-zinc-900">
+              <p class="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-1.5">Waiting on a reply</p>
+              <ul class="space-y-1">
+                <li v-for="i in data.invites" :key="i.account_id" class="flex items-center gap-2 text-xs">
+                  <NuxtLink
+                    :to="`/users/${encodeURIComponent(i.username)}`"
+                    class="min-w-0 flex-1 truncate text-zinc-300 hover:text-accent transition-colors"
+                  >{{ i.username }}</NuxtLink>
+                  <span v-if="i.in_a_clan" class="shrink-0 text-[10px] text-zinc-600">in a clan</span>
+                  <button
+                    type="button"
+                    :disabled="busy"
+                    class="shrink-0 text-[11px] text-zinc-700 hover:text-red-400 transition-colors"
+                    title="Take the invite back"
+                    @click="act('revoke', i.account_id)"
+                  >✕</button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </section>
 
         <!-- Handing it over -->

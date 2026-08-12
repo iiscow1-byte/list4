@@ -3,6 +3,8 @@ import { tierColor, textOn } from '~/utils/tier-colors'
 import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
 import { SITE_VERSION } from '~/utils/site-updates'
 import { ALL_SHEET_URL } from '~/utils/sheet'
+// Out of the page so they can be checked without a browser — see `utils/prose.ts`.
+import { faqParts, linkLabel } from '~/utils/prose'
 
 /**
  * About &amp; stats.
@@ -195,6 +197,24 @@ function paraParts(p: string): { text: string; href: string | null } {
   return { text: p.slice(0, idx).trim(), href }
 }
 
+/**
+ * The four numbers worth knowing before reading anything.
+ *
+ * The About tab had no numbers at all: you had to know there was a Stats tab,
+ * and go to it, to learn whether this list has fifty levels or fifty thousand —
+ * which is the first thing anybody wants from a page called About.
+ */
+const glance = computed(() => {
+  const st = stats.value
+  if (!st) return []
+  return [
+    { label: 'Levels', value: fmt(st.totalLevels) },
+    { label: 'Records', value: fmt(st.totalRecords) },
+    { label: 'Players', value: fmt(st.totalPlayers) },
+    { label: 'Lists mirrored', value: fmt(importedSources.value.length || null) },
+  ]
+})
+
 function fmt(n: number | null | undefined, digits = 0) {
   if (n == null) return '—'
   return n.toLocaleString(undefined, { maximumFractionDigits: digits })
@@ -316,22 +336,85 @@ const coveragePct = computed(() => {
 
     <!-- ---------------- About ---------------- -->
     <div v-if="tab === 'about'" class="container-tight py-8 space-y-8 max-w-3xl">
+      <!-- The size of the thing, before any prose about it. This page had no
+           numbers on it at all: you had to know a Stats tab existed to find out
+           whether the list has fifty levels or fifty thousand. -->
+      <button
+        v-if="glance.length"
+        type="button"
+        class="w-full text-left group"
+        title="Open the stats"
+        @click="tab = 'stats'"
+      >
+        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+          <div v-for="g in glance" :key="g.label" class="bg-zinc-950 px-4 py-3 group-hover:bg-zinc-900/70 transition-colors">
+            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ g.label }}</dt>
+            <dd class="tabular-nums text-xl font-bold text-zinc-50 mt-0.5">{{ g.value }}</dd>
+          </div>
+        </dl>
+        <span class="mt-1.5 block text-[11px] text-zinc-600 group-hover:text-accent transition-colors">
+          All the numbers →
+        </span>
+      </button>
+
       <section v-if="landing?.faq?.length" class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">How the list works</h2>
+        <!-- One question per row, with the question as the heading. It was a
+             stack of identical grey blocks with the questions buried inside
+             them, which is the one shape a FAQ must not have: it is read by
+             scanning for a question and stopping. -->
         <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
-          <p v-for="(p, i) in landing.faq" :key="`f-${i}`" class="px-4 py-3 text-sm text-zinc-300 leading-relaxed">
+          <div v-for="(p, i) in landing.faq" :key="`f-${i}`" class="px-4 py-3.5">
             <template v-for="(part, j) in [paraParts(p)]" :key="j">
-              <span v-if="part.text">{{ part.text }} </span>
-              <a v-if="part.href" :href="part.href" target="_blank" rel="noopener" class="text-accent hover:underline break-all">{{ part.href }}</a>
+              <template v-for="(qa, k) in [faqParts(part.text)]" :key="k">
+                <h3 v-if="qa.question" class="text-sm font-semibold text-zinc-100 leading-snug">{{ qa.question }}</h3>
+                <p class="text-sm text-zinc-400 leading-relaxed" :class="qa.question ? 'mt-1' : ''">
+                  {{ qa.answer }}
+                  <a
+                    v-if="part.href"
+                    :href="part.href"
+                    target="_blank"
+                    rel="noopener"
+                    :title="part.href"
+                    class="text-accent hover:underline whitespace-nowrap"
+                  >{{ linkLabel(part.href) }} ↗</a>
+                </p>
+              </template>
             </template>
-          </p>
+          </div>
         </div>
       </section>
 
       <section v-if="landing?.statsViewerFaq?.length" class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Stats Viewer</h2>
         <div class="rounded-xl border border-zinc-800 bg-zinc-950/60 divide-y divide-zinc-900">
-          <p v-for="(p, i) in landing.statsViewerFaq" :key="`s-${i}`" class="px-4 py-3 text-sm text-zinc-300 leading-relaxed">{{ p }}</p>
+          <div v-for="(p, i) in landing.statsViewerFaq" :key="`s-${i}`" class="px-4 py-3.5">
+            <template v-for="(qa, k) in [faqParts(p)]" :key="k">
+              <h3 v-if="qa.question" class="text-sm font-semibold text-zinc-100 leading-snug">{{ qa.question }}</h3>
+              <p class="text-sm text-zinc-400 leading-relaxed" :class="qa.question ? 'mt-1' : ''">{{ qa.answer }}</p>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <!-- Where to actually do something. The hero's buttons scroll away, and
+           this is the bottom of the page somebody reaches having decided they
+           want in. -->
+      <section class="space-y-3">
+        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Taking part</h2>
+        <div class="grid gap-px sm:grid-cols-3 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
+          <NuxtLink to="/levels/submit" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
+            <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Submit a level</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">Something missing? Say roughly where it goes and we'll place it.</span>
+          </NuxtLink>
+          <NuxtLink to="/records/submit" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
+            <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Submit a record</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">Your completions, on your profile and on the leaderboard.</span>
+          </NuxtLink>
+          <NuxtLink to="/clans" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
+            <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Start a clan</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">Play with people, and be ranked together for it.</span>
+          </NuxtLink>
         </div>
       </section>
 
@@ -354,7 +437,9 @@ const coveragePct = computed(() => {
             target="_blank"
             rel="noopener"
             class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline"
-          >Global Stats Viewer</a>. Thanks to everyone who submits records, levels and opinions to keep the list current.
+          >Global Stats Viewer</a>. Placements are drawn from
+          <button type="button" class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline" @click="tab = 'sources'">{{ totalLists }} other demonlists</button>.
+          Thanks to everyone who submits records, levels and opinions to keep the list current.
         </p>
       </section>
     </div>

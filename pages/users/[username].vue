@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { listPercent } from '~/utils/list-progress'
+import { profileChipClass } from '~/utils/profile-chips'
 const route = useRoute()
 const username = computed(() => String(route.params.username))
 
@@ -104,15 +105,6 @@ function fmt(n: number | null | undefined) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
-const joined = computed(() => {
-  const at = data.value?.account.created_at
-  if (!at) return null
-  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return null
-  return new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-})
-
 /** Headline numbers under the name — the bit that reads like a social profile. */
 const stats = computed(() => {
   const d = data.value
@@ -160,7 +152,6 @@ function openFollowList(mode: 'followers' | 'following') {
       :banner-level="bannerLevel"
       :banner-image="bannerImage"
       :stats="stats"
-      :joined="joined"
       @open-list="openFollowList"
     >
       <template #name-suffix>
@@ -168,11 +159,25 @@ function openFollowList(mode: 'followers' | 'following') {
         <Badge v-if="data.follow.followsYou" tone="quiet" title="This profile follows you">Follows you</Badge>
       </template>
       <template #meta>
-        <span v-if="data.follow.mutuals" class="text-zinc-500">
-          {{ data.follow.mutuals }} mutual{{ data.follow.mutuals === 1 ? '' : 's' }}
+        <!-- Chips, like the facts they sit beside. These used to be bare grey
+             text dropped into a row of bordered chips, which is the one place
+             a slot can quietly undo a component's own layout. -->
+        <span
+          v-if="data.follow.mutuals"
+          :class="profileChipClass()"
+          :title="`You and ${data.account.username} both follow ${data.follow.mutuals} of the same people`"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87" />
+            <circle cx="9" cy="7" r="4" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <span class="tabular-nums">{{ data.follow.mutuals }}</span> mutual{{ data.follow.mutuals === 1 ? '' : 's' }}
         </span>
-        <span v-if="data.profileViews > 1" class="text-zinc-600">
-          {{ data.profileViews.toLocaleString() }} profile views
+        <span v-if="data.profileViews > 1" :class="profileChipClass()" title="Times this profile has been opened">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+          </svg>
+          <span class="tabular-nums">{{ data.profileViews.toLocaleString() }}</span> views
         </span>
       </template>
       <template #actions>

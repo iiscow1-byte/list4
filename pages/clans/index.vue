@@ -19,9 +19,15 @@ type Clan = {
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string | null } | null
 }
 
+type Invite = {
+  id: number; tag: string; name: string; color: string | null; icon_url: string | null
+  message: string | null; created_at: string; invited_by_username: string | null
+}
+
 const { data, refresh } = await useFetch<{
   clans: Clan[]
   mine: { id: number; tag: string; name: string; color: string | null; role: string } | null
+  invites: Invite[]
   signedIn: boolean
 }>('/api/clans')
 
@@ -49,6 +55,30 @@ const busy = ref(false)
 const error = ref<string | null>(null)
 const form = reactive({ tag: '', name: '', description: '', color: '#f4c430', invite_only: false })
 const tagOk = computed(() => !form.tag.trim() || isValidClanTag(form.tag.trim()))
+
+/**
+ * Answering an invite from here.
+ *
+ * An invite that can only be answered on the clan's own page is an invite you
+ * have to already know about. This is the list of them, and it takes the answer
+ * as well as showing it.
+ */
+const answering = ref<number | null>(null)
+async function answerInvite(inv: Invite, action: 'join-invite' | 'reject-invite') {
+  if (answering.value != null) return
+  answering.value = inv.id
+  error.value = null
+  try {
+    await $fetch(`/api/clans/${encodeURIComponent(inv.tag)}/membership`, {
+      method: 'POST', body: { action },
+    })
+    await refresh()
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage ?? 'That didn\'t work.'
+  } finally {
+    answering.value = null
+  }
+}
 
 const router = useRouter()
 async function create() {
@@ -82,10 +112,17 @@ async function create() {
         <NuxtLink
           v-if="data?.mine"
           :to="`/clans/${data.mine.tag}`"
-          class="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/20 transition-colors"
+          class="inline-flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-zinc-600 hover:text-zinc-100 transition-colors"
         >
           Your clan
-          <ClanTag :tag="data.mine.tag" :name="data.mine.name" :color="data.mine.color" size="sm" :link="false" />
+          <ClanTag
+            :tag="data.mine.tag"
+            :name="data.mine.name"
+            :color="data.mine.color"
+            size="sm"
+            variant="solid"
+            :link="false"
+          />
         </NuxtLink>
         <button
           v-else-if="data?.signedIn"
@@ -100,6 +137,52 @@ async function create() {
         >Log in to start one</NuxtLink>
       </div>
     </header>
+
+    <!-- Invites waiting on you. Above everything, because it is the only thing
+         on this page that is asking a question. -->
+    <section v-if="data?.invites?.length" class="space-y-2">
+      <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+        You've been invited
+        <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ data.invites.length }}</span>
+      </h2>
+      <ul class="space-y-2">
+        <li
+          v-for="inv in data.invites"
+          :key="inv.id"
+          class="card px-3 sm:px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2"
+          :style="clanStyle(inv)"
+        >
+          <ClanTag :tag="inv.tag" :name="inv.name" :color="inv.color" variant="solid" class="shrink-0" />
+          <div class="min-w-0 flex-1">
+            <NuxtLink :to="`/clans/${inv.tag}`" class="block truncate text-sm font-semibold text-zinc-100 hover:text-accent transition-colors">
+              {{ inv.name }}
+            </NuxtLink>
+            <p class="text-[11px] text-zinc-600 truncate">
+              <template v-if="inv.invited_by_username">asked by {{ inv.invited_by_username }}</template>
+              <template v-if="inv.message"> · “{{ inv.message }}”</template>
+            </p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              :disabled="answering != null || !!data.mine"
+              :title="data.mine ? 'Leave your current clan first' : undefined"
+              class="rounded-lg bg-accent text-zinc-950 px-3 py-1.5 text-xs font-semibold hover:bg-accent/90 disabled:opacity-40 transition-colors"
+              @click="answerInvite(inv, 'join-invite')"
+            >Join</button>
+            <button
+              type="button"
+              :disabled="answering != null"
+              class="rounded-lg border border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-400 hover:border-red-800 hover:text-red-300 disabled:opacity-50 transition-colors"
+              @click="answerInvite(inv, 'reject-invite')"
+            >Dismiss</button>
+          </div>
+        </li>
+      </ul>
+      <p v-if="data.mine" class="text-[11px] text-zinc-600">
+        You're already in a clan — leave it first and these will still be here.
+      </p>
+    </section>
 
     <!-- New clan -->
     <form v-if="creating" class="card p-4 grid gap-3 sm:grid-cols-2" @submit.prevent="create">

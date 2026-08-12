@@ -773,6 +773,15 @@ function estimateNeighbours(r: PendingRow | null): {
   }
 }
 
+/**
+ * The selected row's neighbours, once.
+ *
+ * The paragraph that prints them called `estimateNeighbours(selected)` six
+ * times — in the `v-if`, twice more to choose the lead word, and again to build
+ * the list — each rebuilding the same pair of objects on every render.
+ */
+const selectedNeighbours = computed(() => estimateNeighbours(selected.value))
+
 /** The same thing as one string, for the queue row's tooltip. */
 function estimateTitle(r: PendingRow): string {
   const head = isImported.value
@@ -1392,13 +1401,19 @@ watch(preview, (p) => {
                A placement out of fifty thousand is only reviewable next to its
                neighbours. -->
           <p
-            v-if="selected?.placement_estimate != null && (estimateNeighbours(selected).above || estimateNeighbours(selected).below)"
+            v-if="selected?.placement_estimate != null && (selectedNeighbours.above || selectedNeighbours.below)"
             class="text-[10px] text-zinc-500 mt-1 leading-snug"
           >
-            <template v-if="estimateNeighbours(selected).above && estimateNeighbours(selected).below">Between</template>
-            <template v-else-if="estimateNeighbours(selected).above">Just below</template>
-            <template v-else>Just above</template>
-            <template v-for="(n, i) in [estimateNeighbours(selected).above, estimateNeighbours(selected).below].filter(Boolean)" :key="i">
+            <!-- The lead word carries its own space. Vue drops a whitespace-only
+                 text node that contains a newline, so the space that used to sit
+                 between `</template>` and the level's name was compiled away and
+                 this read "BetweenTidal Wave". A non-breaking space is both
+                 immune to that and the right character anyway — it keeps the
+                 word attached to the name it introduces. -->
+            <template v-if="selectedNeighbours.above && selectedNeighbours.below">Between&nbsp;</template>
+            <template v-else-if="selectedNeighbours.above">Just below&nbsp;</template>
+            <template v-else>Just above&nbsp;</template>
+            <template v-for="(n, i) in [selectedNeighbours.above, selectedNeighbours.below].filter(Boolean)" :key="i">
               <span v-if="i > 0" class="text-zinc-600"> and </span>
               <a
                 v-if="n!.position"

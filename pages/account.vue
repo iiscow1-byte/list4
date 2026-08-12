@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { gdUserUrl, isGdUsername } from '~/utils/gd-links'
+import { profileChipClass } from '~/utils/profile-chips'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { allCountries, normalizeCountry } from '~/utils/countries'
 import { SOCIAL_LINKS, isValidSocialUrl } from '~/utils/social-links'
@@ -866,14 +867,6 @@ const bannerLevel = computed<ShowcaseLevel | null>(() => {
   return d.hardest_completion ?? d.favorite_level
 })
 
-const joined = computed(() => {
-  const at = profileData.value?.account.created_at
-  if (!at) return null
-  const iso = at.includes('T') ? at : at.replace(' ', 'T') + 'Z'
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return null
-  return new Date(t).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
-})
 
 /** Same four headline numbers the public profile prints. */
 const headlineStats = computed(() => {
@@ -908,9 +901,13 @@ const headerAccount = computed<Record<string, any>>(() => {
   // `/api/auth/me` is the session, not the profile, so the clan comes from the
   // same endpoint the public page reads — which is also what keeps the tag
   // here identical to the tag a visitor sees.
+  // `created_at` is on the profile payload rather than on the session — the
+  // header prints "joined March 2026" from it, and without this the account
+  // page was the one profile on the site that didn't say when it started.
   const base = {
     ...(me.value ?? {}),
     clan: profileData.value?.account?.clan ?? null,
+    created_at: profileData.value?.account?.created_at ?? null,
   } as Record<string, any>
   if (!editing.value) return base
   return {
@@ -992,7 +989,6 @@ function fmt(n: number | null | undefined) {
       :banner-level="bannerLevel"
       :banner-image="bannerImage"
       :stats="headlineStats"
-      :joined="joined"
       @open-list="openFollowList"
     >
       <!-- The avatar is a control here rather than a picture: this is the page
@@ -1015,8 +1011,15 @@ function fmt(n: number | null | undefined) {
       </template>
 
       <template #meta>
-        <span v-if="profileData && profileData.profileViews > 1" class="text-zinc-600">
-          {{ profileData.profileViews.toLocaleString() }} profile views
+        <span
+          v-if="profileData && profileData.profileViews > 1"
+          :class="profileChipClass()"
+          title="Times your profile has been opened"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+          </svg>
+          <span class="tabular-nums">{{ profileData.profileViews.toLocaleString() }}</span> views
         </span>
       </template>
 

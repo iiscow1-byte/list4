@@ -108,6 +108,15 @@ function toggleAll(on: boolean) {
 const CHUNK = 50
 const datesBusy = ref(false)
 const datesFilled = ref<number | null>(null)
+/**
+ * Whether the server has a YouTube key at all.
+ *
+ * "No dates found" and "nobody configured the lookup" looked identical from
+ * here — the endpoint answered with an empty object either way — so a missing
+ * key read as every video on the list being unreadable. The endpoint says which
+ * it is now, and so does this.
+ */
+const datesConfigured = ref(true)
 /** Videos already asked about, so re-seeding the drafts doesn't re-query them. */
 const dateCache = new Map<string, string | null>()
 
@@ -135,9 +144,10 @@ async function fillDatesFromVideos(rows: Draft[] = drafts.value) {
     const ids = [...wanted.keys()]
     for (let i = 0; i < ids.length; i += CHUNK) {
       const slice = ids.slice(i, i + CHUNK)
-      const res = await $fetch<{ dates: Record<string, string> }>('/api/youtube/upload-date', {
+      const res = await $fetch<{ dates: Record<string, string>; configured?: boolean }>('/api/youtube/upload-date', {
         query: { ids: slice.join(',') },
       })
+      if (res?.configured === false) { datesConfigured.value = false; break }
       for (const id of slice) {
         const date = res?.dates?.[id] ?? null
         dateCache.set(id, date)
@@ -279,7 +289,10 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
                 @click="fillDatesFromVideos()"
               >{{ datesBusy ? 'Reading videos…' : 'From videos' }}</button>
             </div>
-            <span v-if="datesFilled != null && !datesBusy" class="text-[10px] text-zinc-600">
+            <span v-if="!datesConfigured" class="text-[10px] text-amber-400/90">
+              Video date lookup isn't set up on this server (no YouTube API key).
+            </span>
+            <span v-else-if="datesFilled != null && !datesBusy" class="text-[10px] text-zinc-600">
               {{ datesFilled === 0 ? 'No dates found from the videos.' : `Filled ${datesFilled} from video upload dates.` }}
             </span>
           </label>

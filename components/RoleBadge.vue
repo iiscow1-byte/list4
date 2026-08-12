@@ -30,5 +30,8 @@ const shown = computed(() => props.always || (!!props.role && props.role !== 'us
 </script>
 
 <template>
-  <Badge v-if="shown" :tone="meta.tone" :size="size" :title="meta.title">{{ meta.label }}</Badge>
+  <!-- Dotted, because on a role badge the colour *is* the information: violet
+       against amber is admin against owner, and a tint behind 9px text is the
+       hardest place to read a colour. -->
+  <Badge v-if="shown" :tone="meta.tone" :size="size" :title="meta.title" dot>{{ meta.label }}</Badge>
 </template>

@@ -542,6 +542,31 @@ Membership is one clan per account, enforced by the primary key on
 people in it — they hand it over first — and the last member leaving disbands
 it, because a clan with nobody in it is a row nobody can join or delete.
 
+### Invites are the mirror of requests, and not the same table
+
+A clan can ask somebody in as well as be asked. The two look symmetrical and
+are not, and the asymmetry is the whole design: **a request is answered by the
+owner and an invite is answered by the person**. `accept` is therefore the
+owner's action and `join-invite` is yours, and neither is reachable by the
+other — which is why they are not one action with a role check inside it, and
+why `clan_invites` is its own table rather than a flag on `clan_join_requests`.
+One row for both would have had to record who is allowed to answer it.
+
+Three rules worth keeping:
+
+- **An invite beats `invite_only`.** Being asked in *is* the invitation that
+  setting exists to require, so pressing Join with an invite outstanding joins
+  rather than queueing another request.
+- **Joining tears up both pieces of paper.** Somebody can have asked *and* been
+  invited; whichever door they come through, the other is deleted. Otherwise it
+  sits in a queue forever offering to add a member who is already in.
+- **Being in another clan doesn't retract an invite.** It is held until they
+  leave, and the page says so rather than refusing to send it.
+
+Invites surface in three places on purpose: the clan's own page, `/clans`, and
+the inbox. An invite you can only answer from the clan's page is one you have
+to already know about.
+
 ## Counting how much the site is read
 
 Two numbers are worth having — how many pages were opened, and how many people
@@ -759,6 +784,54 @@ Two smaller things the drawer has to get right:
 - **The filter can change while the drawer is closed**, and the watcher that
   reloads deliberately only fires for a visible list. So `openCompare` compares
   what is loaded against what is wanted and reloads if they differ.
+
+## Secrets, and where they live
+
+Everything secret is an environment variable read inside `server/`, which is
+never bundled for a browser. `.env` holds them locally and is git-ignored;
+`.env.example` is the committed copy with the names and none of the values.
+
+**Nuxt reads `.env` when it builds and not when it runs.** `node
+.output/server/index.mjs` starts with whatever is already in the environment
+and nothing else, which is how the YouTube key came to be missing in
+production for as long as it was: the endpoint answered "no dates" forever and
+nothing said why. `server/plugins/00.env.ts` reads the file at boot using
+Node's own `process.loadEnvFile`, and never overwrites a variable that is
+already set — so a systemd unit or a container still wins over the file, which
+is the precedence anyone deploying this would expect.
+
+The alternative, `runtimeConfig`, reads the value at *build* time and bakes it
+into `.output`. That works too, and it means a secret lives inside a build
+artefact and rotating a key needs a rebuild. Grepping `.output/` for a key
+should find nothing.
+
+### The YouTube key
+
+`YOUTUBE_API_KEY` does exactly one thing: read a verification video's upload
+date, so submitters and reviewers don't type it. Four call sites use it — the
+submit form, the review queue, a level page's admin autofill, and the
+custom-list hand-off, which asks about up to fifty videos at a time because the
+API charges per request rather than per video.
+
+Four things keep it out of harm's way, and the first is the one that mattered:
+
+- **It goes in an `X-goog-api-key` header, never in the URL.** A key in a query
+  string leaks everywhere a URL goes: request logs, proxy logs, an error that
+  echoes the URL back. The old code interpolated it into the URL *and*
+  `console.error`'d around the same call.
+- **The endpoint needs a session.** It is a proxy onto a metered third-party
+  quota and every caller is already behind a login; without that, one script
+  could spend the day's quota from the open web.
+- **Resolved dates are cached, including the misses.** An upload date never
+  changes, so hand-checking a 200-level list costs four API calls once rather
+  than four every time somebody reloads the page — and a private or deleted
+  video is remembered as unresolvable instead of being asked about forever.
+- **Restrict the key itself** in the Google Cloud console: the YouTube Data API
+  v3 only, and to the server's IP. Then a leaked copy is worth nothing.
+
+`configured: false` in the response is the difference between "no key" and "no
+date", which nothing could previously tell apart — a missing key returned an
+empty object, so the feature looked like it was working and finding nothing.
 
 ## Setup
 
