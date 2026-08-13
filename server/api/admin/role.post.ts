@@ -1,16 +1,28 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
+import { logActivity } from '~/server/utils/activity-log'
 
-const ROLES = new Set(['user', 'moderator', 'admin', 'owner', 'developer'])
+const ROLES = new Set(['user', 'list_helper', 'moderator', 'admin', 'owner', 'developer'])
 const ADMIN_LEVEL_ROLES = new Set(['admin', 'owner', 'developer'])
 
+/**
+ * How roles rank against each other, for "you cannot promote above yourself".
+ *
+ * A list helper sits between a user and a moderator, which is a statement about
+ * *this check* and not about the shape of the site: a helper is not a junior
+ * moderator, they hold a narrow grant over the list's contents and nothing over
+ * people. The rank exists so a moderator can appoint one — the person running
+ * the queues is the one who knows who is good at them — and so nobody can use
+ * the role as a step up to something they could not already assign.
+ */
 const ROLE_RANK: Record<string, number> = {
   user: 0,
-  moderator: 1,
-  admin: 2,
-  owner: 3,
-  developer: 3,
+  list_helper: 1,
+  moderator: 2,
+  admin: 3,
+  owner: 4,
+  developer: 4,
 }
 
 export default defineEventHandler(async (event) => {
@@ -19,7 +31,10 @@ export default defineEventHandler(async (event) => {
   const username = String(body?.username ?? '').trim()
   const role = String(body?.role ?? '')
   if (!ROLES.has(role)) {
-    throw createError({ statusCode: 400, statusMessage: 'Role must be user, moderator, admin, owner, or developer.' })
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Role must be user, list helper, moderator, admin, owner, or developer.',
+    })
   }
 
   const myRank = ROLE_RANK[me.role] ?? 0
@@ -40,6 +55,23 @@ export default defineEventHandler(async (event) => {
   if (oldRole === role) return { ok: true, username: target.username, role }
 
   db.prepare(`UPDATE accounts SET role = ? WHERE id = ?`).run(role, target.id)
+
+  /**
+   * `warning`, which is the highest severity the log has.
+   *
+   * A role change is the one action on this site that changes *who can change
+   * the site*. It belongs in the band that is visible by default rather than
+   * behind the "everything" filter with the ordinary run of work.
+   */
+  logActivity({
+    kind: 'account.role',
+    area: 'accounts',
+    severity: 'warning',
+    actor: me,
+    subject: { kind: 'account', id: target.id, label: target.username },
+    summary: `Changed ${target.username}'s role from ${oldRole} to ${role}`,
+    detail: { from: oldRole, to: role },
+  }, db)
 
   sendInboxMessage(db, target.id, {
     kind: 'role_changed',

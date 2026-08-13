@@ -5,6 +5,7 @@ import { assertClean } from '~/server/utils/profanity-guard'
 import { clanForAccount } from '~/server/utils/clans'
 import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
 import { assertVerified } from '~/server/utils/email-verify'
+import { logActivity } from '~/server/utils/activity-log'
 
 const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 const MAX_BODY = 1000
@@ -90,6 +91,39 @@ export default defineEventHandler(async (event) => {
   ).run(me.id, kind, targetId, text)
 
   const commentId = Number(result.lastInsertRowid)
+
+  /**
+   * Every comment goes in the log.
+   *
+   * Comments are the highest-volume thing anyone can write here and the most
+   * common thing to be reported, and until now they were the one kind of
+   * user-generated content with no trail at all: a comment that was deleted —
+   * by its author or by a moderator — left nothing behind saying it had ever
+   * existed, which is exactly the case somebody investigating a report needs.
+   *
+   * `info`, deliberately. The log's default view hides that band, so ordinary
+   * conversation does not bury the placements and role changes above it; the
+   * comments are there when you filter to them or search for a name. A log
+   * where everything is important is one where nothing is.
+   *
+   * The body is stored in `detail` rather than in the summary, capped at the
+   * same 200 characters the inbox notification uses. The summary is a line in a
+   * list and needs to stay one.
+   */
+  logActivity({
+    kind: 'comment.post',
+    area: 'moderation',
+    severity: 'info',
+    actor: me,
+    // Points at the comment, so a report about one lines up with its log entry.
+    subject: { kind: 'comment', id: commentId, label: text.slice(0, 120) },
+    summary: `Commented on a ${kind.replace('_', ' ')}`,
+    detail: {
+      target_kind: kind,
+      target_id: targetId,
+      body: text.length > 200 ? `${text.slice(0, 200)}…` : text,
+    },
+  }, db)
 
   // Notify the content owner (skip if they're the one commenting).
   const owner = ownerOf(db, kind, targetId)

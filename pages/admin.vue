@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { roleMeta } from '~/utils/role-styles'
 
 definePageMeta({ middleware: 'mod', layout: 'level' })
 useHead({ title: 'Admin — All Levels List' })
@@ -60,68 +61,72 @@ const tabs = computed(() => allTabs.filter((t) => {
   return t.audience !== 'admin'
 }))
 
-// "Pending" dropdown — groups the submission-queue tabs.
-//
-// The panel is teleported to <body> and positioned with fixed coordinates
-// rather than living inside the tab bar. Two things in the bar made an
-// absolutely-positioned panel unusable: the row scrolls horizontally
-// (`overflow-x-auto`, which clips the panel vertically as well), and the nav
-// has a `backdrop-blur`, which opens a stacking context the panel's z-index
-// can't escape — so it rendered *behind* the tab content below it.
-const PENDING_TABS: TabId[] = ['levels', 'imported-levels', 'awaiting', 'movements', 'imported-movements', 'records', 'opinions']
-const pendingDropdownOpen = ref(false)
-const isPendingTab = computed(() => PENDING_TABS.includes(tab.value))
+/**
+ * The tab bar, as four menus instead of eleven controls.
+ *
+ * It had one dropdown ("Pending", holding seven queues) and then ten loose
+ * buttons beside it, in a row that scrolled sideways once the window was
+ * anything less than wide. Finding the activity log meant reading eleven
+ * controls and usually dragging the row to see the last three.
+ *
+ * Grouped by *what you are doing*, which is how somebody arrives at the panel —
+ * "something is waiting for me", "someone reported something", "I want to see
+ * what happened", "I need to change a setting" — rather than by which table the
+ * data lives in.
+ *
+ * Membership is declared here and filtered through `tabs`, so a group a
+ * particular role cannot see anything in disappears rather than opening onto an
+ * empty menu. A list helper ends up with one menu holding three queues, which
+ * is the whole panel for them.
+ */
+const TAB_GROUPS: { key: string; label: string; ids: TabId[] }[] = [
+  {
+    key: 'queues',
+    label: 'Queues',
+    ids: ['levels', 'imported-levels', 'awaiting', 'movements', 'imported-movements', 'records', 'opinions'],
+  },
+  {
+    key: 'moderation',
+    label: 'Moderation',
+    ids: ['reports', 'helper-requests', 'open-verifications'],
+  },
+  {
+    key: 'insight',
+    label: 'Insight',
+    ids: ['statistics', 'log'],
+  },
+  {
+    key: 'manage',
+    label: 'Manage',
+    ids: ['accounts', 'claims', 'custom-lists', 'imports', 'discord'],
+  },
+]
 
-const pendingMenuRef = ref<HTMLElement | null>(null)
-const pendingPanelRef = ref<HTMLElement | null>(null)
-const pendingMenuPos = ref({ top: 0, left: 0 })
+/** The groups this account can see, each with only the tabs it can open. */
+const visibleGroups = computed(() =>
+  TAB_GROUPS
+    .map((g) => ({
+      ...g,
+      tabs: g.ids
+        .map((id) => tabs.value.find((t) => t.id === id))
+        .filter((t): t is typeof allTabs[number] => !!t),
+    }))
+    .filter((g) => g.tabs.length > 0),
+)
 
-/** Anchor the panel under the trigger, keeping it inside the viewport. */
-function positionPendingMenu() {
-  const el = pendingMenuRef.value
-  if (!el) return
-  const r = el.getBoundingClientRect()
-  const width = 176 // min-w-[11rem]
-  pendingMenuPos.value = {
-    top: r.bottom + 4,
-    left: Math.max(8, Math.min(r.left, window.innerWidth - width - 8)),
-  }
-}
-
-async function togglePendingDropdown() {
-  pendingDropdownOpen.value = !pendingDropdownOpen.value
-  if (!pendingDropdownOpen.value) return
-  positionPendingMenu()
-  await nextTick()
-  pendingPanelRef.value?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true })
-}
-
-function onPendingDocClick(e: MouseEvent) {
-  if (!pendingDropdownOpen.value) return
-  const t = e.target as Node
-  if (pendingMenuRef.value?.contains(t) || pendingPanelRef.value?.contains(t)) return
-  pendingDropdownOpen.value = false
-}
-function onPendingEsc(e: KeyboardEvent) {
-  if (e.key === 'Escape') pendingDropdownOpen.value = false
-}
-function onPendingReflow() {
-  if (pendingDropdownOpen.value) positionPendingMenu()
-}
-onMounted(() => {
-  document.addEventListener('click', onPendingDocClick)
-  document.addEventListener('keydown', onPendingEsc)
-  window.addEventListener('resize', onPendingReflow)
-  // Capture phase: the tab row is itself a scroller, and a scroll there moves
-  // the trigger without ever bubbling a scroll event to the window.
-  window.addEventListener('scroll', onPendingReflow, true)
+/**
+ * Badges for every tab, in one object, so each menu can sum its own.
+ *
+ * Built once per change rather than by calling `tabBadge` from the template —
+ * that runs per tab per render, and the menus would each call it for every
+ * member on every tick of the 30-second count poll.
+ */
+const tabBadges = computed(() => {
+  const out: Record<string, number> = {}
+  for (const t of allTabs) out[t.id] = tabBadge(t.id)
+  return out
 })
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onPendingDocClick)
-  document.removeEventListener('keydown', onPendingEsc)
-  window.removeEventListener('resize', onPendingReflow)
-  window.removeEventListener('scroll', onPendingReflow, true)
-})
+
 
 const initial = (typeof route.query.tab === 'string' && allTabs.some((t) => t.id === route.query.tab))
   ? (route.query.tab as TabId)
@@ -162,7 +167,7 @@ async function loadClaims() {
 }
 
 // --- Accounts tab state ---
-type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
+type Role = 'user' | 'list_helper' | 'moderator' | 'admin' | 'owner' | 'developer'
 type ClaimKind = 'player' | 'aredl' | 'gdl' | 'pointercrate'
 type AdminUser = {
   id: number; username: string; role: Role
@@ -905,14 +910,24 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => { if (countTimer) clearInterval(countTimer) })
 
-// Role hierarchy — owner and developer outrank admin
+/**
+ * Role hierarchy — owner and developer outrank admin.
+ *
+ * Must match `ROLE_RANK` in `server/api/admin/role.post.ts`, which is the one
+ * that enforces it. This copy only decides which buttons are greyed out; the
+ * server refuses the request either way.
+ */
 const ROLE_RANK: Record<string, number> = {
   user: 0,
-  moderator: 1,
-  admin: 2,
-  owner: 3,
-  developer: 3,
+  list_helper: 1,
+  moderator: 2,
+  admin: 3,
+  owner: 4,
+  developer: 4,
 }
+/** Offered in the accounts table, in rank order. Mirrors `ROLES` on the server. */
+const ASSIGNABLE_ROLES: Role[] = ['user', 'list_helper', 'moderator', 'admin', 'owner', 'developer']
+
 function roleAboveMe(role: string): boolean {
   const myRank = ROLE_RANK[me.value?.role ?? 'user'] ?? 0
   return (ROLE_RANK[role] ?? 0) > myRank
@@ -1026,88 +1041,30 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
 
 <template>
   <div class="h-full flex flex-col">
+    <!-- Four menus, grouped by what you came here to do. This was one dropdown
+         and ten loose buttons in a row that scrolled sideways — see
+         `TAB_GROUPS`. -->
     <nav class="border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-sm shrink-0">
+      <!-- Still scrollable, for a narrow phone where four menus plus the label
+           don't fit. The panels are teleported to <body>, so this clips
+           nothing that matters. -->
       <div class="container-wide flex gap-1 py-2 items-center overflow-x-auto">
-        <!-- Pending dropdown: groups submission-queue tabs -->
-        <div ref="pendingMenuRef" class="relative flex items-stretch">
-          <button
-            type="button"
-            class="pl-3 pr-2 py-1.5 rounded-l-lg text-sm font-medium transition-colors relative"
-            :class="isPendingTab && !pendingDropdownOpen
-              ? 'bg-accent/10 text-accent ring-1 ring-inset ring-accent/25'
-              : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
-            @click="togglePendingDropdown"
-          >
-            {{ isPendingTab ? allTabs.find(t => t.id === tab)?.label : 'Pending' }}
-            <!-- Badge sum for all pending tabs -->
-            <span
-              v-if="PENDING_TABS.reduce((s, id) => s + tabBadge(id), 0) > 0"
-              class="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
-            >{{ PENDING_TABS.reduce((s, id) => s + tabBadge(id), 0) }}</span>
-          </button>
-          <button
-            type="button"
-            class="px-1.5 py-1.5 rounded-r-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-            :class="{ 'text-zinc-100 bg-zinc-900': pendingDropdownOpen || isPendingTab }"
-            :aria-expanded="pendingDropdownOpen"
-            aria-haspopup="menu"
-            aria-label="Pending tabs"
-            @click="togglePendingDropdown"
-          >
-            <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 transition-transform" :class="{ 'rotate-180': pendingDropdownOpen }" aria-hidden="true">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" />
-            </svg>
-          </button>
-          <!-- Teleported so neither the tab row's horizontal scroll nor the
-               nav's backdrop-blur can clip or bury it. -->
-          <Teleport to="body">
-            <div
-              v-if="pendingDropdownOpen"
-              ref="pendingPanelRef"
-              role="menu"
-              class="fixed z-[60] min-w-[11rem] popover p-1"
-              :style="{ top: `${pendingMenuPos.top}px`, left: `${pendingMenuPos.left}px` }"
-            >
-              <button
-                v-for="id in PENDING_TABS"
-                :key="id"
-                type="button"
-                role="menuitem"
-                class="relative w-full text-left pl-3 pr-9 py-1.5 rounded-lg text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                :class="tab === id
-                  ? 'text-accent bg-accent/10'
-                  : 'text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900'"
-                @click="tab = id; pendingDropdownOpen = false"
-              >
-                {{ allTabs.find(t => t.id === id)?.label }}
-                <span
-                  v-if="tabBadge(id) > 0"
-                  class="absolute top-1.5 right-2 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
-                >{{ tabBadge(id) }}</span>
-              </button>
-            </div>
-          </Teleport>
-        </div>
+        <AdminTabMenu
+          v-for="g in visibleGroups"
+          :key="g.key"
+          :label="g.label"
+          :tabs="g.tabs"
+          :active-tab="tab"
+          :badges="tabBadges"
+          @select="tab = $event as TabId"
+        />
 
-        <span class="w-px h-5 bg-zinc-800 mx-0.5" />
-
-        <!-- Non-pending tabs: open-verifications + admin-only -->
-        <button
-          v-for="t in tabs.filter(t => !PENDING_TABS.includes(t.id))"
-          :key="t.id"
-          type="button"
-          class="relative whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-          :class="tab === t.id
-            ? 'bg-accent/10 text-accent ring-1 ring-inset ring-accent/25'
-            : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
-          @click="tab = t.id"
-        >
-          {{ t.label }}
-          <span
-            v-if="tabBadge(t.id) > 0"
-            class="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-0.5 leading-none"
-          >{{ tabBadge(t.id) }}</span>
-        </button>
+        <!-- What you are looking at, spelled out. With the tabs collapsed into
+             menus the bar no longer shows the current page as a pressed
+             button, and "Moderation" alone does not say which of the three. -->
+        <span class="ml-auto shrink-0 text-[11px] text-zinc-600 truncate pl-3">
+          {{ allTabs.find((t) => t.id === tab)?.label }}
+        </span>
       </div>
     </nav>
 
@@ -1639,8 +1596,13 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 >Set</button>
               </div>
               <div class="flex items-center gap-1 text-xs flex-wrap">
+                <!-- In rank order, and labelled from the same table the badges
+                     use. The list was `user, moderator, owner, developer,
+                     admin` — admin last, after the two roles that outrank it —
+                     and it printed the raw id, which for the new role would
+                     have read "list_helper". -->
                 <button
-                  v-for="r in (['user','moderator','owner','developer','admin'] as const)"
+                  v-for="r in ASSIGNABLE_ROLES"
                   :key="r"
                   type="button"
                   :disabled="roleAboveMe(r)"
@@ -1650,8 +1612,9 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                     : u.role === r
                       ? 'border-accent bg-accent/15 text-accent'
                       : 'border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'"
+                  :title="roleMeta(r).title"
                   @click="!roleAboveMe(r) && setRole(u, r)"
-                >{{ r }}</button>
+                >{{ roleMeta(r).label }}</button>
                 <button
                   type="button"
                   class="ml-1 px-2 py-1 rounded border transition-colors"
