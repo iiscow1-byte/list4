@@ -2,9 +2,10 @@
 import { tierColor, textOn } from '~/utils/tier-colors'
 
 type Change = {
-  kind: 'add' | 'move'
+  kind: 'add' | 'move' | 'remove'
   level_id: number
-  level_position: number
+  /** Null on a removal — there is no level page left to link to. */
+  level_position: number | null
   level_name: string
   level_gddl_tier: string | null
   level_rated: string | null
@@ -50,13 +51,17 @@ const { data: changes, pending, refresh: refreshChanges } = await useFetch<Chang
 const changelogView = ref<'all' | 'challenge'>('all')
 const changelogOrder = ref<'placement' | 'recent'>('recent')
 /** Only additions, only movements, or both. */
-const kindFilter = ref<'' | 'add' | 'move'>('')
+const kindFilter = ref<'' | 'add' | 'move' | 'remove'>('')
 const search = ref('')
 const dense = ref(false)
 
 function filteredChanges(list: Change[]) {
   let base = changelogView.value === 'challenge'
-    ? list.filter((c) => c.level_rated === 'Challenge')
+    // A challenge that slid down the main list past four non-challenges is at
+    // the same challenge rank it started at, and `loadChanges` cannot drop it
+    // because on the list *it* is filtering, the level did move. Reading the
+    // challenge changelog, it is a row that says `Ch. #12 → Ch. #12`.
+    ? list.filter((c) => c.level_rated === 'Challenge' && delta(c) !== 0)
     : list
   if (kindFilter.value) base = base.filter((c) => c.kind === kindFilter.value)
   const q = search.value.trim().toLowerCase()
@@ -68,13 +73,30 @@ function filteredChanges(list: Change[]) {
   return [...base].sort((a, b) => a.to_position - b.to_position)
 }
 
-/** How far a level moved, in placements — the number people actually want. */
+/**
+ * How far a level moved, in whichever list is being read.
+ *
+ * This used to be the classic placements always, including in the challenge
+ * view — where the row beside it reads `Ch. #14 → Ch. #11`. So the badge was
+ * measuring one list and the numbers next to it another, and the two disagreed
+ * routinely rather than occasionally: the challenge list is a renumbering of a
+ * sparse subset, so a level that slides four places down the main list past
+ * four non-challenges has not moved on the challenge list at all, and one that
+ * holds its main placement while a challenge above it is removed has moved up
+ * without moving. The badge could also point the *wrong way* — down the main
+ * list is up the challenge list whenever the levels overtaking you aren't
+ * challenges.
+ *
+ * Positive means moved up.
+ */
 function delta(c: Change): number | null {
-  if (c.kind === 'add') return null
-  const from = c.from_placement ?? c.from_position
-  const to = c.to_placement ?? c.to_position
+  // A removal isn't a move in either direction, so it gets no arrow.
+  if (c.kind !== 'move') return null
+  const [from, to] = changelogView.value === 'challenge'
+    ? [c.from_challenge_rank, c.challenge_rank]
+    : [c.from_placement ?? c.from_position, c.to_placement ?? c.to_position]
   if (from == null || to == null) return null
-  return from - to // positive = moved up the list
+  return from - to
 }
 
 /**
@@ -86,13 +108,14 @@ const days = computed(() =>
   (changes.value?.days ?? [])
     .map((d) => {
       const rows = filteredChanges(d.changes)
-      let added = 0, up = 0, down = 0
+      let added = 0, up = 0, down = 0, removed = 0
       for (const c of rows) {
         if (c.kind === 'add') added++
+        else if (c.kind === 'remove') removed++
         else if ((delta(c) ?? 0) > 0) up++
         else down++
       }
-      return { date: d.date, changes: rows, added, up, down }
+      return { date: d.date, changes: rows, added, up, down, removed }
     })
     .filter((d) => d.changes.length),
 )
@@ -195,6 +218,7 @@ useHead({ title: 'Changelog — All Levels List' })
             { value: '', label: 'Everything' },
             { value: 'add', label: 'Added' },
             { value: 'move', label: 'Moved' },
+            { value: 'remove', label: 'Removed' },
           ]"
         />
 
@@ -252,6 +276,10 @@ useHead({ title: 'Changelog — All Levels List' })
               v-if="day.down"
               class="rounded px-1.5 py-0.5 bg-amber-950/60 text-amber-300 border border-amber-900/60"
             >▼ {{ day.down }}</span>
+            <span
+              v-if="day.removed"
+              class="rounded px-1.5 py-0.5 bg-red-950/60 text-red-300 border border-red-900/60"
+            >−{{ day.removed }} removed</span>
           </div>
         </div>
 
@@ -278,6 +306,11 @@ useHead({ title: 'Changelog — All Levels List' })
                 title="Added to the list"
               >Added</span>
               <span
+                v-else-if="c.kind === 'remove'"
+                class="shrink-0 w-[4.6rem] text-center text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-red-950/60 text-red-300 border border-red-900/60"
+                title="Removed from the list"
+              >Removed</span>
+              <span
                 v-else-if="(delta(c) ?? 0) > 0"
                 class="shrink-0 w-[4.6rem] text-center text-[10px] tabular-nums px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
                 title="Moved up the list"
@@ -288,10 +321,15 @@ useHead({ title: 'Changelog — All Levels List' })
                 title="Moved down the list"
               >▼ {{ Math.abs(delta(c) ?? 0) }}</span>
 
+              <!-- A removed level has no page. Plain text rather than a link
+                   to `/levels/null`, and struck through so the row reads as
+                   what it is at a glance. -->
               <NuxtLink
+                v-if="c.level_position != null"
                 :to="`/levels/${c.level_position}`"
                 class="truncate font-medium text-zinc-200 hover:text-accent transition-colors"
               >{{ c.level_name }}</NuxtLink>
+              <span v-else class="truncate font-medium text-zinc-500 line-through decoration-red-900/70">{{ c.level_name }}</span>
 
               <span
                 v-if="c.level_gddl_tier && changelogView !== 'challenge'"
@@ -301,9 +339,15 @@ useHead({ title: 'Changelog — All Levels List' })
               >{{ shortTier(c.level_gddl_tier) }}</span>
 
               <span class="shrink-0 font-semibold tabular-nums text-zinc-300 ml-auto" :class="dense ? 'text-sm' : 'text-base'">
+                <!-- A removal has one placement, not two: the one it was
+                     standing on when it went. Drawing it as `#12 → #12` would
+                     claim a move that didn't happen. -->
                 <template v-if="changelogView === 'challenge'">
                   <template v-if="c.kind === 'add'">
                     <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
+                  </template>
+                  <template v-else-if="c.kind === 'remove'">
+                    <span class="text-zinc-600 line-through">Ch. #{{ c.challenge_rank }}</span>
                   </template>
                   <template v-else>
                     <span class="text-zinc-600">Ch. #{{ c.from_challenge_rank }}</span>
@@ -313,6 +357,9 @@ useHead({ title: 'Changelog — All Levels List' })
                 </template>
                 <template v-else>
                   <template v-if="c.kind === 'add'">#{{ c.to_placement }}</template>
+                  <template v-else-if="c.kind === 'remove'">
+                    <span class="text-zinc-600 line-through">#{{ c.to_placement }}</span>
+                  </template>
                   <template v-else>
                     <span class="text-zinc-600">#{{ c.from_placement }}</span>
                     <span class="text-zinc-700 mx-1">→</span>

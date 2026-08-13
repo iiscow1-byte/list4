@@ -586,6 +586,42 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_position_history_changed ON position_history(changed_at);
   `)
 
+  /*
+   * Levels taken off the list.
+   *
+   * Deliberately *not* a row in `position_history`. That table is keyed to
+   * `levels(id) ON DELETE CASCADE` and the changelog reads it through a join
+   * back to `levels`, so the moment a level is deleted its entire history goes
+   * with it — which means a removal was the one change to the list that could
+   * never appear in the list's changelog, and the level's own additions and
+   * moves silently vanished from the historical record too. A reader saw a
+   * level in the top 50 one day and no trace of it ever having existed the
+   * next.
+   *
+   * So this table denormalises everything the changelog needs to draw a row.
+   * There is nothing left to join to: the name, the placement it held and the
+   * artwork are copied in at the moment of deletion, because a foreign key to
+   * a row that is being deleted is exactly the thing that failed before.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS level_removals (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      level_id        INTEGER NOT NULL,
+      name            TEXT    NOT NULL,
+      gd_id           INTEGER,
+      position        INTEGER NOT NULL,
+      sheet_placement INTEGER,
+      gddl_tier       TEXT,
+      rated           TEXT,
+      was_challenge   INTEGER NOT NULL DEFAULT 0,
+      challenge_rank  INTEGER,
+      reason          TEXT,
+      removed_by      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      removed_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_level_removals_at ON level_removals(removed_at);
+  `)
+
   // Discord webhooks: admin-managed list of URLs that receive a daily summary
   // of level additions and movements. last_posted_date is the YYYY-MM-DD of
   // the most recently summarised day so the scheduler doesn't double-post.
@@ -1778,10 +1814,42 @@ function initSchema(db: DatabaseSync) {
     ['compact_rows', 0],
     // The editor roster, shown the way other list sites show their staff.
     ['show_editors', 1],
+    /*
+     * Three facts a list may not have an opinion about.
+     *
+     * The list UI was built assuming every list is a demon list — so it always
+     * drew a GDDL tier, a difficulty and a link back to the level's placement
+     * on the ALL. For a list of, say, someone's favourite platformers, or a
+     * challenge list using its own tiering, those are not merely unwanted:
+     * "Tier 14" and "Insane Demon" are *assertions*, and an empty tier chip on
+     * every row is the list saying it failed to look something up rather than
+     * that the question doesn't apply.
+     */
+    ['show_tier', 1],
+    ['show_difficulty', 1],
+    ['show_level_links', 1],
   ] as const) {
     if (!clCols2.some((c) => c.name === col)) {
       db.exec(`ALTER TABLE custom_lists ADD COLUMN ${col} INTEGER NOT NULL DEFAULT ${def}`)
     }
+  }
+
+  /*
+   * What a row does when the name doesn't fit.
+   *
+   * `truncate` is what every list has always done — one line, cut off with an
+   * ellipsis — and it is the wrong default for a lot of lists without being the
+   * wrong default for all of them. Level names in this game run long and are
+   * routinely distinguished only at the end ("Cataclysm", "Cataclysm II",
+   * "Nine Circles but it's actually good"), so a panel 16rem wide can show a
+   * column of rows that are visibly different levels and identical text.
+   *
+   * `wrap` lets the name take a second line; `scale` keeps one line and drops
+   * the type size for names that need it. Which is right depends on whether the
+   * list would rather stay dense or stay legible, which is the owner's call.
+   */
+  if (!clCols2.some((c) => c.name === 'name_display')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN name_display TEXT NOT NULL DEFAULT 'truncate'`)
   }
 
   // Per-row overrides of the fields a linked level otherwise mirrors from the
@@ -2289,7 +2357,31 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_activity_kind     ON activity_log(kind, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_activity_subject  ON activity_log(subject_kind, subject_id);
     CREATE INDEX IF NOT EXISTS idx_activity_severity ON activity_log(severity, created_at DESC);
+  `)
 
+  /*
+   * Undo, recorded on the entry that was undone.
+   *
+   * The log stays append-only: undoing something does not erase it, it performs
+   * the inverse action and writes a *second* entry. These columns are the link
+   * between the two, and the reason an entry can only be undone once — without
+   * them, two admins looking at the same row both press Undo and the second one
+   * reverses the first one's reversal.
+   */
+  const logCols = db.prepare(`PRAGMA table_info(activity_log)`).all() as { name: string }[]
+  if (!logCols.some((c) => c.name === 'undone_at')) {
+    db.exec(`ALTER TABLE activity_log ADD COLUMN undone_at TEXT`)
+  }
+  if (!logCols.some((c) => c.name === 'undone_by')) {
+    db.exec(`ALTER TABLE activity_log ADD COLUMN undone_by INTEGER REFERENCES accounts(id) ON DELETE SET NULL`)
+  }
+  if (!logCols.some((c) => c.name === 'undone_by_name')) {
+    // Denormalised for the same reason `actor_name` is: the log outlives the
+    // account, and "undone by someone" answers nothing.
+    db.exec(`ALTER TABLE activity_log ADD COLUMN undone_by_name TEXT`)
+  }
+
+  db.exec(`
     /**
      * Reports, of anything.
      *

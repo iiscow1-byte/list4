@@ -260,7 +260,89 @@ const DISPLAY_SETTINGS: {
   { key: 'show_records', label: 'Record counts on each row', hint: 'How many approved records each level has.' },
   { key: 'compact_rows', label: 'Compact rows', hint: 'Tighter rows without the creator line — more levels on screen at once.' },
   { key: 'show_editors', label: 'Show the list’s editors', hint: 'Who runs the list, in the header and beside the records.' },
+  { key: 'show_tier', label: 'Show tiers', hint: 'The GDDL tier chip, and your own tier bands down the list. Turn off for a list that doesn’t tier things.' },
+  { key: 'show_difficulty', label: 'Show difficulty', hint: 'The game’s difficulty rating — Insane Demon and so on.' },
+  { key: 'show_level_links', label: 'Show links off the list', hint: 'The level’s ALL placement and its gdbrowser link. Turn off for a list that stands on its own.' },
 ]
+
+/**
+ * What a row does when the name is wider than the panel.
+ *
+ * Worth a setting rather than a fixed choice because the two answers are a real
+ * trade and the right one depends on the list. Level names here run long and
+ * are often distinguished only at the end — "Cataclysm" and "Cataclysm II"
+ * truncate to the same nine characters — so a dense list of long names can show
+ * a column of rows that are different levels and identical text. Wrapping fixes
+ * that and costs height; scaling fixes it and costs legibility.
+ */
+const NAME_DISPLAYS: { value: 'truncate' | 'wrap' | 'scale'; label: string; hint: string }[] = [
+  { value: 'truncate', label: 'Cut off', hint: 'One line, ending in an ellipsis.' },
+  { value: 'wrap', label: 'Wrap', hint: 'Up to two lines. Taller rows, whole names.' },
+  { value: 'scale', label: 'Shrink', hint: 'One line at a smaller size, so more of it fits.' },
+]
+
+/**
+ * Whole looks, as one press.
+ *
+ * These write the same flags the checkboxes below do — there is no preset
+ * stored anywhere, and which one is highlighted is worked out by comparing the
+ * list's current values against each bundle. That is deliberate: a stored
+ * preset would be a second source of truth about how the list looks, and the
+ * first time somebody flipped one checkbox afterwards the two would disagree
+ * with no way to tell which was meant.
+ */
+const UI_PRESETS: {
+  id: string; label: string; blurb: string; values: Record<string, unknown>
+}[] = [
+  {
+    id: 'standard',
+    label: 'Standard',
+    blurb: 'Everything on — the demon-list look.',
+    values: {
+      show_thumbnails: true, show_points: true, show_records: true, compact_rows: false,
+      show_tier: true, show_difficulty: true, show_level_links: true, name_display: 'truncate',
+    },
+  },
+  {
+    id: 'compact',
+    label: 'Dense',
+    blurb: 'Tight rows, no art. For a long list you scroll.',
+    values: {
+      show_thumbnails: false, show_points: true, show_records: false, compact_rows: true,
+      show_tier: true, show_difficulty: false, show_level_links: true, name_display: 'scale',
+    },
+  },
+  {
+    id: 'gallery',
+    label: 'Gallery',
+    blurb: 'Level art on every row, names in full.',
+    values: {
+      show_thumbnails: true, show_points: false, show_records: false, compact_rows: false,
+      show_tier: false, show_difficulty: false, show_level_links: true, name_display: 'wrap',
+    },
+  },
+  {
+    id: 'standalone',
+    label: 'Standalone',
+    blurb: 'No tiers, difficulties or links out. For a list that isn’t about the ALL.',
+    values: {
+      show_thumbnails: true, show_points: false, show_records: false, compact_rows: false,
+      show_tier: false, show_difficulty: false, show_level_links: false, name_display: 'wrap',
+    },
+  },
+]
+
+/** The preset the list currently matches, or null when it matches none. */
+const activePreset = computed(() => {
+  const cur = list.value as any
+  if (!cur) return null
+  const on = (v: unknown) => v == null || !!v
+  return UI_PRESETS.find((p) => Object.entries(p.values).every(([k, want]) =>
+    typeof want === 'boolean'
+      ? on(cur[k]) === want
+      : (cur[k] ?? 'truncate') === want,
+  ))?.id ?? null
+})
 
 /**
  * The list's own tiers.
@@ -449,6 +531,69 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                 <img :src="l.icon_url" alt="" referrerpolicy="no-referrer" class="w-8 h-8 rounded-lg object-cover border border-zinc-800 bg-zinc-900" />
                 <span class="text-[11px] text-zinc-600">Icon</span>
               </div>
+            </div>
+          </section>
+
+          <!-- Presets -->
+          <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Presets</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                A whole look in one press. Each just sets the switches below, so you can start from
+                one and change anything you like afterwards.
+              </p>
+            </div>
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button
+                v-for="p in UI_PRESETS"
+                :key="p.id"
+                type="button"
+                :disabled="busy"
+                class="text-left rounded-lg border px-3 py-2.5 transition-colors disabled:opacity-50"
+                :class="activePreset === p.id
+                  ? 'border-accent/60 bg-accent/10'
+                  : 'border-zinc-800 hover:border-zinc-700'"
+                @click="patch(p.values, `Switched to the ${p.label.toLowerCase()} look.`)"
+              >
+                <span class="block text-sm" :class="activePreset === p.id ? 'text-accent' : 'text-zinc-200'">
+                  {{ p.label }}
+                  <span v-if="activePreset === p.id" class="text-[10px] uppercase tracking-widest ml-1">current</span>
+                </span>
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">{{ p.blurb }}</span>
+              </button>
+            </div>
+            <p v-if="!activePreset" class="text-[11px] text-zinc-600">
+              Your settings don’t match any preset — that’s fine, they’re just starting points.
+            </p>
+          </section>
+
+          <!-- Long names -->
+          <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
+            <div>
+              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Long level names</h2>
+              <p class="text-xs text-zinc-500 mt-1">
+                What a row does when the name is wider than the panel. Names in this game run long and
+                often differ only at the end, so cutting them off can leave two rows looking identical.
+              </p>
+            </div>
+            <div class="grid gap-1.5 sm:grid-cols-3">
+              <button
+                v-for="n in NAME_DISPLAYS"
+                :key="n.value"
+                type="button"
+                :disabled="busy"
+                class="text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-50"
+                :class="((l as any).name_display ?? 'truncate') === n.value
+                  ? 'border-accent/60 bg-accent/10'
+                  : 'border-zinc-800 hover:border-zinc-700'"
+                @click="patch({ name_display: n.value }, 'Presentation updated.')"
+              >
+                <span
+                  class="block text-sm"
+                  :class="((l as any).name_display ?? 'truncate') === n.value ? 'text-accent' : 'text-zinc-200'"
+                >{{ n.label }}</span>
+                <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">{{ n.hint }}</span>
+              </button>
             </div>
           </section>
 

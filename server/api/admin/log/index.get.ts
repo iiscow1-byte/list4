@@ -4,6 +4,7 @@ import {
   activityCounts, readActivity, LOG_SECTIONS,
   type LogArea, type LogSeverity,
 } from '~/server/utils/activity-log'
+import { undoLabel } from '~/server/utils/activity-undo'
 
 /**
  * Read the activity log.
@@ -57,7 +58,10 @@ export default defineEventHandler((event) => {
 
   return {
     total,
-    items,
+    // `undo` is decided here rather than in the client so the button and the
+    // endpoint can never disagree about what is reversible — the registry in
+    // `activity-undo.ts` is the single answer to that question.
+    items: items.map((r) => ({ ...r, undo: r.undone_at ? null : undoLabel(r) })),
     // Counts follow the same severity floor and window as the rows, so a tab
     // reading 400 can't open onto twelve.
     counts: activityCounts(db, { minSeverity, since }),

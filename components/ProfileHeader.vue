@@ -117,7 +117,22 @@ const emoji = computed(() => {
     </div>
 
     <div class="container-tight max-w-5xl">
-      <div class="relative -mt-14 sm:-mt-16 flex items-end gap-4 flex-wrap">
+      <!--
+        A column on a phone, a row from `sm`.
+
+        The negative margin lifts this whole block up over the banner, and as a
+        bottom-aligned row that meant the taller it got, the further *all* of it
+        rode up into the picture. On a phone it gets very tall: the name block
+        holds the meta chips — place, pronouns, joined, and whatever the page
+        adds, which on a profile is mutual friends, friend count and views — and
+        at 246px of usable width those wrap to three or four lines. So the name
+        and the chips were sitting on top of the banner image, and the actions
+        beside them were squeezed into whatever was left.
+
+        Stacked, only the avatar overlaps the banner and everything after it
+        flows below in the normal way, however many lines the chips take.
+      -->
+      <div class="relative -mt-14 sm:-mt-16 flex flex-col items-start gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4">
         <!-- Circular like every other avatar on the site, and the only shape
              that hides the black corners baked into avatars cropped before the
              cropper stopped clipping to a circle. -->
@@ -130,7 +145,7 @@ const emoji = computed(() => {
           </slot>
         </div>
 
-        <div class="flex-1 min-w-0 pb-1">
+        <div class="w-full min-w-0 sm:w-auto sm:flex-1 sm:pb-1">
           <div class="flex items-center gap-x-2 gap-y-1.5 flex-wrap">
             <ClanTag
               v-if="account.clan"
@@ -169,7 +184,7 @@ const emoji = computed(() => {
           </ProfileMeta>
         </div>
 
-        <div class="pb-1 flex items-center gap-2 shrink-0 flex-wrap justify-end">
+        <div class="w-full sm:w-auto sm:pb-1 flex items-center gap-2 shrink-0 flex-wrap justify-start sm:justify-end">
           <ProfileSocialLinks :account="account" />
           <slot name="actions" />
         </div>

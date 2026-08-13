@@ -1,7 +1,22 @@
 <script setup lang="ts">
 import { DEFAULT_PRESET, type ThemeOverrideKey } from '~/composables/useTheme'
+import { LOCALES, type LocaleCode } from '~/utils/i18n'
 
 const { state, PRESETS, setPreset, setOverride, reset, effectiveHex } = useTheme()
+
+/**
+ * Language lives here rather than in a control of its own.
+ *
+ * It is the same kind of setting as the theme — how the site looks to you, held
+ * on your machine, affecting nothing anybody else sees — and the header has no
+ * room for a second icon that opens a list of nine things.
+ */
+const { locale, setLocale, t } = useLocale()
+
+function pickLocale(code: LocaleCode) {
+  setLocale(code)
+  close()
+}
 
 const open = ref(false)
 const advanced = ref(false)
@@ -73,7 +88,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
       class="absolute right-0 top-full mt-2 w-72 popover z-50"
     >
       <div class="px-4 py-3 border-b border-zinc-800">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">Theme</p>
+        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">{{ t('Theme') }}</p>
         <div class="grid grid-cols-2 gap-2">
           <button
             v-for="(p, name) in PRESETS"
@@ -93,6 +108,31 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
             <span class="truncate">{{ p.label }}</span>
           </button>
         </div>
+      </div>
+
+      <!-- Each language is written in itself. A reader who wants Japanese is
+           looking for 日本語, not for the row labelled "Japanese" in a language
+           they are trying to get away from. -->
+      <div class="px-4 py-3 border-b border-zinc-800">
+        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">{{ t('Language') }}</p>
+        <div class="grid grid-cols-2 gap-1">
+          <button
+            v-for="l in LOCALES"
+            :key="l.code"
+            type="button"
+            class="flex items-center gap-1.5 rounded border px-2 py-1.5 text-xs transition-colors text-left"
+            :class="locale === l.code
+              ? 'border-accent bg-accent/10 text-zinc-100'
+              : 'border-zinc-800 text-zinc-300 hover:border-zinc-700'"
+            :title="l.english"
+            @click="pickLocale(l.code)"
+          >
+            <span class="truncate">{{ l.native }}</span>
+          </button>
+        </div>
+        <p class="mt-2 text-[10px] text-zinc-600 leading-snug">
+          The site's own wording only — level names, comments and lists stay as their authors wrote them.
+        </p>
       </div>
 
       <div class="px-4 py-3">

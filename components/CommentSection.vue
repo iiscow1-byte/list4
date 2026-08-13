@@ -214,17 +214,6 @@ function avatarOf(username: string) {
               :to="`/users/${encodeURIComponent(c.username)}`"
             />
             <span class="ml-auto shrink-0 text-[11px] text-zinc-600 tabular-nums">{{ relative(c.created_at) }}</span>
-            <!-- Hidden until hover, like Delete beside it: a report control on
-                 every comment permanently would make a thread read as a list of
-                 things to complain about. Never offered on your own comment —
-                 deleting it is right there. -->
-            <ReportButton
-              v-if="me && me.username.toLowerCase() !== c.username.toLowerCase()"
-              target="comment"
-              :target-id="c.id"
-              :label="`${c.username}'s comment`"
-              class="shrink-0 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-            />
             <button
               v-if="canDelete(c)"
               type="button"
@@ -232,6 +221,21 @@ function avatarOf(username: string) {
               title="Delete this comment"
               @click="remove(c.id)"
             >Delete</button>
+            <!-- Last on the row, and always visible.
+                 It used to hide behind `opacity-0` until hover, the way Delete
+                 still does — but Delete is a control for your own comment, on
+                 the one page you already know it exists, whereas reporting is
+                 the thing a stranger goes looking for and cannot find by
+                 guessing. Hover is also not a gesture a touchscreen has, so on
+                 a phone it was not merely faint but absent. Never offered on
+                 your own comment — deleting it is right there. -->
+            <ReportButton
+              v-if="me && me.username.toLowerCase() !== c.username.toLowerCase()"
+              target="comment"
+              :target-id="c.id"
+              :label="`${c.username}'s comment`"
+              class="shrink-0"
+            />
           </div>
           <p class="mt-1.5 text-sm text-zinc-300 whitespace-pre-wrap break-words">{{ filter(c.body) }}</p>
         </li>

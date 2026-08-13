@@ -11,7 +11,14 @@ import { loadList, replaceItems, MAX_ITEMS, type CustomListItemInput } from '~/s
 const DISPLAY_FLAGS = [
   'show_banner', 'show_thumbnails', 'show_points', 'show_records',
   'compact_rows', 'show_editors',
+  'show_tier', 'show_difficulty', 'show_level_links',
 ] as const
+
+/**
+ * How a row handles a name too long for it. A closed set, because the value
+ * chooses a branch in the template and anything else would render nothing.
+ */
+const NAME_DISPLAYS = new Set(['truncate', 'wrap', 'scale'])
 
 /** Owner-only update. Any provided field replaces the stored one wholesale. */
 export default defineEventHandler(async (event) => {
@@ -32,6 +39,7 @@ export default defineEventHandler(async (event) => {
     mark_off_all?: boolean
     discord_url?: string
     youtube_url?: string
+    name_display?: 'truncate' | 'wrap' | 'scale'
     max_points?: number
     min_points?: number
     scored_count?: number
@@ -83,6 +91,13 @@ export default defineEventHandler(async (event) => {
       const ok = /^#[0-9a-fA-F]{6}$/.test(hex)
       db.prepare(`UPDATE custom_lists SET accent_color = ? WHERE id = ?`)
         .run(ok ? hex : null, row.id)
+    }
+    if (typeof (body as any)?.name_display === 'string') {
+      const v = String((body as any).name_display)
+      if (!NAME_DISPLAYS.has(v)) {
+        throw createError({ statusCode: 400, statusMessage: 'Unknown name display mode.' })
+      }
+      db.prepare(`UPDATE custom_lists SET name_display = ? WHERE id = ?`).run(v, row.id)
     }
     if (typeof body?.follow_all_order === 'boolean') {
       db.prepare(`UPDATE custom_lists SET follow_all_order = ? WHERE id = ?`)

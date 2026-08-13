@@ -348,16 +348,6 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           <span class="tabular-nums">{{ list.likes }}</span>
         </button>
 
-        <!-- Reporting a list, for the owner's own list, would be a button that
-             errors — so it isn't there. `canEdit` covers owner and editors. -->
-        <ReportButton
-          v-if="!canEdit && list.id"
-          target="custom_list"
-          :target-id="list.id"
-          :label="list.title"
-          class="shrink-0"
-        />
-
         <!-- How many people opened it. Somebody who spends an evening building
              a list and shares it had no way to find out whether anyone read
              it; likes only count the ones who felt strongly. -->
@@ -371,6 +361,17 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           </svg>
           <span class="tabular-nums">{{ views.toLocaleString() }}</span>
         </span>
+
+        <!-- Last of the row's controls, as everywhere else. Reporting a list,
+             for the owner's own list, would be a button that errors — so it
+             isn't there. `canEdit` covers owner and editors. -->
+        <ReportButton
+          v-if="!canEdit && list.id"
+          target="custom_list"
+          :target-id="list.id"
+          :label="list.title"
+          class="shrink-0"
+        />
 
         <!-- Standalone mode hides the site's own header, so this is the only
              way back to the rest of the site. It drops the flag deliberately:

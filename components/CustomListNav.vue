@@ -48,6 +48,17 @@ const props = defineProps<{
   showPoints?: boolean
   showRecords?: boolean
   compact?: boolean
+  /** Draw the list's own tier bands. Off for a list that doesn't tier things. */
+  showTier?: boolean
+  /**
+   * What a row does when the name doesn't fit its 16rem.
+   *
+   * `truncate` is the original behaviour and still the default. It is a poor
+   * one for this game in particular: names run long and are often distinguished
+   * only at the end, so a truncated column can show rows that are visibly
+   * different levels and identical text.
+   */
+  nameDisplay?: 'truncate' | 'wrap' | 'scale'
   /** Named bands, ordered by `from_rank`. Empty when the list defines none. */
   tiers?: { id: number; name: string; color: string | null; from_rank: number }[]
 }>()
@@ -107,12 +118,30 @@ const tierByRank = computed(() => {
 })
 /** The heading to print above a row, when a tier starts at it. */
 function tierHeadingFor(item: CustomItem) {
+  // A list that has turned tiers off has no bands to head.
+  if (props.showTier === false) return null
   // Only in list order — under a search or a filter the row above isn't the
   // rank above, so a "tier starts here" heading would be describing nothing.
   if (search.value.trim()) return null
   const t = tierByRank.value.get(item.rank)
   return t?.first ? t : null
 }
+
+/**
+ * How the name behaves in the width it has.
+ *
+ * `wrap` allows a second line and stops there — an unbounded wrap turns one
+ * pathological name into a row eight lines tall and pushes the rest of the list
+ * off the screen. `scale` keeps every row one line and buys the space back from
+ * the type size instead, which suits a list that would rather stay dense.
+ */
+const nameClass = computed(() => {
+  switch (props.nameDisplay) {
+    case 'wrap': return 'break-words line-clamp-2 leading-snug'
+    case 'scale': return 'truncate text-[11px]'
+    default: return 'truncate'
+  }
+})
 
 function colorOf(item: CustomItem): string {
   // A list that defines its own tiers is stating what each band is; that beats
@@ -355,7 +384,14 @@ async function remove(item: CustomItem) {
             >{{ lvl.rank }}</span>
 
             <span class="relative flex-1 min-w-0">
-              <span class="block truncate font-medium drop-shadow-sm">{{ lvl.name }}</span>
+              <!-- `title` regardless of mode: even wrapped, a long enough name
+                   can still be cut, and hovering is the cheapest way to be sure
+                   which level a row is. -->
+              <span
+                class="block font-medium drop-shadow-sm"
+                :class="nameClass"
+                :title="lvl.name"
+              >{{ lvl.name }}</span>
               <span
                 v-if="lvl.creator && !compact"
                 class="block truncate text-[10px] text-zinc-500"

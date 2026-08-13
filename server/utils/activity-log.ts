@@ -130,6 +130,14 @@ export type ActivityRow = {
   detail: string | null
   severity: LogSeverity
   created_at: string
+  /**
+   * Set once this entry's action has been reversed — see `activity-undo.ts`.
+   * The entry itself is never rewritten or removed; the undo is a second entry,
+   * and these three are the link back.
+   */
+  undone_at: string | null
+  undone_by: number | null
+  undone_by_name: string | null
 }
 
 export type ActivityQuery = {

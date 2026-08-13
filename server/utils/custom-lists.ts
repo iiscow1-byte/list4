@@ -314,6 +314,7 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.accepts_submissions, cl.require_record_video, cl.mark_off_all,
             cl.show_banner, cl.show_thumbnails, cl.show_points, cl.show_records,
             cl.compact_rows, cl.show_editors,
+            cl.show_tier, cl.show_difficulty, cl.show_level_links, cl.name_display,
             cl.discord_url, cl.youtube_url,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title

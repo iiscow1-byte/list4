@@ -488,6 +488,65 @@ function resetFilters() {
   externalList.value = ''
 }
 
+/**
+ * Which variant a `?list=` on the URL means.
+ *
+ * The variant used to be state nothing outside this component could reach,
+ * which made it impossible to *link* to a list. That mattered most for
+ * challenges: a level page shows a "Challenge #12" badge, and the one thing
+ * anybody wants from it is the list that #12 counts against — but the only way
+ * there was to open this menu and pick it, having first worked out that "the
+ * challenge list" and "the Challenge variant of the main list" are the same
+ * thing.
+ *
+ * Lower-cased on the way in and out, because a URL is not the place for the
+ * capitalisation of a menu label.
+ */
+const VARIANT_BY_PARAM: Record<string, ListVariant> = {
+  classic: 'Classic',
+  rated: 'Rated',
+  challenge: 'Challenge',
+  aredl: 'AREDL',
+  gdl: 'GDL',
+  cl: 'CL',
+}
+
+/**
+ * Applied before the first fetch, so a link into a variant loads that list
+ * once rather than loading the classic list and then replacing it.
+ */
+const initialVariant = VARIANT_BY_PARAM[String(route.query.list ?? '').toLowerCase()]
+if (initialVariant && initialVariant !== 'Classic') applyVariant(initialVariant)
+
+/**
+ * Keep `?list=` in step with the menu.
+ *
+ * `replace`, not `push`: switching lists is changing how this page is drawn,
+ * and it should not take a press of Back each to undo. The classic list drops
+ * the parameter rather than spelling out the default, and `q` is preserved
+ * because a search and a variant are independent.
+ */
+watch(listVariant, (v) => {
+  const list = v === 'Classic' ? undefined : v.toLowerCase()
+  if ((route.query.list ?? undefined) === list) return
+  router.replace({ query: { ...route.query, list } })
+})
+
+/**
+ * What every row in this panel links to, besides the level.
+ *
+ * Both of these are the reader's place in the list rather than facts about the
+ * level, and dropping either on a click is the same bug: search for a level,
+ * open it, and the sidebar you searched in resets underneath you. The variant
+ * is the worse half — picking a level off the challenge list would put you back
+ * on the classic one, so the list you were reading only survived until you used
+ * it.
+ */
+const rowQuery = computed(() => ({
+  q: search.value || undefined,
+  list: listVariant.value === 'Classic' ? undefined : listVariant.value.toLowerCase(),
+}))
+
 // Initial load
 await loadMore()
 
@@ -1244,7 +1303,7 @@ watch(
           <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
             v-else
-            :to="{ path: `/levels/${lvl.position}`, query: search ? { q: search } : {} }"
+            :to="{ path: `/levels/${lvl.position}`, query: rowQuery }"
             class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
             :class="lvl.position === activePosition
               ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'

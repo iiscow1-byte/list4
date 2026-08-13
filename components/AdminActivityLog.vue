@@ -38,6 +38,16 @@ type Row = {
   detail: string | null
   severity: 'info' | 'notable' | 'warning'
   created_at: string
+  /**
+   * The label for this row's Undo button, or null when there isn't one.
+   *
+   * Decided by the server — see `activity-undo.ts` — rather than by a list of
+   * kinds kept here, so a button can never appear for something the endpoint
+   * would refuse, or fail to appear for something it would accept.
+   */
+  undo: string | null
+  undone_at: string | null
+  undone_by_name: string | null
 }
 type Section = { id: string; label: string; blurb: string }
 
@@ -75,6 +85,35 @@ const { data, pending, refresh } = await useFetch<{
 })
 
 const rows = computed(() => data.value?.items ?? [])
+
+/**
+ * Undo one entry.
+ *
+ * Confirmed first, because this is a write dressed as a link in a list of
+ * links, and the row above the one you meant is somebody else's role change.
+ *
+ * The error is kept per row rather than in one banner: the useful failures here
+ * are all about *this* entry — already undone, or superseded by a later change
+ * — and a message at the top of the page would leave you guessing which of
+ * sixty rows it referred to.
+ */
+const undoing = ref<number | null>(null)
+const undoError = reactive<Record<number, string>>({})
+
+async function undo(r: Row) {
+  if (undoing.value) return
+  if (!confirm(`${r.undo}?\n\n${r.summary}\n\nThis performs the opposite action and records it in the log.`)) return
+  undoing.value = r.id
+  delete undoError[r.id]
+  try {
+    await $fetch(`/api/admin/log/${r.id}/undo`, { method: 'POST' })
+    await refresh()
+  } catch (e: any) {
+    undoError[r.id] = e?.data?.statusMessage ?? 'Could not undo that.'
+  } finally {
+    undoing.value = null
+  }
+}
 const sections = computed(() => data.value?.sections ?? [])
 const total = computed(() => data.value?.total ?? 0)
 const shownTo = computed(() => Math.min(offset.value + PAGE, total.value))
@@ -224,7 +263,30 @@ function subjectLink(r: Row): string | null {
                   class="text-zinc-600 hover:text-zinc-300 transition-colors"
                   @click="open[r.id] = !open[r.id]"
                 >{{ open[r.id] ? 'less' : 'details' }}</button>
+
+                <!-- Undo is offered only where the inverse is exact, and the
+                     entry stays in the log either way — see the note in
+                     `server/utils/activity-undo.ts`. -->
+                <template v-if="r.undo">
+                  <span class="text-zinc-800">·</span>
+                  <button
+                    type="button"
+                    :disabled="undoing === r.id"
+                    class="text-amber-500/80 hover:text-amber-300 disabled:opacity-50 transition-colors"
+                    :title="r.undo"
+                    @click="undo(r)"
+                  >{{ undoing === r.id ? 'undoing…' : 'undo' }}</button>
+                </template>
+                <template v-else-if="r.undone_at">
+                  <span class="text-zinc-800">·</span>
+                  <span
+                    class="text-zinc-600 italic"
+                    :title="`Undone by ${r.undone_by_name ?? 'someone'} at ${absoluteTime(r.undone_at)}`"
+                  >undone{{ r.undone_by_name ? ` by ${r.undone_by_name}` : '' }}</span>
+                </template>
               </p>
+
+              <p v-if="undoError[r.id]" class="text-[11px] text-red-400 mt-1">{{ undoError[r.id] }}</p>
 
               <pre
                 v-if="open[r.id] && r.detail"

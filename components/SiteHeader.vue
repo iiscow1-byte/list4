@@ -118,6 +118,15 @@ const activeMenus = computed(() => {
 const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || !!me.value)
 
 /**
+ * The site's own wording, in the reader's language.
+ *
+ * `SITE_NAV` stays in English: it is the source text, and the translation is
+ * keyed by it — see `utils/i18n.ts`. So the nav is defined once and rendered
+ * through `t()`, and a label with no translation yet renders as written.
+ */
+const { t } = useLocale()
+
+/**
  * The drawer that replaces all of this below `lg`.
  *
  * The header used to be one flat row with no responsive class on any of it:
@@ -153,23 +162,23 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         <NavMenu
           v-for="menu in SITE_NAV"
           :key="menu.key"
-          :label="menu.label"
+          :label="t(menu.label)"
           :to="menu.to"
           :active="activeMenus[menu.key]"
           :dot="menu.key === 'community' && updatesUnread"
         >
           <template v-for="(group, gi) in menu.groups" :key="group.label">
-            <NavMenuSection :label="group.label" :first="gi === 0" />
+            <NavMenuSection :label="t(group.label)" :first="gi === 0" />
             <NavMenuItem
               v-for="link in visible(group.links)"
               :key="link.label"
               :to="link.to"
               :href="link.href"
-              :hint="link.hint"
+              :hint="t(link.hint)"
               :accent="link.accent"
             >
               <template #icon><NavIcon :name="link.icon" /></template>
-              {{ link.label }}
+              {{ t(link.label) }}
               <span
                 v-if="link.flag === 'updates' && updatesUnread"
                 class="ml-1.5 align-middle inline-block w-1.5 h-1.5 rounded-full bg-accent"
@@ -237,12 +246,12 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           </NuxtLink>
         </template>
         <template v-else>
-          <NuxtLink to="/login" class="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">Log in</NuxtLink>
+          <NuxtLink to="/login" class="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">{{ t('Log in') }}</NuxtLink>
           <NuxtLink
             v-if="signupsOpen"
             to="/signup"
             class="btn btn-md btn-primary hidden sm:inline-flex"
-          >Sign up</NuxtLink>
+          >{{ t('Sign up') }}</NuxtLink>
         </template>
 
         <!-- Socials, collapsed into one menu instead of four loose icons -->
@@ -253,7 +262,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
               <path d="m8.59 13.51 6.83 3.98M15.41 6.51 8.59 10.49" />
             </svg>
           </template>
-          <NavMenuSection label="Follow the list" first />
+          <NavMenuSection :label="t('Follow the list')" first />
           <NavMenuItem href="https://discord.gg/KfZvUpS3PB">
             <template #icon>
               <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-4 h-4 shrink-0 text-[#5865F2]" aria-hidden="true">
@@ -294,14 +303,14 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
                still carries a badged row for small screens where that button's
                destination isn't obvious. -->
 
-          <NavMenuSection label="About this site" />
+          <NavMenuSection :label="t('About this site')" />
           <NavMenuItem to="/updates" :hint="versionLabel(SITE_VERSION)">
             <template #icon><NavIcon name="sparkles" /></template>
-            List updates
+            {{ t('List updates') }}
           </NavMenuItem>
           <NavMenuItem accent @click="creditsOpen = true">
             <template #icon><NavIcon name="heart" /></template>
-            Credits
+            {{ t('Credits') }}
           </NavMenuItem>
         </NavMenu>
 
@@ -329,7 +338,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
                 </svg>
               </button>
 
-              <h2 id="credits-title" class="text-[10px] uppercase tracking-widest text-accent font-semibold">Credits</h2>
+              <h2 id="credits-title" class="text-[10px] uppercase tracking-widest text-accent font-semibold">{{ t('Credits') }}</h2>
 
               <dl class="mt-3 space-y-3 text-sm">
                 <div>
@@ -356,7 +365,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           type="button"
           class="lg:hidden relative p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
           :aria-expanded="menuOpen"
-          aria-label="Open menu"
+          :aria-label="t('Open menu')"
           @click="menuOpen = true"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5" aria-hidden="true">

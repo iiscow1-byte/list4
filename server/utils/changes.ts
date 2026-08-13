@@ -19,11 +19,68 @@ export function recordPlacement(
   ).run(levelId, position, accountId)
 }
 
-export type ChangeKind = 'add' | 'move'
+/**
+ * Copy a level into `level_removals` before it is deleted.
+ *
+ * Must be called *before* the `DELETE`, and inside the same transaction: it
+ * reads the row it is preserving, so afterwards there is nothing left to read.
+ * Everything the changelog draws is copied out here rather than referenced,
+ * because the thing being referenced is about to stop existing — see the table
+ * comment in `server/db/index.ts`.
+ *
+ * The challenge rank is resolved now for the same reason. It is a count of the
+ * challenges at or above this position, so asking the question a week later
+ * gives the answer for a list this level is no longer on.
+ */
+export function recordRemoval(
+  db: DatabaseSync,
+  levelId: number,
+  accountId: number | null,
+  reason: string | null = null,
+): void {
+  const lvl = db.prepare(
+    `SELECT l.id, l.name, l.gd_id, l.position, l.sheet_placement, l.gddl_tier, l.rated,
+            CASE WHEN ${isChallengeSql('l', 'c')} THEN 1 ELSE 0 END AS was_challenge,
+            CASE WHEN ${isChallengeSql('l', 'c')}
+              THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id
+                     WHERE ${isChallengeSql('l2', 'c2')} AND l2.position <= l.position)
+              ELSE NULL
+            END AS challenge_rank
+       FROM levels l
+       LEFT JOIN gd_info_cache c ON c.gd_id = l.gd_id
+      WHERE l.id = ?`,
+  ).get(levelId) as
+    | {
+        id: number; name: string; gd_id: number | null; position: number
+        sheet_placement: number | null; gddl_tier: string | null; rated: string | null
+        was_challenge: number; challenge_rank: number | null
+      }
+    | undefined
+  if (!lvl) return
+
+  db.prepare(
+    `INSERT INTO level_removals
+       (level_id, name, gd_id, position, sheet_placement, gddl_tier, rated,
+        was_challenge, challenge_rank, reason, removed_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    lvl.id, lvl.name, lvl.gd_id, lvl.position, lvl.sheet_placement,
+    lvl.gddl_tier, lvl.rated, lvl.was_challenge, lvl.challenge_rank,
+    reason, accountId,
+  )
+}
+
+export type ChangeKind = 'add' | 'move' | 'remove'
 export type Change = {
   kind: ChangeKind
   level_id: number           // levels.id — used for admin changelog deletion
-  level_position: number     // current position on the main list (for linking)
+  /**
+   * Current position on the main list, for linking.
+   *
+   * Null on a removal: there is no page to link to any more. Clients must not
+   * render a link when this is null — a `/levels/null` is worse than plain text.
+   */
+  level_position: number | null
   level_name: string
   level_gddl_tier: string | null
   /** For the row thumbnail on the changelog. */
@@ -171,24 +228,87 @@ export function loadChanges(
   condensed.sort((a, b) => (b.changed_at > a.changed_at ? 1 : b.changed_at < a.changed_at ? -1 : 0))
 
   // Drop net-zero moves: level moved but ended up back at its original position.
-  return condensed.filter((r) => r.from_position === null || r.from_position !== r.to_position).map((r) => ({
-    kind: r.from_position == null ? 'add' : 'move',
+  const moves: Change[] = condensed
+    .filter((r) => r.from_position === null || r.from_position !== r.to_position)
+    .map((r) => ({
+      kind: r.from_position == null ? 'add' : 'move',
+      level_id: r.level_id,
+      level_position: r.level_position,
+      level_name: r.level_name,
+      level_gddl_tier: r.level_gddl_tier,
+      level_gd_id: r.level_gd_id ?? null,
+      level_rated: r.level_rated,
+      challenge_rank: r.challenge_rank,
+      from_challenge_rank: r.from_challenge_rank,
+      from_position: r.from_position,
+      to_position: r.to_position,
+      from_placement: r.from_placement ?? r.from_position,
+      to_placement: r.to_placement ?? r.to_position,
+      level_sheet_placement: r.level_sheet_placement ?? null,
+      changed_at: r.changed_at,
+      changed_by: r.changed_by,
+    }))
+
+  /*
+   * Removals, merged in rather than joined.
+   *
+   * `level_removals` has no row in `levels` to join to — that is the whole
+   * point of it — so it cannot ride along on the query above, which is built
+   * around exactly that join. Two reads and a merge, and the changelog gets
+   * the one kind of change it has never been able to show.
+   *
+   * The `source` filter deliberately doesn't apply: a removal has no import
+   * source, and silently dropping removals whenever a caller asked for one
+   * would be the same class of bug as never recording them.
+   */
+  const rConds: string[] = []
+  const rParams: any[] = []
+  if (opts.since) { rConds.push('removed_at >= ?'); rParams.push(opts.since) }
+  if (opts.until) { rConds.push('removed_at <= ?'); rParams.push(opts.until) }
+  const rWhere = rConds.length ? `WHERE ${rConds.join(' AND ')}` : ''
+
+  const removals = opts.source ? [] : (db.prepare(
+    `SELECT r.level_id, r.name, r.gd_id, r.position, r.sheet_placement, r.gddl_tier,
+            r.rated, r.was_challenge, r.challenge_rank, r.removed_at,
+            a.username AS removed_by
+       FROM level_removals r
+       LEFT JOIN accounts a ON a.id = r.removed_by
+       ${rWhere}
+       ORDER BY r.removed_at DESC, r.id DESC
+       LIMIT ?`,
+  ).all(...rParams, limit) as Array<{
+    level_id: number; name: string; gd_id: number | null; position: number
+    sheet_placement: number | null; gddl_tier: string | null; rated: string | null
+    was_challenge: number; challenge_rank: number | null
+    removed_at: string; removed_by: string | null
+  }>).map((r): Change => ({
+    kind: 'remove',
     level_id: r.level_id,
-    level_position: r.level_position,
-    level_name: r.level_name,
-    level_gddl_tier: r.level_gddl_tier,
-    level_gd_id: r.level_gd_id ?? null,
-    level_rated: r.level_rated,
+    // No page to link to any more.
+    level_position: null,
+    level_name: r.name,
+    level_gddl_tier: r.gddl_tier,
+    level_gd_id: r.gd_id,
+    // `was_challenge` is the stored answer, so the challenge changelog can
+    // filter removals the same way it filters everything else.
+    level_rated: r.was_challenge ? 'Challenge' : (r.rated && r.rated !== 'Challenge' ? r.rated : null),
     challenge_rank: r.challenge_rank,
-    from_challenge_rank: r.from_challenge_rank,
-    from_position: r.from_position,
-    to_position: r.to_position,
-    from_placement: r.from_placement ?? r.from_position,
-    to_placement: r.to_placement ?? r.to_position,
-    level_sheet_placement: r.level_sheet_placement ?? null,
-    changed_at: r.changed_at,
-    changed_by: r.changed_by,
+    from_challenge_rank: r.challenge_rank,
+    // Where it was standing when it went. Both ends are the same placement:
+    // a removal is not a move, and drawing it as one would put an arrow on it.
+    from_position: r.position,
+    to_position: r.position,
+    from_placement: r.sheet_placement ?? r.position,
+    to_placement: r.sheet_placement ?? r.position,
+    level_sheet_placement: r.sheet_placement,
+    changed_at: r.removed_at,
+    changed_by: r.removed_by,
   }))
+
+  if (!removals.length) return moves
+  return [...moves, ...removals]
+    .sort((a, b) => (a.changed_at < b.changed_at ? 1 : a.changed_at > b.changed_at ? -1 : 0))
+    .slice(0, limit)
 }
 
 /** Group an already-sorted (newest-first) change list by UTC date. */

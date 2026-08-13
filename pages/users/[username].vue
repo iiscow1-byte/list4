@@ -282,7 +282,7 @@ function onFriendshipChanged(state: string) {
             :target-id="data.account.id"
             :label="data.account.username"
             variant="text"
-            class="ml-1"
+            class="ml-auto shrink-0"
           />
         </template>
       </template>

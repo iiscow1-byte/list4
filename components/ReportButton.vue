@@ -23,12 +23,32 @@
  * this component can afford to be naive about it — there is nothing here worth
  * bypassing.
  */
+/**
+ * ## Where it goes
+ *
+ * The trailing end of the header row of whatever is being reported — last
+ * control, pushed right. It used to be placed by each caller: `ml-auto` on a
+ * level, `ml-1` on a profile, `shrink-0` in a list bar, and on comments an
+ * `opacity-0` that only appeared on hover. Five surfaces, four positions, and
+ * on the busiest of them the control was invisible until the pointer happened
+ * to cross it — so "where do I report this?" had a different answer on every
+ * page and no answer at all on a touchscreen.
+ *
+ * The alignment still belongs to the caller — only the caller knows what row
+ * this is going in — but it is the same `ml-auto shrink-0` everywhere now, and
+ * nothing hides it.
+ *
+ * Attributes are forwarded by hand because the teleports below count as root
+ * nodes, and Vue will not auto-inherit a class onto a fragment.
+ */
+defineOptions({ inheritAttrs: false })
+
 const props = withDefaults(defineProps<{
   target: 'account' | 'comment' | 'custom_list' | 'level' | 'forum_thread' | 'forum_post'
   targetId: number
   /** What is being reported, for the confirmation line. */
   label?: string | null
-  /** `icon` is a bare flag for dense rows; `text` reads "Report". */
+  /** `icon` is a bare flag for dense rows; `text` adds the word "Report". */
   variant?: 'icon' | 'text'
 }>(), { label: null, variant: 'icon' })
 
@@ -141,28 +161,45 @@ async function send() {
 </script>
 
 <template>
-  <span class="inline-flex items-center">
-    <!-- Signed out: no control at all. An anonymous report cannot be followed
-         up or weighed against a history, so the server refuses it, and a button
-         that always errors is worse than no button. -->
-    <button
-      v-if="me"
-      type="button"
-      class="inline-flex items-center gap-1 text-zinc-600 hover:text-red-400 transition-colors"
-      :class="variant === 'text' ? 'text-[11px]' : 'text-[11px]'"
-      :title="label ? `Report ${label}` : 'Report this'"
-      :aria-label="label ? `Report ${label}` : 'Report this'"
-      @click="open = true"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
-        <path d="M4 21V4M4 4h11l-1.5 3.5L15 11H4" />
-      </svg>
-      <span v-if="variant === 'text'">Report</span>
-    </button>
+  <!-- Signed out: no control at all. An anonymous report cannot be followed
+       up or weighed against a history, so the server refuses it, and a button
+       that always errors is worse than no button. -->
+  <button
+    v-if="me"
+    type="button"
+    v-bind="$attrs"
+    class="inline-flex items-center gap-1 rounded-lg p-1 -m-1 text-[11px] text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+    :class="variant === 'text' ? 'px-1.5 -mx-1.5' : ''"
+    :title="label ? `Report ${label}` : 'Report this'"
+    :aria-label="label ? `Report ${label}` : 'Report this'"
+    @click="open = true"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0" aria-hidden="true">
+      <path d="M4 21V4M4 4h11l-1.5 3.5L15 11H4" />
+    </svg>
+    <span v-if="variant === 'text'">Report</span>
+  </button>
 
-    <span v-if="sent" class="ml-2 text-[11px] text-emerald-400">{{ sent }}</span>
+  <!--
+    The confirmation is a toast, not a sibling of the button.
 
-    <Teleport to="body">
+    It used to render inline beside it, which meant a sentence roughly forty
+    characters long appeared inside whatever row the button was in — a comment
+    header, a level's chip row — and shoved everything on that row sideways for
+    six seconds. On a phone it wrapped the row onto a second line. The message
+    is about the action, not about the thing, so it belongs off to one side of
+    the page rather than in the middle of the content.
+  -->
+  <Teleport to="body">
+    <div
+      v-if="sent"
+      role="status"
+      aria-live="polite"
+      class="fixed z-[60] bottom-4 left-1/2 -translate-x-1/2 max-w-[calc(100vw-2rem)] rounded-lg border border-emerald-900/60 bg-emerald-950/90 backdrop-blur px-3.5 py-2 text-xs text-emerald-300 shadow-xl"
+    >{{ sent }}</div>
+  </Teleport>
+
+  <Teleport to="body">
       <div
         v-if="open"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80"
@@ -227,5 +264,4 @@ async function send() {
         </div>
       </div>
     </Teleport>
-  </span>
 </template>

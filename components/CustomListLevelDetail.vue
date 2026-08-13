@@ -24,6 +24,23 @@ const props = defineProps<{
   followAllOrder?: boolean
   /** The list says which of its levels the ALL carries. Off = it stands alone. */
   markOffAll?: boolean
+  /**
+   * Facts this list may have no opinion about.
+   *
+   * A tier and a difficulty are assertions, not decoration — a list of
+   * platformers, or one using its own tiering, does not want to tell readers
+   * that a level is "Insane Demon" because the ALL says so. `showLevelLinks`
+   * covers the pointers off this list: back to the ALL placement, and out to
+   * gdbrowser. A list that stands alone is not a view onto the main list and
+   * should not keep offering to send its readers there.
+   *
+   * Each defaults to on, so an untouched list is unchanged. The editor's own
+   * controls are never hidden by these — an owner still has to be able to set a
+   * tier they have chosen not to display.
+   */
+  showTier?: boolean
+  showDifficulty?: boolean
+  showLevelLinks?: boolean
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
@@ -265,7 +282,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <span class="tabular-nums text-accent text-base font-bold drop-shadow">#{{ item.rank }}</span>
           <span class="text-[11px] text-zinc-400">of {{ totalItems }} on {{ listTitle }}</span>
           <span
-            v-if="item.gddl_tier"
+            v-if="item.gddl_tier && showTier !== false"
             class="text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
             :style="{ backgroundColor: tierColor(item.gddl_tier), color: textOn(tierColor(item.gddl_tier)) }"
           >{{ item.gddl_tier }}</span>
@@ -538,22 +555,24 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         <div class="bg-zinc-950 px-3 py-2.5">
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Level ID</dt>
           <dd class="tabular-nums text-sm text-zinc-300 truncate">
+            <!-- The ID stays whatever happens: it is the level's identity, and
+                 the setting is about links off this list, not about facts. -->
             <a
-              v-if="gdLevelUrl(item.gd_id)"
+              v-if="gdLevelUrl(item.gd_id) && showLevelLinks !== false"
               :href="gdLevelUrl(item.gd_id)!"
               target="_blank"
               rel="noopener"
               class="hover:text-accent transition-colors"
               title="Open on gdbrowser"
             >{{ item.gd_id }}</a>
-            <span v-else>—</span>
+            <span v-else>{{ item.gd_id ?? '—' }}</span>
           </dd>
         </div>
       </dl>
 
       <!-- Metadata -->
       <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-        <div v-if="item.difficulty">
+        <div v-if="item.difficulty && showDifficulty !== false">
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Difficulty</dt>
           <dd class="text-zinc-200">{{ item.difficulty }}</dd>
         </div>
@@ -565,11 +584,12 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Game version</dt>
           <dd class="text-zinc-200">{{ item.game_version }}</dd>
         </div>
-        <!-- Hidden when the list has turned off marking levels against the ALL:
-             a list that stands on its own doesn't keep pointing at the main
-             one. Editors still see the link inside the editor, where it's about
-             which level this row *is* rather than about presenting the list. -->
-        <div v-if="item.position && markOffAll !== false">
+        <!-- Hidden when the list has turned off marking levels against the ALL,
+             or turned level links off outright: a list that stands on its own
+             doesn't keep pointing at the main one. Editors still see the link
+             inside the editor, where it's about which level this row *is*
+             rather than about presenting the list. -->
+        <div v-if="item.position && markOffAll !== false && showLevelLinks !== false">
           <dt class="text-[10px] uppercase tracking-wider text-zinc-500">On the ALL list</dt>
           <dd>
             <NuxtLink :to="`/levels/${item.position}`" class="text-accent hover:underline tabular-nums">

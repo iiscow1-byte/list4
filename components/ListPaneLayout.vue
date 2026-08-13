@@ -87,6 +87,11 @@ const props = withDefaults(defineProps<{
 const slots = useSlots()
 const hasAside = computed(() => !!slots.aside)
 
+// The two drawer buttons are the most-pressed controls on a phone, and the
+// labels arrive in English from the page — translated here rather than at each
+// call site so every list gets it from one place. See `utils/i18n.ts`.
+const { t } = useLocale()
+
 const navOpen = ref(false)
 const asideOpen = ref(false)
 
@@ -201,8 +206,8 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
            — a match count, a "Reset all" — and an overlay would sit on top of
            it. -->
       <div v-if="navDrawer" class="pane-head">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ navLabel }}</span>
-        <button type="button" data-pane-close class="pane-close" aria-label="Close" @click="closeAll">
+        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(navLabel) }}</span>
+        <button type="button" data-pane-close class="pane-close" :aria-label="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -221,14 +226,14 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5" aria-hidden="true">
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
-          {{ navLabel }}
+          {{ t(navLabel) }}
         </button>
 
         <span v-if="title" class="flex-1 min-w-0 truncate text-center text-[11px] text-zinc-500">{{ title }}</span>
         <span v-else class="flex-1" />
 
         <button v-if="hasAside" type="button" class="pane-btn pane-btn-aside" @click="open('aside')">
-          {{ asideLabel }}
+          {{ t(asideLabel) }}
           <span v-if="asideCount" class="tabular-nums text-zinc-500">{{ asideCount }}</span>
         </button>
       </div>
@@ -247,8 +252,8 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
       :inert="asideInert"
     >
       <div v-if="asideDrawer" class="pane-head">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ asideLabel }}</span>
-        <button type="button" data-pane-close class="pane-close" aria-label="Close" @click="closeAll">
+        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(asideLabel) }}</span>
+        <button type="button" data-pane-close class="pane-close" :aria-label="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>

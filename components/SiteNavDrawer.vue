@@ -28,6 +28,9 @@ const props = defineProps<{
 
 const emit = defineEmits<{ (e: 'update:open', open: boolean): void }>()
 
+// Same `SITE_NAV`, same translation of it — see the note in `SiteHeader`.
+const { t } = useLocale()
+
 const route = useRoute()
 const panel = ref<HTMLElement | null>(null)
 
@@ -85,11 +88,11 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
           class="absolute inset-y-0 right-0 w-[min(20rem,88vw)] bg-zinc-950 border-l border-zinc-800 shadow-2xl shadow-black/60 flex flex-col outline-none"
         >
           <header class="h-14 shrink-0 px-3 flex items-center justify-between border-b border-zinc-800/80">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Menu</span>
+            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">{{ t('Menu') }}</span>
             <button
               type="button"
               class="p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
-              aria-label="Close menu"
+              :aria-label="t('Close')"
               @click="close"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-5 h-5" aria-hidden="true">
@@ -105,22 +108,22 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
               <p
                 class="px-2 pt-3 pb-1 text-[9px] uppercase tracking-[0.14em] font-semibold select-none"
                 :class="navMatches(route.path, menu) ? 'text-accent' : 'text-zinc-600'"
-              >{{ menu.label }}</p>
+              >{{ t(menu.label) }}</p>
 
               <template v-for="group in menu.groups" :key="group.label">
                 <p v-if="menu.groups.length > 1" class="px-2 pt-1.5 pb-0.5 text-[9px] uppercase tracking-[0.14em] text-zinc-700 select-none">
-                  {{ group.label }}
+                  {{ t(group.label) }}
                 </p>
                 <NavMenuItem
                   v-for="link in visible(group.links)"
                   :key="link.label"
                   :to="link.to"
                   :href="link.href"
-                  :hint="link.hint"
+                  :hint="t(link.hint)"
                   :accent="link.accent"
                 >
                   <template #icon><NavIcon :name="link.icon" /></template>
-                  {{ link.label }}
+                  {{ t(link.label) }}
                   <span
                     v-if="link.flag === 'updates' && updatesUnread"
                     class="ml-1.5 align-middle inline-block w-1.5 h-1.5 rounded-full bg-accent"
@@ -136,11 +139,11 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
               <p class="px-2 pt-3 pb-1 text-[9px] uppercase tracking-[0.14em] text-zinc-600 font-semibold select-none">You</p>
               <NavMenuItem to="/account" hint="Your profile and settings">
                 <template #icon><NavIcon name="users" /></template>
-                Account
+                {{ t('Account') }}
               </NavMenuItem>
               <NavMenuItem to="/inbox" hint="Messages and notifications" :badge="inboxUnread || null">
                 <template #icon><NavIcon name="inbox" /></template>
-                Inbox
+                {{ t('Inbox') }}
               </NavMenuItem>
               <!-- Friends are a section of your profile rather than a page of
                    the site, so this is a jump to that panel — the drawer's
@@ -151,7 +154,7 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
                 :badge="friendRequests || null"
               >
                 <template #icon><NavIcon name="userPlus" /></template>
-                Friends
+                {{ t('Friends') }}
               </NavMenuItem>
               <NavMenuItem
                 v-if="role && role !== 'user'"
@@ -168,7 +171,7 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
               <p class="px-2 pt-3 pb-1 text-[9px] uppercase tracking-[0.14em] text-zinc-600 font-semibold select-none">You</p>
               <NavMenuItem to="/login" accent hint="Records, lists and your profile">
                 <template #icon><NavIcon name="users" /></template>
-                Log in
+                {{ t('Log in') }}
               </NavMenuItem>
             </template>
           </nav>

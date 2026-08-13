@@ -303,6 +303,35 @@ function copyGdId() {
 }
 
 /**
+ * A link to this level that will still work next month.
+ *
+ * The URL in the address bar is `/levels/<placement>`, and placements move —
+ * so every link anyone has ever shared to a level here silently comes to mean
+ * a different level as the list changes around it. `/<gd id>` resolves through
+ * `pages/[permalink].vue` to wherever the level is now.
+ *
+ * Built from `location.origin` rather than a configured site URL so it is right
+ * on whatever host this is being read on, including a preview deploy.
+ */
+const origin = ref('')
+onMounted(() => { origin.value = window.location.origin })
+
+const permalink = computed(() =>
+  props.level.gd_id && origin.value ? `${origin.value}/${props.level.gd_id}` : null,
+)
+
+const permalinkCopied = ref(false)
+let permalinkTimer: ReturnType<typeof setTimeout> | null = null
+function copyPermalink() {
+  if (!permalink.value) return
+  navigator.clipboard.writeText(permalink.value).then(() => {
+    permalinkCopied.value = true
+    if (permalinkTimer) clearTimeout(permalinkTimer)
+    permalinkTimer = setTimeout(() => { permalinkCopied.value = false }, 1500)
+  }).catch(() => {})
+}
+
+/**
  * The number the site shows for a placement. `position` stays the internal
  * ordering + URL key; the sheet's own placement is what readers recognise.
  */
@@ -1031,7 +1060,9 @@ function ordinal(n: number): string {
 const challengeRankTitle = computed(() =>
   props.level.challenge_rank == null
     ? undefined
-    : `${ordinal(props.level.challenge_rank)} challenge on the All Levels List`,
+    // The badge is a link now, and the tooltip is where that gets said — a
+    // chip that navigates looks exactly like one that doesn't.
+    : `${ordinal(props.level.challenge_rank)} challenge on the All Levels List — open the challenge list`,
 )
 
 // GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
@@ -1249,16 +1280,24 @@ const chartAredlSeries = computed(() =>
           v-if="level.challenge_rank != null || sourceChips.length || isAdminLevel"
           class="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2"
         >
-          <span
+          <!-- The badge opens the challenge list.
+               A rank is a claim about a ranking, and "#12 of what?" was a
+               question the badge stated and then gave no way to answer — the
+               challenge list existed, but only behind a menu in the sidebar,
+               under a name ("the Challenge variant") that doesn't obviously
+               mean the same thing. Same position, so you stay on this level and
+               the list beside it becomes the one the number counts against. -->
+          <NuxtLink
             v-if="level.challenge_rank != null"
-            class="inline-flex items-stretch rounded-full overflow-hidden border border-amber-900/50 text-[11px] font-medium leading-none"
+            :to="{ path: `/levels/${level.position}`, query: { list: 'challenge' } }"
+            class="group inline-flex items-stretch rounded-full overflow-hidden border border-amber-900/50 text-[11px] font-medium leading-none transition-colors hover:border-amber-600/70"
             :title="challengeRankTitle"
           >
-            <span class="px-2.5 py-1 bg-amber-950/40 text-amber-500/90">Challenge</span>
-            <span class="px-2 py-1 tabular-nums bg-amber-900/30 text-amber-300">
+            <span class="px-2.5 py-1 bg-amber-950/40 text-amber-500/90 group-hover:text-amber-300 transition-colors">Challenge</span>
+            <span class="px-2 py-1 tabular-nums bg-amber-900/30 text-amber-300 group-hover:bg-amber-900/50 transition-colors">
               #{{ level.challenge_rank.toLocaleString() }}
             </span>
-          </span>
+          </NuxtLink>
           <!-- Beside the badge, because the badge is the thing being removed.
                Admins only: which levels are challenges decides a whole list. -->
           <button
@@ -2169,6 +2208,25 @@ const chartAredlSeries = computed(() =>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
               </svg>
               <svg v-else xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-green-400" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+            <!-- Beside the ID, because it is a link *made of* the ID — and the
+                 only link to this level that survives the list moving under it.
+                 The address bar holds `/levels/<placement>`, which after a
+                 month of movements points at somebody else's level. -->
+            <button
+              v-if="permalink"
+              type="button"
+              :title="permalinkCopied ? 'Copied!' : `Copy permanent link — ${permalink}`"
+              class="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
+              @click="copyPermalink"
+            >
+              <svg v-if="!permalinkCopied" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-green-400" aria-hidden="true">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </button>

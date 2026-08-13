@@ -114,6 +114,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           :show-points="on(list.show_points)"
           :show-records="on(list.show_records)"
           :compact="!!list.compact_rows"
+          :show-tier="on(list.show_tier)"
+          :name-display="list.name_display ?? 'truncate'"
           :tiers="list.tiers ?? []"
           @changed="refresh"
         />
@@ -154,6 +156,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :api-base="`/api/custom-lists/${publicId}`"
         :follow-all-order="!!list.follow_all_order"
         :mark-off-all="marksOffAll(list)"
+        :show-tier="on(list.show_tier)"
+        :show-difficulty="on(list.show_difficulty)"
+        :show-level-links="on(list.show_level_links)"
         @changed="refresh"
       />
     </ListPaneLayout>
