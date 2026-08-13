@@ -1,10 +1,10 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { postLeaderboardUpdate } from '~/server/utils/leaderboard-discord'
 
 export default defineEventHandler(async (event) => {
-  const me = requireMod(event)
+  const me = requireListStaff(event)
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isFinite(id)) throw createError({ statusCode: 400, statusMessage: 'Bad id' })
 

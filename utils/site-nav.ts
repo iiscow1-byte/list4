@@ -124,7 +124,7 @@ export const SITE_NAV: NavMenu[] = [
            * are part of *your profile*, not a page of the site. See the account
            * page and the social menu in `components/SiteHeader.vue`.
            */
-          { label: 'Community hub', to: '/community', hint: 'The feed, and the forum', icon: 'users' },
+          { label: 'Community hub', to: '/community', hint: 'What the list and its players are up to', icon: 'users' },
           { label: 'Leaderboard', to: '/leaderboard', hint: 'Ranked players', icon: 'trophy' },
           { label: 'Clans', to: '/clans', hint: 'Groups of players, ranked together', icon: 'users' },
         ],

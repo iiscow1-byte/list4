@@ -61,6 +61,30 @@ export function visitorHash(db: DatabaseSync, ip: string, userAgent: string, day
 }
 
 /**
+ * The same, for the address alone — no user agent.
+ *
+ * `visitorHash` answers "is this the same person?" and is the right input to a
+ * count of people. It is the wrong input to a *throttle*, because the user
+ * agent is a request header: anyone refreshing a page with a script that varies
+ * it gets a new identity on every request, and every one of those requests
+ * counted. Two browsers open on one machine did the same thing by accident.
+ *
+ * So throttling keys on this instead. It is coarser on purpose — everyone
+ * behind one address shares it — and that is the correct direction to err for a
+ * ceiling: the cost is under-counting a shared connection, against the
+ * alternative of a counter anybody can type into.
+ *
+ * Salted and day-scoped exactly like the visitor hash, so it is no more of a
+ * record of anyone than that is, and it is never written to a table.
+ */
+export function networkHash(db: DatabaseSync, ip: string, day: string): string {
+  return createHash('sha256')
+    .update(`${day}|${visitorSalt(db)}|net|${ip}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
+/**
  * The *shape* of a path.
  *
  * `/levels/4021` and `/levels/9` are one page with different contents, and
@@ -164,7 +188,15 @@ export function isDeliveredPage(status: number): boolean {
  * In memory rather than in the database on purpose: it is a throttle, not a
  * record, and losing it on restart costs at most one extra view per reader.
  */
-const REPEAT_WINDOW_MS = 15_000
+/**
+ * Fifteen seconds was far too generous. It stopped a double-click and nothing
+ * else: holding F5 at one page a second was throttled, and pressing it every
+ * twenty seconds for an hour added a hundred and eighty views. Ten minutes is
+ * the point at which re-opening a page is plausibly a second reading rather
+ * than the same one, and it is keyed on the address (see `networkHash`) so
+ * varying the user agent does not buy a fresh allowance.
+ */
+const REPEAT_WINDOW_MS = 10 * 60_000
 /** Nobody reads two thousand pages a day. Past this, a "reader" is a program. */
 const DAILY_VIEW_CAP = 2_000
 const lastSeen = new Map<string, number>()
@@ -218,7 +250,7 @@ export function resetViewThrottle(): void {
  * never worth failing a page render over, and the one thing worse than missing
  * analytics is a site that goes down because of them.
  */
-export function recordPageView(path: string, visitor: string | null): void {
+export function recordPageView(path: string, visitor: string | null, network: string | null = null): void {
   try {
     /**
      * Throttled on the *actual* path, stored against the shape.
@@ -227,8 +259,13 @@ export function recordPageView(path: string, visitor: string | null): void {
      * level shares one shape, so throttling on the shape would treat clicking
      * through twenty levels in a minute as one page opened twice. Reading down
      * the list is the main thing anyone does on this site.
+     *
+     * The throttle keys on the network rather than the visitor, so a script
+     * varying its user agent can't mint a new allowance per request. `visitor`
+     * is still what goes in the uniques table below — the two answer different
+     * questions and must not be collapsed into one.
      */
-    if (!shouldCountView(visitor, (path.split('?')[0] ?? '/'))) return
+    if (!shouldCountView(network ?? visitor, (path.split('?')[0] ?? '/'))) return
     const db = getDb()
     const { day, hour } = nowParts()
     const shape = normalisePath(path)
@@ -303,8 +340,10 @@ export function touchAccountDay(accountId: number | null | undefined, login = fa
 export function viewerOf(event: { node?: unknown }): string | null {
   try {
     const ip = getRequestIP(event as never, { xForwardedFor: true }) ?? ''
-    const ua = getHeader(event as never, 'user-agent') ?? ''
-    return visitorHash(getDb(), ip, ua, today())
+    // Deliberately the network hash, not the visitor hash. Everything this
+    // value is used for is a throttle, and a throttle that a request header
+    // can reset is not one — see `networkHash`.
+    return networkHash(getDb(), ip, today())
   } catch {
     return null
   }

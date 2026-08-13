@@ -275,6 +275,15 @@ function onFriendshipChanged(state: string) {
             :can-friend="data.friendship.canFriend"
             @changed="onFriendshipChanged"
           />
+          <!-- Only on somebody else's profile: reporting yourself is refused by
+               the server, so offering it here would be a button that errors. -->
+          <ReportButton
+            target="account"
+            :target-id="data.account.id"
+            :label="data.account.username"
+            variant="text"
+            class="ml-1"
+          />
         </template>
       </template>
     </ProfileHeader>

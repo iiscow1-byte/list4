@@ -1349,6 +1349,18 @@ const chartAredlSeries = computed(() =>
             <NavIcon name="eye" class="w-3.5 h-3.5 shrink-0 opacity-70" />
             {{ compactCount(level.views) }}
           </span>
+
+          <!-- Reporting a level is how "this is impossible" and "this should be
+               removed" reach a moderator. It sits last and quiet: it is the one
+               control here that most readers should never need, and it is a
+               flag rather than a word so it doesn't compete with the placement
+               chips beside it. -->
+          <ReportButton
+            target="level"
+            :target-id="level.id"
+            :label="`#${level.sheet_placement ?? level.position} ${level.name}`"
+            class="ml-auto"
+          />
         </div>
         <div v-if="level.difficulty" class="flex items-center gap-3 mt-3">
           <DifficultyFace

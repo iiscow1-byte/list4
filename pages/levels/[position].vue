@@ -123,8 +123,18 @@ const navHint = computed(() => {
         <p class="text-sm">Level #{{ position }} not found.</p>
         <NuxtLink to="/levels/1" class="text-accent hover:underline text-sm mt-2 inline-block">Back to top of list</NuxtLink>
       </div>
+      <!-- Keyed by position so every level gets a fresh panel.
+           The page itself is deliberately *not* re-created between levels (see
+           the constant `key` in `definePageMeta`) — that is what keeps the
+           sidebar's scroll position and loaded pages while you read down the
+           list. The detail panel is the opposite case: it holds an edit draft,
+           an open comment box and a dozen other per-level refs, and reusing the
+           instance means every one of those has to remember to reset itself.
+           Six separate watchers on `props.level.position` had grown up doing
+           that by hand. A key does it once, for all of them. -->
       <LevelDetail
         v-else-if="level"
+        :key="position"
         :level="level"
         :move-below-pick="moveBelowPick"
         :group-move-picks="groupMovePicks"

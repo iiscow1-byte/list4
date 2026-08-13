@@ -1,8 +1,8 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 
 export default defineEventHandler((event) => {
-  const account = requireMod(event)
+  const account = requireListStaff(event)
   const db = getDb()
   const rows = db
     .prepare(`SELECT tab_id, seen FROM admin_seen_counts WHERE account_id = ?`)

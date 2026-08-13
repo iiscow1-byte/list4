@@ -162,6 +162,16 @@ function avatarFor(a: Author): string | null {
           class="text-zinc-600 hover:text-red-400 transition-colors"
           @click="act('delete')"
         >Delete</button>
+        <!-- Not offered to the author: deleting their own thread is one control
+             to the left, and reporting yourself is not a thing. -->
+        <ReportButton
+          v-if="!data.viewer.isAuthor"
+          target="forum_thread"
+          :target-id="data.thread.id"
+          :label="data.thread.title"
+          variant="text"
+          class="ml-auto"
+        />
       </div>
       <p v-if="actionError" class="text-xs text-red-400">{{ actionError }}</p>
     </header>

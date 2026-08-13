@@ -1,6 +1,6 @@
 import { BADGE_TONE, type BadgeTone } from '~/utils/badge-styles'
 
-export type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
+export type Role = 'user' | 'list_helper' | 'moderator' | 'admin' | 'owner' | 'developer'
 /** Roles held on a custom list rather than on the site. */
 export type ListRole = 'list-owner' | 'list-editor'
 export type AnyRole = Role | ListRole
@@ -49,6 +49,19 @@ export const ROLE_META: Record<AnyRole, { label: string; tone: BadgeTone; title:
     label: 'Moderator',
     tone: 'emerald',
     title: 'Reviews submissions, records and reports',
+  },
+  /**
+   * Sky, so it reads as adjacent to `moderator`'s emerald without being it.
+   *
+   * The wording matters more than usual here. A helper is not a junior
+   * moderator — they have no authority over people at all — and the title is
+   * the only place a visitor can find that out, so it says what the role
+   * touches rather than where it sits in a hierarchy.
+   */
+  list_helper: {
+    label: 'List helper',
+    tone: 'sky',
+    title: 'Places levels and reviews level and record submissions',
   },
   user: {
     label: 'User',

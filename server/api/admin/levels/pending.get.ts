@@ -1,9 +1,9 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 import { importedPendingSql, submittedPendingSql } from '~/server/utils/pending-source'
 
 export default defineEventHandler((event) => {
-  requireMod(event)
+  requireListStaff(event)
   const q = getQuery(event)
   const source = String(q.source ?? 'submitted').toLowerCase()
   // 'submitted' (default) = user submissions only; 'gdl_import' = any external

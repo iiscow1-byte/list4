@@ -1,8 +1,8 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
-  const me = requireMod(event)
+  const me = requireListStaff(event)
   const body = await readBody(event)
   const submitter = typeof body?.submitter === 'string' ? body.submitter.trim() : ''
   if (!submitter) throw createError({ statusCode: 400, statusMessage: 'submitter is required' })

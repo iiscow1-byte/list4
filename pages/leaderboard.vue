@@ -190,11 +190,30 @@ watch([tab, me], () => {
 })
 
 /**
+ * Whether the top three get their own cards above the table.
+ *
+ * A reading preference, remembered between visits. The podium is three large
+ * cards' worth of vertical space for three rows that are also in the list — a
+ * fine trade when you came to see who is winning, and pure scrolling when you
+ * came to find your own rank.
+ */
+const showPodium = useState('leaderboard_podium', () => true)
+onMounted(() => {
+  try {
+    const raw = localStorage.getItem('als:leaderboard-podium')
+    if (raw !== null) showPodium.value = raw === '1'
+  } catch { /* private mode — the default stands */ }
+  watch(showPodium, (v) => {
+    try { localStorage.setItem('als:leaderboard-podium', v ? '1' : '0') } catch { /* ignore quota */ }
+  })
+})
+
+/**
  * The podium only makes sense on the unfiltered first page — a search result's
  * "#1" is the best match, not the best player.
  */
 const podium = computed(() =>
-  page.value === 1 && !debounced.value ? items.value.slice(0, 3) : [],
+  showPodium.value && page.value === 1 && !debounced.value ? items.value.slice(0, 3) : [],
 )
 const listItems = computed(() =>
   podium.value.length ? items.value.slice(3) : items.value,
@@ -336,6 +355,25 @@ useHead({ title: 'Leaderboard — All Levels List' })
           class="field field-sm"
         />
       </div>
+      <!-- Only offered where it would change anything: the podium is already
+           suppressed on a search or past page one, and a switch that visibly
+           does nothing is worse than no switch. -->
+      <button
+        v-if="page === 1 && !debounced"
+        type="button"
+        class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
+        :class="showPodium
+          ? 'border-accent/60 bg-accent/10 text-accent'
+          : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
+        :aria-pressed="showPodium"
+        :title="showPodium ? 'Hide the top three cards' : 'Show the top three as cards'"
+        @click="showPodium = !showPodium"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+          <path d="M4 20h4v-7H4zM10 20h4V4h-4zM16 20h4v-10h-4z" />
+        </svg>
+        Podium
+      </button>
       <span v-if="total" class="text-[11px] text-zinc-600 tabular-nums ml-auto">
         {{ total.toLocaleString() }} player{{ total === 1 ? '' : 's' }}
       </span>

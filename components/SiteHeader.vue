@@ -287,20 +287,12 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
             TikTok
           </NavMenuItem>
 
-          <!-- Your own corner of the social world. The list itself is on your
-               profile, where it belongs; this is the way to it from anywhere,
-               and the badge is the reason it needs one. -->
-          <template v-if="me">
-            <NavMenuSection label="You" />
-            <NavMenuItem
-              to="/account?panel=friends"
-              hint="Your friends, and anyone waiting on you"
-              :badge="friendRequests || null"
-            >
-              <template #icon><NavIcon name="userPlus" /></template>
-              Friends
-            </NavMenuItem>
-          </template>
+          <!-- No Friends entry here. This menu is the site's outward-facing
+               links — Discord, YouTube, and what the site itself is — and your
+               friends are not one of those. They live on your profile, which is
+               the button immediately to the left of this one, and the drawer
+               still carries a badged row for small screens where that button's
+               destination isn't obvious. -->
 
           <NavMenuSection label="About this site" />
           <NavMenuItem to="/updates" :hint="versionLabel(SITE_VERSION)">

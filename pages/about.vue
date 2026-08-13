@@ -502,6 +502,31 @@ const coveragePct = computed(() => {
             <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Website</dt>
             <dd class="text-sm text-zinc-100 mt-0.5">GERG, cinnamings, Silk, Farm</dd>
           </div>
+          <div class="bg-zinc-950 px-4 py-3">
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Built with</dt>
+            <dd class="text-sm text-zinc-100 mt-0.5">
+              <a
+                href="https://claude.ai"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hover:text-accent underline-offset-2 hover:underline"
+              >Claude AI <span class="text-[9px] opacity-60" aria-hidden="true">↗</span></a>
+            </dd>
+          </div>
+          <div class="bg-zinc-950 px-4 py-3">
+            <!-- The list this site's layout was modelled on. Credited by name
+                 rather than folded into the API list below: nothing is fetched
+                 from it, the debt is to the design. -->
+            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Template</dt>
+            <dd class="text-sm text-zinc-100 mt-0.5">
+              <a
+                href="https://theshittylist.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="hover:text-accent underline-offset-2 hover:underline"
+              >The Shitty List <span class="text-[9px] opacity-60" aria-hidden="true">↗</span></a>
+            </dd>
+          </div>
         </dl>
         <p class="text-[11px] text-zinc-500 leading-relaxed">
           Player completion data powered by

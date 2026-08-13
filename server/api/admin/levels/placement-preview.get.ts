@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 
 /**
  * Preview helper for the level-placement UI: given a candidate `position`,
@@ -7,7 +7,7 @@ import { requireMod } from '~/server/utils/auth'
  * nearest Featured-rated level above and the nearest Featured below.
  */
 export default defineEventHandler((event) => {
-  requireMod(event)
+  requireListStaff(event)
   const q = getQuery(event)
   const placement = Number(q.position)
   if (!Number.isInteger(placement) || placement <= 0) {

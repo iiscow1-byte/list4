@@ -1,8 +1,8 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 
 export default defineEventHandler((event) => {
-  requireMod(event)
+  requireListStaff(event)
   const items = getDb().prepare(
     `SELECT r.id,
             r.level_id,

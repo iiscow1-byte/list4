@@ -10,7 +10,7 @@ export { hashPassword, verifyPassword }
 export const SESSION_COOKIE = 'als_session'
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
-export type Role = 'user' | 'moderator' | 'admin' | 'owner' | 'developer'
+export type Role = 'user' | 'list_helper' | 'moderator' | 'admin' | 'owner' | 'developer'
 
 // Roles that have admin-level permissions. Owner and developer behave exactly
 // like admin server-side; the distinction is only how the role badge renders.
@@ -22,6 +22,49 @@ export function isAdminRole(role: Role): boolean {
 
 export function isModRole(role: Role): boolean {
   return role === 'moderator' || ADMIN_ROLES.has(role)
+}
+
+/**
+ * List helper: someone trusted with the list's contents and nothing else.
+ *
+ * They may place levels, act on level submissions, and act on records. That is
+ * the whole grant, and the boundary is deliberate — everything a helper can do
+ * is about *what is on the list*, and nothing they can do is about *who is on
+ * the site*. No bans, no roles, no claims, no imports, no webhooks, no reports
+ * queue, no statistics.
+ *
+ * Two things they might reasonably expect to do are requests instead: moving a
+ * level that is already placed, and changing whether a level counts as a
+ * challenge. Both rewrite what the list says about work already reviewed, and
+ * both are only reversible by somebody noticing — so they go to
+ * `helper_requests` for an admin to apply. See `server/utils/helper-requests.ts`.
+ *
+ * `isModRole` deliberately stays false for a helper. It guards the moderation
+ * surface — bans, roles, the report queue — and a helper is not a moderator.
+ * Endpoints a helper *may* use ask for `isListStaffRole` instead, which is an
+ * explicit opt-in per endpoint rather than a level in a hierarchy. That is the
+ * shape that keeps the grant from widening by accident: a new moderator-only
+ * endpoint written next year is closed to helpers unless somebody says
+ * otherwise, which is the safe default.
+ */
+export function isHelperRole(role: Role): boolean {
+  return role === 'list_helper'
+}
+
+/** May curate the list's contents: helpers, moderators and admins. */
+export function isListStaffRole(role: Role): boolean {
+  return isHelperRole(role) || isModRole(role)
+}
+
+/**
+ * May see the admin panel at all.
+ *
+ * A helper needs somewhere to work, and that somewhere is the existing panel
+ * with almost all of it removed — see `tabs` in `pages/admin.vue`, which
+ * filters by this same distinction.
+ */
+export function canSeeAdminPanel(role: Role): boolean {
+  return isListStaffRole(role)
 }
 
 export type Account = {
@@ -171,6 +214,22 @@ export function requireMod(event: H3Event): Account {
   const a = requireAccount(event)
   if (!isModRole(a.role)) {
     throw createError({ statusCode: 403, statusMessage: 'Moderators or admins only' })
+  }
+  return a
+}
+
+/**
+ * Guard for the endpoints a list helper is trusted with.
+ *
+ * Used *instead of* `requireMod` on exactly three surfaces — placing levels,
+ * deciding level submissions, deciding records — and nowhere else. Every other
+ * endpoint keeps the guard it had, so the grant cannot widen by someone
+ * reaching for the more permissive helper out of habit.
+ */
+export function requireListStaff(event: H3Event): Account {
+  const a = requireAccount(event)
+  if (!isListStaffRole(a.role)) {
+    throw createError({ statusCode: 403, statusMessage: 'List staff only' })
   }
   return a
 }

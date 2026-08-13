@@ -2158,4 +2158,196 @@ function initSchema(db: DatabaseSync) {
     );
     CREATE INDEX IF NOT EXISTS idx_forum_likes_thread ON forum_thread_likes(thread_id);
   `)
+
+  widenRoleCheck(db)
+
+  db.exec(`
+    /**
+     * Everything that happens to the list, in one place.
+     *
+     * The admin panel could already answer "what is waiting for me?" — it had a
+     * queue per kind of submission. It could not answer "what happened?", which
+     * is the question you ask when something is wrong: who moved that level,
+     * who approved that record, when did this account's role change. Each of
+     * those facts existed, scattered across the table that stores the thing it
+     * happened to, and several of them existed nowhere at all.
+     *
+     * One append-only row per action. 'kind' is a dotted path ('level.move',
+     * 'record.approve', 'report.resolve') so a section of the log is a prefix
+     * match rather than a list of every event it should contain, and adding an
+     * event never means updating a filter to know about it.
+     *
+     * 'detail' is JSON and is for reading, not for querying — the columns
+     * beside it carry anything the log is filtered or grouped by. Actor and
+     * subject are both nullable: the importer has no actor, and a deleted level
+     * still has a log entry describing its deletion.
+     */
+    CREATE TABLE IF NOT EXISTS activity_log (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind          TEXT    NOT NULL,
+      /** Broad bucket, so the page's sections are one indexed comparison. */
+      area          TEXT    NOT NULL
+                      CHECK(area IN ('levels','records','accounts','reports','lists','moderation','system')),
+      actor_id      INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      /** Denormalised: the log outlives the account, and must still name them. */
+      actor_name    TEXT,
+      actor_role    TEXT,
+      subject_kind  TEXT,
+      subject_id    INTEGER,
+      /** Denormalised for the same reason as actor_name. */
+      subject_label TEXT,
+      summary       TEXT    NOT NULL,
+      detail        TEXT,
+      /** Set when an action needs a second pair of eyes — see reports. */
+      severity      TEXT    NOT NULL DEFAULT 'info'
+                      CHECK(severity IN ('info','notable','warning')),
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_activity_recent   ON activity_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_area     ON activity_log(area, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_actor    ON activity_log(actor_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_kind     ON activity_log(kind, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_activity_subject  ON activity_log(subject_kind, subject_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_severity ON activity_log(severity, created_at DESC);
+
+    /**
+     * Reports, of anything.
+     *
+     * One table rather than one per kind: a report is the same object whatever
+     * it points at — somebody said this is wrong, a moderator agreed or didn't
+     * — and five tables would mean five queues, five endpoints and five places
+     * to forget to check. 'target_kind' says what is being reported and
+     * 'target_id' which one.
+     *
+     * 'reason' is a fixed vocabulary because a free-text-only report cannot be
+     * triaged: "impossible" and "removal" are the two the list itself acts on,
+     * and 'staff_abuse' is deliberately in the same list as the rest. A helper
+     * or moderator who oversteps is exactly the case a reporting system has to
+     * cover, and routing it somewhere separate would mean the people being
+     * reported are the ones who see it first — see 'visibleToStaff' in
+     * 'server/utils/reports.ts'.
+     */
+    CREATE TABLE IF NOT EXISTS reports (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      target_kind   TEXT    NOT NULL
+                      CHECK(target_kind IN ('account','comment','custom_list','level','forum_thread','forum_post')),
+      target_id     INTEGER NOT NULL,
+      /** What the target was called when reported; it may be gone by review. */
+      target_label  TEXT,
+      reason        TEXT    NOT NULL
+                      CHECK(reason IN (
+                        'spam','abuse','impersonation','inappropriate',
+                        'wrong_placement','impossible','removal_request',
+                        'staff_abuse','other'
+                      )),
+      details       TEXT,
+      reporter_id   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      reporter_name TEXT,
+      status        TEXT    NOT NULL DEFAULT 'open'
+                      CHECK(status IN ('open','actioned','dismissed')),
+      resolution    TEXT,
+      resolved_by   INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      resolved_at   TEXT,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_reports_open   ON reports(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_reports_target ON reports(target_kind, target_id);
+    CREATE INDEX IF NOT EXISTS idx_reports_reason ON reports(reason, status);
+    /**
+     * One open report per person per thing. A disagreement is not made truer by
+     * being filed nine times, and without this the queue is trivially floodable.
+     */
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_one_per_reporter
+      ON reports(target_kind, target_id, reporter_id) WHERE status = 'open';
+
+    /**
+     * What a list helper has asked for.
+     *
+     * A helper places levels and accepts submissions directly — those are their
+     * job. Moving a level that is already placed, and changing whether a level
+     * counts as a challenge, are not: both rewrite what the list *says*, and
+     * both are reversible only by someone noticing. So they become requests,
+     * and an admin applies or refuses them.
+     *
+     * Deliberately its own table rather than a flag on 'pending_movements':
+     * that queue is for movements imported from other lists and carries their
+     * shape. This one carries who asked, what they asked for, and why.
+     */
+    CREATE TABLE IF NOT EXISTS helper_requests (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind          TEXT    NOT NULL CHECK(kind IN ('move','challenge','unchallenge','remove')),
+      level_id      INTEGER REFERENCES levels(id) ON DELETE CASCADE,
+      /** Kept so a request still reads sensibly if the level goes. */
+      level_name    TEXT    NOT NULL,
+      level_position INTEGER,
+      /** Where the helper wants it. Only meaningful for a move request. */
+      to_position   INTEGER,
+      reason        TEXT,
+      requested_by  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      requester_name TEXT,
+      status        TEXT    NOT NULL DEFAULT 'pending'
+                      CHECK(status IN ('pending','applied','rejected')),
+      decided_by    INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      decided_at    TEXT,
+      decision_note TEXT,
+      created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_helper_req_open ON helper_requests(status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_helper_req_who  ON helper_requests(requested_by, created_at DESC);
+  `)
+}
+
+/**
+ * Let `accounts.role` hold 'list_helper'.
+ *
+ * The column carries a CHECK constraint listing every valid role, and SQLite
+ * cannot alter one — the table has to be rebuilt. It has also gained around
+ * twenty columns since the last time that was done by hand, and an enumerated
+ * rebuild is a list that goes stale the moment somebody adds the twenty-first.
+ *
+ * So this rebuilds from what the database actually has: the table's own CREATE
+ * statement with the role list rewritten, its real column list from
+ * `table_info`, and its indexes replayed from `sqlite_master`. Adding a role
+ * later means changing the literal below and nothing else.
+ */
+function widenRoleCheck(db: DatabaseSync) {
+  const row = db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'`,
+  ).get() as { sql: string } | undefined
+  const sql = row?.sql ?? ''
+  if (!sql || sql.includes("'list_helper'")) return
+
+  // The whole role list, replaced as one unit. Matching on the closing paren of
+  // the IN(...) keeps this from touching anything else in the statement.
+  const widened = sql.replace(
+    /CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
+    `CHECK(role IN ('user','list_helper','moderator','admin','owner','developer'))`,
+  )
+  if (widened === sql) return // Shape not recognised — leave it alone rather than guess.
+
+  const columns = (db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[])
+    .map((c) => `"${c.name}"`)
+    .join(', ')
+  const indexes = (db.prepare(
+    `SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'accounts' AND sql IS NOT NULL`,
+  ).all() as { sql: string }[]).map((i) => i.sql)
+
+  // Many tables FK-reference accounts(id). SQLite's documented procedure for
+  // swapping a table with incoming references: foreign keys off, swap inside a
+  // transaction, back on.
+  db.exec('PRAGMA foreign_keys = OFF')
+  db.exec('BEGIN')
+  try {
+    db.exec(widened.replace(/^CREATE TABLE\s+"?accounts"?/i, 'CREATE TABLE accounts__new'))
+    db.exec(`INSERT INTO accounts__new (${columns}) SELECT ${columns} FROM accounts`)
+    db.exec(`DROP TABLE accounts`)
+    db.exec(`ALTER TABLE accounts__new RENAME TO accounts`)
+    for (const index of indexes) db.exec(index)
+    db.exec('COMMIT')
+  } catch (e) {
+    db.exec('ROLLBACK')
+    db.exec('PRAGMA foreign_keys = ON')
+    throw e
+  }
+  db.exec('PRAGMA foreign_keys = ON')
 }

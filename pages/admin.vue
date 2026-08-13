@@ -12,24 +12,53 @@ const isAdmin = computed(() => {
   return r === 'admin' || r === 'owner' || r === 'developer'
 })
 
-type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'imported-movements' | 'open-verifications' | 'statistics' | 'imports' | 'claims' | 'accounts' | 'discord' | 'custom-lists'
-const allTabs: { id: TabId; label: string; adminOnly: boolean }[] = [
-  { id: 'records',            label: 'Records',         adminOnly: false },
-  { id: 'opinions',           label: 'Opinions',        adminOnly: false },
-  { id: 'levels',             label: 'Levels',          adminOnly: false },
-  { id: 'imported-levels',    label: 'Imported levels', adminOnly: false },
-  { id: 'awaiting',           label: 'Awaiting',        adminOnly: false },
-  { id: 'movements',          label: 'Movements',       adminOnly: false },
-  { id: 'imported-movements', label: 'Imported moves',  adminOnly: false },
-  { id: 'open-verifications', label: 'Open verif.',     adminOnly: false },
-  { id: 'statistics',         label: 'Statistics',      adminOnly: false },
-  { id: 'imports',            label: 'Imports',         adminOnly: true },
-  { id: 'claims',             label: 'Claims',          adminOnly: true },
-  { id: 'accounts',           label: 'Accounts',        adminOnly: true },
-  { id: 'discord',            label: 'Discord',         adminOnly: true },
-  { id: 'custom-lists',       label: 'Custom lists',    adminOnly: true },
+const isHelper = computed(() => me.value?.role === 'list_helper')
+
+type TabId = 'records' | 'opinions' | 'levels' | 'imported-levels' | 'awaiting' | 'movements' | 'imported-movements' | 'open-verifications' | 'statistics' | 'imports' | 'claims' | 'accounts' | 'discord' | 'custom-lists' | 'helper-requests' | 'reports' | 'log'
+
+/**
+ * Who each tab is for.
+ *
+ * `helper` is an allow-list rather than a level: a list helper sees exactly the
+ * tabs marked for them and nothing else, so a tab added later is closed to
+ * helpers until somebody deliberately opens it. That is the safe default for a
+ * role whose entire point is being narrow, and it means this table is the one
+ * place to read to find out what the role can reach.
+ *
+ * None of it is enforcement. Every endpoint behind these tabs checks the role
+ * itself; this only decides what is worth rendering.
+ */
+type TabAudience = 'staff' | 'admin' | 'helper'
+const allTabs: { id: TabId; label: string; audience: TabAudience }[] = [
+  // Helpers see these three. Placing levels, deciding level submissions and
+  // deciding records is the whole of the role.
+  { id: 'records',            label: 'Records',         audience: 'helper' },
+  { id: 'levels',             label: 'Levels',          audience: 'helper' },
+  { id: 'awaiting',           label: 'Awaiting',        audience: 'helper' },
+
+  { id: 'opinions',           label: 'Opinions',        audience: 'staff' },
+  { id: 'imported-levels',    label: 'Imported levels', audience: 'staff' },
+  { id: 'movements',          label: 'Movements',       audience: 'staff' },
+  { id: 'imported-movements', label: 'Imported moves',  audience: 'staff' },
+  { id: 'open-verifications', label: 'Open verif.',     audience: 'staff' },
+  { id: 'reports',            label: 'Reports',         audience: 'staff' },
+  { id: 'statistics',         label: 'Statistics',      audience: 'staff' },
+
+  // Applying a helper's request is an admin decision by definition — the point
+  // of the request is that a helper could not do it themselves.
+  { id: 'helper-requests',    label: 'Helper requests', audience: 'admin' },
+  { id: 'log',                label: 'Activity log',    audience: 'admin' },
+  { id: 'imports',            label: 'Imports',         audience: 'admin' },
+  { id: 'claims',             label: 'Claims',          audience: 'admin' },
+  { id: 'accounts',           label: 'Accounts',        audience: 'admin' },
+  { id: 'discord',            label: 'Discord',         audience: 'admin' },
+  { id: 'custom-lists',       label: 'Custom lists',    audience: 'admin' },
 ]
-const tabs = computed(() => allTabs.filter((t) => !t.adminOnly || isAdmin.value))
+const tabs = computed(() => allTabs.filter((t) => {
+  if (isHelper.value) return t.audience === 'helper'
+  if (isAdmin.value) return true
+  return t.audience !== 'admin'
+}))
 
 // "Pending" dropdown — groups the submission-queue tabs.
 //
@@ -98,6 +127,24 @@ const initial = (typeof route.query.tab === 'string' && allTabs.some((t) => t.id
   ? (route.query.tab as TabId)
   : 'levels'
 const tab = ref<TabId>(initial)
+
+/**
+ * Keep the open tab to one this account can see.
+ *
+ * `?tab=accounts` is typeable, and the role arrives asynchronously — the first
+ * render happens before `useCurrentUser` resolves, so a check done once at
+ * setup would let a helper sit on a tab that is about to disappear from the bar
+ * beneath them. Watching `tabs` instead re-checks whenever the answer changes,
+ * and falls back to the first tab they *do* have.
+ *
+ * This is not a security boundary. The endpoints behind every one of these tabs
+ * check the role themselves; this is here so the panel is never showing
+ * somebody a tab that will only ever answer 403.
+ */
+watch(tabs, (list) => {
+  if (!list.length) return
+  if (!list.some((t) => t.id === tab.value)) tab.value = list[0]!.id
+}, { immediate: true })
 
 watch(tab, (v) => {
   router.replace({ query: { ...route.query, tab: v } })
@@ -1100,6 +1147,25 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
 
     <!-- Statistics — traffic, and what the site gained, side by side -->
     <AdminStatistics v-else-if="tab === 'statistics'" class="flex-1 min-h-0" />
+
+    <!-- What list helpers have asked an admin to do. Scrolls on its own like
+         the queues above rather than inside the page. -->
+    <div v-else-if="tab === 'helper-requests'" class="flex-1 overflow-y-auto">
+      <div class="p-4 max-w-4xl">
+        <AdminHelperRequests @changed="fetchCounts" />
+      </div>
+    </div>
+
+    <!-- Reports. Moderators and admins; a list helper never sees this tab. -->
+    <div v-else-if="tab === 'reports'" class="flex-1 overflow-y-auto">
+      <div class="p-4 max-w-4xl">
+        <AdminReports @changed="fetchCounts" />
+      </div>
+    </div>
+
+    <!-- The activity log manages its own scrolling: it has a sticky filter bar
+         and a pager, so it needs the full height rather than a scrolling page. -->
+    <AdminActivityLog v-else-if="tab === 'log'" class="flex-1 min-h-0" />
 
     <!-- Imports tab — manually re-run any of the data importers and clear
          out unaccepted pending rows from each source. -->

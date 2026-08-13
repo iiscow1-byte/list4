@@ -1,7 +1,7 @@
 import { getDb } from '~/server/db'
 import { getCurrentAccount } from '~/server/utils/auth'
 import {
-  isPageRequest, looksAutomated, recordPageView, today, touchAccountDay, visitorHash,
+  isPageRequest, looksAutomated, networkHash, recordPageView, today, touchAccountDay, visitorHash,
 } from '~/server/utils/analytics'
 
 /**
@@ -35,11 +35,19 @@ export default defineEventHandler(async (event) => {
 
   const ip = getRequestIP(event, { xForwardedFor: true }) ?? ''
   let visitor: string | null = null
+  let network: string | null = null
   try {
-    visitor = visitorHash(getDb(), ip, ua, today())
+    const day = today()
+    const db = getDb()
+    visitor = visitorHash(db, ip, ua, day)
+    // This endpoint is open by necessity — it is a beacon a closing page fires
+    // — so the ceiling on it has to be one a caller cannot lift. Keying the
+    // throttle on the address rather than the address *and the user agent it
+    // sent* is what makes it that. See `networkHash`.
+    network = networkHash(db, ip, day)
   } catch { /* counted as a view without a person attached */ }
 
-  recordPageView(raw, visitor)
+  recordPageView(raw, visitor, network)
   try { touchAccountDay(getCurrentAccount(event)?.id) } catch { /* not signed in */ }
   return { ok: true }
 })

@@ -2,7 +2,7 @@ import { getDb } from '~/server/db'
 import { getCurrentAccount } from '~/server/utils/auth'
 import {
   isDeliveredPage, isPageRequest, isPrefetch, looksAutomated,
-  recordPageView, today, touchAccountDay, visitorHash,
+  networkHash, recordPageView, today, touchAccountDay, visitorHash,
 } from '~/server/utils/analytics'
 import { INTERNAL_HEADER } from '~/server/utils/internal-token'
 
@@ -45,11 +45,16 @@ export default defineEventHandler((event) => {
 
       const ip = getRequestIP(event, { xForwardedFor: true }) ?? ''
       let visitor: string | null = null
+      let network: string | null = null
       try {
-        visitor = visitorHash(getDb(), ip, ua, today())
+        const day = today()
+        const db = getDb()
+        visitor = visitorHash(db, ip, ua, day)
+        // Counts people; throttles by address. See `networkHash`.
+        network = networkHash(db, ip, day)
       } catch { /* counted as a view without a person attached */ }
 
-      recordPageView(path, visitor)
+      recordPageView(path, visitor, network)
       // Who was here today, for the "signed-in accounts" figure. Memoised per
       // account per day inside `touchAccountDay`, so this is one write a day
       // per person however much they read.

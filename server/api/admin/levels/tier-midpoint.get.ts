@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 
 /**
  * Returns the median position of all existing main-list levels in a given
@@ -8,7 +8,7 @@ import { requireMod } from '~/server/utils/auth'
  * a tier and the submitter didn't provide a position estimate.
  */
 export default defineEventHandler((event) => {
-  requireMod(event)
+  requireListStaff(event)
   const q = getQuery(event)
   const tier = typeof q.tier === 'string' ? q.tier.trim() : ''
   if (!tier) {

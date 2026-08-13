@@ -1,9 +1,10 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 import { importedMovementSummary } from '~/server/utils/imported-movements'
+import { openReportCount } from '~/server/utils/reports'
 
 export default defineEventHandler((event) => {
-  requireMod(event)
+  const account = requireListStaff(event)
   const db = getDb()
   const count = (sql: string) => (db.prepare(sql).get() as { n: number }).n
 
@@ -25,5 +26,11 @@ export default defineEventHandler((event) => {
     movements:            count(`SELECT COUNT(*) AS n FROM pending_movements     WHERE status = 'pending'`),
     'open-verifications': count(`SELECT COUNT(*) AS n FROM open_verifications    WHERE status = 'pending'`),
     claims:               count(`SELECT COUNT(*) AS n FROM claim_requests        WHERE status = 'pending'`),
+    // Moves and challenge changes list helpers have asked an admin to make.
+    'helper-requests':    count(`SELECT COUNT(*) AS n FROM helper_requests       WHERE status = 'pending'`),
+    // Open reports the viewer is allowed to see. Deliberately goes through the
+    // same visibility rule as the queue: a badge counting reports the page then
+    // refuses to show is how somebody learns a report about them exists.
+    reports:              openReportCount(db, account),
   }
 })

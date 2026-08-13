@@ -17,6 +17,15 @@ const showViews = useShowViews()
 
 const props = defineProps<{
   list: {
+    /**
+     * The row id, as opposed to the shareable `public_id`.
+     *
+     * Only needed to report a list — reports key on integers, and `public_id`
+     * is a random token. Optional so the standalone header, which builds a
+     * partial list object, is not forced to carry one; the control is hidden
+     * when it is absent rather than sending a broken id.
+     */
+    id?: number
     public_id: string
     title: string
     description?: string | null
@@ -338,6 +347,16 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           <span aria-hidden="true">{{ liked ? '★' : '☆' }}</span>
           <span class="tabular-nums">{{ list.likes }}</span>
         </button>
+
+        <!-- Reporting a list, for the owner's own list, would be a button that
+             errors — so it isn't there. `canEdit` covers owner and editors. -->
+        <ReportButton
+          v-if="!canEdit && list.id"
+          target="custom_list"
+          :target-id="list.id"
+          :label="list.title"
+          class="shrink-0"
+        />
 
         <!-- How many people opened it. Somebody who spends an evening building
              a list and shares it had no way to find out whether anyone read

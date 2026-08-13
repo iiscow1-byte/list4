@@ -1,5 +1,5 @@
 import { getDb } from '~/server/db'
-import { requireMod } from '~/server/utils/auth'
+import { requireListStaff } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { recomputePoints } from '~/server/utils/points'
 import { recordPlacement } from '~/server/utils/changes'
@@ -10,7 +10,7 @@ import { recordPlacement } from '~/server/utils/changes'
  * they already have a difficulty opinion (that's why they got out of pending).
  */
 export default defineEventHandler(async (event) => {
-  const account = requireMod(event)
+  const account = requireListStaff(event)
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
