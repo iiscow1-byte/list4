@@ -242,7 +242,11 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 </script>
 
 <template>
-  <section v-if="item" class="relative min-h-0 overflow-y-auto">
+  <!-- Scrolling belongs to `ListPaneLayout`, which owns the detail pane for
+       every list on the site. This panel used to be a grid item and had to
+       scroll itself; inside the shared layout that would be a second scroller
+       nested in the real one. -->
+  <section v-if="item" class="relative min-h-0">
     <!-- Hero backdrop -->
     <div class="absolute inset-x-0 top-0 h-[22rem] overflow-hidden pointer-events-none" aria-hidden="true">
       <LevelThumbBg

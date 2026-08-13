@@ -362,13 +362,23 @@ async function submit() {
     </header>
 
     <form class="space-y-4" @submit.prevent="submit">
-      <!-- Multi-row grid: level on the left, video URL on the right -->
+      <!-- Multi-row grid: level on the left, video URL on the right — until
+           there isn't room for two columns. Halving a phone gives each field
+           about 165px, which is narrower than the YouTube URL one of them is
+           for, so below `sm` the pair stacks. The column headings go with it:
+           each row contributes two cells, so stacked they would read as two
+           headings above the whole form rather than labels for a row. The
+           fields carry their own placeholders, and the extra space above each
+           odd cell is what keeps a level with its video. -->
       <div v-if="multi" class="card p-4">
-        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">
+        <div class="hidden sm:grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">
           <span>Level <span class="text-red-400">*</span></span>
           <span>Video URL <span class="text-red-400">*</span></span>
         </div>
-        <div class="grid grid-cols-[1fr_1fr] gap-x-3 gap-y-1.5">
+        <div
+          class="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-x-3 gap-y-2 sm:gap-y-1.5
+                 [&>*:nth-child(odd):not(:first-child)]:mt-4 sm:[&>*]:mt-0"
+        >
           <RecordSubmitRow
             v-for="row in rows"
             :key="row.uid"

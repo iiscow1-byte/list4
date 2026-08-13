@@ -14,14 +14,19 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="grid grid-cols-[20%_80%] grid-rows-[minmax(0,1fr)] h-full">
-    <AwaitingListNav :active-id="id" />
-    <section class="overflow-y-auto min-h-0">
-      <div v-if="error" class="p-12 text-center text-zinc-500">
-        <p class="text-sm">Awaiting level not found.</p>
-        <NuxtLink to="/awaiting" class="text-accent hover:underline text-sm mt-2 inline-block">Back to list</NuxtLink>
-      </div>
-      <AwaitingLevelDetail v-else-if="level" :level="level" />
-    </section>
-  </div>
+  <ListPaneLayout
+    columns="20% 80%"
+    nav-label="Awaiting"
+    :title="level?.name ?? null"
+  >
+    <template #nav>
+      <AwaitingListNav :active-id="id" />
+    </template>
+
+    <div v-if="error" class="p-12 text-center text-zinc-500">
+      <p class="text-sm">Awaiting level not found.</p>
+      <NuxtLink to="/awaiting" class="text-accent hover:underline text-sm mt-2 inline-block">Back to list</NuxtLink>
+    </div>
+    <AwaitingLevelDetail v-else-if="level" :level="level" />
+  </ListPaneLayout>
 </template>

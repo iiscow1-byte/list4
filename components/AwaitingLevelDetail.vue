@@ -52,7 +52,7 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
     <header class="mb-6">
       <div class="flex items-baseline gap-3 flex-wrap">
         <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>

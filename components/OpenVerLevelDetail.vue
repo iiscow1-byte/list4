@@ -131,7 +131,7 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
     <header class="mb-6 flex items-start justify-between gap-3 flex-wrap">
       <div>
         <div class="flex items-baseline gap-3 flex-wrap">

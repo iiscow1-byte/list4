@@ -68,6 +68,30 @@
   ::-webkit-scrollbar-corner {
     background: transparent;
   }
+
+  /*
+   * Stop iOS zooming the page when a field is focused.
+   *
+   * Mobile Safari zooms in on any input whose text is smaller than 16px, and
+   * every field on this site is `text-sm` — 14px. The zoom is not undone when
+   * the field is blurred, so a single tap on the list's search box left the
+   * whole site scaled up and scrolled sideways, and every tap after that landed
+   * somewhere other than where it looked. The usual "fix" is `maximum-scale=1`
+   * in the viewport meta, which works by taking pinch-zoom away from everyone;
+   * this costs 2px of text on small screens instead, where a larger touch
+   * target is the better shape anyway.
+   *
+   * `select` is included because it zooms too, and the size is set on the
+   * element rather than a class so it reaches fields this rule's author never
+   * saw. Above `sm` the design's own sizes apply untouched.
+   */
+  @media (max-width: 639.98px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {

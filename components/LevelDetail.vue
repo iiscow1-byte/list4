@@ -1227,12 +1227,14 @@ const chartAredlSeries = computed(() =>
       />
     </div>
 
-    <div class="relative px-8 py-8 max-w-3xl mx-auto w-full">
+    <div class="relative px-4 sm:px-8 py-6 sm:py-8 max-w-3xl mx-auto w-full">
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline gap-3 flex-wrap">
           <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ shownPlacement }}</span>
-          <h1 class="text-3xl sm:text-4xl font-bold tracking-tight drop-shadow-lg">{{ level.name }}</h1>
+          <!-- `break-words` because level names are user-supplied and often one
+               long unbroken token, which at `text-3xl` is wider than a phone. -->
+          <h1 class="text-2xl sm:text-4xl font-bold tracking-tight drop-shadow-lg break-words min-w-0">{{ level.name }}</h1>
         </div>
         <!-- Where the level sits within the challenge sub-ranking, and where it
              came from. One row, because each was its own line under the title

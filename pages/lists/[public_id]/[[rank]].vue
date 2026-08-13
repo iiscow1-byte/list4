@@ -85,23 +85,65 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
       :liked="liked"
       @like="toggleLike"
     />
-    <div class="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[16rem_minmax(0,1fr)] xl:grid-cols-[18rem_minmax(0,1fr)_17rem]">
-      <CustomListNav
-        :items="list.items"
-        :active-id="activeItem?.id ?? null"
-        :list-path="base"
-        :can-edit="canEdit"
-        :api-base="`/api/custom-lists/${publicId}`"
-        :follow-all-order="!!list.follow_all_order"
-        :mark-off-all="marksOffAll(list)"
-        :show-thumbnails="on(list.show_thumbnails)"
-        :show-points="on(list.show_points)"
-        :show-records="on(list.show_records)"
-        :compact="!!list.compact_rows"
-        :tiers="list.tiers ?? []"
-        class="hidden md:flex"
-        @changed="refresh"
-      />
+    <!-- The panels kept their old breakpoints — the nav is a fixed 16rem and
+         works from `md`, the records column only fits from `xl` — but below
+         those they were plain `hidden`, so on a phone this list's own levels
+         and every record on them had no way to be opened at all. They are
+         drawers there now. -->
+    <ListPaneLayout
+      class="flex-1 min-h-0"
+      columns="16rem minmax(0,1fr)"
+      columns-wide="18rem minmax(0,1fr) 17rem"
+      nav-at="md"
+      aside-at="xl"
+      nav-label="Levels"
+      aside-label="Records"
+      :aside-count="activeItem?.records?.length ?? 0"
+      :title="activeItem ? `#${activeItem.rank} ${activeItem.name}` : null"
+    >
+      <template #nav>
+        <CustomListNav
+          :items="list.items"
+          :active-id="activeItem?.id ?? null"
+          :list-path="base"
+          :can-edit="canEdit"
+          :api-base="`/api/custom-lists/${publicId}`"
+          :follow-all-order="!!list.follow_all_order"
+          :mark-off-all="marksOffAll(list)"
+          :show-thumbnails="on(list.show_thumbnails)"
+          :show-points="on(list.show_points)"
+          :show-records="on(list.show_records)"
+          :compact="!!list.compact_rows"
+          :tiers="list.tiers ?? []"
+          @changed="refresh"
+        />
+      </template>
+
+      <!-- The aside: this level's records, and who runs the list under them —
+           the place a reader looks for both. -->
+      <template #aside>
+        <aside class="flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
+          <CustomListRecords
+            :item="activeItem"
+            :accepts-records="!!list.accepts_records"
+            :can-moderate="canEdit"
+            :api-base="`/api/custom-lists/${publicId}`"
+            :page-base="base"
+            class="flex-1 min-h-0 !border-l-0"
+            @deleted="refresh"
+          />
+          <div v-if="showEditors" class="shrink-0 border-t border-zinc-800/80">
+            <p class="px-4 pt-3 pb-1.5 flex items-baseline gap-2">
+              <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">List editors</span>
+              <span class="ml-auto text-[10px] tabular-nums text-zinc-600">{{ editors.length }}</span>
+            </p>
+            <div class="max-h-52 overflow-y-auto pb-1.5">
+              <CustomListStaff :staff="editors" />
+            </div>
+          </div>
+        </aside>
+      </template>
+
       <CustomListLevelDetail
         :item="activeItem"
         :items="list.items"
@@ -114,28 +156,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         :mark-off-all="marksOffAll(list)"
         @changed="refresh"
       />
-      <!-- Right column: this level's records, and who runs the list under
-           them — the place a reader looks for both. -->
-      <aside class="hidden xl:flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
-        <CustomListRecords
-          :item="activeItem"
-          :accepts-records="!!list.accepts_records"
-          :can-moderate="canEdit"
-          :api-base="`/api/custom-lists/${publicId}`"
-          :page-base="base"
-          class="flex-1 min-h-0 !border-l-0"
-          @deleted="refresh"
-        />
-        <div v-if="showEditors" class="shrink-0 border-t border-zinc-800/80">
-          <p class="px-4 pt-3 pb-1.5 flex items-baseline gap-2">
-            <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">List editors</span>
-            <span class="ml-auto text-[10px] tabular-nums text-zinc-600">{{ editors.length }}</span>
-          </p>
-          <div class="max-h-52 overflow-y-auto pb-1.5">
-            <CustomListStaff :staff="editors" />
-          </div>
-        </div>
-      </aside>
-    </div>
+    </ListPaneLayout>
   </div>
 </template>
