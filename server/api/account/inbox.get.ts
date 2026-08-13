@@ -58,6 +58,29 @@ export default defineEventHandler((event) => {
     }
   }
 
+  /**
+   * Public ids for the custom lists any message on this page is about.
+   *
+   * `related_id` on those messages is the row id, and a list's URL is its
+   * `public_id` — a random token that cannot be derived from the number. So a
+   * notice about a list had nowhere to point, which is most of what made the
+   * inbox a dead end: "your level was added to X" with no way to go and look at
+   * X. One query for the page, like the clan lookup above.
+   */
+  const listIds = [...new Set(
+    items.filter((m) => m.related_kind === 'custom_list' && m.related_id)
+      .map((m) => m.related_id as number),
+  )]
+  const listPublicIds = new Map<number, string>()
+  if (listIds.length) {
+    const ph = listIds.map(() => '?').join(',')
+    for (const l of db.prepare(
+      `SELECT id, public_id FROM custom_lists WHERE id IN (${ph})`,
+    ).all(...listIds) as { id: number; public_id: string }[]) {
+      listPublicIds.set(l.id, l.public_id)
+    }
+  }
+
   const shaped = items.map((m) => {
     let actionable: 'clan_invite' | 'friend_request' | null = null
     if (m.kind === 'clan_invite' && m.related_id && openInvites.has(m.related_id)) {
@@ -70,6 +93,11 @@ export default defineEventHandler((event) => {
       sent_by_has_avatar: !!m.sent_by_has_avatar,
       actionable,
       clan: m.kind === 'clan_invite' && m.related_id ? clansById.get(m.related_id) ?? null : null,
+      // Null unless the message is about a list that still exists — a link to a
+      // deleted list is worse than none, because it reads as though it's there.
+      list_public_id: m.related_kind === 'custom_list' && m.related_id
+        ? listPublicIds.get(m.related_id) ?? null
+        : null,
     }
   })
 

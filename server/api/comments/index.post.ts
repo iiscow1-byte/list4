@@ -3,6 +3,8 @@ import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { assertClean } from '~/server/utils/profanity-guard'
 import { clanForAccount } from '~/server/utils/clans'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 
 const VALID_KINDS = new Set(['profile', 'progress', 'open_verification', 'level'])
 const MAX_BODY = 1000
@@ -37,6 +39,20 @@ function ownerOf(
 
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
+
+  /**
+   * A proved address, then a rate limit, then the comment.
+   *
+   * In that order deliberately. Verification is the cheap structural check —
+   * it makes an account cost an inbox rather than a POST — and doing it first
+   * means a bot without one never reaches the rest. The two limits behind it
+   * bound what a *verified* account can do: six a minute stops a flood, sixty
+   * an hour stops a slow drip that would slip under it.
+   */
+  assertVerified(me)
+  enforceRateLimit(event, LIMITS.commentBurst)
+  enforceRateLimit(event, LIMITS.commentHourly)
+
   const body = await readBody(event)
   const kind = String(body?.kind ?? '')
   const targetId = Number(body?.target_id)
@@ -52,6 +68,23 @@ export default defineEventHandler(async (event) => {
   assertClean(text, 'Comments')
 
   const db = getDb()
+
+  /**
+   * The same comment twice is a double-submitted form, not a second thought.
+   *
+   * Cheaper and less annoying than a limit for the commonest accidental
+   * duplicate — a double click, or a retry after a slow response — and it
+   * closes the gap where two requests race past the rate limiter together.
+   */
+  const duplicate = db.prepare(
+    `SELECT id FROM comments
+      WHERE account_id = ? AND target_kind = ? AND target_id = ? AND body = ?
+        AND created_at > datetime('now', '-5 minutes')`,
+  ).get(me.id, kind, targetId, text)
+  if (duplicate) {
+    throw createError({ statusCode: 409, statusMessage: 'You just posted that.' })
+  }
+
   const result = db.prepare(
     `INSERT INTO comments (account_id, target_kind, target_id, body) VALUES (?, ?, ?, ?)`,
   ).run(me.id, kind, targetId, text)

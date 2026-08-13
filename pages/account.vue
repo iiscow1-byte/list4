@@ -115,8 +115,16 @@ async function saveProfile() {
   profileSaved.value = false
   profileSaving.value = true
   try {
+    // `bio` is deliberately stripped rather than merely absent from the form.
+    //
+    // `profile.bio` is still seeded from the account, so spreading it would
+    // send whatever the bio was when this form was opened. Edit the bio in its
+    // own card, then press Save here, and that stale copy would silently
+    // overwrite what you just wrote. The endpoint leaves out-of-body fields
+    // alone, so not sending it is the whole fix.
+    const { bio: _bio, ...profileFields } = profile
     await $fetch('/api/account', { method: 'PATCH', body: {
-      ...profile,
+      ...profileFields,
       favorite_level_id: favoriteLevelId.value ?? null,
       favorite_level_note: favoriteLevelNote.value.trim() || null,
       hardest_record_id: hardestRecordId.value ?? null,
@@ -140,6 +148,120 @@ async function saveProfile() {
     profileError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Save failed.'
   } finally {
     profileSaving.value = false
+  }
+}
+
+/**
+ * The bio, on its own.
+ *
+ * It used to be the first field of a fourteen-box form, behind a disclosure,
+ * inside a panel that also re-printed your country and pronouns — three layers
+ * of chrome between somebody and the one line of text most people ever want to
+ * change. That panel is gone (the header already shows everything it repeated),
+ * and this is what replaced it.
+ *
+ * It saves *only* the bio. `/api/account` treats every field as optional and
+ * falls back to the stored value for anything absent — `'bio' in body ? … :
+ * me.bio` and so on for each — so a one-field PATCH cannot clear the rest. That
+ * property is what makes this safe, and it is worth knowing it is deliberate
+ * rather than luck: an earlier version of that endpoint used `?? null`, which
+ * would have wiped a profile on every bio edit.
+ */
+/**
+ * Confirming your email address.
+ *
+ * Shown as a banner rather than a page you have to find, because an unverified
+ * account is one that cannot comment, post or submit anything — a state you
+ * need telling about at the moment you notice something is missing, not one you
+ * discover by reading settings.
+ *
+ * The address is editable here for the commonest reason a link never arrives:
+ * it was typed wrong. Without that the account is stranded — it cannot verify,
+ * and the address it cannot verify is the one blocking a second sign-up.
+ */
+const verifyEmailDraft = ref('')
+const verifySending = ref(false)
+const verifyNotice = ref<string | null>(null)
+const verifyError = ref<string | null>(null)
+const verifyEditing = ref(false)
+
+const needsVerification = computed(() => {
+  const a = me.value as { email?: string | null; email_verified_at?: string | null } | null
+  // Only meaningful once we know there is an address to confirm: an install
+  // with no mail provider gives every account a null email and no banner.
+  return !!a && !!a.email && !a.email_verified_at
+})
+
+watch(me, (val) => {
+  const a = val as { email?: string | null; pending_email?: string | null } | null
+  if (a && !verifyEditing.value) verifyEmailDraft.value = a.pending_email || a.email || ''
+}, { immediate: true })
+
+async function resendVerification() {
+  if (verifySending.value) return
+  verifySending.value = true
+  verifyNotice.value = null
+  verifyError.value = null
+  try {
+    const res = await $fetch<{ email: string }>('/api/account/resend-verification', {
+      method: 'POST',
+      // Only sent when they have actually changed it, so an unchanged address
+      // is not rewritten on every resend.
+      body: verifyEditing.value ? { email: verifyEmailDraft.value.trim() } : {},
+    })
+    verifyNotice.value = `Sent to ${res.email}. It can take a minute.`
+    verifyEditing.value = false
+    await refreshMe()
+  } catch (e: any) {
+    verifyError.value = e?.data?.statusMessage ?? 'Could not send that.'
+  } finally {
+    verifySending.value = false
+  }
+}
+
+const BIO_MAX = 1000
+const bioDraft = ref('')
+const bioEditing = ref(false)
+const bioSaving = ref(false)
+const bioError = ref<string | null>(null)
+const bioSaved = ref(false)
+
+/** Kept in step with the account until somebody starts typing into it. */
+watch(me, (val) => {
+  if (val && !bioEditing.value) bioDraft.value = val.bio ?? ''
+}, { immediate: true })
+
+const bioDirty = computed(() => bioDraft.value.trim() !== (me.value?.bio ?? '').trim())
+const bioRemaining = computed(() => BIO_MAX - bioDraft.value.length)
+
+function startBioEdit() {
+  bioDraft.value = me.value?.bio ?? ''
+  bioError.value = null
+  bioSaved.value = false
+  bioEditing.value = true
+}
+
+function cancelBioEdit() {
+  bioDraft.value = me.value?.bio ?? ''
+  bioError.value = null
+  bioEditing.value = false
+}
+
+async function saveBio() {
+  if (bioSaving.value || !bioDirty.value) return
+  bioSaving.value = true
+  bioError.value = null
+  bioSaved.value = false
+  try {
+    await $fetch('/api/account', { method: 'PATCH', body: { bio: bioDraft.value.trim() } })
+    await refreshMe()
+    bioEditing.value = false
+    bioSaved.value = true
+    setTimeout(() => (bioSaved.value = false), 2500)
+  } catch (e: any) {
+    bioError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Could not save that.'
+  } finally {
+    bioSaving.value = false
   }
 }
 
@@ -837,6 +959,60 @@ function fmt(n: number | null | undefined) {
       </template>
     </ProfileHeader>
 
+    <!-- Confirm your address.
+         Directly under the header and above everything else, because until it
+         is done the account cannot comment, post or submit — and every one of
+         those failures otherwise arrives as an unexplained refusal somewhere
+         else on the site. -->
+    <div v-if="needsVerification" class="container-tight max-w-5xl pt-4">
+      <div class="rounded-xl border border-amber-900/60 bg-amber-950/25 px-4 py-3 space-y-2">
+        <div class="flex items-start gap-2.5">
+          <span class="mt-0.5 text-amber-400 shrink-0" aria-hidden="true">✉</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-amber-100">Confirm your email address</p>
+            <p class="text-[11px] text-amber-200/70 mt-0.5">
+              We sent a link to
+              <span class="text-amber-100">{{ (me as any).pending_email || (me as any).email }}</span>.
+              Until you click it you can look around, but not comment, post or submit.
+            </p>
+          </div>
+        </div>
+
+        <!-- Correcting a typo is the commonest reason a link never arrives. -->
+        <div v-if="verifyEditing" class="flex flex-wrap items-center gap-2">
+          <input
+            v-model="verifyEmailDraft"
+            type="email"
+            autocomplete="email"
+            class="field field-sm flex-1 min-w-[14rem] text-xs"
+          />
+          <button
+            type="button"
+            :disabled="verifySending || !verifyEmailDraft.trim()"
+            class="btn btn-sm btn-primary"
+            @click="resendVerification"
+          >{{ verifySending ? 'Sending…' : 'Save and send' }}</button>
+          <button type="button" class="btn btn-sm btn-ghost" @click="verifyEditing = false">Cancel</button>
+        </div>
+        <div v-else class="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            :disabled="verifySending"
+            class="btn btn-sm btn-ghost hover:border-amber-700 hover:text-amber-200"
+            @click="resendVerification"
+          >{{ verifySending ? 'Sending…' : 'Resend the link' }}</button>
+          <button
+            type="button"
+            class="text-[11px] text-amber-200/70 hover:text-amber-100 transition-colors"
+            @click="verifyEditing = true"
+          >Wrong address?</button>
+        </div>
+
+        <p v-if="verifyNotice" class="text-[11px] text-emerald-400">{{ verifyNotice }}</p>
+        <p v-if="verifyError" class="text-[11px] text-red-400">{{ verifyError }}</p>
+      </div>
+    </div>
+
     <FollowListModal
       v-if="profileData"
       v-model:open="followListOpen"
@@ -859,55 +1035,97 @@ function fmt(n: number | null | undefined) {
           is-self
         />
 
-        <!-- About: always-visible display + collapsible edit dropdown below.
-             The same box the public profile draws — see `ProfilePanel`; these
-             two columns sit side by side in a screenshot often enough that a
-             different corner radius on each is the first thing you notice. -->
-        <ProfilePanel title="About">
-          <div class="space-y-3">
-          <!-- Read-only display — always visible -->
-          <div>
-            <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap">{{ me.bio }}</p>
-            <p v-else class="text-sm text-zinc-600 italic">No bio yet.</p>
-            <dl v-if="me.subdivision || me.pronouns || profileData?.account?.clan" class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mt-3">
-              <div v-if="me.subdivision">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">State / region</dt>
-                <dd class="text-zinc-100">{{ me.subdivision }}</dd>
-              </div>
-              <div v-if="me.pronouns">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Pronouns</dt>
-                <dd class="text-zinc-100">{{ me.pronouns }}</dd>
-              </div>
-              <div v-if="profileData?.account?.clan">
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Clan</dt>
-                <dd class="flex items-center gap-1.5 min-w-0">
-                  <ClanTag
-                    :tag="profileData.account.clan.tag"
-                    :name="profileData.account.clan.name"
-                    :color="profileData.account.clan.color"
-                    size="sm"
-                  />
-                  <NuxtLink
-                    :to="`/clans/${profileData.account.clan.tag}`"
-                    class="truncate text-zinc-100 hover:text-accent transition-colors"
-                  >{{ profileData.account.clan.name }}</NuxtLink>
-                </dd>
-              </div>
-            </dl>
-            <!-- The hardest completion and the favourite live in the showcase
-                 cards above now, the same way visitors see them. -->
-            <p v-if="profileSaved" class="text-xs text-emerald-400 mt-2">Saved.</p>
+        <!-- Your bio, and nothing else.
+             The panel that used to be here re-printed your country, pronouns
+             and clan under the heading "About" — all three of which the profile
+             header above already draws as chips, and which the public profile
+             has never shown twice. It was a summary of the thing directly above
+             it, and it pushed the one field people actually edit down behind a
+             disclosure. So: the bio gets the card, and everything else is in
+             the full form below. -->
+        <section class="card p-4 space-y-3">
+          <div class="flex items-baseline justify-between gap-3">
+            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Bio</h2>
+            <div class="flex items-center gap-3 shrink-0">
+              <span v-if="bioSaved" class="text-[11px] text-emerald-400">Saved.</span>
+              <button
+                v-if="!bioEditing"
+                type="button"
+                class="text-[11px] text-zinc-500 hover:text-accent transition-colors"
+                @click="startBioEdit"
+              >{{ me.bio ? 'Edit' : 'Add one' }}</button>
+            </div>
           </div>
 
-          <!-- Edit dropdown -->
+          <!-- Reading it. `whitespace-pre-wrap` because a bio with line breaks
+               in it was written with line breaks in it. -->
+          <template v-if="!bioEditing">
+            <p v-if="me.bio" class="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">{{ me.bio }}</p>
+            <button
+              v-else
+              type="button"
+              class="w-full rounded-lg border border-dashed border-zinc-800 px-3 py-6 text-center text-sm text-zinc-600 hover:border-zinc-700 hover:text-zinc-400 transition-colors"
+              @click="startBioEdit"
+            >
+              Say something about yourself.
+            </button>
+          </template>
+
+          <!-- Writing it. Saves on its own, so changing one line is one action
+               rather than opening a form with fourteen fields in it. -->
+          <template v-else>
+            <textarea
+              v-model="bioDraft"
+              rows="5"
+              :maxlength="BIO_MAX"
+              autofocus
+              placeholder="What you play, what you're grinding, whatever you like."
+              class="field field-md w-full resize-y"
+              @keydown.esc="cancelBioEdit"
+            />
+            <div class="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                :disabled="bioSaving || !bioDirty"
+                class="btn btn-sm btn-primary"
+                @click="saveBio"
+              >{{ bioSaving ? 'Saving…' : 'Save bio' }}</button>
+              <button
+                type="button"
+                :disabled="bioSaving"
+                class="btn btn-sm btn-ghost"
+                @click="cancelBioEdit"
+              >Cancel</button>
+              <!-- Only once it is close to mattering: a counter that reads
+                   "1000 left" from the first keystroke is noise. -->
+              <span
+                v-if="bioRemaining < 200"
+                class="ml-auto text-[11px] tabular-nums"
+                :class="bioRemaining < 20 ? 'text-amber-400' : 'text-zinc-600'"
+              >{{ bioRemaining }} left</span>
+              <span v-if="bioError" class="text-[11px] text-red-400">{{ bioError }}</span>
+            </div>
+          </template>
+        </section>
+
+        <!-- Everything else about your profile. Its own section rather than a
+             disclosure inside a display panel — it is the longest thing on the
+             page and it was two clicks down. -->
+        <section class="card p-4">
           <details :open="editing" class="group" @toggle="(e) => { if (!(e.target as HTMLDetailsElement).open && editing) cancelEdit() }">
             <summary
-              class="cursor-pointer select-none list-none flex items-center justify-between gap-2 rounded border border-zinc-800 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+              class="cursor-pointer select-none list-none flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
               @click.prevent="editing ? cancelEdit() : startEdit()"
             >
-              <span>{{ editing ? 'Editing profile…' : 'Edit profile' }}</span>
+              <span class="uppercase tracking-widest font-medium">
+                {{ editing ? 'Editing profile…' : 'Profile details' }}
+                <span v-if="!editing" class="normal-case tracking-normal text-zinc-600">
+                  — country, pronouns, links, showcase
+                </span>
+              </span>
               <span class="text-zinc-600 group-open:rotate-180 transition-transform">▾</span>
             </summary>
+            <p v-if="profileSaved" class="text-xs text-emerald-400 pt-3">Saved.</p>
 
             <!-- The form, in the order somebody fills it in: who you are,
                  where you are, where else to find you, then what the profile
@@ -916,16 +1134,10 @@ function fmt(n: number | null | undefined) {
             <form class="pt-4 space-y-4" @submit.prevent="saveProfile">
               <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
                 <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">You</legend>
-                <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Bio</span>
-                  <textarea
-                    v-model="profile.bio"
-                    rows="3"
-                    maxlength="1000"
-                    placeholder="Tell people about yourself."
-                    class="field field-md mt-1"
-                  />
-                </label>
+                <!-- The bio is not here. It has its own card above, which saves
+                     on its own — two editors bound to the same field would let
+                     an old draft in this form overwrite a bio saved from there
+                     the next time somebody pressed Save. -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label class="block">
                     <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
@@ -1186,8 +1398,7 @@ function fmt(n: number | null | undefined) {
               </div>
             </form>
           </details>
-          </div>
-        </ProfilePanel>
+        </section>
 
         <ProfilePanel v-if="profileData?.player" title="Player stats">
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">

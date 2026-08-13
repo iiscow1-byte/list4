@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import { assertClean } from '~/server/utils/profanity-guard'
 import {
   sendFriendRequest, acceptFriendRequest, clearFriendRequest,
@@ -29,6 +31,21 @@ export default defineEventHandler(async (event) => {
   const action = String(body.action ?? '') as Action
   if (!ACTIONS.has(action)) {
     throw createError({ statusCode: 400, statusMessage: 'Unknown action.' })
+  }
+
+  /**
+   * Only *sending* is gated.
+   *
+   * `request` puts a message in somebody else's inbox, which is the thing worth
+   * limiting. Accepting, declining, cancelling and removing all act on a
+   * relationship that already exists, affect nobody who did not already opt in,
+   * and are how a person gets *rid* of unwanted attention — blocking those
+   * behind a verification banner would leave somebody unable to decline the
+   * requests they are complaining about.
+   */
+  if (action === 'request') {
+    assertVerified(me)
+    enforceRateLimit(event, LIMITS.friendRequest)
   }
 
   const username = String(body.username ?? '').trim()

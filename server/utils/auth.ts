@@ -78,6 +78,17 @@ export type Account = {
   claimed_aredl_uuid: string | null
   claimed_pointercrate_id: number | null
   claimed_gdl_id: number | null
+  /**
+   * The address, and whether it has been proved.
+   *
+   * Both carried on the session account because `assertVerified` is called on
+   * hot paths — every comment, every post — and a second query per request to
+   * read one timestamp is the kind of thing that makes a check expensive enough
+   * that somebody removes it.
+   */
+  email: string | null
+  email_verified_at: string | null
+  pending_email: string | null
   has_avatar: boolean
   pronouns: string | null
   discord_handle: string | null
@@ -135,6 +146,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
   const row = db.prepare(
     `SELECT a.id, a.username, a.role, a.bio, a.country, a.subdivision, a.claimed_player,
             a.claimed_aredl_uuid, a.claimed_pointercrate_id, a.claimed_gdl_id,
+            a.email, a.email_verified_at, a.pending_email,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
             a.pronouns, a.discord_handle, a.youtube_url, a.gd_username,
             a.twitch_url, a.twitter_url, a.bluesky_url,
@@ -167,6 +179,9 @@ export function getCurrentAccount(event: H3Event): Account | null {
     claimed_aredl_uuid: row.claimed_aredl_uuid,
     claimed_pointercrate_id: row.claimed_pointercrate_id ?? null,
     claimed_gdl_id: row.claimed_gdl_id ?? null,
+    email: row.email ?? null,
+    email_verified_at: row.email_verified_at ?? null,
+    pending_email: row.pending_email ?? null,
     has_avatar: !!row.has_avatar,
     pronouns: row.pronouns,
     discord_handle: row.discord_handle,

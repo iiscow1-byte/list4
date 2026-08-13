@@ -10,23 +10,51 @@ const signupsOpen = computed(() => meRes.value?.site?.signupsEnabled ?? false)
 
 const username = ref('')
 const password = ref('')
+const email = ref('')
 const error = ref<string | null>(null)
 const loading = ref(false)
 const router = useRouter()
+
+/**
+ * The captcha token, and a handle on the widget so a failed submit can throw it
+ * away. A token is spent whether or not the request it accompanied succeeded,
+ * so retrying with the same one always fails.
+ */
+const captchaToken = ref('')
+const captcha = ref<{ reset: () => void; enabled: boolean } | null>(null)
+
+/** Whether an address is required, which depends on the server having a mailer. */
+const { data: mailConfig } = await useFetch<{ emailRequired: boolean }>('/api/site/signup-requirements')
+const emailRequired = computed(() => mailConfig.value?.emailRequired ?? false)
+
+/** Whether a captcha is on the page and still unsolved. */
+const captchaPending = computed(() => !!captcha.value?.enabled && !captchaToken.value)
 
 async function submit() {
   if (loading.value) return
   error.value = null
   loading.value = true
   try {
-    await $fetch('/api/auth/signup', {
-      method: 'POST',
-      body: { username: username.value, password: password.value },
-    })
+    const res = await $fetch<{ needsVerification: boolean; verificationSent: boolean }>(
+      '/api/auth/signup',
+      {
+        method: 'POST',
+        body: {
+          username: username.value,
+          password: password.value,
+          email: email.value.trim() || undefined,
+          captcha_token: captchaToken.value || undefined,
+        },
+      },
+    )
     await refreshNuxtData('auth-me')
-    await router.push('/account')
+    // Somebody who has to go and click a link needs telling where to look,
+    // which the account page says. Landing them on the list instead would be
+    // landing them somewhere they cannot yet post.
+    await router.push(res.needsVerification ? '/account?verify=1' : '/account')
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Signup failed.'
+    captcha.value?.reset()
   } finally {
     loading.value = false
   }
@@ -82,14 +110,34 @@ async function submit() {
         <span class="text-[11px] text-zinc-500 mt-1 block">At least 8 characters.</span>
       </label>
 
+      <!-- Asked for only when the server can send to it. On a deployment with
+           no mail provider this field is absent rather than optional-and-
+           pointless — see /api/site/signup-requirements. -->
+      <label v-if="emailRequired" class="block">
+        <span class="text-xs uppercase tracking-widest text-zinc-500">Email <span class="text-red-400">*</span></span>
+        <input
+          v-model="email"
+          type="email"
+          autocomplete="email"
+          required
+          class="field field-md mt-1"
+        />
+        <span class="text-[11px] text-zinc-500 mt-1 block">
+          You'll get a link to confirm it. Until you do, you can look around but not post.
+        </span>
+      </label>
+
+      <!-- Renders nothing unless a captcha provider is configured. -->
+      <CaptchaBox ref="captcha" @update:token="captchaToken = $event" />
+
       <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
 
       <button
         type="submit"
-        :disabled="loading"
+        :disabled="loading || captchaPending"
         class="btn btn-md btn-primary w-full"
       >
-        {{ loading ? 'Creating…' : 'Sign up' }}
+        {{ loading ? 'Creating…' : captchaPending ? 'Complete the captcha' : 'Sign up' }}
       </button>
     </form>
 

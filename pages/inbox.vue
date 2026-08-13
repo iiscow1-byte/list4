@@ -43,6 +43,8 @@ type InboxItem = {
   /** Set when the invite or request behind this message is still open. */
   actionable: 'clan_invite' | 'friend_request' | null
   clan: { tag: string; name: string; color: string | null } | null
+  /** Resolved server-side — a list's URL is its token, not its row id. */
+  list_public_id: string | null
 }
 
 const items = ref<InboxItem[]>([])
@@ -83,62 +85,143 @@ const SOCIAL_KINDS = new Set([
   'custom_list_editor', 'custom_list_submission', 'custom_list_record',
 ])
 
-const shownNotices = computed(() => {
-  const rows = notices.value
-  if (filter.value === 'unread') return rows.filter((m) => !m.read_at)
-  if (filter.value === 'submissions') return rows.filter((m) => SUBMISSION_KINDS.has(m.kind))
-  if (filter.value === 'social') return rows.filter((m) => SOCIAL_KINDS.has(m.kind))
-  return rows
+function matchesFilter(m: InboxItem, f: typeof filter.value): boolean {
+  if (f === 'unread') return !m.read_at
+  if (f === 'submissions') return SUBMISSION_KINDS.has(m.kind)
+  if (f === 'social') return SOCIAL_KINDS.has(m.kind)
+  return true
+}
+
+const shownNotices = computed(() => notices.value.filter((m) => matchesFilter(m, filter.value)))
+
+/**
+ * The filters, each carrying how much it would show.
+ *
+ * A row of chips that all look identical gives no reason to pick one, and
+ * picking the wrong one lands on "nothing matches that filter" — which reads as
+ * an empty inbox rather than as a filter. The counts make the choice before the
+ * click. Computed once for all four rather than per chip, so this is one pass
+ * over the list instead of four.
+ */
+const FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'submissions', label: 'Submissions' },
+  { value: 'social', label: 'Social' },
+] as const
+
+const filterCounts = computed(() => {
+  const out: Record<string, number> = { '': 0, unread: 0, submissions: 0, social: 0 }
+  for (const m of notices.value) {
+    out['']++
+    if (!m.read_at) out.unread!++
+    if (SUBMISSION_KINDS.has(m.kind)) out.submissions!++
+    if (SOCIAL_KINDS.has(m.kind)) out.social!++
+  }
+  return out
 })
+
+/**
+ * Which rows are mid-action.
+ *
+ * A `Set` rather than one id, because the previous single-slot version disabled
+ * *every* button on the page for the duration of any one of them: answering one
+ * invite froze the other five, and marking one message read froze the delete on
+ * all of them. Each row now only ever waits on itself.
+ */
+const busyIds = reactive(new Set<number>())
+const isBusy = (m: InboxItem) => busyIds.has(m.id)
+
+/**
+ * Run one row's action, with the row's own spinner and a shared error line.
+ *
+ * Every one of these used to be written out longhand and three of them had no
+ * `catch` at all — so a failed "mark read" was an unhandled rejection and a
+ * silently wrong unread count. Optimistic updates are applied by the caller and
+ * rolled back here when the request fails, which is the only reason the count
+ * can be trusted.
+ */
+async function run(m: InboxItem, fn: () => Promise<unknown>, rollback?: () => void): Promise<boolean> {
+  if (busyIds.has(m.id)) return false
+  busyIds.add(m.id)
+  actionError.value = null
+  try {
+    await fn()
+    return true
+  } catch (e: any) {
+    rollback?.()
+    actionError.value = e?.data?.statusMessage ?? 'That didn\'t work.'
+    return false
+  } finally {
+    busyIds.delete(m.id)
+  }
+}
 
 async function markRead(m: InboxItem) {
   if (m.read_at) return
-  await $fetch(`/api/account/inbox/${m.id}`, { method: 'POST', body: { action: 'read' } })
+  const was = m.read_at
   m.read_at = new Date().toISOString()
   unread.value = Math.max(0, unread.value - 1)
+  await run(
+    m,
+    () => $fetch(`/api/account/inbox/${m.id}`, { method: 'POST', body: { action: 'read' } }),
+    () => { m.read_at = was; unread.value++ },
+  )
 }
+
 async function markUnread(m: InboxItem) {
   if (!m.read_at) return
-  await $fetch(`/api/account/inbox/${m.id}`, { method: 'POST', body: { action: 'unread' } })
+  const was = m.read_at
   m.read_at = null
   unread.value++
-}
-async function readAll() {
-  if (unread.value === 0) return
-  await $fetch('/api/account/inbox/read-all', { method: 'POST' })
-  for (const m of items.value) if (!m.read_at) m.read_at = new Date().toISOString()
-  unread.value = 0
-  // Also reset admin panel badges if the user is a mod/admin
-  const role = me.value?.role
-  if (role && role !== 'user') {
-    $fetch('/api/admin/mark-seen', { method: 'POST', body: { markAll: true } }).catch(() => {})
-  }
+  await run(
+    m,
+    () => $fetch(`/api/account/inbox/${m.id}`, { method: 'POST', body: { action: 'unread' } }),
+    () => { m.read_at = was; unread.value = Math.max(0, unread.value - 1) },
+  )
 }
 
-const busy = ref<number | null>(null)
+const bulkBusy = ref(false)
+
+async function readAll() {
+  if (unread.value === 0 || bulkBusy.value) return
+  bulkBusy.value = true
+  actionError.value = null
+  try {
+    await $fetch('/api/account/inbox/read-all', { method: 'POST' })
+    for (const m of items.value) if (!m.read_at) m.read_at = new Date().toISOString()
+    unread.value = 0
+    // Also reset admin panel badges if the user is a mod/admin
+    const role = me.value?.role
+    if (role && role !== 'user') {
+      $fetch('/api/admin/mark-seen', { method: 'POST', body: { markAll: true } }).catch(() => {})
+    }
+  } catch (e: any) {
+    actionError.value = e?.data?.statusMessage ?? 'Could not mark those read.'
+  } finally {
+    bulkBusy.value = false
+  }
+}
 
 async function remove(m: InboxItem) {
-  if (busy.value != null) return
-  busy.value = m.id
-  try {
-    await $fetch(`/api/account/inbox/${m.id}`, { method: 'DELETE' })
-    items.value = items.value.filter((x) => x.id !== m.id)
-    if (!m.read_at) unread.value = Math.max(0, unread.value - 1)
-  } catch (e: any) {
-    actionError.value = e?.data?.statusMessage ?? 'Could not delete that.'
-  } finally {
-    busy.value = null
-  }
+  const ok = await run(m, () => $fetch(`/api/account/inbox/${m.id}`, { method: 'DELETE' }))
+  if (!ok) return
+  items.value = items.value.filter((x) => x.id !== m.id)
+  if (!m.read_at) unread.value = Math.max(0, unread.value - 1)
 }
 
 async function clearRead() {
-  if (!notices.value.some((m) => m.read_at)) return
+  if (!notices.value.some((m) => m.read_at) || bulkBusy.value) return
   if (!confirm('Delete every message you have already read?')) return
+  bulkBusy.value = true
+  actionError.value = null
   try {
     await $fetch('/api/account/inbox/clear-read', { method: 'POST' })
     await load()
   } catch (e: any) {
     actionError.value = e?.data?.statusMessage ?? 'Could not clear those.'
+  } finally {
+    bulkBusy.value = false
   }
 }
 
@@ -151,37 +234,22 @@ async function clearRead() {
  * the same list can offer.
  */
 async function answerClan(m: InboxItem, action: 'join-invite' | 'reject-invite') {
-  if (busy.value != null || !m.clan) return
-  busy.value = m.id
-  actionError.value = null
-  try {
-    await $fetch(`/api/clans/${encodeURIComponent(m.clan.tag)}/membership`, {
-      method: 'POST', body: { action },
-    })
-    await markRead(m).catch(() => {})
-    await load()
-  } catch (e: any) {
-    actionError.value = e?.data?.statusMessage ?? 'That didn\'t work.'
-  } finally {
-    busy.value = null
-  }
+  if (!m.clan) return
+  const ok = await run(m, () => $fetch(`/api/clans/${encodeURIComponent(m.clan!.tag)}/membership`, {
+    method: 'POST', body: { action },
+  }))
+  // A full reload, not a patch: joining a clan changes what every *other*
+  // invite in this list can offer, and leaves the answered one no longer
+  // actionable. Patching one row would leave five stale ones.
+  if (ok) await load()
 }
 
 async function answerFriend(m: InboxItem, action: 'accept' | 'decline') {
-  if (busy.value != null || !m.sent_by_username) return
-  busy.value = m.id
-  actionError.value = null
-  try {
-    await $fetch('/api/friends', {
-      method: 'POST', body: { username: m.sent_by_username, action },
-    })
-    await markRead(m).catch(() => {})
-    await load()
-  } catch (e: any) {
-    actionError.value = e?.data?.statusMessage ?? 'That didn\'t work.'
-  } finally {
-    busy.value = null
-  }
+  if (!m.sent_by_username) return
+  const ok = await run(m, () => $fetch('/api/friends', {
+    method: 'POST', body: { username: m.sent_by_username, action },
+  }))
+  if (ok) await load()
 }
 
 const KIND_LABELS: Record<string, string> = {
@@ -234,10 +302,24 @@ function linkFor(m: InboxItem): string | null {
   if ((m.kind === 'friend_request' || m.kind === 'friend_accepted') && m.sent_by_username) {
     return `/users/${encodeURIComponent(m.sent_by_username)}`
   }
-  if (m.related_kind === 'level' && m.related_id) return `/levels/${m.related_id}`
+  // Resolved server-side, because a list's URL is a token rather than its id.
+  if (m.list_public_id) return `/lists/${m.list_public_id}`
+  if (m.related_kind === 'clan' && m.clan) return `/clans/${encodeURIComponent(m.clan.tag)}`
+  if (m.related_kind === 'forum_thread' && m.related_id) return `/community/thread/${m.related_id}`
   if (m.related_kind === 'account' && m.sent_by_username) {
     return `/users/${encodeURIComponent(m.sent_by_username)}`
   }
+  /**
+   * Deliberately nothing for `record`, `pending_level`, `awaiting_level`,
+   * `opinion` and `open_verification`.
+   *
+   * Their `related_id` is the id of a row in a *queue* — a submission, not a
+   * level — and none of those has a page a submitter can open. There was a
+   * branch here that read `/levels/${related_id}`, which would have sent people
+   * to whatever level happened to sit at that position: a plausible-looking
+   * link to the wrong level. No `related_kind` of 'level' is ever written, so
+   * it never fired; it is gone rather than left to be discovered.
+   */
   return null
 }
 </script>
@@ -256,12 +338,14 @@ function linkFor(m: InboxItem): string | null {
         <button
           v-if="unread > 0"
           type="button"
+          :disabled="bulkBusy"
           class="btn btn-sm btn-ghost"
           @click="readAll"
         >Mark all read</button>
         <button
           v-if="notices.some((m) => m.read_at)"
           type="button"
+          :disabled="bulkBusy"
           class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
           title="Delete every message you have already read"
           @click="clearRead"
@@ -309,24 +393,24 @@ function linkFor(m: InboxItem): string | null {
             <div class="flex items-center gap-2 shrink-0">
               <template v-if="m.actionable === 'clan_invite'">
                 <button
-                  type="button" :disabled="busy != null"
+                  type="button" :disabled="isBusy(m)"
                   class="btn btn-sm btn-primary"
                   @click="answerClan(m, 'join-invite')"
                 >Join</button>
                 <button
-                  type="button" :disabled="busy != null"
+                  type="button" :disabled="isBusy(m)"
                   class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
                   @click="answerClan(m, 'reject-invite')"
                 >Decline</button>
               </template>
               <template v-else>
                 <button
-                  type="button" :disabled="busy != null"
+                  type="button" :disabled="isBusy(m)"
                   class="btn btn-sm btn-primary"
                   @click="answerFriend(m, 'accept')"
                 >Accept</button>
                 <button
-                  type="button" :disabled="busy != null"
+                  type="button" :disabled="isBusy(m)"
                   class="btn btn-sm btn-ghost hover:border-red-800 hover:text-red-300"
                   @click="answerFriend(m, 'decline')"
                 >Decline</button>
@@ -342,20 +426,21 @@ function linkFor(m: InboxItem): string | null {
           <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Messages</h2>
           <div class="flex flex-wrap items-center gap-1.5">
             <label
-              v-for="opt in ([
-                { value: '', label: 'All' },
-                { value: 'unread', label: 'Unread' },
-                { value: 'submissions', label: 'Submissions' },
-                { value: 'social', label: 'Social' },
-              ] as const)"
+              v-for="opt in FILTERS"
               :key="opt.value"
               class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-              :class="filter === opt.value
-                ? 'border-accent/60 text-accent bg-accent/10'
-                : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+              :class="[
+                filter === opt.value
+                  ? 'border-accent/60 text-accent bg-accent/10'
+                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200',
+                // Still selectable when empty — turning a filter off is done by
+                // picking another one, so a disabled chip would be a trap.
+                filterCounts[opt.value] ? '' : 'opacity-50',
+              ]"
             >
               <input v-model="filter" type="radio" :value="opt.value" class="sr-only" />
               {{ opt.label }}
+              <span class="tabular-nums text-zinc-600 ml-0.5">{{ filterCounts[opt.value] }}</span>
             </label>
           </div>
         </div>
@@ -406,7 +491,7 @@ function linkFor(m: InboxItem): string | null {
               >{{ m.read_at ? 'Mark unread' : 'Mark read' }}</button>
               <button
                 type="button"
-                :disabled="busy != null"
+                :disabled="isBusy(m)"
                 class="text-zinc-700 hover:text-red-400 transition-opacity opacity-0 group-hover/row:opacity-100 focus:opacity-100"
                 title="Delete this message"
                 @click="remove(m)"

@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import {
   fileReport, REASONS_BY_TARGET, REPORT_TARGETS,
   type ReportReason, type ReportTarget,
@@ -25,6 +27,8 @@ import {
  */
 export default defineEventHandler(async (event) => {
   const account = requireAccount(event)
+  assertVerified(account)
+  enforceRateLimit(event, LIMITS.report)
   const body = await readBody<{
     target?: unknown; target_id?: unknown; reason?: unknown; details?: unknown
   }>(event) ?? {}

@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import { assertClean } from '~/server/utils/profanity-guard'
 import {
   isCategory, recentCount, getThread,
@@ -21,6 +23,9 @@ import {
  */
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
+  assertVerified(me)
+  enforceRateLimit(event, LIMITS.forumThread)
+  enforceRateLimit(event, LIMITS.forumPost)
   const body = await readBody<{
     title?: string; body?: string; category?: string; level_id?: number | string | null
   }>(event) ?? {}

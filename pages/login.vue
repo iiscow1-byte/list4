@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { LOCKDOWN_LINES } from '~/utils/lockdown'
+import { safeNext } from '~/utils/safe-redirect'
 
 useHead({ title: 'Log in — All Levels List' })
 
@@ -13,6 +14,18 @@ const route = useRoute()
 const { data: meRes } = useCurrentUser()
 const policy = computed(() => meRes.value?.site ?? null)
 
+/**
+ * The captcha only appears once the server has asked for one.
+ *
+ * It does that after a few failed attempts from this address — see
+ * `CAPTCHA_AFTER_FAILURES` in the login endpoint. Rendering it up front would
+ * put a third-party round trip in front of the most-used form on the site to
+ * stop something that only matters in bulk.
+ */
+const captchaNeeded = ref(false)
+const captchaToken = ref('')
+const captcha = ref<{ reset: () => void; enabled: boolean } | null>(null)
+
 async function submit() {
   if (loading.value) return
   error.value = null
@@ -20,7 +33,11 @@ async function submit() {
   try {
     await $fetch('/api/auth/login', {
       method: 'POST',
-      body: { username: username.value, password: password.value },
+      body: {
+        username: username.value,
+        password: password.value,
+        captcha_token: captchaToken.value || undefined,
+      },
     })
     await refreshNuxtData('auth-me')
     // Signing in doesn't imply access while the site is locked down; sending a
@@ -29,10 +46,16 @@ async function submit() {
       await router.push('/locked')
       return
     }
-    const next = typeof route.query.next === 'string' ? route.query.next : '/account'
-    await router.push(next)
+    await router.push(safeNext(route.query.next))
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Login failed.'
+    // The server says when a captcha has become mandatory. Once shown it stays
+    // shown for this page load: the requirement is per address and does not go
+    // away because the next attempt happened to be the right password.
+    if (e?.data?.data?.captchaRequired) captchaNeeded.value = true
+    // A token is spent on use, successful or not, so the next attempt needs a
+    // fresh one.
+    captcha.value?.reset()
   } finally {
     loading.value = false
   }
@@ -73,6 +96,9 @@ async function submit() {
           class="field field-md mt-1"
         />
       </label>
+
+      <!-- Only after the server has started asking. See `captchaNeeded`. -->
+      <CaptchaBox v-if="captchaNeeded" ref="captcha" @update:token="captchaToken = $event" />
 
       <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
 

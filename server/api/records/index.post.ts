@@ -1,10 +1,14 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import { ALLOWED_DIFFICULTIES } from '~/server/utils/opinions'
 import { isValidTier } from '~/utils/tier-ordinal'
 
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
+  assertVerified(me)
+  enforceRateLimit(event, LIMITS.submission)
   const body = await readBody(event)
 
   const position = Number(body?.position)

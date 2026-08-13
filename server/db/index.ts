@@ -2161,6 +2161,86 @@ function initSchema(db: DatabaseSync) {
 
   widenRoleCheck(db)
 
+  /**
+   * Email, and whether it has been proved.
+   *
+   * Added rather than made part of `accounts`' CREATE so existing databases
+   * gain them without a rebuild. All three are nullable: every account that
+   * existed before this shipped has no address, and forcing one on them
+   * retroactively would lock out the whole site.
+   *
+   * `email_verified_at` is a timestamp, not a boolean, because "when" is a
+   * question support actually gets asked and a boolean cannot answer it.
+   */
+  const emailCols = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
+  for (const [col, type] of [
+    ['email', 'TEXT'],
+    ['email_verified_at', 'TEXT'],
+    /** Set when a change of address is pending; the old one stays live until proved. */
+    ['pending_email', 'TEXT'],
+  ] as const) {
+    if (!emailCols.some((c) => c.name === col)) {
+      db.exec(`ALTER TABLE accounts ADD COLUMN ${col} ${type}`)
+    }
+  }
+  /**
+   * One account per address, case-insensitively, but only among *verified*
+   * ones.
+   *
+   * A partial index rather than a plain unique constraint: an unverified
+   * address is a claim, not a fact, and letting an unproved row reserve an
+   * address would let anybody deny an address to its real owner by signing up
+   * with it first. Two people may hold the same unverified address; the first
+   * to prove it gets it, and the other's claim is cleared on verification.
+   */
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email_verified
+      ON accounts(email COLLATE NOCASE) WHERE email_verified_at IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email COLLATE NOCASE);
+
+    /**
+     * Tokens for anything sent to an address to be clicked.
+     *
+     * One table for verification and password reset: both are "prove you can
+     * read this inbox", both expire, both must be single-use, and two tables
+     * would be two chances to forget one of those properties.
+     *
+     * Only a *hash* of the token is stored. The token itself exists in the
+     * email and nowhere else, so a copy of this table is not a set of working
+     * links — the same reason password_hash exists rather than password.
+     */
+    CREATE TABLE IF NOT EXISTS email_tokens (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      kind       TEXT    NOT NULL CHECK(kind IN ('verify','reset')),
+      token_hash TEXT    NOT NULL UNIQUE,
+      /** The address it was sent to — a change of address must not be provable by an old link. */
+      email      TEXT    NOT NULL,
+      expires_at TEXT    NOT NULL,
+      used_at    TEXT,
+      created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_email_tokens_account ON email_tokens(account_id, kind);
+    CREATE INDEX IF NOT EXISTS idx_email_tokens_expiry  ON email_tokens(expires_at);
+
+    /**
+     * Rate limiting, kept in the database rather than in memory.
+     *
+     * In-memory counters are per process and reset on deploy, which makes them
+     * a speed bump rather than a limit: restart the app and the budget is back.
+     * These survive both. One row per (bucket, subject, window) — see
+     * server/utils/rate-limit.ts.
+     */
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      bucket     TEXT    NOT NULL,
+      subject    TEXT    NOT NULL,
+      window_start INTEGER NOT NULL,
+      count      INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (bucket, subject, window_start)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_rate_limits_window ON rate_limits(window_start);
+  `)
+
   db.exec(`
     /**
      * Everything that happens to the list, in one place.

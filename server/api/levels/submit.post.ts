@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import { isValidTier } from '~/utils/tier-ordinal'
 
 const ALLOWED_TAGS = new Set(['old', 'uldm', 'buffed', 'nerfed'])
@@ -17,6 +19,8 @@ function strOrNull(v: unknown, max = 1000): string | null {
 
 export default defineEventHandler(async (event) => {
   const account = requireAccount(event)
+  assertVerified(account)
+  enforceRateLimit(event, LIMITS.submission)
   const body = await readBody<Record<string, unknown>>(event)
 
   const gdId = body.gd_id != null && body.gd_id !== '' ? Number(body.gd_id) : null

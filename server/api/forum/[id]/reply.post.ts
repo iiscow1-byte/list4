@@ -1,5 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
+import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
+import { assertVerified } from '~/server/utils/email-verify'
 import { assertClean } from '~/server/utils/profanity-guard'
 import { addReply, listPosts, getThread, recentCount, MAX_BODY, POSTS_PER_HOUR } from '~/server/utils/forum'
 
@@ -13,6 +15,8 @@ import { addReply, listPosts, getThread, recentCount, MAX_BODY, POSTS_PER_HOUR }
  */
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
+  assertVerified(me)
+  enforceRateLimit(event, LIMITS.forumPost)
   const id = Number(getRouterParam(event, 'id'))
   if (!Number.isInteger(id) || id <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Bad thread id.' })
