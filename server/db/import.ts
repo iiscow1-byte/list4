@@ -28,6 +28,23 @@ const PENDING_LIST_GID = '139895069'
 // pending_levels.id). pending_id has no FK, so -1 is safe.
 const SHEET_PENDING_ID = -1
 
+// Fraction of a tab's current level count that its fetched row count must reach
+// before the run is allowed to proceed. Rows here are pre-filter (decoration
+// rows included), so a healthy tab always clears this comfortably and only a
+// failed or truncated read falls below it.
+const TAB_SHRINK_FLOOR = 0.5
+
+// Ceiling on how much of the list one import may delete, as a fraction of the
+// levels it started with. The per-tab guards above catch a tab that fails on its
+// own; this catches whatever they don't — several tabs degrading at once, a
+// reconciliation bug, a sheet restructured out from under the matcher. Sheet
+// churn removes levels in the dozens, so this only ever fires on a fault.
+const MAX_PRUNE_FRACTION = 0.02
+
+// Escape hatch for all three guards, for the run where a curator really did
+// remove a tab's worth of levels on purpose.
+const allowShrinkEnv = () => process.env.LIST_IMPORT_ALLOW_SHRINK === '1'
+
 // ---------- HTML helpers ----------
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 function decodeEntities(s: string): string {
@@ -350,6 +367,7 @@ function recordSheetExclusives(db: ReturnType<typeof getDb>, rows: SheetExclusiv
 
 async function importLevels(report?: ProgressReporter) {
   const db = getDb()
+  const allowShrink = allowShrinkEnv()
 
   cleanupDuplicateLevels(db)
 
@@ -492,12 +510,44 @@ async function importLevels(report?: ProgressReporter) {
   // Sheet rows that never became a level on the site (see recordSheetExclusives).
   const sheetExclusives: SheetExclusiveRow[] = []
 
+  // How many levels each tab currently owns. Read before anything is fetched so
+  // it describes the list as it stands, and used twice below: to reject a tab
+  // that comes back far smaller than the levels it is responsible for, and to
+  // explain the numbers if the run is refused.
+  //
+  // This matters because of what happens at the end of reconciliation: a level
+  // the sheet didn't claim this run is deleted if it was sheet-born and carries
+  // no records — and the records table is empty in production by design, so
+  // "carries no records" is every level. A tab that fails to parse therefore
+  // doesn't degrade the import, it deletes its entire contents.
+  const ownedByTab = new Map<string, number>(
+    (db.prepare(
+      `SELECT source_tab AS tab, COUNT(*) AS n
+         FROM levels
+        WHERE source_tab IS NOT NULL AND (permanent = 0 OR permanent IS NULL)
+        GROUP BY source_tab`,
+    ).all() as { tab: string; n: number }[]).map((r) => [r.tab, r.n]),
+  )
+
   report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length })
   for (const tab of TABS) {
     process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
     const { text, html } = await fetchTabRows(tab.gid)
     const found = findHeaderColumns(text)
-    if (!found) { console.log('no header row, skipping'); continue }
+    // A missing header row used to be a `continue`. It cannot be: skipping a tab
+    // hands every level it owns to the pruner. Google's published-HTML endpoint
+    // answers 200 with a consent page, an error page or an empty document often
+    // enough that this was a live hazard, not a theoretical one, and the failure
+    // is silent — the log line said "skipping" and the next run said nothing at
+    // all, because by then the levels were gone.
+    if (!found) {
+      throw new Error(
+        `tab "${tab.label}" (gid=${tab.gid}) returned no header row — aborting before ` +
+        `any level is deleted. The tab currently owns ` +
+        `${ownedByTab.get(tab.label) ?? 0} level(s); continuing would delete them. ` +
+        `This is usually a transient Google response — re-run the import.`,
+      )
+    }
     const c = refineColumns(text, found.cols, found.headerIdx + 1)
     // The "Placement on Verification" column in the published sheet has a
     // uniform "1" indicator cell at the labelled column; the actual placement
@@ -506,7 +556,25 @@ async function importLevels(report?: ProgressReporter) {
     if (c['placement on verification'] != null) {
       c['placement on verification'] = c['placement on verification'] + 1
     }
-    console.log(`${text.length - found.headerIdx - 1} rows`)
+    const rowsParsed = text.length - found.headerIdx - 1
+    console.log(`${rowsParsed} rows`)
+
+    // A tab that parses but comes back a fraction of its former size is the
+    // other way a read fails quietly: a truncated response, a partial render, a
+    // tab the publish link stopped covering. Row count here is always >= the
+    // level count (decoration rows are filtered later), so a genuine curator
+    // edit cannot cross this floor — only a bad read can. Curators shrinking a
+    // tab on purpose can pass LIST_IMPORT_ALLOW_SHRINK=1 for one run.
+    const owned = ownedByTab.get(tab.label) ?? 0
+    if (owned > 0 && rowsParsed < owned * TAB_SHRINK_FLOOR && !allowShrink) {
+      throw new Error(
+        `tab "${tab.label}" (gid=${tab.gid}) returned ${rowsParsed} row(s) but owns ` +
+        `${owned} level(s) — aborting before any level is deleted, because ` +
+        `reconciliation would delete the difference. Re-run to retry; if the tab really ` +
+        `did shrink, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
+      )
+    }
+
     fetched.push({ tab, text, html, cols: c, headerIdx: found.headerIdx })
     report?.({ done: fetched.length })
 
@@ -646,6 +714,30 @@ async function importLevels(report?: ProgressReporter) {
       { source_tab: string | null; submitted_by: number | null; permanent: number; record_count: number }
     const sheetBorn = !!d.source_tab && !d.submitted_by && !d.permanent && d.record_count === 0
     ;(sheetBorn ? prunable : strays).push(r)
+  }
+
+  // Last line of defence before the deletes go through. The `record_count === 0`
+  // term in `sheetBorn` reads like a safety valve and isn't one: the records
+  // table is empty in production by design, so every level qualifies and nothing
+  // is ever spared by it. Bound the damage by volume instead, which holds
+  // whatever the reason — and report the tabs involved, because a prune
+  // concentrated in one tab is a failed read and a prune spread evenly is a real
+  // sheet edit.
+  if (prunable.length > Math.max(50, existingRows.length * MAX_PRUNE_FRACTION) && !allowShrink) {
+    const byTab = new Map<string, number>()
+    for (const r of prunable) {
+      const t = (detail.get(r.id) as { source_tab: string | null }).source_tab ?? '(none)'
+      byTab.set(t, (byTab.get(t) ?? 0) + 1)
+    }
+    const breakdown = [...byTab.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, n]) => `${t}: ${n}`)
+      .join(', ')
+    throw new Error(
+      `import would delete ${prunable.length} of ${existingRows.length} level(s) ` +
+      `(${breakdown}) — refusing, and nothing has been deleted. Re-run the import; ` +
+      `if this really is intended, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
+    )
   }
 
   if (prunable.length) {

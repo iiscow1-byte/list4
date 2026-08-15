@@ -284,10 +284,11 @@ watch(() => props.level.position, () => {
     }
   })()
 }, { immediate: true })
-const fallbackSearch = computed(() => {
-  if (!props.level.verification) return null
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(props.level.verification)}`
-})
+// No video means no video box. A verifier's name is not a video, and turning it
+// into a YouTube *search* link dressed as a player — play button, 16:9 frame —
+// promised a verification the site doesn't have, on the 86% of levels that carry
+// no link at all. The block above renders only for a real URL now; with none,
+// nothing is emitted and the content below closes the gap on its own.
 
 const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
@@ -2032,8 +2033,8 @@ const chartAredlSeries = computed(() =>
         />
       </div>
       <a
-        v-else-if="level.verification_url || fallbackSearch"
-        :href="(level.verification_url ?? fallbackSearch)!"
+        v-else-if="level.verification_url"
+        :href="level.verification_url"
         target="_blank"
         rel="noopener"
         class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
@@ -2046,9 +2047,7 @@ const chartAredlSeries = computed(() =>
               </svg>
             </div>
             <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">{{ level.verification ?? 'Watch verification' }}</p>
-            <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">
-              {{ level.verification_url ? 'Open verification ↗' : 'Search YouTube' }}
-            </p>
+            <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">Open verification ↗</p>
           </div>
         </div>
       </a>
