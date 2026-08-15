@@ -27,7 +27,8 @@
     "import:acs": "node --experimental-strip-types --no-warnings server/db/import-acs.ts",
     "import:sfl": "node --experimental-strip-types --no-warnings server/db/import-sfl.ts",
     "diff-sheet": "node --experimental-strip-types --no-warnings server/db/diff-sheet.ts",
-    "clear-temporary-levels": "node --experimental-strip-types --no-warnings server/db/clear-temporary-levels.ts"
+    "clear-temporary-levels": "node --experimental-strip-types --no-warnings server/db/clear-temporary-levels.ts",
+    "repair-tiers": "node --experimental-strip-types --no-warnings server/db/repair-tiers.ts"
   },
   "engines": {
     "node": ">=22.5"

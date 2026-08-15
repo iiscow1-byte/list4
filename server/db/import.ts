@@ -195,6 +195,29 @@ export function parseTierLabel(raw: string | null): { tier: string; frac: number
  * the next few data rows and shift right by 1 if the labelled column is empty
  * but the next column has content.
  */
+/**
+ * Header titles the placement column has gone by. The tier tabs say "Placement";
+ * the Main tab was renamed to "#". Matching is exact — the Main tab also carries
+ * a "Peak #" column, which is a different number entirely.
+ *
+ * Add to this list rather than to any call site: a tab whose placement column
+ * can't be resolved yields no levels at all, which reads to the importer as
+ * "every level on this tab is gone".
+ */
+export const PLACEMENT_HEADERS = ['placement', '#'] as const
+
+/**
+ * Point `cols['placement']` at whichever title this tab uses. Returns undefined
+ * when the tab has none, which callers must treat as a hard failure.
+ */
+export function resolvePlacementColumn(cols: Record<string, number>): number | undefined {
+  for (const header of PLACEMENT_HEADERS) {
+    const idx = cols[header]
+    if (idx != null) { cols['placement'] = idx; return idx }
+  }
+  return undefined
+}
+
 export function refineColumns(textRows: string[][], cols: Record<string, number>, dataStart: number): Record<string, number> {
   const sample = textRows.slice(dataStart, dataStart + 8).filter((r) => r.length > 5)
   if (sample.length === 0) return cols
@@ -569,11 +592,7 @@ async function importLevels(report?: ProgressReporter) {
     }
     const c = refineColumns(text, found.cols, found.headerIdx + 1)
 
-    // The placement column is titled "Placement" on the tier tabs and "#" on the
-    // Main tab, which the curators renamed. Accept either. The match is exact,
-    // which is what keeps this off the "Peak #" column sitting on the same tab —
-    // a different number entirely.
-    if (c['placement'] == null && c['#'] != null) c['placement'] = c['#']
+    resolvePlacementColumn(c)
 
     // Without a placement column every row fails the `placement === null` test
     // below and is counted as decoration, so the tab yields nothing while
@@ -1545,16 +1564,40 @@ export async function importPendingList(report?: ProgressReporter) {
 
 export async function runImport(report?: ProgressReporter) {
   const t0 = Date.now()
+
+  // The level tabs are the list; if they can't be read the run must stop, and
+  // importLevels throws rather than write a partial list.
   await importLevels(report)
-  report?.({ phase: 'Leaderboard', done: 0, total: null })
-  await importLeaderboard()
-  report?.({ phase: 'Stats viewer tab', done: 0, total: null })
-  await importStatsViewer()
-  report?.({ phase: 'Void list', done: 0, total: null })
-  await importVoidList()
-  report?.({ phase: 'Pending list', done: 0, total: null })
-  await importPendingList(report)
+
+  // Everything after this point is a separate tab feeding a separate feature,
+  // and each one is allowed to fail on its own. They used to be bare awaits in
+  // a row, so the first tab the curators unpublished took the rest down with
+  // it: the Leaderboard tab now answers 400, which meant the void list and the
+  // pending list — both still published and both perfectly readable — had not
+  // been imported since, and the whole refresh was logged as a failure.
+  const failures: string[] = []
+  const stage = async (phase: string, run: () => Promise<unknown>) => {
+    report?.({ phase, done: 0, total: null })
+    try {
+      await run()
+    } catch (err) {
+      failures.push(phase)
+      console.error(`[import] ${phase} failed — continuing with the rest:`, (err as Error).message)
+    }
+  }
+
+  await stage('Leaderboard', importLeaderboard)
+  await stage('Stats viewer tab', importStatsViewer)
+  await stage('Void list', importVoidList)
+  await stage('Pending list', () => importPendingList(report))
+
   console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
+  if (failures.length) {
+    console.log(
+      `${failures.length} optional tab(s) did not import: ${failures.join(', ')}. ` +
+      `The list itself imported normally.`,
+    )
+  }
 }
 
 // Run as a CLI when invoked directly via `node server/db/import.ts`
