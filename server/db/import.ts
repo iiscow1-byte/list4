@@ -437,6 +437,11 @@ async function importLevels(report?: ProgressReporter) {
     if (nameCounts.get(n) === 1) existingByName.set(n, row.id)
     if (row.gd_id != null && gdCounts.get(row.gd_id) === 1) existingByGd.set(row.gd_id, row.id)
   }
+  // The name fallback needs the candidate's Level ID to decide whether a name
+  // match is a rename or a collision, so keep the rows reachable by id.
+  const existingById = new Map<number, { id: number; gd_id: number | null; name: string }>(
+    existingRows.map((r) => [r.id, r]),
+  )
 
   /** Ids already claimed by a sheet row this run, so two rows can't share one. */
   const claimed = new Set<number>()
@@ -455,8 +460,22 @@ async function importLevels(report?: ProgressReporter) {
     const exact = existingByKey.get(dupKey(gdId, name))
     if (exact !== undefined && !claimed.has(exact)) return exact
 
+    // The name fallback exists for one case: the sheet renamed a level, or filled
+    // in a Level ID that used to be blank, so the exact key no longer matches a
+    // row that is nonetheless the same level. It must never fire when the two
+    // sides carry *different* Level IDs — that is not one level under two names,
+    // it is two levels that happen to share one. Names collide constantly here
+    // and `dupKey` lowercases, so "Blight" and "blight" look identical: without
+    // this check a Main row claimed a Subtier level sitting at #40,179, replaced
+    // its name and ID with its own, and dragged it to #415 — while the real
+    // Subtier row, finding its level taken, was re-inserted as a duplicate.
     const byName = existingByName.get(name.toLowerCase())
-    if (byName !== undefined && !claimed.has(byName)) return byName
+    if (byName !== undefined && !claimed.has(byName)) {
+      const candidate = existingById.get(byName)
+      const idsContradict = candidate != null && candidate.gd_id != null && gdId != null
+        && candidate.gd_id !== gdId
+      if (!idsContradict) return byName
+    }
 
     if (gdId != null && (sheetGdCounts.get(gdId) ?? 0) === 1) {
       const byGd = existingByGd.get(gdId)
