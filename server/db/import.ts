@@ -549,6 +549,28 @@ async function importLevels(report?: ProgressReporter) {
       )
     }
     const c = refineColumns(text, found.cols, found.headerIdx + 1)
+
+    // The placement column is titled "Placement" on the tier tabs and "#" on the
+    // Main tab, which the curators renamed. Accept either. The match is exact,
+    // which is what keeps this off the "Peak #" column sitting on the same tab —
+    // a different number entirely.
+    if (c['placement'] == null && c['#'] != null) c['placement'] = c['#']
+
+    // Without a placement column every row fails the `placement === null` test
+    // below and is counted as decoration, so the tab yields nothing while
+    // reporting a full set of rows — the quietest possible failure, and the one
+    // that emptied the Main tab when "Placement" became "#". A tab whose rows
+    // cannot be read is not a tab whose levels are gone.
+    if (c['placement'] == null) {
+      throw new Error(
+        `tab "${tab.label}" (gid=${tab.gid}) has no placement column — its header ` +
+        `row reads [${Object.keys(found.cols).join(', ')}]. Aborting before any level ` +
+        `is deleted; the tab owns ${ownedByTab.get(tab.label) ?? 0} level(s), and ` +
+        `without this column every row parses as decoration. If the sheet renamed ` +
+        `the column, add the new title to the alias above.`,
+      )
+    }
+
     // The "Placement on Verification" column in the published sheet has a
     // uniform "1" indicator cell at the labelled column; the actual placement
     // value lives one column to the right. refineColumns can't detect this
@@ -556,19 +578,32 @@ async function importLevels(report?: ProgressReporter) {
     if (c['placement on verification'] != null) {
       c['placement on verification'] = c['placement on verification'] + 1
     }
-    const rowsParsed = text.length - found.headerIdx - 1
-    console.log(`${rowsParsed} rows`)
+    // Count the rows that will actually become levels, not the rows the tab
+    // contains. Those are very different numbers — the Main tab returned 14,978
+    // rows and zero levels — and only the first one is worth guarding on.
+    let usable = 0
+    for (let i = found.headerIdx + 1; i < text.length; i++) {
+      const r = text[i]!
+      const rowName = txt(r[c['level name']!])
+      if (!rowName || num(r[c['placement']!]) === null) continue
+      usable++
+      const gd = num(r[c['level id']!])
+      if (gd != null) {
+        sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
+        sheetGdIds.add(gd)
+      }
+      sheetNames.add(rowName.toLowerCase())
+    }
+    console.log(`${text.length - found.headerIdx - 1} rows, ${usable} usable`)
 
-    // A tab that parses but comes back a fraction of its former size is the
-    // other way a read fails quietly: a truncated response, a partial render, a
-    // tab the publish link stopped covering. Row count here is always >= the
-    // level count (decoration rows are filtered later), so a genuine curator
-    // edit cannot cross this floor — only a bad read can. Curators shrinking a
-    // tab on purpose can pass LIST_IMPORT_ALLOW_SHRINK=1 for one run.
+    // A tab that parses but yields a fraction of the levels it owns is the other
+    // way a read fails quietly: a truncated response, a partial render, a column
+    // the sheet renamed. Curators shrinking a tab on purpose can pass
+    // LIST_IMPORT_ALLOW_SHRINK=1 for one run.
     const owned = ownedByTab.get(tab.label) ?? 0
-    if (owned > 0 && rowsParsed < owned * TAB_SHRINK_FLOOR && !allowShrink) {
+    if (owned > 0 && usable < owned * TAB_SHRINK_FLOOR && !allowShrink) {
       throw new Error(
-        `tab "${tab.label}" (gid=${tab.gid}) returned ${rowsParsed} row(s) but owns ` +
+        `tab "${tab.label}" (gid=${tab.gid}) yielded ${usable} usable row(s) but owns ` +
         `${owned} level(s) — aborting before any level is deleted, because ` +
         `reconciliation would delete the difference. Re-run to retry; if the tab really ` +
         `did shrink, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
@@ -577,18 +612,6 @@ async function importLevels(report?: ProgressReporter) {
 
     fetched.push({ tab, text, html, cols: c, headerIdx: found.headerIdx })
     report?.({ done: fetched.length })
-
-    for (let i = found.headerIdx + 1; i < text.length; i++) {
-      const r = text[i]!
-      const rowName = txt(r[c['level name']!])
-      if (!rowName || num(r[c['placement']!]) === null) continue
-      const gd = num(r[c['level id']!])
-      if (gd != null) {
-        sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
-        sheetGdIds.add(gd)
-      }
-      sheetNames.add(rowName.toLowerCase())
-    }
   }
 
   // --- Phase 2: reconcile the sheet against the database.
@@ -924,35 +947,60 @@ function applySheetOrder(
   const allNonPerm = (db
     .prepare(`SELECT id, gd_id, name, position FROM levels WHERE permanent = 0 OR permanent IS NULL`)
     .all() as { id: number; gd_id: number | null; name: string; position: number }[])
-    // Anchored rows keep the position they already hold; only sheet-backed
-    // levels are renumbered, and they flow around the anchors.
-    .filter((r) => !anchorIds.has(r.id))
+    .sort((a, b) => a.position - b.position)
 
   // Positions before the renumber, so real movements can be told apart from
   // the passive shifting every level does when rows are inserted above it.
   const oldPositions = new Map<number, number>(allNonPerm.map((r) => [r.id, r.position]))
 
-  const ranked = allNonPerm.map((r) => ({
-    id: r.id,
-    rank: sheetRank.get(dupKey(r.gd_id, r.name)) ?? Number.POSITIVE_INFINITY,
-    fallbackPos: r.position,
-  }))
+  // A level the site owns rather than the sheet keeps its place in the list by
+  // remembering which sheet level it sits *behind*, not by holding an absolute
+  // position number. Those are only the same thing while the rows above it stay
+  // put: pin a site level to #4,000 and let the sheet grow by ten thousand rows
+  // above it, and it is still at #4,000 while the levels it used to sit among
+  // have moved thousands of places — which is how a hand-placed level ends up
+  // somewhere unrecognisable after a refresh. Predecessor is read from the order
+  // as it stands now, before anything is renumbered.
+  const followers = new Map<number | 'top', typeof allNonPerm>()
+  let precedingSheetRow: number | 'top' = 'top'
+  for (const r of allNonPerm) {
+    if (anchorIds.has(r.id)) {
+      const list = followers.get(precedingSheetRow) ?? []
+      list.push(r)
+      followers.set(precedingSheetRow, list)
+    } else {
+      precedingSheetRow = r.id
+    }
+  }
+
+  const ranked = allNonPerm
+    .filter((r) => !anchorIds.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      rank: sheetRank.get(dupKey(r.gd_id, r.name)) ?? Number.POSITIVE_INFINITY,
+      fallbackPos: r.position,
+    }))
   ranked.sort((a, b) => a.rank - b.rank || a.fallbackPos - b.fallbackPos)
 
-  const anchoredPositions = new Set(
-    (db.prepare(
-      `SELECT id, position FROM levels WHERE permanent = 1`,
-    ).all() as { id: number; position: number }[]).map((r) => r.position),
-  )
-  for (const row of db
-    .prepare(`SELECT id, position FROM levels`)
-    .all() as { id: number; position: number }[]) {
-    if (anchorIds.has(row.id)) anchoredPositions.add(row.position)
+  // Weave the anchored rows back in behind whichever level they were following.
+  const finalOrder: number[] = []
+  for (const s of followers.get('top') ?? []) finalOrder.push(s.id)
+  for (const r of ranked) {
+    finalOrder.push(r.id)
+    for (const s of followers.get(r.id) ?? []) finalOrder.push(s.id)
   }
+
+  // Permanent levels are website-owned and never move, so their positions stay
+  // spoken for and the rest of the list flows around them.
+  const permanentPositions = new Set(
+    (db.prepare(
+      `SELECT position FROM levels WHERE permanent = 1`,
+    ).all() as { position: number }[]).map((r) => r.position),
+  )
   const targets: number[] = []
   let p = 1
-  while (targets.length < ranked.length) {
-    if (!anchoredPositions.has(p)) targets.push(p)
+  while (targets.length < finalOrder.length) {
+    if (!permanentPositions.has(p)) targets.push(p)
     p++
   }
 
@@ -962,8 +1010,8 @@ function applySheetOrder(
     // Park every non-permanent row at a unique negative position so the final
     // assignment can't collide with a value still held by another row in this
     // batch. Permanent positions are positive, so negatives are conflict-free.
-    for (let i = 0; i < ranked.length; i++) setPos.run(-(i + 1), ranked[i]!.id)
-    for (let i = 0; i < ranked.length; i++) setPos.run(targets[i]!, ranked[i]!.id)
+    for (let i = 0; i < finalOrder.length; i++) setPos.run(-(i + 1), finalOrder[i]!)
+    for (let i = 0; i < finalOrder.length; i++) setPos.run(targets[i]!, finalOrder[i]!)
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')
@@ -973,7 +1021,7 @@ function applySheetOrder(
   if (opts.recordHistory) {
     recordSheetMovements(db, {
       oldPositions,
-      newPositions: new Map(ranked.map((r, i) => [r.id, targets[i]!])),
+      newPositions: new Map(finalOrder.map((id, i) => [id, targets[i]!])),
       newIds: opts.newIds ?? new Set(),
     })
   }
