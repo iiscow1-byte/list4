@@ -191,7 +191,8 @@ export default defineEventHandler(async (event) => {
     if (Array.isArray(body?.packs)) {
       db.prepare(`DELETE FROM custom_list_packs WHERE list_id = ?`).run(row.id)
       const insPack = db.prepare(
-        `INSERT INTO custom_list_packs (list_id, name, color, sort_order) VALUES (?,?,?,?)`,
+        `INSERT INTO custom_list_packs (list_id, name, color, sort_order, require_count)
+         VALUES (?,?,?,?,?)`,
       )
       const insPackItem = db.prepare(
         `INSERT OR IGNORE INTO custom_list_pack_items (pack_id, item_id) VALUES (?,?)`,
@@ -205,7 +206,11 @@ export default defineEventHandler(async (event) => {
         if (!name) return
         assertClean(name, 'Pack names')
         const color = String(p?.color ?? '').trim().slice(0, 20) || null
-        const packId = Number(insPack.run(row.id, name, color, i).lastInsertRowid)
+        // "Clear Any N". Null (or nonsense) means the tier asks for all of its
+        // levels, which is what every pack meant before GDSR existed.
+        const rawReq = Number(p?.require_count)
+        const requireCount = Number.isInteger(rawReq) && rawReq > 0 ? Math.min(rawReq, MAX_ITEMS) : null
+        const packId = Number(insPack.run(row.id, name, color, i, requireCount).lastInsertRowid)
         for (const rawId of (p?.item_ids ?? []).slice(0, MAX_ITEMS)) {
           const itemId = Number(rawId)
           if (ownItems.has(itemId)) insPackItem.run(packId, itemId)

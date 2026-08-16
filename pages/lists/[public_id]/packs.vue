@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { gdsrRequirementLabel } from '~/utils/gdsr-tiers'
 definePageMeta({ layout: 'level' })
 
 const route = useRoute()
@@ -9,15 +10,25 @@ function itemById(id: number) {
   return list.value?.items.find((i: any) => i.id === id) ?? null
 }
 
-useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }))
+useHead(() => ({
+  title: list.value
+    ? `${(list.value as any).kind === 'gdsr' ? 'Tiers' : 'Packs'} — ${list.value.title}`
+    : 'Packs',
+}))
 </script>
 
 <template>
-  <CustomListShell :public-id="publicId" width="wide" title="Packs">
+  <CustomListShell :public-id="publicId" width="wide" title="Tiers">
     <template #default="{ list: l }">
       <div v-if="!l.packs.length" class="card px-6 py-16 text-center">
-        <p class="text-sm text-zinc-400">This list has no packs.</p>
-        <p class="text-xs text-zinc-600 mt-1">Packs group levels under a name and colour.</p>
+        <p class="text-sm text-zinc-400">
+          {{ l.kind === 'gdsr' ? 'This list has no tiers.' : 'This list has no packs.' }}
+        </p>
+        <p class="text-xs text-zinc-600 mt-1">
+          {{ l.kind === 'gdsr'
+            ? 'Add tiers in the GDSR creator.'
+            : 'Packs group levels under a name and colour.' }}
+        </p>
       </div>
 
       <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -32,7 +43,14 @@ useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }
             :style="{ backgroundColor: p.color ? `${p.color}12` : undefined }"
           >
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: p.color || '#71717a' }" />
-            <h3 class="text-sm font-semibold text-zinc-100 truncate">{{ p.name }}</h3>
+            <span class="min-w-0">
+              <h3 class="text-sm font-semibold text-zinc-100 truncate">{{ p.name }}</h3>
+              <!-- A GDSR tier is earned by clearing some of its levels, not all
+                   of them, so the requirement is the tier's headline fact. -->
+              <span class="block text-[11px] text-zinc-500 truncate">
+                {{ gdsrRequirementLabel(p.require_count ?? null, p.item_ids.length) }}
+              </span>
+            </span>
             <span class="ml-auto text-[11px] text-zinc-600 tabular-nums shrink-0">{{ p.item_ids.length }}</span>
           </header>
           <ul class="divide-y divide-zinc-900/60">

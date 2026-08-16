@@ -32,6 +32,8 @@ const requestRelocation = ref(false)
 const comparisonLevel = ref<LevelInfo | null>(null)
 const requestedPosition = ref<string>('')
 const compareOpen = ref(false)
+/** The picker, reused to choose the level the opinion is *about*. */
+const subjectOpen = ref(false)
 
 const submitting = ref(false)
 const error = ref<string | null>(null)
@@ -41,7 +43,8 @@ async function loadLevel() {
   loadError.value = null
   const pos = Number(route.query.position)
   if (!Number.isFinite(pos) || pos <= 0) {
-    loadError.value = 'No level selected. Open this page from a level page.'
+    // Arriving without a level is now the ordinary way in — the page opens on
+    // the picker instead of dead-ending on "open this from a level page".
     return
   }
   position.value = pos
@@ -58,6 +61,19 @@ async function loadLevel() {
   }
 }
 loadLevel()
+
+/** Pick (or change) the level this opinion is about. */
+function onConfirmSubject(lvl: LevelInfo) {
+  position.value = lvl.position
+  levelInfo.value = lvl
+  loadError.value = null
+  // A tier or difficulty typed for the previous level must not follow the
+  // opinion onto a different one.
+  gddlTier.value = ''
+  difficulty.value = ''
+  comparisonLevel.value = null
+  requestedPosition.value = ''
+}
 
 function onConfirmCompare(lvl: LevelInfo) {
   comparisonLevel.value = lvl
@@ -117,20 +133,46 @@ async function submit() {
 <template>
   <div class="container-tight py-8 max-w-xl">
     <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit an opinion</h1>
-    <p v-if="levelInfo" class="text-sm text-zinc-400 mb-1">
-      For <span class="text-zinc-200 font-medium">#{{ levelInfo.position }} {{ levelInfo.name }}</span>
-      <span v-if="kind === 'void'" class="text-fuchsia-300/80"> · void list</span>
-    </p>
-    <p class="text-sm text-zinc-400 mb-6">
+    <p class="text-sm text-zinc-400 mb-5">
       Opinions are only accepted from people who completed the level in at most two runs. Your proof
       will be reviewed by a moderator before the opinion counts toward the community tier.
     </p>
 
-    <div v-if="loadError" class="rounded border border-red-900/50 bg-red-950/30 text-red-300 px-3 py-2 text-sm">
-      {{ loadError }}
+    <!-- Which level this is about. Chosen here rather than only inherited from
+         the page you came from, so the form is reachable on its own. -->
+    <div class="mb-5">
+      <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
+      <button
+        v-if="levelInfo"
+        type="button"
+        class="mt-1 w-full flex items-center gap-3 rounded border border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 px-3 py-2.5 text-left transition-colors"
+        @click="subjectOpen = true"
+      >
+        <span class="min-w-0 flex-1">
+          <span class="block text-sm text-zinc-100 font-medium truncate">
+            #{{ levelInfo.position }} {{ levelInfo.name }}
+          </span>
+          <span class="block text-[11px] text-zinc-500 truncate">
+            <template v-if="levelInfo.gddl_tier">{{ levelInfo.gddl_tier }}</template>
+            <template v-if="levelInfo.gddl_tier && levelInfo.difficulty"> · </template>
+            <template v-if="levelInfo.difficulty">{{ levelInfo.difficulty }}</template>
+            <span v-if="kind === 'void'" class="text-fuchsia-300/80"> · void list</span>
+          </span>
+        </span>
+        <span class="text-[11px] text-zinc-500 shrink-0">Change</span>
+      </button>
+      <button
+        v-else
+        type="button"
+        class="mt-1 w-full rounded border border-dashed border-zinc-700 hover:border-accent hover:text-accent px-3 py-4 text-sm text-zinc-400 transition-colors"
+        @click="subjectOpen = true"
+      >
+        Choose a level →
+      </button>
+      <p v-if="loadError" class="mt-1.5 text-xs text-red-400">{{ loadError }}</p>
     </div>
 
-    <form v-else class="space-y-4" @submit.prevent="submit">
+    <form v-if="levelInfo" class="space-y-4" @submit.prevent="submit">
       <label class="block">
         <span class="text-[11px] uppercase tracking-widest text-zinc-500">Proof of progress URL <span class="text-red-400">*</span></span>
         <input
@@ -247,6 +289,12 @@ async function submit() {
       v-model:open="compareOpen"
       :initial="comparisonLevel"
       @confirm="onConfirmCompare"
+    />
+    <LevelComparisonDrawer
+      v-model:open="subjectOpen"
+      :initial="levelInfo"
+      title="Choose a level"
+      @confirm="onConfirmSubject"
     />
   </div>
 </template>

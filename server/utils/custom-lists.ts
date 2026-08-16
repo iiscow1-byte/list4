@@ -315,7 +315,7 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.show_banner, cl.show_thumbnails, cl.show_points, cl.show_records,
             cl.compact_rows, cl.show_editors,
             cl.show_tier, cl.show_difficulty, cl.show_level_links, cl.name_display,
-            cl.discord_url, cl.youtube_url,
+            cl.discord_url, cl.youtube_url, cl.kind,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl
@@ -427,7 +427,7 @@ export function loadList(db: DatabaseSync, listId: number) {
   ).all(listId) as { id: number; name: string; color: string | null; from_rank: number }[]
 
   const packs = db.prepare(
-    `SELECT p.id, p.name, p.color, p.sort_order
+    `SELECT p.id, p.name, p.color, p.sort_order, p.require_count
        FROM custom_list_packs p
       WHERE p.list_id = ?
       ORDER BY p.sort_order ASC, p.id ASC`,

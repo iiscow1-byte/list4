@@ -1761,6 +1761,32 @@ function initSchema(db: DatabaseSync) {
   if (!clCols2.some((c) => c.name === 'accepts_submissions')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN accepts_submissions INTEGER NOT NULL DEFAULT 0`)
   }
+  /**
+   * What shape this list is.
+   *
+   * `ranked` is every list that existed before this column: an ordered 1..N
+   * where rank is the whole point, and tiers (`custom_list_tiers`) are bands
+   * drawn across that order.
+   *
+   * `gdsr` is the other shape, after the GDSR sheets — levels are sorted into
+   * named difficulty tiers (Bronze, Silver, Gold, …) and rank means nothing
+   * inside one. Those tiers are `custom_list_packs`, which already group items
+   * explicitly rather than by rank band; the only thing a pack was missing is
+   * the clear requirement below.
+   */
+  if (!clCols2.some((c) => c.name === 'kind')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN kind TEXT NOT NULL DEFAULT 'ranked'`)
+  }
+
+  /**
+   * How many levels in a tier a player must clear to earn it — the GDSR
+   * sheets' "Clear Any 9". NULL means the tier asks for all of them, which is
+   * also what every pack that predates GDSR means.
+   */
+  const packCols = db.prepare(`PRAGMA table_info(custom_list_packs)`).all() as { name: string }[]
+  if (!packCols.some((c) => c.name === 'require_count')) {
+    db.exec(`ALTER TABLE custom_list_packs ADD COLUMN require_count INTEGER`)
+  }
   // Presentation: a list's own icon and accent colour, so a community's list
   // reads as theirs rather than as a generic entry in the gallery.
   if (!clCols2.some((c) => c.name === 'icon_url')) {

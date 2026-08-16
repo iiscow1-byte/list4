@@ -95,7 +95,7 @@ let tierSaveDebounce: ReturnType<typeof setTimeout> | null = null
 // --- Pending-list filters ---
 const PENDING_TAGS = ['old', 'uldm', 'buffed', 'nerfed'] as const
 type DifficultyFilter = 'all' | 'extreme' | 'non-extreme'
-type PendingSort = 'submitted' | 'challenge_first' | 'tier_asc' | 'tier_desc' | 'list_position'
+type PendingSort = 'submitted' | 'recent' | 'challenge_first' | 'tier_asc' | 'tier_desc' | 'list_position'
 const filtersOpen = ref(false)
 const search = ref('')
 const difficultyFilter = ref<DifficultyFilter>('all')
@@ -175,6 +175,13 @@ const filteredItems = computed<PendingLevel[]>(() => {
   })
   const sort = pendingSort.value
   if (sort === 'submitted') return filtered
+  // The API hands these back oldest-first, which is the right default for a
+  // review queue but the wrong one for "what just came in".
+  if (sort === 'recent') {
+    return [...filtered].sort((a, b) =>
+      String(b.submitted_at ?? '').localeCompare(String(a.submitted_at ?? '')) || b.id - a.id,
+    )
+  }
   return [...filtered].sort((a, b) => {
     if (sort === 'challenge_first') {
       const ac = a.rated === 'Challenge' ? 0 : 1
@@ -886,7 +893,7 @@ watch(preview, (p) => {
             <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Sort</div>
             <div class="flex flex-wrap gap-1.5">
               <label
-                v-for="[val, label] in ([['submitted','Submission order'],['challenge_first','Challenge first'],['tier_asc','Easiest first'],['tier_desc','Hardest first'],['list_position','List position']] as const)"
+                v-for="[val, label] in ([['submitted','Oldest first'],['recent','Most recent'],['challenge_first','Challenge first'],['tier_asc','Easiest first'],['tier_desc','Hardest first'],['list_position','List position']] as const)"
                 :key="val"
                 class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
                 :class="pendingSort === val

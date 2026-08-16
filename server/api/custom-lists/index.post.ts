@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
     items?: CustomListItemInput[]
     is_public?: boolean
     accepts_submissions?: boolean
+    /** 'ranked' (default) or 'gdsr' — levels grouped into difficulty tiers. */
+    kind?: string
   }>(event)
 
   const db = getDb()
@@ -34,11 +36,14 @@ export default defineEventHandler(async (event) => {
   try {
     const info = db.prepare(
       `INSERT INTO custom_lists
-         (public_id, owner_account_id, title, description, is_public, accepts_submissions)
-       VALUES (?,?,?,?,?,?)`,
+         (public_id, owner_account_id, title, description, is_public, accepts_submissions, kind)
+       VALUES (?,?,?,?,?,?,?)`,
     ).run(
       newPublicId(), account.id, title, description,
       body?.is_public ? 1 : 0, body?.accepts_submissions ? 1 : 0,
+      // Anything unrecognised is a ranked list; the shape decides how the whole
+      // list renders, so it is not a field to take on trust from a client.
+      body?.kind === 'gdsr' ? 'gdsr' : 'ranked',
     )
     const listId = Number(info.lastInsertRowid)
     replaceItems(db, listId, Array.isArray(body?.items) ? body.items : [], account.id)

@@ -56,12 +56,13 @@ export const SITE_NAV: NavMenu[] = [
     key: 'build',
     label: 'Build',
     to: '/builder',
-    match: ['/builder', '/lists'],
+    match: ['/builder', '/lists', '/gdsr'],
     groups: [
       {
         label: 'Your lists',
         links: [
           { label: 'Build your own list', to: '/builder', hint: 'Drag levels in and rank them yourself', icon: 'build', accent: true },
+          { label: 'GDSR creator', to: '/gdsr', hint: 'Sort levels into difficulty tiers instead of ranking them', icon: 'build' },
         ],
       },
       {

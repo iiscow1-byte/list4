@@ -40,6 +40,8 @@ type Row = {
   hardest: string | null
   hardest_rank: number | null
   hardest_position: number | null
+  /** Standing on the whole challenge leaderboard — see `leaderboard.get.ts`. */
+  globalRank: number
 }
 let cache: { at: number; rows: Row[] } | null = null
 
@@ -95,8 +97,11 @@ function build(db: ReturnType<typeof getDb>): Row[] {
     for (const f of found) byRank.set(f.challenge_rank, { name: f.name, position: f.position })
   }
 
-  return rows.map((r) => ({
+  // Ranked here, on the full set, so a search narrows the rows shown without
+  // changing what any of them is worth.
+  return rows.map((r, i) => ({
     ...r,
+    globalRank: i + 1,
     hardest: r.hardest_rank != null ? byRank.get(r.hardest_rank)?.name ?? null : null,
     hardest_position: r.hardest_rank != null ? byRank.get(r.hardest_rank)?.position ?? null : null,
   }))
@@ -126,8 +131,8 @@ export default defineEventHandler((event) => {
   if (search) filtered = filtered.filter((r) => r.player.toLowerCase().includes(search))
 
   const total = filtered.length
-  const items = filtered.slice(offset, offset + limit).map((p, i) => ({
-    rank: offset + i + 1,
+  const items = filtered.slice(offset, offset + limit).map((p) => ({
+    rank: p.globalRank,
     ...p,
     country: null as string | null,
     account_username: null as string | null,

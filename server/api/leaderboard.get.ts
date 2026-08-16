@@ -13,6 +13,16 @@ type Row = {
   hardest: string | null
   tier: string | null
   badge: string | null
+  /**
+   * Standing on the whole leaderboard, fixed when the base set is built.
+   *
+   * Rank used to be the row's index within whatever was left after searching,
+   * so the first hit for any name was always "#1" — searching for a player told
+   * you nothing about where they actually stand, which is the one thing anybody
+   * searches a leaderboard for. `/api/leaderboard/global` already worked this
+   * way; these two now agree with it.
+   */
+  globalRank: number
 }
 
 /**
@@ -113,6 +123,7 @@ export default defineEventHandler((event) => {
     ...p,
     extremes: extremesMap.get(p.player.toLowerCase()) ?? 0,
     badge: roleMap.get(p.player.toLowerCase()) ?? null,
+    globalRank: 0,
   }))
 
   all.sort((a, b) => {
@@ -120,6 +131,9 @@ export default defineEventHandler((event) => {
     if (dp !== 0) return dp
     return a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
   })
+
+  // Standing is fixed here, on the full set, before any caller's filter runs.
+  all.forEach((r, i) => { r.globalRank = i + 1 })
 
   baseCache = { at: Date.now(), rows: all }
   return respond(db, event, all, { limit, offset, search, followedOnly })
@@ -151,13 +165,12 @@ function respond(db: ReturnType<typeof getDb>, event: any, all: Row[], opts: Res
     filtered = filtered.filter((r) => r.player.toLowerCase().includes(needle))
   }
 
-  // Ranks reflect position within the filtered/searched results, ordered by
-  // points, so the top result in a search is always shown as #1. Only the
-  // requested page is materialised — mapping 50k rows to add a rank number
-  // just to slice 200 of them was most of the cost of a page turn.
+  // Rank is the player's standing on the whole leaderboard, carried on the row
+  // since the base set was built — searching narrows which rows are shown, not
+  // what any of them is worth. Only the requested page is materialised.
   const total = filtered.length
-  const items = filtered.slice(offset, offset + limit).map((p, i) => ({
-    rank: offset + i + 1,
+  const items = filtered.slice(offset, offset + limit).map((p) => ({
+    rank: p.globalRank,
     ...p,
     account_username: null as string | null,
     has_avatar: false,

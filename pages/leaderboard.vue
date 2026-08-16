@@ -249,11 +249,18 @@ onMounted(() => {
 })
 
 /**
- * The podium only makes sense on the unfiltered first page — a search result's
- * "#1" is the best match, not the best player.
+ * The podium only makes sense on the unfiltered first page, and only when there
+ * are actually three people to stand on it.
+ *
+ * A search is excluded because the rows it leaves are the ones matching a name,
+ * not the ones at the top. The count check catches the case a search filter
+ * doesn't: "Followed" narrows the board without any search text, so following
+ * one player used to render a one-person podium — a gold card, and two gaps.
  */
 const podium = computed(() =>
-  showPodium.value && page.value === 1 && !debounced.value ? items.value.slice(0, 3) : [],
+  showPodium.value && page.value === 1 && !debounced.value && items.value.length >= 3
+    ? items.value.slice(0, 3)
+    : [],
 )
 const listItems = computed(() =>
   podium.value.length ? items.value.slice(3) : items.value,
