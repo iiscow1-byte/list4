@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { GDTPL_LISTS } from '~/utils/list-source-catalog'
 
 /**
  * Where else a level is ranked.
