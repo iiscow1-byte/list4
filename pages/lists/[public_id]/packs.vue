@@ -10,6 +10,18 @@ function itemById(id: number) {
   return list.value?.items.find((i: any) => i.id === id) ?? null
 }
 
+/**
+ * A tier's requirement is measured against the levels somebody could actually
+ * clear. Counting unverified drafts would make "clear any 9 of 12" unreachable
+ * whenever three of the twelve are unbeaten.
+ */
+function clearableIn(p: any): number {
+  return (p.item_ids ?? []).filter((id: number) => !itemById(id)?.unverified).length
+}
+function unverifiedIn(p: any): number {
+  return (p.item_ids ?? []).filter((id: number) => itemById(id)?.unverified).length
+}
+
 useHead(() => ({
   title: list.value
     ? `${(list.value as any).kind === 'gdsr' ? 'Tiers' : 'Packs'} — ${list.value.title}`
@@ -48,7 +60,10 @@ useHead(() => ({
               <!-- A GDSR tier is earned by clearing some of its levels, not all
                    of them, so the requirement is the tier's headline fact. -->
               <span class="block text-[11px] text-zinc-500 truncate">
-                {{ gdsrRequirementLabel(p.require_count ?? null, p.item_ids.length) }}
+                {{ gdsrRequirementLabel(p.require_count ?? null, clearableIn(p)) }}
+                <template v-if="unverifiedIn(p)">
+                  · <span class="text-amber-400/80">{{ unverifiedIn(p) }} unverified</span>
+                </template>
               </span>
             </span>
             <span class="ml-auto text-[11px] text-zinc-600 tabular-nums shrink-0">{{ p.item_ids.length }}</span>
@@ -68,10 +83,18 @@ useHead(() => ({
                   overlay-class="bg-gradient-to-r from-zinc-950/92 via-zinc-950/70 to-zinc-950/40"
                 />
                 <span class="relative text-zinc-600 tabular-nums text-[11px] shrink-0 w-7">#{{ itemById(id)!.rank }}</span>
-                <span class="relative truncate">{{ itemById(id)!.name }}</span>
-                <span class="relative ml-auto shrink-0 text-[10px] tabular-nums text-amber-300/70">
-                  {{ itemById(id)!.points }}
+                <span class="relative truncate" :class="itemById(id)!.unverified ? 'text-zinc-500 italic' : ''">
+                  {{ itemById(id)!.name }}
                 </span>
+                <span
+                  v-if="itemById(id)!.unverified"
+                  class="relative shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-950/60 text-amber-300/90 border border-amber-800/50"
+                  title="Nobody has verified this level yet — it can't be cleared"
+                >Unverified</span>
+                <span
+                  v-else
+                  class="relative ml-auto shrink-0 text-[10px] tabular-nums text-amber-300/70"
+                >{{ itemById(id)!.points }}</span>
               </NuxtLink>
             </li>
           </ul>

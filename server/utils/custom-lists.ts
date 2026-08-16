@@ -23,6 +23,8 @@ export type CustomListItemInput = {
   game_version?: string | null
   /** The list's own call on whether this row is a challenge. */
   is_challenge?: boolean | number | null
+  /** Nobody has verified this level yet — it cannot be cleared by anyone. */
+  unverified?: boolean | number | null
 }
 
 /** Short, non-enumerable share token. */
@@ -104,14 +106,16 @@ export function replaceItems(
   const ins = db.prepare(`
     INSERT INTO custom_list_items
       (list_id, sort_order, level_id, name, gd_id, creator, difficulty, gddl_tier,
-       verification_url, notes, verifier, percent_to_qualify, fps, game_version, is_challenge)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+       verification_url, notes, verifier, percent_to_qualify, fps, game_version, is_challenge,
+       unverified)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `)
   const upd = db.prepare(`
     UPDATE custom_list_items
        SET sort_order = ?, level_id = ?, name = ?, gd_id = ?, creator = ?, difficulty = ?,
            gddl_tier = ?, verification_url = ?, notes = ?, verifier = ?,
-           percent_to_qualify = ?, fps = ?, game_version = ?, is_challenge = ?
+           percent_to_qualify = ?, fps = ?, game_version = ?, is_challenge = ?,
+           unverified = ?
      WHERE id = ? AND list_id = ?
   `)
 
@@ -196,6 +200,7 @@ export function replaceItems(
       clean(raw?.fps, 40),
       clean(raw?.game_version, 40),
       raw?.is_challenge ? 1 : 0,
+      raw?.unverified ? 1 : 0,
     ] as const
 
     // Find the row this entry corresponds to, if any.
@@ -336,7 +341,7 @@ export function loadList(db: DatabaseSync, listId: number) {
    */
   const items = db.prepare(
     `SELECT i.id, i.sort_order, i.level_id, i.gd_id, i.notes, i.verifier,
-            i.percent_to_qualify, i.fps, i.game_version, i.is_challenge,
+            i.percent_to_qualify, i.fps, i.game_version, i.is_challenge, i.unverified,
             COALESCE(i.ov_name, i.name)                         AS name,
             COALESCE(i.ov_creator, i.creator)                   AS creator,
             COALESCE(i.ov_difficulty, i.difficulty)             AS difficulty,

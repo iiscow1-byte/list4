@@ -398,6 +398,13 @@ function copyShare() {
           class="flex-1 min-w-[12rem] bg-transparent text-lg font-semibold tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
         />
         <span class="text-[11px] text-zinc-500 tabular-nums">{{ draft.items.length }} level{{ draft.items.length === 1 ? '' : 's' }}</span>
+        <!-- The other shape a list can take. Small and beside "New" because it
+             is a kind of list, not a separate part of the site. -->
+        <NuxtLink
+          to="/gdsr"
+          class="btn btn-sm btn-ghost text-[11px]"
+          title="Sort levels into difficulty tiers instead of ranking them"
+        >GDSR…</NuxtLink>
         <button
           type="button"
           class="btn btn-sm btn-ghost"

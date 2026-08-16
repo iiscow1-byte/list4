@@ -23,18 +23,34 @@ type CustomList = {
   icon_url: string | null
   /** Only present in the "mine" view. */
   is_public?: number
+  /** 'ranked' or 'gdsr' — decides the badge and where the card links. */
+  kind?: string
 }
 
 type View = 'discover' | 'mine'
 
-// `?view=mine` so the header's "My lists" item can link straight here, and so
-// the view survives a reload or a shared link.
+// `?view=mine` so the builder can link straight to your own lists, and so the
+// view survives a reload or a shared link. The header no longer carries its own
+// "My lists" entry — this tab is that, and two doors to one page read as two
+// pages.
 const route = useRoute()
 const view = ref<View>(route.query.view === 'mine' ? 'mine' : 'discover')
 const viewModel = computed({
   get: () => view.value as string,
   set: (v: string) => { view.value = v as any },
 })
+/**
+ * Shape filter. GDSR lists live in the same gallery as ranked ones — they are
+ * custom lists, and giving them a separate browser would have meant a second
+ * page with its own search, sort and empty states saying the same things — so
+ * the shape is a filter here instead.
+ */
+const kind = ref<'all' | 'ranked' | 'gdsr'>('all')
+const kindModel = computed({
+  get: () => kind.value as string,
+  set: (v: string) => { kind.value = v as any },
+})
+
 const sort = ref<'top' | 'new'>('top')
 const sortModel = computed({
   get: () => sort.value as string,
@@ -70,15 +86,34 @@ watch(me, loadMyLists, { immediate: true })
 // Searching and sorting "My lists" happens here — the set is small, and the
 // endpoint deliberately returns all of it so nothing you own can be hidden.
 const shown = computed<CustomList[]>(() => {
-  if (view.value === 'discover') return data.value?.lists ?? []
+  const byKind = (rows: CustomList[]) => kind.value === 'all'
+    ? rows
+    : rows.filter((l) => (l.kind ?? 'ranked') === kind.value)
+
+  if (view.value === 'discover') return byKind(data.value?.lists ?? [])
   const q = search.value.trim().toLowerCase()
-  const rows = (myLists.value ?? []).filter(
+  const rows = byKind(myLists.value ?? []).filter(
     (l) => !q || l.title.toLowerCase().includes(q) || (l.description ?? '').toLowerCase().includes(q),
   )
   return sort.value === 'top'
     ? [...rows].sort((a, b) => b.likes - a.likes || b.updated_at.localeCompare(a.updated_at))
     : rows
 })
+
+/** How many of each shape are on offer, so the filter can say so. */
+const kindCounts = computed(() => {
+  const rows = view.value === 'discover' ? (data.value?.lists ?? []) : (myLists.value ?? [])
+  return {
+    all: rows.length,
+    ranked: rows.filter((l) => (l.kind ?? 'ranked') === 'ranked').length,
+    gdsr: rows.filter((l) => l.kind === 'gdsr').length,
+  }
+})
+
+/** A GDSR opens on its tiers; a ranked list opens on its order. */
+function listLink(l: CustomList) {
+  return l.kind === 'gdsr' ? `/lists/${l.public_id}/packs` : `/lists/${l.public_id}`
+}
 
 const busy = ref<string | null>(null)
 const error = ref<string | null>(null)
@@ -172,6 +207,19 @@ useHead({ title: 'Custom lists — All Levels List' })
         ]"
       />
 
+      <!-- Only offered once there is something to filter: on a gallery with no
+           GDSR lists in it this control would be three buttons and one outcome. -->
+      <SegmentedControl
+        v-if="kindCounts.gdsr > 0"
+        v-model="kindModel"
+        aria-label="List shape"
+        :options="[
+          { value: 'all', label: `All ${kindCounts.all}` },
+          { value: 'ranked', label: `Ranked ${kindCounts.ranked}` },
+          { value: 'gdsr', label: `GDSR ${kindCounts.gdsr}` },
+        ]"
+      />
+
       <input
         v-model="search"
         type="search"
@@ -210,7 +258,7 @@ useHead({ title: 'Custom lists — All Levels List' })
         class="card overflow-hidden flex flex-col group"
         :style="listAccentStyle(l)"
       >
-        <NuxtLink :to="`/lists/${l.public_id}`" class="relative block h-24 overflow-hidden bg-zinc-900">
+        <NuxtLink :to="listLink(l)" class="relative block h-24 overflow-hidden bg-zinc-900">
           <div class="absolute inset-0 flex">
             <div
               v-for="(gd, i) in (l.cover_gd_ids.length ? l.cover_gd_ids : [null])"
@@ -221,10 +269,17 @@ useHead({ title: 'Custom lists — All Levels List' })
             </div>
           </div>
           <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent" />
-          <span
-            v-if="l.is_public === 0"
-            class="absolute top-2 right-2 rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-400"
-          >Private</span>
+          <span class="absolute top-2 right-2 flex items-center gap-1">
+            <span
+              v-if="l.kind === 'gdsr'"
+              class="rounded-full border border-amber-700/70 bg-amber-950/70 px-2 py-0.5 text-[9px] uppercase tracking-widest text-amber-300"
+              title="Levels sorted into difficulty tiers rather than ranked"
+            >GDSR</span>
+            <span
+              v-if="l.is_public === 0"
+              class="rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-400"
+            >Private</span>
+          </span>
           <h2 class="absolute bottom-2 left-3 right-3 flex items-center gap-1.5 font-semibold text-zinc-50 drop-shadow">
             <img
               v-if="l.icon_url"

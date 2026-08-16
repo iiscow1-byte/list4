@@ -61,15 +61,17 @@ export const SITE_NAV: NavMenu[] = [
       {
         label: 'Your lists',
         links: [
-          { label: 'Build your own list', to: '/builder', hint: 'Drag levels in and rank them yourself', icon: 'build', accent: true },
-          { label: 'GDSR creator', to: '/gdsr', hint: 'Sort levels into difficulty tiers instead of ranking them', icon: 'build' },
+          // The GDSR creator is reached from the builder rather than from here:
+          // it makes a kind of list, not a separate feature, and a second entry
+          // beside this one implied otherwise. "My lists" is gone for the same
+          // reason — the gallery it pointed at has its own Mine tab.
+          { label: 'Build your own list', to: '/builder', hint: 'Rank levels yourself, or sort them into GDSR tiers', icon: 'build', accent: true },
         ],
       },
       {
         label: 'Discover',
         links: [
-          { label: 'Custom lists', to: '/lists', hint: 'Lists shared by the community', icon: 'gallery' },
-          { label: 'My lists', to: '/lists?view=mine', hint: "Everything you've built, published or not", icon: 'list', authOnly: true },
+          { label: 'Custom lists', to: '/lists', hint: 'Lists shared by the community, and your own', icon: 'gallery' },
         ],
       },
     ],

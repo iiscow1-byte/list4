@@ -2135,6 +2135,21 @@ function initSchema(db: DatabaseSync) {
     db.exec(`ALTER TABLE custom_list_items ADD COLUMN is_challenge INTEGER NOT NULL DEFAULT 0`)
   }
 
+  /**
+   * A level nobody has verified yet.
+   *
+   * GDSR lists carry these routinely — a tier is drafted with the levels it
+   * will contain before anyone has cleared them — and they are not the same as
+   * a level with no record: the level itself is unbeaten, so it cannot be
+   * cleared by anybody and must not count toward a tier's requirement or the
+   * denominator of the leaderboard. A flag rather than an inference, because
+   * "no records yet" and "unverified" look identical in the data and mean
+   * opposite things to a player reading the list.
+   */
+  if (!cliChallengeCols.some((c) => c.name === 'unverified')) {
+    db.exec(`ALTER TABLE custom_list_items ADD COLUMN unverified INTEGER NOT NULL DEFAULT 0`)
+  }
+
   // AREDL mirrors each player's Discord avatar hash. Paired with `discord_id`
   // it is a CDN URL, which is the only picture the site can show for a player
   // who has never signed up here — see `utils/discord-avatar.ts`.
