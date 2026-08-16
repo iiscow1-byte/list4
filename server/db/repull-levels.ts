@@ -36,6 +36,7 @@ import { recomputePoints } from '../utils/points.ts'
  *   npm run repull-levels              (dry run — reports what would change)
  *   npm run repull-levels -- --apply
  *   npm run repull-levels -- --apply --fields=gddl_tier,difficulty
+ *   npm run repull-levels -- --apply --allow-blanks   (also clear fields the sheet left empty)
  */
 
 /** Sheet-owned columns this refreshes, in report order. */
@@ -46,7 +47,8 @@ const FIELDS = [
 ] as const
 type Field = (typeof FIELDS)[number]
 
-type SheetRow = Record<Field, string | number | null> & { gdId: number; tab: string }
+/** `undefined` = this tab has no such column, so it has no opinion on the field. */
+type SheetRow = Record<Field, string | number | null | undefined> & { gdId: number; tab: string }
 
 async function readSheet(): Promise<SheetRow[]> {
   const out: SheetRow[] = []
@@ -76,18 +78,31 @@ async function readSheet(): Promise<SheetRow[]> {
       // those on name is exactly what corrupted the list, so they are skipped.
       if (gdId == null) continue
 
+      /**
+       * A column this tab doesn't have is an absence of opinion, not a blank.
+       *
+       * The tabs are not uniform: "Main Skillset" exists only on the Main tab,
+       * "Verification Link" is missing or empty across most of the Subtiers,
+       * and no tab carries "Year Verified" at all. Reading a missing column as
+       * `null` and writing that back doesn't refresh a level — it erases
+       * whatever the field held, for every level on every tab that lacks the
+       * column. `undefined` means "this tab says nothing", and the comparison
+       * below skips it.
+       */
+      const col = (key: string) => (c[key] != null ? txt(r[c[key]!]) : undefined)
+
       out.push({
         gdId,
         tab: tab.label,
         name,
-        gddl_tier: txt(r[c['gddl tier']!]),
-        difficulty: txt(r[c['difficulty']!]),
-        placement_source: sourceCol != null ? txt(r[sourceCol]) : null,
-        main_skillset: txt(r[c['main skillset']!]),
-        verify_date: txt(r[c['verify date']!]),
-        verification: verCol != null ? txt(r[verCol]) : null,
-        verification_url: verCol != null ? extractLinkHref(rh[verCol] ?? '') : null,
-        year_verified: num(r[c['year verified']!]),
+        gddl_tier: col('gddl tier'),
+        difficulty: col('difficulty'),
+        placement_source: sourceCol != null ? txt(r[sourceCol]) : undefined,
+        main_skillset: col('main skillset'),
+        verify_date: col('verify date'),
+        verification: verCol != null ? txt(r[verCol]) : undefined,
+        verification_url: verCol != null ? extractLinkHref(rh[verCol] ?? '') : undefined,
+        year_verified: c['year verified'] != null ? num(r[c['year verified']!]) : undefined,
         source_tab: tab.label,
         sheet_placement: placement,
         sheet_rank: placement,
@@ -101,6 +116,7 @@ async function readSheet(): Promise<SheetRow[]> {
 
 async function main() {
   const apply = process.argv.includes('--apply')
+  const allowBlanks = process.argv.includes('--allow-blanks')
   const fieldArg = process.argv.find((a) => a.startsWith('--fields='))
   const active: Field[] = fieldArg
     ? fieldArg.slice('--fields='.length).split(',').map((s) => s.trim()).filter((s): s is Field => (FIELDS as readonly string[]).includes(s))
@@ -149,6 +165,8 @@ async function main() {
   const changes: { id: number; position: number; name: string; field: Field; from: any; to: any }[] = []
   const perField = new Map<Field, number>(fields.map((f) => [f, 0]))
   const takenSheetRows = new Set<SheetRow>()
+  const blanked: typeof changes = []
+  let skippedNoColumn = 0
   let matchedExact = 0, matchedGd = 0, unmatched = 0
   const unmatchedSample: string[] = []
 
@@ -167,10 +185,25 @@ async function main() {
     takenSheetRows.add(row)
 
     for (const f of fields) {
-      const to = row[f] ?? null
+      const to = row[f]
       const from = l[f] ?? null
+
+      // The tab carries no such column — it has nothing to say about this
+      // field, which is not the same as saying it is empty.
+      if (to === undefined) { skippedNoColumn++; continue }
+
       // Compare as text so 2026 and "2026" don't read as a change every run.
       if (String(from ?? '') === String(to ?? '')) continue
+
+      // The column exists and its cell is empty, but the site has a value. That
+      // is usually the sheet being sparse rather than the sheet retracting
+      // something — most of these fields are filled in for a minority of rows —
+      // so blanking is opt-in.
+      if ((to === null || to === '') && from !== null) {
+        blanked.push({ id: l.id, position: l.position, name: String(l.name), field: f, from, to: null })
+        if (!allowBlanks) continue
+      }
+
       changes.push({ id: l.id, position: l.position, name: String(l.name), field: f, from, to })
       perField.set(f, (perField.get(f) ?? 0) + 1)
     }
