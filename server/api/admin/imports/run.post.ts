@@ -6,13 +6,7 @@ import {
 import { invalidateImportedMovementSummary } from '~/server/utils/imported-movements'
 import { importPendingList, runImport } from '~/server/db/import'
 import { importGdl } from '~/server/db/import-gdl'
-import { importTsl } from '~/server/db/import-tsl'
-import { importEdi } from '~/server/db/import-edi'
-import { importCcl } from '~/server/db/import-ccl'
-import { importDdl } from '~/server/db/import-ddl'
-import { importLl } from '~/server/db/import-ll'
-import { importTcl } from '~/server/db/import-tcl'
-import { importSfl } from '~/server/db/import-sfl'
+import { gdtplRunners } from '~/server/db/gdtpl-lists'
 import { importMscl } from '~/server/db/import-mscl'
 import { importAcs } from '~/server/db/import-acs'
 import { importAredl } from '~/server/db/import-aredl'
@@ -28,16 +22,11 @@ import { importGsv } from '~/server/db/import-gsv'
  * the bar stays indeterminate — which is honest.
  */
 const RUNNERS: Record<string, (report: ProgressReporter) => Promise<void>> = {
+  // Every GDListTemplate list, derived from one registry rather than listed here.
+  ...gdtplRunners(),
   'sheet':         async (r) => { await runImport(r) },
   'sheet-pending': async (r) => { await importPendingList(r) },
   'gdl':           async (r) => { await importGdl(r) },
-  'tsl':           async (r) => { await importTsl(r) },
-  'edi':           async (r) => { await importEdi(r) },
-  'ccl':           async (r) => { await importCcl(r) },
-  'ddl':           async (r) => { await importDdl(r) },
-  'll':            async (r) => { await importLl(r) },
-  'tcl':           async (r) => { await importTcl(r) },
-  'sfl':           async (r) => { await importSfl(r) },
   'mscl':          async (r) => { await importMscl(r) },
   'acs':          async (r) => { await importAcs(r) },
   'aredl':         async (r) => { await importAredl(r) },

@@ -115,6 +115,8 @@ export async function importGdtpl(cfg: GdtplListConfig, report?: ProgressReporte
   console.log(`${tag} Fetching _list.json (${cfg.displayName})…`)
   const slugs = await fetchJson<string[]>(`${baseData}/_list.json`)
   console.log(`${tag}   ${slugs.length} slugs`)
+  /** Membership test for the `_`-prefix retry below. */
+  const slugSet = new Set(slugs)
 
   console.log(`${tag} Fetching per-level JSON…`)
   report?.({ phase: 'Fetching levels', done: 0, total: slugs.length })
@@ -125,7 +127,21 @@ export async function importGdtpl(cfg: GdtplListConfig, report?: ProgressReporte
     // completions is the only honest measure of "how far along is this".
     const tick = () => report?.({ done: ++fetchedCount })
     try {
-      const data = await fetchJson<GdtplLevelJson>(`${baseData}/${encodeURIComponent(slug)}.json`)
+      let data: GdtplLevelJson
+      try {
+        data = await fetchJson<GdtplLevelJson>(`${baseData}/${encodeURIComponent(slug)}.json`)
+      } catch (err) {
+        // Cloudflare Pages will not serve a path segment beginning with `_`, so
+        // a list that slugs its top entries that way (UDL does, for 25 of its
+        // 746) gets the SPA's index.html back instead of JSON for exactly those
+        // levels — the most famous ones on the list. The file is published
+        // under the name without the prefix, so that is worth one retry before
+        // giving up. Only attempted when the stripped slug isn't itself in the
+        // list, so two real entries can never collapse into one.
+        const stripped = slug.replace(/^_+/, '')
+        if (stripped === slug || slugSet.has(stripped)) throw err
+        data = await fetchJson<GdtplLevelJson>(`${baseData}/${encodeURIComponent(stripped)}.json`)
+      }
       tick()
       return { slug, position: i + 1, data }
     } catch (err) {

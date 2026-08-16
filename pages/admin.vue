@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { roleMeta } from '~/utils/role-styles'
+import { GDTPL_LISTS } from '~/utils/list-source-catalog'
 
 definePageMeta({ middleware: 'mod', layout: 'level' })
 useHead({ title: 'Admin — All Levels List' })
@@ -412,52 +413,79 @@ async function postNow() {
 }
 
 // --- Imports tab state ---
-type ImportSourceKey = 'sheet' | 'sheet-pending' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'aredl' | 'aredl-history' | 'pointercrate' | 'gsv' | 'cl' | 'mscl' | 'acs'
-type PendingKey = 'sheet' | 'gdl' | 'tsl' | 'edi' | 'ccl' | 'll' | 'tcl' | 'sfl' | 'ddl' | 'cl' | 'acs'
+type ImportSourceKey = string
+type PendingKey = string
 type ImportSource = {
   key: ImportSourceKey
   label: string
+  /** One line under the name, so a four-letter acronym says what it is. */
+  blurb?: string
   // Sources that don't write to pending_levels can't have anything to clear.
   pendingKey: PendingKey | null
 }
-type ImportGroup = { heading: string; sources: ImportSource[] }
+type ImportGroup = { heading: string; note?: string; sources: ImportSource[] }
+
+/**
+ * The GDListTemplate lists, straight from the server-side registry, so the
+ * panel can never offer a list the runner doesn't know or miss one it does.
+ */
+const gdtplIn = (group: 'demon' | 'challenge' | 'community'): ImportSource[] =>
+  GDTPL_LISTS.filter((l) => l.group === group).map((l) => ({
+    key: l.slug,
+    label: l.short,
+    blurb: l.blurb,
+    pendingKey: l.slug,
+  }))
+
 const IMPORT_GROUPS: ImportGroup[] = [
   {
-    heading: 'Sheet',
+    heading: 'The list',
+    note: 'The Google Sheet this site is built from. Start here.',
     sources: [
-      { key: 'sheet',         label: 'Full re-import',   pendingKey: 'sheet' },
-      { key: 'sheet-pending', label: 'Pending list only', pendingKey: 'sheet' },
-      // The project's own challenge sheet, and the only other Google Sheet the
-      // site reads — so it belongs beside the main one rather than among the
-      // third-party lists below.
-      { key: 'acs',          label: 'Challenges sheet',  pendingKey: 'acs' },
+      { key: 'sheet',         label: 'Full re-import',    blurb: 'Every tab, then re-order the list', pendingKey: 'sheet' },
+      { key: 'sheet-pending', label: 'Pending list only', blurb: 'Just the sheet’s pending tab', pendingKey: 'sheet' },
+      { key: 'acs',           label: 'Challenges sheet',  blurb: 'The project’s own challenge sheet', pendingKey: 'acs' },
     ],
   },
   {
     heading: 'Demon lists',
+    note: 'Third-party demon lists. Levels they carry that this list doesn’t arrive as pending.',
     sources: [
-      { key: 'gdl',  label: 'GDL',  pendingKey: 'gdl' },
-      { key: 'tsl',  label: 'TSL',  pendingKey: 'tsl' },
-      { key: 'edi',  label: 'EDI',  pendingKey: 'edi' },
-      { key: 'ccl',  label: 'CCL',  pendingKey: 'ccl' },
-      { key: 'll',   label: 'LL',   pendingKey: 'll'  },
-      { key: 'tcl',  label: 'TCL',  pendingKey: 'tcl' },
-      { key: 'sfl',  label: 'SFL',  pendingKey: 'sfl' },
-      { key: 'ddl',  label: 'DDL',             pendingKey: 'ddl' },
-      { key: 'cl',   label: 'Challenge List',  pendingKey: 'cl'  },
-      { key: 'mscl', label: 'MSCL',            pendingKey: null  },
+      { key: 'gdl', label: 'GDL', blurb: 'Geometry Dash Demonlist', pendingKey: 'gdl' },
+      ...gdtplIn('demon'),
     ],
   },
   {
-    heading: 'Records & players',
+    heading: 'Challenge lists',
+    note: 'Scored on the challenge scale rather than the main one.',
     sources: [
-      { key: 'aredl',         label: 'AREDL',         pendingKey: null },
-      { key: 'aredl-history', label: 'AREDL history', pendingKey: null },
-      { key: 'pointercrate',  label: 'Pointercrate',  pendingKey: null },
-      { key: 'gsv',           label: 'Stats Viewer',  pendingKey: null },
+      { key: 'mscl', label: 'MSCL', blurb: 'Mega Spam Challenge List', pendingKey: null },
+      ...gdtplIn('challenge'),
+    ],
+  },
+  {
+    heading: 'Community lists',
+    note: 'Smaller and joke lists. Useful for coverage, rarely urgent.',
+    sources: gdtplIn('community'),
+  },
+  {
+    heading: 'Records & players',
+    note: 'Feeds the leaderboards. Does not add levels.',
+    sources: [
+      { key: 'aredl',         label: 'AREDL',         blurb: 'Records and players', pendingKey: null },
+      { key: 'aredl-history', label: 'AREDL history', blurb: 'Past placements — slow', pendingKey: null },
+      { key: 'pointercrate',  label: 'Pointercrate',  blurb: 'Records and players', pendingKey: null },
+      { key: 'gsv',           label: 'Stats Viewer',  blurb: 'Player stats', pendingKey: null },
     ],
   },
 ]
+/** Unaccepted rows waiting under one group, so a collapsed section still reports. */
+function groupUnaccepted(group: ImportGroup): number {
+  return group.sources.reduce(
+    (n, s) => n + (s.pendingKey ? (importsStatus.value.pendingCounts[s.pendingKey] ?? 0) : 0), 0,
+  )
+}
+
 // Flat list kept for functions that need to iterate all sources.
 const IMPORT_SOURCES = IMPORT_GROUPS.flatMap(g => g.sources)
 // All groups start open; admins can collapse any section they're not using.
@@ -1408,9 +1436,20 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             class="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-zinc-900/40 hover:bg-zinc-900/70 transition-colors text-left"
             @click="groupsOpen[group.heading] = !groupsOpen[group.heading]"
           >
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ group.heading }}</span>
+            <span class="min-w-0">
+              <span class="flex items-center gap-2">
+                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">{{ group.heading }}</span>
+                <span class="text-[10px] text-zinc-600 tabular-nums">{{ group.sources.length }}</span>
+                <!-- Pending work in a collapsed section still needs to be visible. -->
+                <span
+                  v-if="groupUnaccepted(group) > 0"
+                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-900/40 text-sky-300 border border-sky-800/60 tabular-nums"
+                >{{ groupUnaccepted(group) }} unaccepted</span>
+              </span>
+              <span v-if="group.note" class="block text-[11px] text-zinc-600 mt-0.5 truncate">{{ group.note }}</span>
+            </span>
             <span
-              class="text-zinc-600 transition-transform text-[11px]"
+              class="text-zinc-600 transition-transform text-[11px] shrink-0"
               :class="groupsOpen[group.heading] ? 'rotate-180' : ''"
             >▾</span>
           </button>
@@ -1420,8 +1459,11 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <li v-for="src in group.sources" :key="src.key" class="px-4 py-2.5">
               <div class="flex items-center gap-3">
                 <!-- Name + running/queued badge -->
-                <div class="flex items-center gap-2 w-44 shrink-0">
-                  <span class="text-sm text-zinc-100 font-medium">{{ src.label }}</span>
+                <div class="flex items-center gap-2 w-56 shrink-0">
+                  <span class="min-w-0">
+                    <span class="block text-sm text-zinc-100 font-medium truncate">{{ src.label }}</span>
+                    <span v-if="src.blurb" class="block text-[11px] text-zinc-600 truncate">{{ src.blurb }}</span>
+                  </span>
                   <span
                     v-if="importsStatus.running.includes(src.key)"
                     class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-900/40 text-amber-300 border border-amber-800/60"

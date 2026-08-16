@@ -3,6 +3,8 @@
 // usually uppercase but admins editing through the UI may type whatever.
 export const CHALLENGE_SOURCES = [
   '1SCL', 'CCPL', 'GDSRSH', 'TCL', 'SFCL', 'TSCL', '2PCL', 'CCL', 'WSCL', 'MSCL',
+  // Controlled Spam Challenge List — see `server/db/import-cscl.ts`.
+  'CSCL',
   // The project's own challenge sheet — see `server/db/import-acs.ts`.
   'ACS',
 ] as const

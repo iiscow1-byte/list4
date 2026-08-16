@@ -26,15 +26,45 @@ export type ListSource = {
  * GDListTemplate-backed lists all live in `gdtpl_levels`, keyed by `list_slug`.
  * Adding a newly imported one is a line here.
  */
-const GDTPL_LISTS: { slug: string; label: string; hint: string; url: string }[] = [
-  { slug: 'ccl', label: 'CCL — Consistency Challenge List', hint: 'consistencychallenge.pages.dev', url: 'https://consistencychallenge.pages.dev' },
-  { slug: 'tsl', label: 'TSL — The Shitty List', hint: 'tslplus.pages.dev', url: 'https://tslplus.pages.dev' },
-  { slug: 'edi', label: 'EDI — Extreme Demon Index', hint: 'edi-d6y.pages.dev', url: 'https://edi-d6y.pages.dev' },
-  { slug: 'ddl', label: 'DDL — Denouement Demonlist', hint: 'denouementdl.vercel.app', url: 'https://denouementdl.vercel.app' },
-  { slug: 'll',  label: 'LL — Layout List',  hint: 'laylist.pages.dev', url: 'https://laylist.pages.dev' },
-  { slug: 'tcl', label: 'TCL — Tiny Challenge List', hint: 'tinychallengelist.pages.dev', url: 'https://tinychallengelist.pages.dev' },
-  { slug: 'sfl', label: 'SFL — Straight Fly List', hint: 'straightfly.pages.dev', url: 'https://straightfly.pages.dev' },
-  { slug: 'cl',  label: 'CL — Challenge List', hint: 'challengelist.gd', url: 'https://challengelist.gd' },
+export type GdtplCatalogEntry = {
+  slug: string
+  label: string
+  hint: string
+  url: string
+  /** Short name for the admin panel, where the full label is too long. */
+  short: string
+  /** Plain-English name, shown under `short` in the imports tab. */
+  blurb: string
+  /**
+   * Which section of the imports tab this belongs in. Grouping by what a list
+   * *is* rather than listing sixteen acronyms in one column is the difference
+   * between a panel you read and one you scan twice.
+   */
+  group: 'demon' | 'challenge' | 'community'
+  /**
+   * Not a GDListTemplate site — it has a bespoke importer — but it files its
+   * rows under a `gdtpl_levels` slug, so it shares the pending queries.
+   */
+  bespoke?: true
+}
+
+export const GDTPL_LISTS: GdtplCatalogEntry[] = [
+  { slug: 'ccl', short: 'CCL', blurb: 'Consistency Challenge List', group: 'challenge', label: 'CCL — Consistency Challenge List', hint: 'consistencychallenge.pages.dev', url: 'https://consistencychallenge.pages.dev' },
+  { slug: 'tsl', short: 'TSL', blurb: 'The Shitty List', group: 'community', label: 'TSL — The Shitty List', hint: 'tslplus.pages.dev', url: 'https://tslplus.pages.dev' },
+  { slug: 'edi', short: 'EDI', blurb: 'Extreme Demon Index', group: 'demon', label: 'EDI — Extreme Demon Index', hint: 'edi-d6y.pages.dev', url: 'https://edi-d6y.pages.dev' },
+  { slug: 'ddl', short: 'DDL', blurb: 'Denouement Demonlist', group: 'demon', label: 'DDL — Denouement Demonlist', hint: 'denouementdl.vercel.app', url: 'https://denouementdl.vercel.app' },
+  { slug: 'll',  short: 'LL',  blurb: 'Layout List', group: 'community', label: 'LL — Layout List',  hint: 'laylist.pages.dev', url: 'https://laylist.pages.dev' },
+  { slug: 'tcl', short: 'TCL', blurb: 'Tiny Challenge List', group: 'challenge', label: 'TCL — Tiny Challenge List', hint: 'tinychallengelist.pages.dev', url: 'https://tinychallengelist.pages.dev' },
+  { slug: 'sfl', short: 'SFL', blurb: 'Straight Fly List', group: 'community', label: 'SFL — Straight Fly List', hint: 'straightfly.pages.dev', url: 'https://straightfly.pages.dev' },
+  { slug: 'cl',  short: 'CL',  blurb: 'Challenge List', group: 'challenge', label: 'CL — Challenge List', hint: 'challengelist.gd', url: 'https://challengelist.gd', bespoke: true },
+
+  // Added 2026-08-15.
+  { slug: 'hll',   short: 'HLL',   blurb: 'Horrible Levels List', group: 'community', label: 'HLL — Horrible Levels List', hint: 'horriblelevelslist.pages.dev', url: 'https://horriblelevelslist.pages.dev' },
+  { slug: 'brl',   short: 'BR',    blurb: 'BR List', group: 'community', label: 'BR — BR List', hint: 'br-list.pages.dev', url: 'https://br-list.pages.dev' },
+  { slug: 'udl',   short: 'UDL',   blurb: 'Unrated Demons List', group: 'demon', label: 'UDL — Unrated Demons List', hint: 'udl.pages.dev', url: 'https://udl.pages.dev' },
+  { slug: 'ddogd', short: 'DDOGD', blurb: 'Death or Glory GD', group: 'community', label: 'DDOGD — Death or Glory GD', hint: 'ddogd.pages.dev', url: 'https://ddogd.pages.dev' },
+  { slug: 'tgdps', short: 'TGDPS', blurb: 'TGDPS Demon List', group: 'demon', label: 'TGDPS — TGDPS Demon List', hint: 'tgdps-dl.pages.dev', url: 'https://tgdps-dl.pages.dev' },
+  { slug: 'cscl',  short: 'CSCL',  blurb: 'Controlled Spam Challenge List', group: 'challenge', label: 'CSCL — Controlled Spam Challenge List', hint: 'controlledspamchallengelist.pages.dev', url: 'https://controlledspamchallengelist.pages.dev' },
 ]
 
 /** The ALL Challenges List sheet — the challenge counterpart to the main sheet. */

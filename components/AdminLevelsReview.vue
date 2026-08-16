@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { GDTPL_LISTS } from '~/utils/list-source-catalog'
 import { gdLevelUrl } from '~/utils/gd-links'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { tierColor, textOn } from '~/utils/tier-colors'
@@ -120,14 +121,9 @@ const IMPORT_SOURCE_OPTIONS: { value: string; label: string }[] = [
   { value: 'all',   label: 'All' },
   { value: 'sheet', label: 'Sheet' },
   { value: 'gdl',   label: 'GDL' },
-  { value: 'tsl',   label: 'TSL' },
-  { value: 'edi',   label: 'EDI' },
-  { value: 'ccl',   label: 'CCL' },
-  { value: 'll',    label: 'LL' },
-  { value: 'tcl',   label: 'TCL' },
-  { value: 'sfl',   label: 'SFL' },
-  { value: 'ddl',   label: 'DDL' },
-  { value: 'cl',    label: 'CL' },
+  // Every GDListTemplate-backed list, from the shared catalog, so a newly
+  // imported list is filterable here the day it is added.
+  ...GDTPL_LISTS.map((l) => ({ value: l.slug, label: l.short })),
   // The project's own challenge sheet. Keyed on its own marker column rather
   // than a gdtpl slug, so it needs its own branch in the matcher below.
   { value: 'acs',   label: 'ACS' },

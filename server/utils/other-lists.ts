@@ -38,15 +38,8 @@ export const BADGE_LIMIT = 2
  * boot-time migration strips values the old name-based fallback guessed at. It
  * is read separately below so the level can't be counted twice.
  */
-const GDTPL_BADGES: { slug: string; list: string; badge: string; home: string }[] = [
-  { slug: 'ccl', list: 'CCL — Consistency Challenge List', badge: 'CCL', home: 'https://consistencychallenge.pages.dev' },
-  { slug: 'edi', list: 'EDI — Extreme Demon Index', badge: 'EDI', home: 'https://edi-d6y.pages.dev' },
-  { slug: 'tsl', list: 'TSL — The Shitty List', badge: 'TSL', home: 'https://tslplus.pages.dev' },
-  { slug: 'ddl', list: 'DDL — Denouement Demonlist', badge: 'DDL', home: 'https://denouementdl.vercel.app' },
-  { slug: 'll', list: 'LL — Layout List', badge: 'LL', home: 'https://laylist.pages.dev' },
-  { slug: 'tcl', list: 'TCL — Tiny Challenge List', badge: 'TCL', home: 'https://tinychallengelist.pages.dev' },
-  { slug: 'sfl', list: 'SFL — Straight Fly List', badge: 'SFL', home: 'https://straightfly.pages.dev' },
-]
+const GDTPL_BADGES: { slug: string; list: string; badge: string; home: string }[] =
+  GDTPL_LISTS.map((l) => ({ slug: l.slug, list: l.label, badge: l.short, home: l.url }))
 
 type LevelRow = {
   gd_id: number | null

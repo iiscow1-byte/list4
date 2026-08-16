@@ -1,39 +1,30 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { getImportRunningSet, getImportQueuedSet, getAllImportProgress } from '~/server/utils/imports-state'
+import { GDTPL_LISTS, gdtplPendingWhere } from '~/server/db/gdtpl-lists'
 
 export default defineEventHandler((event) => {
   requireAdmin(event)
   const db = getDb()
 
-  const pendingCounts = {
-    sheet: (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`).get() as { n: number }).n,
-    gdl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_gdl_id IS NOT NULL AND status = 'pending'`).get() as { n: number }).n,
-    acs:  (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE from_acs_id IS NOT NULL AND status = 'pending'`).get() as { n: number }).n,
-    tsl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'tsl')`).get() as { n: number }).n,
-    edi:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'edi')`).get() as { n: number }).n,
-    ccl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'ccl')`).get() as { n: number }).n,
-    ll:    (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'll')`).get() as { n: number }).n,
-    tcl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'tcl')`).get() as { n: number }).n,
-    sfl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'sfl')`).get() as { n: number }).n,
-    ddl:   (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'ddl')`).get() as { n: number }).n,
-    cl:    (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels p
-                        WHERE p.status = 'pending' AND p.from_gdtpl_id IN
-                              (SELECT id FROM gdtpl_levels WHERE list_slug = 'cl')`).get() as { n: number }).n,
+  /**
+   * Pending rows waiting on a decision, per source.
+   *
+   * The GDListTemplate lists are counted from the same registry the runner and
+   * the pending-clear use, so a list cannot show one list's count under another
+   * list's name — every slug appeared in a hand-written subquery here before.
+   */
+  const countPending = (where: string) =>
+    (db.prepare(`SELECT COUNT(*) AS n FROM pending_levels WHERE ${where}`).get() as { n: number }).n
+
+  const pendingCounts: Record<string, number> = {
+    sheet: countPending(`from_sheet_pending = 1 AND status = 'pending'`),
+    gdl:   countPending(`from_gdl_id IS NOT NULL AND status = 'pending'`),
+    acs:   countPending(`from_acs_id IS NOT NULL AND status = 'pending'`),
+    cl:    countPending(gdtplPendingWhere('cl')),
+    ...Object.fromEntries(
+      GDTPL_LISTS.map((l) => [l.config.source, countPending(gdtplPendingWhere(l.config.source))]),
+    ),
   }
 
   const running = Array.from(getImportRunningSet())
