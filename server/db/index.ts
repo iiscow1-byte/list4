@@ -1802,13 +1802,71 @@ function initSchema(db: DatabaseSync) {
   `)
 
   /**
-   * How many levels in a tier a player must clear to earn it — the GDSR
-   * sheets' "Clear Any 9". NULL means the tier asks for all of them, which is
-   * also what every pack that predates GDSR means.
+   * GDSR tiers.
+   *
+   * These began as `custom_list_packs`, which was the right shape and the wrong
+   * table: a pack is a curator's grouping *within* a ranked list, and any list
+   * can have both packs and tiers without meaning the same thing by them. A
+   * GDSR's tiers are the list's structure, not an annotation on it, and giving
+   * them their own table is what lets a pack stay a pack — and lets a tier own
+   * things a pack has no business carrying, starting with `require_count`.
+   *
+   * `require_count` is the GDSR sheets' "Clear Any 9". NULL asks for all of the
+   * tier's levels.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS gdsr_tiers (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_id       INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
+      name          TEXT    NOT NULL,
+      color         TEXT,
+      sort_order    INTEGER NOT NULL DEFAULT 0,
+      require_count INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdsr_tiers_list ON gdsr_tiers(list_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS gdsr_tier_items (
+      tier_id INTEGER NOT NULL REFERENCES gdsr_tiers(id)        ON DELETE CASCADE,
+      item_id INTEGER NOT NULL REFERENCES custom_list_items(id) ON DELETE CASCADE,
+      PRIMARY KEY (tier_id, item_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gdsr_tier_items_item ON gdsr_tier_items(item_id);
+  `)
+
+  /**
+   * One-time move of any GDSR that was built while tiers were packs. Runs only
+   * for lists that have packs and no tiers yet, so it cannot re-import a tier an
+   * author has since deleted, and it leaves the packs alone — a GDSR that also
+   * wanted packs keeps them.
    */
   const packCols = db.prepare(`PRAGMA table_info(custom_list_packs)`).all() as { name: string }[]
-  if (!packCols.some((c) => c.name === 'require_count')) {
-    db.exec(`ALTER TABLE custom_list_packs ADD COLUMN require_count INTEGER`)
+  const hasPackRequire = packCols.some((c) => c.name === 'require_count')
+  const strays = db.prepare(`
+    SELECT DISTINCT p.list_id
+      FROM custom_list_packs p
+      JOIN custom_lists cl ON cl.id = p.list_id
+     WHERE cl.kind = 'gdsr'
+       AND NOT EXISTS (SELECT 1 FROM gdsr_tiers t WHERE t.list_id = p.list_id)
+  `).all() as { list_id: number }[]
+  if (strays.length) {
+    const insTier = db.prepare(
+      `INSERT INTO gdsr_tiers (list_id, name, color, sort_order, require_count) VALUES (?,?,?,?,?)`,
+    )
+    const insItem = db.prepare(`INSERT OR IGNORE INTO gdsr_tier_items (tier_id, item_id) VALUES (?,?)`)
+    for (const { list_id } of strays) {
+      const packs = db.prepare(
+        `SELECT id, name, color, sort_order${hasPackRequire ? ', require_count' : ''}
+           FROM custom_list_packs WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
+      ).all(list_id) as { id: number; name: string; color: string | null; sort_order: number; require_count?: number | null }[]
+      for (const pk of packs) {
+        const tierId = Number(insTier.run(list_id, pk.name, pk.color, pk.sort_order, pk.require_count ?? null).lastInsertRowid)
+        for (const it of db.prepare(
+          `SELECT item_id FROM custom_list_pack_items WHERE pack_id = ?`,
+        ).all(pk.id) as { item_id: number }[]) insItem.run(tierId, it.item_id)
+      }
+      db.prepare(`DELETE FROM custom_list_packs WHERE list_id = ?`).run(list_id)
+    }
+    console.log(`[db-init] moved ${strays.length} GDSR list(s) from packs to tiers`)
   }
   // Presentation: a list's own icon and accent colour, so a community's list
   // reads as theirs rather than as a generic entry in the gallery.

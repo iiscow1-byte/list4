@@ -399,12 +399,14 @@ function copyShare() {
         />
         <span class="text-[11px] text-zinc-500 tabular-nums">{{ draft.items.length }} level{{ draft.items.length === 1 ? '' : 's' }}</span>
         <!-- The other shape a list can take. Small and beside "New" because it
-             is a kind of list, not a separate part of the site. -->
+             is a kind of list, not a separate part of the site. Named for what
+             it does rather than for the format it imitates, which means nothing
+             to a reader who has not seen one. -->
         <NuxtLink
           to="/gdsr"
           class="btn btn-sm btn-ghost text-[11px]"
           title="Sort levels into difficulty tiers instead of ranking them"
-        >GDSR…</NuxtLink>
+        >Tier list…</NuxtLink>
         <button
           type="button"
           class="btn btn-sm btn-ghost"

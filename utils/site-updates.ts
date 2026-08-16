@@ -43,6 +43,20 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.27.0',
+    date: '2026-08-16',
+    title: 'GDSR lists stand on their own',
+    tags: ['GDSR', 'Custom lists', 'Leaderboard'],
+    changes: [
+      'A GDSR is its own page at its own address. It was being read through a custom list’s pack view, which meant the URL said "packs", there was no leaderboard and no way to submit anything. It now has a shareable link of its own, and looks like a list: banner, icon, accent colour, level thumbnails.',
+      'GDSR tiers are no longer packs. A pack groups levels inside a ranked list; a tier is what a GDSR is made of, and a list should be able to have both without them meaning the same thing. Existing GDSRs move across on their own — tiers, colours, requirements and all.',
+      'GDSR leaderboards count how many of the list you have cleared, out of everything on it that can be cleared, and show which tiers that has earned you. Unverified levels stay out of the total.',
+      'Records can be submitted on a GDSR, the same way they are on a custom list, and are held for a list moderator to approve.',
+      'GDSRs take the same cosmetics every other list has — banner and icon images, an accent colour, thumbnails, tier labels and links back to the ALL, each switchable.',
+      'The list builder no longer calls it "GDSR". The button says "Tier list", which is what it does; the format’s name means nothing until you have already seen one.',
+    ],
+  },
+  {
     version: '1.26.0',
     date: '2026-08-16',
     title: 'GDSR lists, and an AREDL ordering that was two thirds missing',

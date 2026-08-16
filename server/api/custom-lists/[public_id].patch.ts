@@ -219,8 +219,7 @@ export default defineEventHandler(async (event) => {
     if (Array.isArray(body?.packs)) {
       db.prepare(`DELETE FROM custom_list_packs WHERE list_id = ?`).run(row.id)
       const insPack = db.prepare(
-        `INSERT INTO custom_list_packs (list_id, name, color, sort_order, require_count)
-         VALUES (?,?,?,?,?)`,
+        `INSERT INTO custom_list_packs (list_id, name, color, sort_order) VALUES (?,?,?,?)`,
       )
       const insPackItem = db.prepare(
         `INSERT OR IGNORE INTO custom_list_pack_items (pack_id, item_id) VALUES (?,?)`,
@@ -234,17 +233,46 @@ export default defineEventHandler(async (event) => {
         if (!name) return
         assertClean(name, 'Pack names')
         const color = String(p?.color ?? '').trim().slice(0, 20) || null
-        // "Clear Any N". Null (or nonsense) means the tier asks for all of its
-        // levels, which is what every pack meant before GDSR existed.
-        const rawReq = Number(p?.require_count)
-        const requireCount = Number.isInteger(rawReq) && rawReq > 0 ? Math.min(rawReq, MAX_ITEMS) : null
-        const packId = Number(insPack.run(row.id, name, color, i, requireCount).lastInsertRowid)
+        const packId = Number(insPack.run(row.id, name, color, i).lastInsertRowid)
         for (const rawId of (p?.item_ids ?? []).slice(0, MAX_ITEMS)) {
           const itemId = Number(rawId)
           if (ownItems.has(itemId)) insPackItem.run(packId, itemId)
         }
       })
     }
+    /**
+     * GDSR tiers, replaced wholesale like packs — and like packs, item ids are
+     * filtered to this list so a stale client cannot attach someone else's rows.
+     */
+    if (Array.isArray((body as any)?.gdsr_tiers)) {
+      db.prepare(`DELETE FROM gdsr_tiers WHERE list_id = ?`).run(row.id)
+      const insTier = db.prepare(
+        `INSERT INTO gdsr_tiers (list_id, name, color, sort_order, require_count) VALUES (?,?,?,?,?)`,
+      )
+      const insTierItem = db.prepare(
+        `INSERT OR IGNORE INTO gdsr_tier_items (tier_id, item_id) VALUES (?,?)`,
+      )
+      const ownIds = new Set(
+        (db.prepare(`SELECT id FROM custom_list_items WHERE list_id = ?`).all(row.id) as { id: number }[])
+          .map((r) => r.id),
+      )
+      ;((body as any).gdsr_tiers as any[]).slice(0, 50).forEach((t, i) => {
+        const name = String(t?.name ?? '').trim().slice(0, 80)
+        if (!name) return
+        assertClean(name, 'Tier names')
+        const raw = String(t?.color ?? '').trim()
+        const color = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : null
+        // "Clear Any N" — null asks for all of the tier's levels.
+        const rawReq = Number(t?.require_count)
+        const requireCount = Number.isInteger(rawReq) && rawReq > 0 ? Math.min(rawReq, MAX_ITEMS) : null
+        const tierId = Number(insTier.run(row.id, name, color, i, requireCount).lastInsertRowid)
+        for (const rawId of (t?.item_ids ?? []).slice(0, MAX_ITEMS)) {
+          const itemId = Number(rawId)
+          if (ownIds.has(itemId)) insTierItem.run(tierId, itemId)
+        }
+      })
+    }
+
     db.prepare(`UPDATE custom_lists SET updated_at = datetime('now') WHERE id = ?`).run(row.id)
     db.exec('COMMIT')
   } catch (err) {

@@ -434,7 +434,7 @@ export function loadList(db: DatabaseSync, listId: number) {
   ).all(listId) as { id: number; name: string; color: string | null; from_rank: number }[]
 
   const packs = db.prepare(
-    `SELECT p.id, p.name, p.color, p.sort_order, p.require_count
+    `SELECT p.id, p.name, p.color, p.sort_order
        FROM custom_list_packs p
       WHERE p.list_id = ?
       ORDER BY p.sort_order ASC, p.id ASC`,
@@ -448,5 +448,29 @@ export function loadList(db: DatabaseSync, listId: number) {
     p.item_ids = packItems.filter((pi) => pi.pack_id === p.id).map((pi) => pi.item_id)
   }
 
-  return { ...list, items: withExtras, packs, tiers }
+  /**
+   * A GDSR's tiers, and the levels in each.
+   *
+   * Their own tables rather than packs: a pack annotates a ranked list, a tier
+   * *is* the GDSR's structure. Returned in display order with the item ids so a
+   * client can walk them once, the same shape `packs` uses.
+   */
+  const gdsrTiers = db.prepare(
+    `SELECT id, name, color, sort_order, require_count
+       FROM gdsr_tiers WHERE list_id = ?
+      ORDER BY sort_order ASC, id ASC`,
+  ).all(listId) as any[]
+  if (gdsrTiers.length) {
+    const tierItems = db.prepare(
+      `SELECT ti.tier_id, ti.item_id
+         FROM gdsr_tier_items ti
+         JOIN gdsr_tiers t ON t.id = ti.tier_id
+        WHERE t.list_id = ?`,
+    ).all(listId) as { tier_id: number; item_id: number }[]
+    for (const t of gdsrTiers) {
+      t.item_ids = tierItems.filter((x) => x.tier_id === t.id).map((x) => x.item_id)
+    }
+  }
+
+  return { ...list, items: withExtras, packs, tiers, gdsr_tiers: gdsrTiers }
 }

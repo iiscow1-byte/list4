@@ -104,16 +104,16 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
       `SELECT id FROM custom_list_items WHERE list_id = ? AND unverified = 1`,
     ).all(listId) as { id: number }[]) unclearable.add(r.id)
 
-    const packs = db.prepare(
-      `SELECT id, name, require_count FROM custom_list_packs WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
+    const tierRows = db.prepare(
+      `SELECT id, name, require_count FROM gdsr_tiers WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
     ).all(listId) as { id: number; name: string; require_count: number | null }[]
-    for (const p of packs) {
+    for (const t of tierRows) {
       const ids = (db.prepare(
-        `SELECT item_id FROM custom_list_pack_items WHERE pack_id = ?`,
-      ).all(p.id) as { item_id: number }[])
+        `SELECT item_id FROM gdsr_tier_items WHERE tier_id = ?`,
+      ).all(t.id) as { item_id: number }[])
         .map((r) => r.item_id)
         .filter((id) => !unclearable.has(id))
-      gdsrTiers.push({ name: p.name, itemIds: new Set(ids), require: p.require_count })
+      gdsrTiers.push({ name: t.name, itemIds: new Set(ids), require: t.require_count })
     }
   }
 

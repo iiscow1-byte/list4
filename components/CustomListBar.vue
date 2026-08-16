@@ -300,7 +300,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
              and inline: it is another view of this list, not another list. -->
         <NuxtLink
           v-if="list.linked_gdsr_public_id"
-          :to="`/lists/${list.linked_gdsr_public_id}/packs`"
+          :to="`/gdsr/${list.linked_gdsr_public_id}`"
           class="shrink-0 rounded border border-amber-800/60 bg-amber-950/40 px-2 py-1 text-[10px] uppercase tracking-widest text-amber-300 hover:bg-amber-900/40 transition-colors"
           :title="list.linked_gdsr_title ? `GDSR: ${list.linked_gdsr_title}` : 'Companion GDSR'"
         >GDSR</NuxtLink>

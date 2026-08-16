@@ -112,7 +112,7 @@ const kindCounts = computed(() => {
 
 /** A GDSR opens on its tiers; a ranked list opens on its order. */
 function listLink(l: CustomList) {
-  return l.kind === 'gdsr' ? `/lists/${l.public_id}/packs` : `/lists/${l.public_id}`
+  return l.kind === 'gdsr' ? `/gdsr/${l.public_id}` : `/lists/${l.public_id}`
 }
 
 const busy = ref<string | null>(null)

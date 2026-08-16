@@ -6,11 +6,13 @@ import type { PaletteLevel } from '~/components/LevelPalette.vue'
  * GDSR creator — a list whose levels are sorted into named difficulty tiers
  * rather than ranked 1..N.
  *
- * It writes ordinary custom lists (`kind = 'gdsr'`) whose tiers are packs, so
- * sharing, ownership, records and the public gallery all come along without a
- * second implementation of any of them.
+ * It writes ordinary custom lists (`kind = 'gdsr'`), so sharing, ownership,
+ * records, cosmetics and the public gallery all come along without a second
+ * implementation of any of them. Its tiers are its own — `gdsr_tiers`, not
+ * `custom_list_packs` — because a pack annotates a ranked list while a tier is
+ * the GDSR's structure, and a list may want both without conflating them.
  *
- * Saving is two requests on purpose: packs reference item ids, and a new list
+ * Saving is two requests on purpose: tiers reference item ids, and a new list
  * has none until its items exist. `replaceItems` reuses ids for levels that
  * stay, so the second request can always name what the first created.
  */
@@ -45,6 +47,20 @@ const description = ref('')
 /** A ranked list of yours this GDSR is the tiered companion to. */
 const linkedTo = ref('')
 const rankedLists = ref<ListRow[]>([])
+
+/**
+ * Cosmetics, the same set a ranked list has. They live on `custom_lists` and go
+ * through the same PATCH, so this is exposing what already exists rather than a
+ * GDSR-only design — a GDSR should be able to look like its community's list.
+ */
+const iconUrl = ref('')
+const bannerUrl = ref('')
+const accentColor = ref('')
+const showBanner = ref(true)
+const showThumbnails = ref(true)
+const showTier = ref(true)
+const showLevelLinks = ref(true)
+const acceptsRecords = ref(true)
 const tiers = ref<Tier[]>([])
 const activeTier = ref(0)
 const saving = ref(false)
@@ -52,7 +68,12 @@ const saveError = ref<string | null>(null)
 const savedAt = ref<number | null>(null)
 const dirty = ref(false)
 
-watch([title, description, isPublic, linkedTo, tiers], () => { if (editing.value) dirty.value = true }, { deep: true })
+watch(
+  [title, description, isPublic, linkedTo, tiers,
+   iconUrl, bannerUrl, accentColor, showBanner, showThumbnails, showTier, showLevelLinks, acceptsRecords],
+  () => { if (editing.value) dirty.value = true },
+  { deep: true },
+)
 
 // ------------------------------------------------------------------ loading
 async function loadLists() {
@@ -81,7 +102,7 @@ async function openList(publicId: string) {
     const res = await $fetch<any>(`/api/custom-lists/${publicId}`)
     const list = res.list ?? res
     const itemById = new Map<number, any>((list.items ?? []).map((i: any) => [i.id, i]))
-    const packs: Tier[] = (list.packs ?? []).map((p: any) => ({
+    const packs: Tier[] = (list.gdsr_tiers ?? []).map((p: any) => ({
       name: p.name,
       color: p.color || '#71717a',
       requireCount: p.require_count ?? null,
@@ -100,6 +121,14 @@ async function openList(publicId: string) {
     title.value = list.title
     description.value = list.description ?? ''
     isPublic.value = !!list.is_public
+    iconUrl.value = list.icon_url ?? ''
+    bannerUrl.value = list.banner_url ?? ''
+    accentColor.value = list.accent_color ?? ''
+    showBanner.value = list.show_banner !== 0
+    showThumbnails.value = list.show_thumbnails !== 0
+    showTier.value = list.show_tier !== 0
+    showLevelLinks.value = list.show_level_links !== 0
+    acceptsRecords.value = list.accepts_records !== 0
     // Which ranked list points at this GDSR, if any. The link lives on that
     // list, so it is read from the other side.
     linkedTo.value = rankedLists.value.find((r) => (r as any).linked_gdsr_public_id === publicId)?.public_id ?? ''
@@ -139,6 +168,9 @@ async function createList() {
     description.value = ''
     linkedTo.value = ''
     isPublic.value = false
+    iconUrl.value = ''; bannerUrl.value = ''; accentColor.value = ''
+    showBanner.value = true; showThumbnails.value = true
+    showTier.value = true; showLevelLinks.value = true; acceptsRecords.value = true
     tiers.value = blankTiers()
     activeTier.value = 0
     await nextTick()
@@ -355,6 +387,14 @@ async function save() {
         title: title.value,
         description: description.value,
         is_public: isPublic.value,
+        icon_url: iconUrl.value,
+        banner_url: bannerUrl.value,
+        accent_color: accentColor.value,
+        show_banner: showBanner.value,
+        show_thumbnails: showThumbnails.value,
+        show_tier: showTier.value,
+        show_level_links: showLevelLinks.value,
+        accepts_records: acceptsRecords.value,
         items,
       },
     })
@@ -368,7 +408,7 @@ async function save() {
       if (i.level_id != null) { if (!byLevel.has(i.level_id)) byLevel.set(i.level_id, i.id) }
       else if (!byName.has(String(i.name).toLowerCase())) byName.set(String(i.name).toLowerCase(), i.id)
     }
-    const packs = tiers.value.map((t) => ({
+    const gdsrTiers = tiers.value.map((t) => ({
       name: t.name,
       color: t.color,
       require_count: t.requireCount,
@@ -376,7 +416,7 @@ async function save() {
         .map((l) => (l.custom ? byName.get(l.name.toLowerCase()) : l.level_id != null ? byLevel.get(l.level_id) : null))
         .filter((v): v is number => typeof v === 'number'),
     }))
-    await $fetch(`/api/custom-lists/${editing.value}`, { method: 'PATCH', body: { packs } })
+    await $fetch(`/api/custom-lists/${editing.value}`, { method: 'PATCH', body: { gdsr_tiers: gdsrTiers } })
 
     // The link is a property of the ranked list, so it is written there — and
     // any other list of yours that claimed this GDSR is released first, so one
@@ -448,7 +488,7 @@ async function save() {
       <!-- Header -->
       <div class="flex flex-wrap items-center gap-3 mb-4">
         <button type="button" class="btn btn-sm btn-ghost shrink-0" @click="closeList">← All GDSR lists</button>
-        <NuxtLink :to="`/lists/${editing}/packs`" class="btn btn-sm btn-ghost shrink-0">View list ↗</NuxtLink>
+        <NuxtLink :to="`/gdsr/${editing}`" class="btn btn-sm btn-ghost shrink-0">View GDSR ↗</NuxtLink>
         <span class="flex-1" />
         <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
         <span v-else-if="dirty" class="text-xs text-amber-400">Unsaved changes</span>
@@ -483,10 +523,13 @@ async function save() {
            presentation options (icon, banner, accent, links, row density) are
            the same ones every list has, so they stay on the shared settings
            page rather than being reimplemented here. -->
-      <details class="card px-4 py-3 mb-4 group">
+      <!-- Everything a GDSR can say about itself. The same fields a ranked
+           list has, on the same columns, through the same PATCH. -->
+      <details class="card px-4 py-3 mb-4">
         <summary class="cursor-pointer text-[10px] uppercase tracking-widest text-zinc-500 font-semibold select-none">
-          Details &amp; links
+          Appearance &amp; details
         </summary>
+
         <div class="mt-3 grid gap-3 sm:grid-cols-2">
           <label class="block sm:col-span-2">
             <span class="text-[11px] text-zinc-500">Description</span>
@@ -498,20 +541,60 @@ async function save() {
               class="field field-md w-full mt-1 resize-y"
             />
           </label>
+
+          <label class="block">
+            <span class="text-[11px] text-zinc-500">Icon image URL</span>
+            <input v-model="iconUrl" type="url" placeholder="https://…" class="field field-md w-full mt-1" />
+          </label>
+          <label class="block">
+            <span class="text-[11px] text-zinc-500">Banner image URL</span>
+            <input v-model="bannerUrl" type="url" placeholder="https://…" class="field field-md w-full mt-1" />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] text-zinc-500">Accent colour</span>
+            <span class="flex items-center gap-2 mt-1">
+              <input
+                :value="accentColor || '#22d3ee'"
+                type="color"
+                class="h-9 w-12 rounded bg-transparent cursor-pointer shrink-0"
+                @input="accentColor = ($event.target as HTMLInputElement).value"
+              />
+              <input v-model="accentColor" type="text" placeholder="#22d3ee" class="field field-md flex-1" />
+              <button
+                v-if="accentColor"
+                type="button"
+                class="btn btn-sm btn-ghost shrink-0"
+                @click="accentColor = ''"
+              >Clear</button>
+            </span>
+          </label>
+
           <label class="block">
             <span class="text-[11px] text-zinc-500">Companion to a ranked list</span>
             <select v-model="linkedTo" class="field field-md w-full mt-1">
               <option value="">Not linked</option>
               <option v-for="r in rankedLists" :key="r.public_id" :value="r.public_id">{{ r.title }}</option>
             </select>
-            <span class="block text-[10px] text-zinc-600 mt-1">
-              Adds a small GDSR button at the top of that list.
-            </span>
+            <span class="block text-[10px] text-zinc-600 mt-1">Adds a small GDSR button at the top of that list.</span>
           </label>
-          <div class="flex items-end">
-            <NuxtLink :to="`/lists/${editing}/settings`" class="btn btn-sm btn-ghost w-full">
-              All list settings ↗
-            </NuxtLink>
+
+          <div class="sm:col-span-2 flex flex-wrap gap-x-5 gap-y-2 pt-1 border-t border-zinc-900/60 mt-1">
+            <label class="flex items-center gap-2 text-sm text-zinc-300">
+              <input v-model="showBanner" type="checkbox" class="accent-current" /> Show banner
+            </label>
+            <label class="flex items-center gap-2 text-sm text-zinc-300">
+              <input v-model="showThumbnails" type="checkbox" class="accent-current" /> Level thumbnails
+            </label>
+            <label class="flex items-center gap-2 text-sm text-zinc-300">
+              <input v-model="showTier" type="checkbox" class="accent-current" /> Show GDDL tier
+            </label>
+            <label class="flex items-center gap-2 text-sm text-zinc-300">
+              <input v-model="showLevelLinks" type="checkbox" class="accent-current" /> Link to the ALL
+            </label>
+            <label class="flex items-center gap-2 text-sm text-zinc-300">
+              <input v-model="acceptsRecords" type="checkbox" class="accent-current" /> Accept record submissions
+            </label>
           </div>
         </div>
       </details>

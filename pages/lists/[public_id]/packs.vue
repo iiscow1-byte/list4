@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { gdsrRequirementLabel } from '~/utils/gdsr-tiers'
 definePageMeta({ layout: 'level' })
 
 const route = useRoute()
@@ -22,25 +21,15 @@ function unverifiedIn(p: any): number {
   return (p.item_ids ?? []).filter((id: number) => itemById(id)?.unverified).length
 }
 
-useHead(() => ({
-  title: list.value
-    ? `${(list.value as any).kind === 'gdsr' ? 'Tiers' : 'Packs'} — ${list.value.title}`
-    : 'Packs',
-}))
+useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }))
 </script>
 
 <template>
-  <CustomListShell :public-id="publicId" width="wide" title="Tiers">
+  <CustomListShell :public-id="publicId" width="wide" title="Packs">
     <template #default="{ list: l }">
       <div v-if="!l.packs.length" class="card px-6 py-16 text-center">
-        <p class="text-sm text-zinc-400">
-          {{ l.kind === 'gdsr' ? 'This list has no tiers.' : 'This list has no packs.' }}
-        </p>
-        <p class="text-xs text-zinc-600 mt-1">
-          {{ l.kind === 'gdsr'
-            ? 'Add tiers in the GDSR creator.'
-            : 'Packs group levels under a name and colour.' }}
-        </p>
+        <p class="text-sm text-zinc-400">This list has no packs.</p>
+        <p class="text-xs text-zinc-600 mt-1">Packs group levels under a name and colour.</p>
       </div>
 
       <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
