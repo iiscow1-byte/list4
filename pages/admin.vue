@@ -420,6 +420,8 @@ type ImportSource = {
   label: string
   /** One line under the name, so a four-letter acronym says what it is. */
   blurb?: string
+  /** The list's own website, when it has one. */
+  href?: string
   // Sources that don't write to pending_levels can't have anything to clear.
   pendingKey: PendingKey | null
 }
@@ -435,6 +437,10 @@ const gdtplIn = (group: 'demon' | 'challenge' | 'community'): ImportSource[] =>
     label: l.short,
     blurb: l.blurb,
     pendingKey: l.slug,
+    // The panel says a list imported N levels; this is how you go and read it.
+    // The list's own site, from the same catalog the importer uses, so it can
+    // never point somewhere the importer isn't actually reading.
+    href: l.url,
   }))
 
 const IMPORT_GROUPS: ImportGroup[] = [
@@ -444,7 +450,6 @@ const IMPORT_GROUPS: ImportGroup[] = [
     sources: [
       { key: 'sheet',         label: 'Full re-import',    blurb: 'Every tab, then re-order the list', pendingKey: 'sheet' },
       { key: 'sheet-pending', label: 'Pending list only', blurb: 'Just the sheet’s pending tab', pendingKey: 'sheet' },
-      { key: 'acs',           label: 'Challenges sheet',  blurb: 'The project’s own challenge sheet', pendingKey: 'acs' },
     ],
   },
   {
@@ -460,6 +465,10 @@ const IMPORT_GROUPS: ImportGroup[] = [
     note: 'Scored on the challenge scale rather than the main one.',
     sources: [
       { key: 'mscl', label: 'MSCL', blurb: 'Mega Spam Challenge List', pendingKey: null },
+      // A separate community challenge sheet, not run by this project — it sits
+      // with the other challenge lists rather than beside the ALL's own sheet,
+      // where its old label ("Challenges sheet") implied it was ours.
+      { key: 'acs', label: 'ACS', blurb: 'ALL Challenges Sheet — community-run', pendingKey: 'acs' },
       ...gdtplIn('challenge'),
     ],
   },
@@ -472,7 +481,10 @@ const IMPORT_GROUPS: ImportGroup[] = [
     heading: 'Records & players',
     note: 'Feeds the leaderboards. Does not add levels.',
     sources: [
-      { key: 'aredl',         label: 'AREDL',         blurb: 'Records and players', pendingKey: null },
+      { key: 'aredl',         label: 'AREDL',         blurb: 'Records, players, creators — slow', pendingKey: null },
+      // The full import makes two detail calls per level; placements need none
+      // of that, and this is the repair when a long run dies partway.
+      { key: 'aredl-placements', label: 'AREDL placements', blurb: 'Re-fetch list positions only — fast', pendingKey: null },
       { key: 'aredl-history', label: 'AREDL history', blurb: 'Past placements — slow', pendingKey: null },
       { key: 'pointercrate',  label: 'Pointercrate',  blurb: 'Records and players', pendingKey: null },
       { key: 'gsv',           label: 'Stats Viewer',  blurb: 'Player stats', pendingKey: null },
@@ -1461,7 +1473,15 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 <!-- Name + running/queued badge -->
                 <div class="flex items-center gap-2 w-56 shrink-0">
                   <span class="min-w-0">
-                    <span class="block text-sm text-zinc-100 font-medium truncate">{{ src.label }}</span>
+                    <a
+                      v-if="src.href"
+                      :href="src.href"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="block text-sm text-zinc-100 font-medium truncate hover:text-accent transition-colors"
+                      :title="`Open ${src.label} — ${src.href}`"
+                    >{{ src.label }} <span class="text-[10px] text-zinc-600">↗</span></a>
+                    <span v-else class="block text-sm text-zinc-100 font-medium truncate">{{ src.label }}</span>
                     <span v-if="src.blurb" class="block text-[11px] text-zinc-600 truncate">{{ src.blurb }}</span>
                   </span>
                   <span

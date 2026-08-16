@@ -320,12 +320,14 @@ export function loadList(db: DatabaseSync, listId: number) {
             cl.show_banner, cl.show_thumbnails, cl.show_points, cl.show_records,
             cl.compact_rows, cl.show_editors,
             cl.show_tier, cl.show_difficulty, cl.show_level_links, cl.name_display,
-            cl.discord_url, cl.youtube_url, cl.kind,
+            cl.discord_url, cl.youtube_url, cl.kind, cl.linked_gdsr_id,
+            g.public_id AS linked_gdsr_public_id, g.title AS linked_gdsr_title,
             a.username AS owner_username,
             src.public_id AS copied_from_public_id, src.title AS copied_from_title
        FROM custom_lists cl
        LEFT JOIN accounts a ON a.id = cl.owner_account_id
        LEFT JOIN custom_lists src ON src.id = cl.copied_from_id
+       LEFT JOIN custom_lists g ON g.id = cl.linked_gdsr_id
       WHERE cl.id = ?`,
   ).get(listId) as any | undefined
   if (!list) return null

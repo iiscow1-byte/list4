@@ -16,11 +16,13 @@ export default defineEventHandler((event) => {
   const lists = db.prepare(
     `SELECT cl.id, cl.public_id, cl.title, cl.description, cl.likes, cl.is_public,
             cl.created_at, cl.updated_at, cl.accent_color, cl.icon_url, cl.kind,
+            g.public_id AS linked_gdsr_public_id,
             a.username AS owner_username,
             (SELECT COUNT(*) FROM custom_list_items i WHERE i.list_id = cl.id) AS item_count,
             (SELECT 1 FROM custom_list_likes k WHERE k.list_id = cl.id AND k.account_id = ?) AS liked_by_me
        FROM custom_lists cl
        LEFT JOIN accounts a ON a.id = cl.owner_account_id
+       LEFT JOIN custom_lists g ON g.id = cl.linked_gdsr_id
       WHERE cl.owner_account_id = ?
       ORDER BY cl.updated_at DESC, cl.id DESC`,
   ).all(account.id, account.id) as any[]

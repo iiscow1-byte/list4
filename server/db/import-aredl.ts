@@ -216,17 +216,31 @@ export async function importAredl(report?: ProgressReporter) {
 
   // Process levels in batches: fetch detail + creators for each one, then
   // commit. A failure mid-stream still keeps work done so far.
-  let merged = 0, aredlOnly = 0, skippedVariant = 0
+  let merged = 0, aredlOnly = 0, skippedVariant = 0, failedBatches = 0
   const PERSIST_BATCH = 50
   for (let off = 0; off < levels.length; off += PERSIST_BATCH) {
     const slice = levels.slice(off, off + PERSIST_BATCH)
-    const detailed = await pmap(slice, PAR, async (lvl) => {
-      const [detail, creators] = await Promise.all([
-        fetchJson<AredlLevelDetail>(`/levels/${lvl.id}`),
-        fetchJson<AredlCreator[]>(`/levels/${lvl.id}/creators`),
-      ])
-      return { lite: lvl, detail, creators }
-    })
+    /**
+     * Two detail calls per level is ~3,000 requests for one run, so a single
+     * failure anywhere used to reject the batch, escape the loop and abandon
+     * every level after it — which is how the list ended up with placements for
+     * the first 888 of 1,547 and no indication that the rest were missing.
+     * A level that can't be fetched is skipped; the run continues.
+     */
+    let detailed: { lite: AredlLevelLite; detail: AredlLevelDetail; creators: AredlCreator[] }[]
+    try {
+      detailed = await pmap(slice, PAR, async (lvl) => {
+        const [detail, creators] = await Promise.all([
+          fetchJson<AredlLevelDetail>(`/levels/${lvl.id}`),
+          fetchJson<AredlCreator[]>(`/levels/${lvl.id}/creators`),
+        ])
+        return { lite: lvl, detail, creators }
+      })
+    } catch (err) {
+      failedBatches++
+      console.warn(`[aredl]   warn: batch at ${off} failed (${(err as Error).message}) — skipping it`)
+      continue
+    }
 
     db.exec('BEGIN')
     try {
@@ -299,8 +313,82 @@ export async function importAredl(report?: ProgressReporter) {
     console.log(`[aredl]   ${done}/${levels.length} levels processed (merged=${merged}, aredl-only=${aredlOnly})`)
   }
   console.log(`[aredl] Levels: ${merged} merged into ALL, ${aredlOnly} Aredl-only, ${skippedVariant} duplicate-gd_id variants skipped`)
+  if (failedBatches) {
+    console.warn(
+      `[aredl] ${failedBatches} batch(es) could not be fetched. Placements for those levels are ` +
+      `unchanged — run "Refresh placements" to fill them in from the list endpoint alone.`,
+    )
+  }
 
   console.log(`[aredl] Done in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
+}
+
+/**
+ * Refresh only where AREDL places each level.
+ *
+ * The full import fetches two detail endpoints per level to pick up creators,
+ * verifiers and descriptions — roughly three thousand requests, and the reason
+ * a run can die halfway and leave most of the list with no placement at all.
+ * Every placement, though, is already in the single `/levels` response: one
+ * request, every level, no detail needed.
+ *
+ * So this is the repair for exactly that failure, and the thing to run when the
+ * only stale fact is the ordering. It touches `aredl_position` and nothing else
+ * — a level's creator, verifier and description stay as the full import left
+ * them, because this call has no opinion about them.
+ */
+export async function refreshAredlPlacements(report?: ProgressReporter) {
+  const t0 = Date.now()
+  const db = getDb()
+  report?.({ phase: 'Fetching AREDL placements', done: 0, total: null })
+  console.log('[aredl] Refreshing placements…')
+
+  const levels = await fetchJson<AredlLevelLite[]>('/levels?exclude_legacy=false')
+  console.log(`[aredl]   ${levels.length} level(s) from the API`)
+  report?.({ phase: 'Writing placements', done: 0, total: levels.length })
+
+  const findByGd = db.prepare(`SELECT id FROM levels WHERE gd_id = ?`)
+  const setPos = db.prepare(`UPDATE levels SET aredl_position = ? WHERE id = ?`)
+  const clearPos = db.prepare(
+    `UPDATE levels SET aredl_position = NULL WHERE aredl_position IS NOT NULL AND gd_id NOT IN (SELECT value FROM json_each(?))`,
+  )
+
+  let matched = 0, unmatched = 0, variants = 0, done = 0
+  db.exec('BEGIN')
+  try {
+    const seen: number[] = []
+    // AREDL lists a level's Solo and 2-player entries separately under one GD
+    // ID, and the ALL usually carries a single row for it. First wins, matching
+    // the rule the sheet and full AREDL importers already use — otherwise the
+    // row silently ends up with whichever variant happened to be read last.
+    const claimed = new Set<number>()
+    for (const lvl of levels) {
+      const gd = Number(lvl.level_id)
+      if (Number.isInteger(gd) && gd > 0) {
+        seen.push(gd)
+        if (claimed.has(gd)) { variants++ }
+        else {
+          const row = findByGd.get(gd) as { id: number } | undefined
+          if (row) { setPos.run(lvl.position, row.id); matched++; claimed.add(gd) }
+          else { unmatched++; claimed.add(gd) }
+        }
+      }
+      if (++done % 200 === 0) report?.({ done })
+    }
+    // A level AREDL has dropped should stop claiming an AREDL placement, or the
+    // list keeps showing a rank that no longer exists anywhere.
+    const cleared = clearPos.run(JSON.stringify(seen))
+    db.exec('COMMIT')
+    console.log(
+      `[aredl]   ${matched} placement(s) written, ${unmatched} AREDL level(s) not on the ALL, ` +
+      `${variants} duplicate-gd_id variant(s) skipped, ${cleared.changes} stale placement(s) cleared`,
+    )
+  } catch (e) {
+    db.exec('ROLLBACK')
+    throw e
+  }
+  report?.({ done: levels.length })
+  console.log(`[aredl] Placements refreshed in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 }
 
 const isCli = typeof process !== 'undefined' && Array.isArray(process.argv) &&

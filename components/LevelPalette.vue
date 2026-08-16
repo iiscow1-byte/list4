@@ -32,7 +32,25 @@ const props = withDefaults(defineProps<{
   title?: string
 }>(), { maxHeight: '28rem', title: 'Add from the ALL list' })
 
-const emit = defineEmits<{ (e: 'pick', level: PaletteLevel): void }>()
+const emit = defineEmits<{
+  (e: 'pick', level: PaletteLevel): void
+  (e: 'dragstart', level: PaletteLevel): void
+  (e: 'dragend'): void
+}>()
+
+/**
+ * Levels leave the palette by drag as well as by click.
+ *
+ * The payload is JSON on a custom type rather than plain text so a drop target
+ * can tell a level apart from any other draggable on the page, and `text/plain`
+ * carries the name as a courtesy for anything outside the app.
+ */
+function onDragStart(ev: DragEvent, l: PaletteLevel) {
+  ev.dataTransfer?.setData('application/x-als-level', JSON.stringify(l))
+  ev.dataTransfer?.setData('text/plain', l.name)
+  if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'copy'
+  emit('dragstart', l)
+}
 
 const PAGE = 60
 const search = ref('')
@@ -102,9 +120,12 @@ onBeforeUnmount(() => { io?.disconnect(); if (debounce) clearTimeout(debounce) }
       <li v-for="l in items" :key="l.id">
         <button
           type="button"
-          class="relative overflow-hidden w-full flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-lg text-left group ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 transition-all"
+          draggable="true"
+          class="relative overflow-hidden w-full flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-lg text-left group ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 transition-all cursor-grab active:cursor-grabbing"
           :class="props.used?.has(l.id) ? 'opacity-45' : ''"
           @click="emit('pick', l)"
+          @dragstart="onDragStart($event, l)"
+          @dragend="emit('dragend')"
         >
           <LevelThumbBg
             :gd-id="l.gd_id"

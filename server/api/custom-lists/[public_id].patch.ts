@@ -157,6 +157,34 @@ export default defineEventHandler(async (event) => {
         .run(Math.max(0, Math.min(10_000, Math.round(scored))), row.id)
     }
 
+    /**
+     * Link (or unlink) a companion GDSR.
+     *
+     * Resolved from a public id and checked against the caller's own lists, so
+     * a request cannot attach somebody else's list — or a ranked one, which
+     * would make the button on the list lead somewhere that isn't a GDSR.
+     */
+    if (body?.linked_gdsr_public_id !== undefined) {
+      const wanted = String(body.linked_gdsr_public_id ?? '').trim()
+      if (!wanted) {
+        db.prepare(`UPDATE custom_lists SET linked_gdsr_id = NULL WHERE id = ?`).run(row.id)
+      } else {
+        const target = db.prepare(
+          `SELECT id, kind, owner_account_id FROM custom_lists WHERE public_id = ?`,
+        ).get(wanted) as { id: number; kind: string; owner_account_id: number } | undefined
+        if (!target || target.kind !== 'gdsr') {
+          throw createError({ statusCode: 400, statusMessage: 'That is not a GDSR list.' })
+        }
+        if (target.owner_account_id !== account.id) {
+          throw createError({ statusCode: 403, statusMessage: 'You do not own that GDSR list.' })
+        }
+        if (target.id === row.id) {
+          throw createError({ statusCode: 400, statusMessage: 'A list cannot link to itself.' })
+        }
+        db.prepare(`UPDATE custom_lists SET linked_gdsr_id = ? WHERE id = ?`).run(target.id, row.id)
+      }
+    }
+
     if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items, account.id)
 
     /**

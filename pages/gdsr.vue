@@ -41,6 +41,10 @@ const listsError = ref<string | null>(null)
 const editing = ref<string | null>(null)
 const title = ref('')
 const isPublic = ref(false)
+const description = ref('')
+/** A ranked list of yours this GDSR is the tiered companion to. */
+const linkedTo = ref('')
+const rankedLists = ref<ListRow[]>([])
 const tiers = ref<Tier[]>([])
 const activeTier = ref(0)
 const saving = ref(false)
@@ -48,7 +52,7 @@ const saveError = ref<string | null>(null)
 const savedAt = ref<number | null>(null)
 const dirty = ref(false)
 
-watch([title, isPublic, tiers], () => { if (editing.value) dirty.value = true }, { deep: true })
+watch([title, description, isPublic, linkedTo, tiers], () => { if (editing.value) dirty.value = true }, { deep: true })
 
 // ------------------------------------------------------------------ loading
 async function loadLists() {
@@ -56,7 +60,10 @@ async function loadLists() {
   listsError.value = null
   try {
     const res = await $fetch<{ lists: ListRow[] }>('/api/custom-lists')
-    lists.value = (res.lists ?? []).filter((l) => l.kind === 'gdsr')
+    const all = res.lists ?? []
+    lists.value = all.filter((l) => l.kind === 'gdsr')
+    // Ranked lists are the candidates a GDSR can be attached to.
+    rankedLists.value = all.filter((l) => (l.kind ?? 'ranked') !== 'gdsr')
   } catch (e: any) {
     listsError.value = e?.data?.statusMessage ?? 'Could not load your lists.'
   } finally {
@@ -91,7 +98,11 @@ async function openList(publicId: string) {
     }))
     editing.value = publicId
     title.value = list.title
+    description.value = list.description ?? ''
     isPublic.value = !!list.is_public
+    // Which ranked list points at this GDSR, if any. The link lives on that
+    // list, so it is read from the other side.
+    linkedTo.value = rankedLists.value.find((r) => (r as any).linked_gdsr_public_id === publicId)?.public_id ?? ''
     tiers.value = packs.length ? packs : blankTiers()
     activeTier.value = 0
     await nextTick()
@@ -125,6 +136,8 @@ async function createList() {
     await loadLists()
     editing.value = res.list.public_id
     title.value = name
+    description.value = ''
+    linkedTo.value = ''
     isPublic.value = false
     tiers.value = blankTiers()
     activeTier.value = 0
@@ -189,6 +202,73 @@ function pickFromPalette(l: PaletteLevel) {
     level_id: l.id, position: l.position, name: l.name, gd_id: l.gd_id ?? null,
     creator: l.creator ?? null, gddl_tier: l.gddl_tier ?? null, unverified: false, custom: false,
   })
+}
+
+// ------------------------------------------------------------- drag & drop
+/**
+ * Two things can be dragged: a level out of the palette, and a level already in
+ * a tier. The second is how levels move between tiers and reorder within one,
+ * so the drag payload records where it came from.
+ */
+type DragSource = { from: 'palette' } | { from: 'tier'; ti: number; li: number }
+const dragging = ref<DragSource | null>(null)
+const dropTier = ref<number | null>(null)
+
+function onPaletteDragStart() { dragging.value = { from: 'palette' } }
+function onTierLevelDragStart(ev: DragEvent, ti: number, li: number) {
+  dragging.value = { from: 'tier', ti, li }
+  ev.dataTransfer?.setData('text/plain', tiers.value[ti]!.levels[li]!.name)
+  if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'move'
+}
+function endDrag() { dragging.value = null; dropTier.value = null }
+
+function onTierDragOver(ev: DragEvent, ti: number) {
+  if (!dragging.value) return
+  ev.preventDefault()
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = dragging.value.from === 'palette' ? 'copy' : 'move'
+  dropTier.value = ti
+  activeTier.value = ti
+}
+
+/**
+ * @param at index to insert before, or null for the end of the tier
+ */
+function onTierDrop(ev: DragEvent, ti: number, at: number | null = null) {
+  ev.preventDefault()
+  const src = dragging.value
+  const tier = tiers.value[ti]
+  if (!tier) { endDrag(); return }
+
+  if (src?.from === 'tier') {
+    const fromTier = tiers.value[src.ti]
+    const moved = fromTier?.levels[src.li]
+    if (!moved) { endDrag(); return }
+    // Remove first, then insert — and correct the target index when the removal
+    // happened above it in the same tier, or the row lands one place too late.
+    fromTier!.levels.splice(src.li, 1)
+    let idx = at ?? tier.levels.length
+    if (src.ti === ti && src.li < idx) idx--
+    tier.levels.splice(Math.max(0, Math.min(idx, tier.levels.length)), 0, moved)
+    endDrag()
+    return
+  }
+
+  // From the palette: the level rides in the drag payload, so a drop works even
+  // if the palette re-rendered mid-drag.
+  const raw = ev.dataTransfer?.getData('application/x-als-level')
+  if (raw) {
+    try {
+      const l = JSON.parse(raw) as PaletteLevel
+      if (!tier.levels.some((x) => x.level_id === l.id)) {
+        const row: TierLevel = {
+          level_id: l.id, position: l.position, name: l.name, gd_id: l.gd_id ?? null,
+          creator: l.creator ?? null, gddl_tier: l.gddl_tier ?? null, unverified: false, custom: false,
+        }
+        tier.levels.splice(at ?? tier.levels.length, 0, row)
+      }
+    } catch { /* not our payload */ }
+  }
+  endDrag()
 }
 
 // ----------------------------------------------------------- custom levels
@@ -270,7 +350,13 @@ async function save() {
       ? { level_id: null, name: l.name, gd_id: l.gd_id, creator: l.creator, unverified: l.unverified ? 1 : 0 }
       : { level_id: l.level_id, unverified: l.unverified ? 1 : 0 })
     const res = await $fetch<any>(`/api/custom-lists/${editing.value}`, {
-      method: 'PATCH', body: { title: title.value, is_public: isPublic.value, items },
+      method: 'PATCH',
+      body: {
+        title: title.value,
+        description: description.value,
+        is_public: isPublic.value,
+        items,
+      },
     })
 
     // Pass 2 — the tiers, naming the item ids that now exist. Linked rows match
@@ -291,6 +377,21 @@ async function save() {
         .filter((v): v is number => typeof v === 'number'),
     }))
     await $fetch(`/api/custom-lists/${editing.value}`, { method: 'PATCH', body: { packs } })
+
+    // The link is a property of the ranked list, so it is written there — and
+    // any other list of yours that claimed this GDSR is released first, so one
+    // GDSR can never appear as the companion of two lists at once.
+    for (const r of rankedLists.value) {
+      const claims = (r as any).linked_gdsr_public_id === editing.value
+      if (claims && r.public_id !== linkedTo.value) {
+        await $fetch(`/api/custom-lists/${r.public_id}`, { method: 'PATCH', body: { linked_gdsr_public_id: '' } })
+      }
+    }
+    if (linkedTo.value) {
+      await $fetch(`/api/custom-lists/${linkedTo.value}`, {
+        method: 'PATCH', body: { linked_gdsr_public_id: editing.value },
+      })
+    }
 
     savedAt.value = Date.now()
     dirty.value = false
@@ -378,6 +479,43 @@ async function save() {
         </span>
       </div>
 
+      <!-- Everything else a custom list can say about itself. The rest of the
+           presentation options (icon, banner, accent, links, row density) are
+           the same ones every list has, so they stay on the shared settings
+           page rather than being reimplemented here. -->
+      <details class="card px-4 py-3 mb-4 group">
+        <summary class="cursor-pointer text-[10px] uppercase tracking-widest text-zinc-500 font-semibold select-none">
+          Details &amp; links
+        </summary>
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <label class="block sm:col-span-2">
+            <span class="text-[11px] text-zinc-500">Description</span>
+            <textarea
+              v-model="description"
+              rows="2"
+              maxlength="2000"
+              placeholder="What this GDSR is, and how its tiers are meant to be read."
+              class="field field-md w-full mt-1 resize-y"
+            />
+          </label>
+          <label class="block">
+            <span class="text-[11px] text-zinc-500">Companion to a ranked list</span>
+            <select v-model="linkedTo" class="field field-md w-full mt-1">
+              <option value="">Not linked</option>
+              <option v-for="r in rankedLists" :key="r.public_id" :value="r.public_id">{{ r.title }}</option>
+            </select>
+            <span class="block text-[10px] text-zinc-600 mt-1">
+              Adds a small GDSR button at the top of that list.
+            </span>
+          </label>
+          <div class="flex items-end">
+            <NuxtLink :to="`/lists/${editing}/settings`" class="btn btn-sm btn-ghost w-full">
+              All list settings ↗
+            </NuxtLink>
+          </div>
+        </div>
+      </details>
+
       <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
         <!-- ── Palette ─────────────────────────────────────────────── -->
         <div class="lg:sticky lg:top-20 space-y-3">
@@ -386,7 +524,10 @@ async function save() {
             :title="`Add to ${tiers[activeTier]?.name ?? 'a tier'}`"
             max-height="26rem"
             @pick="pickFromPalette"
+            @dragstart="onPaletteDragStart"
+            @dragend="endDrag"
           />
+          <p class="text-[11px] text-zinc-600 px-1">Click a level, or drag it onto a tier.</p>
 
           <!-- Custom level -->
           <div class="card overflow-hidden">
@@ -420,11 +561,17 @@ async function save() {
             v-for="(t, ti) in tiers"
             :key="ti"
             class="card overflow-hidden transition-shadow"
-            :class="activeTier === ti ? 'ring-1 ring-inset' : ''"
+            :class="[
+              activeTier === ti ? 'ring-1 ring-inset' : '',
+              dropTier === ti ? 'ring-2 ring-inset ring-accent' : '',
+            ]"
             :style="{
               borderColor: `${t.color}55`,
-              ...(activeTier === ti ? { '--tw-ring-color': `${t.color}99` } : {}),
+              ...(activeTier === ti && dropTier !== ti ? { '--tw-ring-color': `${t.color}99` } : {}),
             }"
+            @dragover="onTierDragOver($event, ti)"
+            @dragleave="dropTier === ti && (dropTier = null)"
+            @drop="onTierDrop($event, ti)"
           >
             <header
               class="flex flex-wrap items-center gap-2 px-3 py-2 cursor-pointer"
@@ -472,8 +619,13 @@ async function save() {
               <li
                 v-for="(l, li) in t.levels"
                 :key="li"
-                class="flex items-center gap-2 px-3 py-1.5 group"
+                draggable="true"
+                class="flex items-center gap-2 px-3 py-1.5 group cursor-grab active:cursor-grabbing"
                 :class="l.unverified ? 'bg-amber-950/10' : ''"
+                @dragstart="onTierLevelDragStart($event, ti, li)"
+                @dragend="endDrag"
+                @dragover="onTierDragOver($event, ti)"
+                @drop.stop="onTierDrop($event, ti, li)"
               >
                 <span class="text-[10px] text-zinc-600 tabular-nums w-11 shrink-0">
                   <template v-if="l.position">#{{ l.position }}</template>
@@ -500,8 +652,12 @@ async function save() {
                 </span>
               </li>
             </ul>
-            <p v-else class="px-3 py-4 text-xs text-zinc-600">
-              {{ activeTier === ti ? 'Pick levels from the palette on the left.' : 'Empty — click this tier to fill it.' }}
+            <p v-else class="px-3 py-5 text-xs text-zinc-600 text-center">
+              {{ dropTier === ti
+                ? 'Drop to add'
+                : activeTier === ti
+                  ? 'Drag levels here, or click them in the palette.'
+                  : 'Empty — click or drag onto this tier to fill it.' }}
             </p>
           </section>
 

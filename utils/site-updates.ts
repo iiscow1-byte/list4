@@ -43,6 +43,27 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.26.0',
+    date: '2026-08-16',
+    title: 'GDSR lists, and an AREDL ordering that was two thirds missing',
+    tags: ['Custom lists', 'GDSR', 'Leaderboard', 'Imports', 'Fixes'],
+    changes: [
+      'GDSR lists. A list can now sort its levels into named difficulty tiers — Bronze through Legend — instead of ranking them 1 to N, with each tier earned by clearing a number of its levels rather than all of them. It is a kind of custom list rather than a separate feature, so sharing, ownership, records and the gallery all work exactly as they already did. Build one from the GDSR button in the list creator.',
+      'Levels drag into GDSR tiers, from the same searchable palette the list builder uses, and drag between tiers to reorder or move them. Clicking still works everywhere dragging does.',
+      'GDSR lists can carry levels that aren’t on the ALL at all, typed in by hand, and can mark a level unverified when nobody has beaten it yet. An unverified level is shown as a draft and is left out of both its tier’s requirement and the leaderboard’s total — counting levels nobody can clear would put every player permanently short of a list that is complete as far as it can be played.',
+      'GDSR leaderboards rank by levels cleared rather than points, and show which tiers each player has earned. Points measure where a level sits in an order, and a GDSR has no order to measure against.',
+      'A GDSR can be attached to an existing custom list, which puts a small GDSR button at the top of that list. The two describe the same levels differently and readers should be able to move between them.',
+      'Custom lists and GDSR lists share one gallery, with a filter that only appears once there is something to filter, and a badge saying which is which.',
+      'Searching the leaderboard no longer renumbers it. The first result for any name used to be shown as #1 whatever that player’s actual standing was, which is the one thing anybody searches a leaderboard to find out.',
+      'The podium needs three people on it. Following a single player used to produce a one-person podium: a gold card and two gaps.',
+      'Removed the shaded points bar behind each leaderboard row. On a board whose top scores dwarf the rest it was a bright band across the first few rows and nothing measurable below them, and it tinted whichever accent colour you had chosen.',
+      'Opinions can be submitted without arriving from a level page — there is a level picker on the form now, where it used to say "open this page from a level page" and stop.',
+      adm('AREDL placements were missing for two thirds of the list. The importer makes two detail calls per level, roughly three thousand requests, and one failure abandoned every level after it — leaving 888 of 1,547 levels with an AREDL position and nothing saying the rest were absent. Batches now survive a failure, and there is a "AREDL placements" button that re-fetches every position from the single list endpoint in one request.'),
+      adm('Pending levels can be sorted by most recent. The queue is oldest-first, which is right for reviewing and wrong for seeing what just arrived.'),
+      adm('Imports rows link to the list they import, and the ALL Challenges Sheet moved in with the other challenge lists — it sat beside the ALL’s own sheet under a name that implied this project runs it, which it does not.'),
+    ],
+  },
+  {
     version: '1.25.0',
     date: '2026-08-13',
     title: 'Permanent links, and lists that can look like themselves',

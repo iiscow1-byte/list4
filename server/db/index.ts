@@ -1779,6 +1779,29 @@ function initSchema(db: DatabaseSync) {
   }
 
   /**
+   * A ranked list's companion GDSR, if it has one.
+   *
+   * The two describe the same levels differently — one in order, one sorted
+   * into tiers — and a community that keeps both wants readers to move between
+   * them. Held on the ranked list rather than duplicated on both sides, so
+   * there is one row to change and no way for the pair to disagree about who
+   * points at whom. `ON DELETE SET NULL` is done by hand below, since SQLite
+   * cannot add a foreign key to an existing table.
+   */
+  if (!clCols2.some((c) => c.name === 'linked_gdsr_id')) {
+    db.exec(`ALTER TABLE custom_lists ADD COLUMN linked_gdsr_id INTEGER`)
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_cl_linked_gdsr ON custom_lists(linked_gdsr_id)`)
+  // A deleted GDSR must not leave ranked lists pointing at nothing.
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS trg_cl_unlink_gdsr
+    AFTER DELETE ON custom_lists
+    BEGIN
+      UPDATE custom_lists SET linked_gdsr_id = NULL WHERE linked_gdsr_id = OLD.id;
+    END;
+  `)
+
+  /**
    * How many levels in a tier a player must clear to earn it — the GDSR
    * sheets' "Clear Any 9". NULL means the tier asks for all of them, which is
    * also what every pack that predates GDSR means.

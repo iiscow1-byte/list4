@@ -265,8 +265,15 @@ const podium = computed(() =>
 const listItems = computed(() =>
   podium.value.length ? items.value.slice(3) : items.value,
 )
-/** Scale for the points bar — the leader on this page fills the row. */
-const topPoints = computed(() => items.value[0]?.points ?? 0)
+/**
+ * The per-row points bar is gone.
+ *
+ * It shaded each row from the left in proportion to the leader's points, which
+ * on a leaderboard whose top scores dwarf the rest meant a bright band across
+ * the first few rows and nothing measurable below them — read as a stray
+ * coloured outline rather than as data, and it tinted whichever accent colour
+ * the reader had chosen. The number is in the row already.
+ */
 
 function rankClass(rank: number) {
   if (rank === 1) return 'bg-amber-400 text-amber-950'
@@ -505,12 +512,6 @@ useHead({ title: 'Leaderboard — All Levels List' })
             :class="{ 'opacity-50': pending }"
           >
             <li v-for="(p, i) in listItems" :key="rowKey(p, i)" class="relative">
-              <!-- Points bar, scaled against the top of this page -->
-              <span
-                class="absolute inset-y-0 left-0 bg-accent/[0.06] pointer-events-none"
-                :style="{ width: topPoints > 0 ? `${Math.max(0, (p.points / topPoints) * 100)}%` : '0%' }"
-                aria-hidden="true"
-              />
               <NuxtLink
                 :to="rowLink(p)"
                 class="relative flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-zinc-900/60 transition-colors group"

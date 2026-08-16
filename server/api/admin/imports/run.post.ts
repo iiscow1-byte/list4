@@ -9,7 +9,7 @@ import { importGdl } from '~/server/db/import-gdl'
 import { gdtplRunners } from '~/server/db/gdtpl-lists'
 import { importMscl } from '~/server/db/import-mscl'
 import { importAcs } from '~/server/db/import-acs'
-import { importAredl } from '~/server/db/import-aredl'
+import { importAredl, refreshAredlPlacements } from '~/server/db/import-aredl'
 import { importAredlHistory } from '~/server/db/import-aredl-history'
 import { importPointercrate } from '~/server/db/import-pointercrate'
 import { importCl } from '~/server/db/import-cl'
@@ -30,6 +30,7 @@ const RUNNERS: Record<string, (report: ProgressReporter) => Promise<void>> = {
   'mscl':          async (r) => { await importMscl(r) },
   'acs':          async (r) => { await importAcs(r) },
   'aredl':         async (r) => { await importAredl(r) },
+  'aredl-placements': async (r) => { await refreshAredlPlacements(r) },
   'aredl-history': async (r) => { await importAredlHistory(r) },
   'pointercrate':  async (r) => { await importPointercrate(r) },
   'cl':            async (r) => { await importCl(r) },
