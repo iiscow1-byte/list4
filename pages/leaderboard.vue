@@ -35,7 +35,7 @@ type GlobalRow = {
   clan?: ClanTagInfo | null
   aredl_avatar_url?: string | null
 }
-type Row = AllRow | GlobalRow | ChallengeRow
+type Row = AllRow | GlobalRow | ChallengeRow | RecordsRow
 
 type FeedItem = {
   kind: 'record' | 'verify' | 'level' | 'progress'
@@ -82,8 +82,44 @@ type ChallengeRow = {
   clan?: ClanTagInfo | null
 }
 
-type Tab = 'members' | 'global' | 'followed' | 'challenges'
+/**
+ * A player's standing across every record the site knows about.
+ *
+ * Unlike Global, which merges the standings AREDL, Pointercrate and GDL each
+ * publish on their own scale, this takes the raw records from all of them plus
+ * this site's own and scores every one with the ALL list's points — so the
+ * totals are comparable and a player appears once. A clear reported by three
+ * sources is still one clear.
+ */
+type RecordsRow = {
+  rank: number
+  source?: undefined
+  player: string
+  country: string | null
+  points: number
+  records: number
+  sources: string[]
+  hardest: string | null
+  hardest_position: number | null
+  account_username?: string | null
+  has_avatar?: boolean
+  aredl_avatar_url?: string | null
+  clan?: ClanTagInfo | null
+}
+
+type Tab = 'members' | 'global' | 'records' | 'followed' | 'challenges'
 const tab = ref<Tab>('global')
+
+/**
+ * Which records the All Records tab counts. Points and ranking are identical
+ * either way — this narrows the set to challenge levels, it does not switch to
+ * the separate challenge scale the Challenges tab ranks on.
+ */
+const recordsMode = ref<'all' | 'challenges'>('all')
+const recordsModeModel = computed({
+  get: () => recordsMode.value as string,
+  set: (v: string) => { recordsMode.value = v as 'all' | 'challenges' },
+})
 // `SegmentedControl` speaks plain strings; the page's own type is narrower.
 const tabModel = computed({
   get: () => tab.value as string,
@@ -102,6 +138,7 @@ watch(search, (v) => {
 // "Challenges" its own endpoint, which ranks by challenge points instead.
 const url = computed(() => {
   if (tab.value === 'global') return '/api/leaderboard/global'
+  if (tab.value === 'records') return '/api/leaderboard/records'
   if (tab.value === 'challenges') return '/api/leaderboard/challenges'
   return '/api/leaderboard'
 })
@@ -119,6 +156,8 @@ function buildParams(offset: number) {
   if (debounced.value) params.q = debounced.value
   if (tab.value === 'global') {
     params.source = 'all'
+  } else if (tab.value === 'records') {
+    params.mode = recordsMode.value
   } else if (tab.value === 'followed') {
     params.followed = '1'
   }
@@ -167,8 +206,9 @@ function onPageInputCommit() {
 }
 
 onMounted(() => { load(1) })
-// Filter / tab changes reset to page 1.
-watch([tab, debounced], () => { page.value = 1; pageInput.value = '1'; load(1) })
+// Filter / tab changes reset to page 1. `recordsMode` is in here because
+// switching it changes which records are counted, which changes the ranking.
+watch([tab, debounced, recordsMode], () => { page.value = 1; pageInput.value = '1'; load(1) })
 watch(me, () => { if (tab.value === 'followed') { page.value = 1; pageInput.value = '1'; load(1) } })
 
 const feed = ref<FeedItem[]>([])
@@ -322,6 +362,14 @@ useHead({ title: 'Leaderboard — All Levels List' })
         <template v-if="tab === 'global'">
           Players from AREDL, Pointercrate, GDL, and the ALL list, ranked by their ALL list points.
         </template>
+        <template v-else-if="tab === 'records' && recordsMode === 'challenges'">
+          Every challenge record from every source — this site, AREDL, Pointercrate and GDL —
+          scored on ALL list points. A clear reported by several sources counts once.
+        </template>
+        <template v-else-if="tab === 'records'">
+          Every record from every source — this site, AREDL, Pointercrate and GDL — scored on
+          ALL list points. A clear reported by several sources counts once.
+        </template>
         <template v-else-if="tab === 'challenges'">
           Players ranked by the challenges they've beaten — a separate ranking, because the
           main list's points barely register a challenge.
@@ -342,9 +390,22 @@ useHead({ title: 'Leaderboard — All Levels List' })
         aria-label="Leaderboard source"
         :options="[
           { value: 'global', label: 'Global' },
+          { value: 'records', label: 'All Records' },
           { value: 'members', label: 'Members' },
           { value: 'challenges', label: 'Challenges' },
           { value: 'followed', label: 'Followed' },
+        ]"
+      />
+      <!-- Narrows All Records to challenge levels. Same players, same points,
+           smaller set — not the separate scale the Challenges tab uses. -->
+      <SegmentedControl
+        v-if="tab === 'records'"
+        v-model="recordsModeModel"
+        size="sm"
+        aria-label="Which records to count"
+        :options="[
+          { value: 'all', label: 'All records' },
+          { value: 'challenges', label: 'Challenges' },
         ]"
       />
       <div class="relative flex-1 min-w-[200px] max-w-md">
@@ -494,6 +555,20 @@ useHead({ title: 'Leaderboard — All Levels List' })
                         </span>
                       </span>
                     </template>
+                    <!-- Record count sits next to points because the two orders
+                         disagree: many easy clears against a few hard ones. -->
+                    <template v-else-if="tab === 'records'">
+                      <span class="tabular-nums">{{ fmt((p as RecordsRow).records) }} records</span>
+                      <span v-if="(p as RecordsRow).sources?.length" class="uppercase text-[10px] tracking-wide text-zinc-600">
+                        {{ (p as RecordsRow).sources.join(' · ') }}
+                      </span>
+                      <span v-if="p.hardest" class="truncate">
+                        Hardest: {{ p.hardest }}
+                        <span v-if="(p as RecordsRow).hardest_position" class="text-zinc-600 tabular-nums">
+                          (#{{ (p as RecordsRow).hardest_position }})
+                        </span>
+                      </span>
+                    </template>
                     <template v-else-if="!sourceLabel(p)">
                       <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill {{ fmt((p as AllRow).skill_points) }}</span>
                       <span v-if="(p as AllRow).extremes" class="tabular-nums">{{ (p as AllRow).extremes }} extremes</span>
@@ -521,6 +596,15 @@ useHead({ title: 'Leaderboard — All Levels List' })
               </template>
               <template v-else-if="tab === 'global'">
                 No global players imported yet.
+              </template>
+              <template v-else-if="tab === 'records' && debounced">
+                No players match "{{ debounced }}".
+              </template>
+              <template v-else-if="tab === 'records' && recordsMode === 'challenges'">
+                No records on challenge levels from any source yet.
+              </template>
+              <template v-else-if="tab === 'records'">
+                No records from any source yet.
               </template>
               <template v-else-if="tab === 'challenges' && debounced">
                 No challenge players match "{{ debounced }}".

@@ -1586,8 +1586,13 @@ export async function runImport(report?: ProgressReporter) {
     }
   }
 
-  await stage('Leaderboard', importLeaderboard)
-  await stage('Stats viewer tab', importStatsViewer)
+  // The Leaderboard and Stats Viewer tabs were removed from the sheet, so
+  // nothing is pulled for them any more and `players` / sheet-sourced `records`
+  // are now the site's own data. Both importers begin by wiping their table
+  // (`DELETE FROM players`, `DELETE FROM records WHERE submitted_by IS NULL`)
+  // and refilling it from the tab, which against a tab that no longer exists is
+  // a way to lose everything and gain nothing — so they are not called. The
+  // functions are kept for reference should the tabs ever come back.
   await stage('Void list', importVoidList)
   await stage('Pending list', () => importPendingList(report))
 
