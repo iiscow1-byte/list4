@@ -75,7 +75,60 @@ const { data: lbData, refresh: refreshLb } = await useFetch<{ leaderboard: LbRow
 )
 const leaderboard = computed(() => lbData.value?.leaderboard ?? [])
 
-const tab = ref<'tiers' | 'leaderboard'>('tiers')
+const tab = ref<'tiers' | 'leaderboard' | 'queue'>('tiers')
+
+// ------------------------------------------------------------------ queue
+/**
+ * Records waiting on a decision, for whoever runs this GDSR.
+ *
+ * The endpoints are the custom-list ones — a GDSR is a custom list, and its
+ * records are `custom_list_records` — so approving here is the same operation,
+ * with the same permission check, as approving on a ranked list.
+ */
+type PendingRecord = {
+  id: number
+  player_name: string
+  percent: number
+  video: string | null
+  note: string | null
+  level_name: string
+  submitted_at: string
+  submitted_by_username: string | null
+}
+const canEdit = computed(() => !!(data.value as any)?.can_edit)
+const queue = ref<PendingRecord[]>([])
+const queueBusy = ref<number | null>(null)
+const queueNotice = ref<string | null>(null)
+
+async function loadQueue() {
+  if (!canEdit.value) { queue.value = []; return }
+  try {
+    const res = await $fetch<{ records: PendingRecord[] }>(
+      `/api/custom-lists/${publicId.value}/records`, { query: { status: 'pending' } },
+    )
+    queue.value = res.records
+  } catch { queue.value = [] }
+}
+watch(canEdit, (v) => { if (v) loadQueue() }, { immediate: true })
+
+async function decide(r: PendingRecord, action: 'approve' | 'reject') {
+  if (queueBusy.value != null) return
+  const reason = action === 'reject' ? (prompt('Reason for rejecting (optional):') ?? '') : ''
+  queueBusy.value = r.id
+  try {
+    await $fetch(`/api/custom-lists/${publicId.value}/records/${r.id}`, {
+      method: 'POST', body: { action, reason },
+    })
+    queueNotice.value = action === 'approve'
+      ? `Accepted ${r.player_name} on ${r.level_name}.`
+      : `Rejected ${r.player_name} on ${r.level_name}.`
+    await Promise.all([loadQueue(), refresh(), refreshLb()])
+  } catch (e: any) {
+    queueNotice.value = e?.data?.statusMessage ?? 'Could not save that decision.'
+  } finally {
+    queueBusy.value = null
+  }
+}
 
 // ---------------------------------------------------------------- records
 const { data: meRes } = useCurrentUser()
@@ -177,6 +230,7 @@ async function submitRecord() {
           :options="[
             { value: 'tiers', label: 'Tiers' },
             { value: 'leaderboard', label: `Leaderboard ${leaderboard.length ? `(${leaderboard.length})` : ''}` },
+            ...(canEdit ? [{ value: 'queue', label: `Queue ${queue.length ? `(${queue.length})` : ''}` }] : []),
           ]"
           class="mb-4"
         />
@@ -248,6 +302,51 @@ async function submitRecord() {
           <p v-if="!list.gdsr_tiers.length" class="card px-6 py-16 text-center text-sm text-zinc-400">
             This GDSR has no tiers yet.
           </p>
+        </div>
+
+        <!-- ------------------------------------------------------- queue -->
+        <div v-else-if="tab === 'queue'" class="space-y-3">
+          <p v-if="queueNotice" class="text-xs text-emerald-400">{{ queueNotice }}</p>
+          <div v-if="!queue.length" class="card px-6 py-16 text-center">
+            <p class="text-sm text-zinc-400">Nothing waiting.</p>
+            <p class="text-xs text-zinc-600 mt-1">Submitted clears land here for you to accept or reject.</p>
+          </div>
+          <div v-for="r in queue" :key="r.id" class="card px-4 py-3 flex items-center gap-3">
+            <span class="min-w-0 flex-1">
+              <span class="block text-sm text-zinc-100 truncate">
+                {{ r.player_name }}
+                <span class="text-zinc-600">on</span>
+                {{ r.level_name }}
+              </span>
+              <span class="block text-[11px] text-zinc-500 truncate">
+                {{ r.percent }}%
+                <template v-if="r.submitted_by_username"> · sent by {{ r.submitted_by_username }}</template>
+                <template v-if="r.note"> · {{ r.note }}</template>
+              </span>
+            </span>
+            <a
+              v-if="r.video"
+              :href="r.video"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-sm btn-ghost shrink-0"
+              title="Watch the submitted video"
+            >Video ↗</a>
+            <button
+              type="button"
+              class="btn btn-sm btn-ghost shrink-0 hover:text-red-400"
+              :disabled="queueBusy === r.id"
+              title="Reject this clear"
+              @click="decide(r, 'reject')"
+            >Reject</button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary shrink-0"
+              :disabled="queueBusy === r.id"
+              title="Accept this clear"
+              @click="decide(r, 'approve')"
+            >Accept</button>
+          </div>
         </div>
 
         <!-- ------------------------------------------------- leaderboard -->

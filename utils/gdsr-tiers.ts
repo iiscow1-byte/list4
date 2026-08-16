@@ -27,10 +27,19 @@ export const GDSR_TIER_PRESETS: GdsrTierPreset[] = [
   { name: 'Legend',   color: '#ff8c00', requireCount: 1 },
 ]
 
-/** A readable "Clear Any 9" / "Clear all 6" for a tier. */
+/**
+ * A readable requirement for a tier.
+ *
+ *   0 levels          -> "No levels yet"
+ *   1 level, required -> "Clear 1"          ("Clear all 1" is not English)
+ *   all required      -> "Clear all 6"
+ *   some required     -> "Clear any 4 of 9"
+ */
 export function gdsrRequirementLabel(requireCount: number | null, levelCount: number): string {
+  if (levelCount === 0) return 'No levels yet'
+  // Null, or a number at least as large as the tier, both mean "all of them".
   if (requireCount == null || requireCount >= levelCount) {
-    return levelCount === 0 ? 'No levels yet' : `Clear all ${levelCount}`
+    return levelCount === 1 ? 'Clear 1' : `Clear all ${levelCount}`
   }
   return `Clear any ${requireCount} of ${levelCount}`
 }

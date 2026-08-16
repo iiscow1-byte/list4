@@ -43,6 +43,22 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.28.0',
+    date: '2026-08-16',
+    title: 'The GDSR builder, rebuilt',
+    tags: ['GDSR', 'UI'],
+    changes: [
+      'The GDSR builder was drawing its buttons with text characters — an up arrow, a down arrow, a multiplication sign. They inherited the page font, sat on the text baseline instead of the middle of their button, and were announced to a screen reader as "up arrow" rather than as what they did. Every action is a real icon now, on one grid and one stroke, in a square button sized for an icon rather than a pill sized for words that were not there.',
+      'A tier reads as a rule instead of a row of boxes. The colour is a swatch you click, the name is the heading it becomes, and the requirement is written out — "Clear any 4 of 9" — with the number the only part you edit.',
+      'Levels in a tier show a drag handle, so it is visible that they can be dragged rather than something you find by trying, and an empty tier is a dashed drop zone that lights up when you drag over it.',
+      'Whether a level is unverified is now always visible on its row rather than appearing on hover — it is the reason a tier’s count looks lower than its length, so hiding it hid the explanation.',
+      'The custom-level form has labels. It was four identical boxes distinguished only by placeholder text, which vanishes the moment you type in it.',
+      'A tier holding one level says "Clear 1" rather than "Clear all 1".',
+      'Records can be accepted or rejected on a GDSR, from a queue on the list itself, by whoever runs it — the same permissions and the same decisions as a custom list.',
+      'The list builder’s "Create a GDSR" moved up beside "Browse the ALL", with the other ways into the site, instead of sitting in the toolbar that acts on the draft you are editing.',
+    ],
+  },
+  {
     version: '1.27.0',
     date: '2026-08-16',
     title: 'GDSR lists stand on their own',

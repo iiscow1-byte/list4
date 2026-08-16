@@ -353,6 +353,7 @@ const clearableCount = computed(() => totalLevels.value - unverifiedCount.value)
 
 /** Clearable levels in a tier — the number its requirement is measured against. */
 function clearableIn(t: Tier) { return t.levels.filter((l) => !l.unverified).length }
+function unverifiedIn(t: Tier) { return t.levels.filter((l) => l.unverified).length }
 
 // ------------------------------------------------------------------ saving
 async function resolveLevelIds() {
@@ -617,22 +618,59 @@ async function save() {
             <button
               type="button"
               class="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-zinc-900/40 transition-colors"
+              :aria-expanded="customOpen"
               @click="customOpen = !customOpen"
             >
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Custom level</span>
-              <span class="text-zinc-600 text-[11px] transition-transform" :class="customOpen ? 'rotate-180' : ''">▾</span>
+              <span class="min-w-0">
+                <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Add a custom level</span>
+                <span class="block text-[11px] text-zinc-600">Not on the ALL list</span>
+              </span>
+              <span class="text-zinc-600 transition-transform shrink-0" :class="customOpen ? 'rotate-180' : ''">
+                <GdsrIcon name="chevron" />
+              </span>
             </button>
-            <form v-if="customOpen" class="px-4 pb-3 pt-1 space-y-2 border-t border-zinc-800/80" @submit.prevent="addCustomLevel">
-              <p class="text-[11px] text-zinc-600">For levels that aren't on the ALL list.</p>
-              <input v-model="cName" type="text" maxlength="200" placeholder="Level name *" class="field field-md w-full" />
-              <input v-model="cCreator" type="text" maxlength="200" placeholder="Creator" class="field field-md w-full" />
-              <input v-model="cGdId" type="text" inputmode="numeric" placeholder="Level ID (optional)" class="field field-md w-full tabular-nums" />
-              <label class="flex items-center gap-2 text-xs text-zinc-400">
-                <input v-model="cUnverified" type="checkbox" class="accent-current" /> Unverified
+
+            <form
+              v-if="customOpen"
+              class="px-4 pb-4 pt-3 space-y-3 border-t border-zinc-800/80"
+              @submit.prevent="addCustomLevel"
+            >
+              <label class="block">
+                <span class="text-[11px] text-zinc-500">Level name <span class="text-red-400">*</span></span>
+                <input v-model="cName" type="text" maxlength="200" class="field field-md w-full mt-1" />
               </label>
+              <label class="block">
+                <span class="text-[11px] text-zinc-500">Creator</span>
+                <input v-model="cCreator" type="text" maxlength="200" class="field field-md w-full mt-1" />
+              </label>
+              <label class="block">
+                <span class="text-[11px] text-zinc-500">Level ID</span>
+                <input
+                  v-model="cGdId"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Optional"
+                  class="field field-md w-full mt-1 tabular-nums"
+                />
+              </label>
+
+              <label
+                class="flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors"
+                :class="cUnverified ? 'border-amber-800/60 bg-amber-950/20' : 'border-zinc-800 hover:border-zinc-700'"
+              >
+                <input v-model="cUnverified" type="checkbox" class="accent-current mt-0.5" />
+                <span class="min-w-0">
+                  <span class="block text-xs text-zinc-200">Unverified</span>
+                  <span class="block text-[10px] text-zinc-600 leading-snug">
+                    Nobody has beaten it yet. Left out of the tier's requirement and the leaderboard total.
+                  </span>
+                </span>
+              </label>
+
               <p v-if="customError" class="text-[11px] text-red-400">{{ customError }}</p>
               <button type="submit" class="btn btn-sm btn-primary w-full" :disabled="!cName.trim()">
-                Add to {{ tiers[activeTier]?.name ?? 'tier' }}
+                <GdsrIcon name="plus" :size="14" />
+                Add to {{ tiers[activeTier]?.name || 'tier' }}
               </button>
             </form>
           </div>
@@ -657,45 +695,79 @@ async function save() {
             @drop="onTierDrop($event, ti)"
           >
             <header
-              class="flex flex-wrap items-center gap-2 px-3 py-2 cursor-pointer"
+              class="px-3 py-2.5 cursor-pointer"
               :style="{ backgroundColor: `${t.color}12` }"
               @click="activeTier = ti"
             >
-              <span class="h-4 w-4 rounded-full shrink-0 border border-black/40" :style="{ background: t.color }" />
-              <input
-                v-model="t.name"
-                type="text"
-                maxlength="80"
-                class="field field-sm w-36 shrink-0 font-semibold"
-                aria-label="Tier name"
-                @click.stop
-              />
-              <input
-                v-model="t.color"
-                type="color"
-                class="h-7 w-8 rounded bg-transparent border border-zinc-800 shrink-0 cursor-pointer"
-                aria-label="Tier colour"
-                @click.stop
-              />
-              <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 shrink-0" @click.stop>
-                Clear any
+              <!-- Row one: what the tier is. The colour is a swatch that opens
+                   the native picker rather than a bare colour input, which
+                   renders as a grey box with a hairline of colour in it. -->
+              <div class="flex items-center gap-2">
+                <label class="relative shrink-0 cursor-pointer" :title="`Tier colour — ${t.color}`" @click.stop>
+                  <span
+                    class="block h-6 w-6 rounded-md border border-black/40 shadow-inner"
+                    :style="{ background: t.color }"
+                  />
+                  <input v-model="t.color" type="color" class="absolute inset-0 opacity-0 cursor-pointer" aria-label="Tier colour" />
+                </label>
+
+                <input
+                  v-model="t.name"
+                  type="text"
+                  maxlength="80"
+                  placeholder="Tier name"
+                  aria-label="Tier name"
+                  class="flex-1 min-w-0 bg-transparent border-0 border-b border-transparent hover:border-zinc-700 focus:border-accent focus:ring-0 px-0 py-0.5 text-sm font-semibold text-zinc-100 placeholder:text-zinc-600 transition-colors"
+                  @click.stop
+                />
+
+                <span class="flex items-center gap-0.5 shrink-0" @click.stop>
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    :disabled="ti === 0"
+                    title="Move tier up"
+                    aria-label="Move tier up"
+                    @click="moveTier(ti, -1)"
+                  ><GdsrIcon name="up" /></button>
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    :disabled="ti === tiers.length - 1"
+                    title="Move tier down"
+                    aria-label="Move tier down"
+                    @click="moveTier(ti, 1)"
+                  ><GdsrIcon name="down" /></button>
+                  <button
+                    type="button"
+                    class="icon-btn hover:text-red-400 hover:border-red-900/60"
+                    title="Delete this tier"
+                    aria-label="Delete this tier"
+                    @click="removeTier(ti)"
+                  ><GdsrIcon name="trash" /></button>
+                </span>
+              </div>
+
+              <!-- Row two: what the tier asks for. Stated as a sentence, with
+                   the number the only thing you edit — "Clear any [4]" reads as
+                   the rule; a bare numeric box next to the word "required" did
+                   not. Blank means all of them. -->
+              <div class="flex items-center gap-2 mt-1.5 pl-8" @click.stop>
+                <span class="text-[11px] text-zinc-500">Clear any</span>
                 <input
                   v-model.number="t.requireCount"
                   type="number"
                   min="1"
                   :max="Math.max(1, clearableIn(t))"
                   placeholder="all"
-                  class="field field-sm w-16 tabular-nums"
+                  aria-label="Levels required to earn this tier"
+                  class="w-14 bg-zinc-950/60 border border-zinc-800 rounded px-1.5 py-0.5 text-[11px] tabular-nums text-center text-zinc-200 placeholder:text-zinc-600 focus:border-accent focus:ring-0"
                 />
-              </label>
-              <span class="text-[11px] text-zinc-500 flex-1 min-w-0 truncate">
-                {{ gdsrRequirementLabel(t.requireCount, clearableIn(t)) }}
-              </span>
-              <span class="flex items-center gap-0.5 shrink-0" @click.stop>
-                <button type="button" class="btn btn-sm btn-ghost px-1.5" :disabled="ti === 0" title="Move up" @click="moveTier(ti, -1)">↑</button>
-                <button type="button" class="btn btn-sm btn-ghost px-1.5" :disabled="ti === tiers.length - 1" title="Move down" @click="moveTier(ti, 1)">↓</button>
-                <button type="button" class="btn btn-sm btn-ghost px-1.5 hover:text-red-400" title="Remove tier" @click="removeTier(ti)">✕</button>
-              </span>
+                <span class="text-[11px] text-zinc-600 truncate">
+                  of {{ clearableIn(t) }}
+                  <template v-if="unverifiedIn(t)"> · {{ unverifiedIn(t) }} unverified, not counted</template>
+                </span>
+              </div>
             </header>
 
             <ul v-if="t.levels.length" class="divide-y divide-zinc-900/60">
@@ -703,49 +775,95 @@ async function save() {
                 v-for="(l, li) in t.levels"
                 :key="li"
                 draggable="true"
-                class="flex items-center gap-2 px-3 py-1.5 group cursor-grab active:cursor-grabbing"
-                :class="l.unverified ? 'bg-amber-950/10' : ''"
+                class="relative flex items-center gap-2 px-2 py-1.5 group"
+                :class="l.unverified ? 'bg-amber-950/[0.12]' : ''"
                 @dragstart="onTierLevelDragStart($event, ti, li)"
                 @dragend="endDrag"
                 @dragover="onTierDragOver($event, ti)"
                 @drop.stop="onTierDrop($event, ti, li)"
               >
-                <span class="text-[10px] text-zinc-600 tabular-nums w-11 shrink-0">
+                <!-- The handle says the row is draggable. It was only ever
+                     discoverable by trying. -->
+                <span class="text-zinc-700 group-hover:text-zinc-500 cursor-grab active:cursor-grabbing transition-colors shrink-0">
+                  <GdsrIcon name="grip" />
+                </span>
+
+                <span class="text-[10px] text-zinc-600 tabular-nums w-10 shrink-0 text-right">
                   <template v-if="l.position">#{{ l.position }}</template>
                   <span v-else class="text-zinc-700">—</span>
                 </span>
+
                 <span class="min-w-0 flex-1">
-                  <span class="block text-sm text-zinc-200 truncate">{{ l.name }}</span>
-                  <span v-if="l.creator" class="block text-[10px] text-zinc-600 truncate">by {{ l.creator }}</span>
+                  <span class="block text-sm text-zinc-200 truncate leading-tight">{{ l.name }}</span>
+                  <span class="block text-[10px] text-zinc-600 truncate leading-tight">
+                    <template v-if="l.creator">by {{ l.creator }}</template>
+                    <template v-if="l.creator && l.gddl_tier"> · </template>
+                    <template v-if="l.gddl_tier">{{ l.gddl_tier }}</template>
+                    <template v-if="l.custom"><span class="text-zinc-500">hand-added</span></template>
+                  </span>
                 </span>
-                <span v-if="l.custom" class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-zinc-800/70 text-zinc-400 border border-zinc-700/60 shrink-0">Custom</span>
+
+                <!-- A tier's own state, always visible: whether this level can
+                     be cleared at all. Hiding it behind hover would hide the
+                     reason a tier's count looks wrong. -->
                 <button
                   type="button"
-                  class="text-[9px] uppercase tracking-widest px-1.5 py-px rounded border shrink-0 transition-colors"
+                  class="shrink-0 inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-widest transition-colors"
                   :class="l.unverified
                     ? 'bg-amber-900/40 text-amber-300 border-amber-800/60'
-                    : 'bg-transparent text-zinc-600 border-zinc-800 hover:text-amber-300 hover:border-amber-800/60'"
-                  :title="l.unverified ? 'Marked unverified — excluded from clears' : 'Mark as unverified'"
+                    : 'bg-transparent text-zinc-700 border-transparent hover:text-amber-300 hover:border-amber-800/60'"
+                  :title="l.unverified
+                    ? 'Unverified — nobody can clear it, so it is left out of this tier’s requirement'
+                    : 'Mark unverified'"
+                  :aria-pressed="l.unverified"
                   @click="l.unverified = !l.unverified"
-                >Unverified</button>
+                >
+                  <GdsrIcon name="eye-off" :size="11" />
+                  <span v-if="l.unverified">Unverified</span>
+                </button>
+
                 <span class="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <button type="button" class="btn btn-sm btn-ghost px-1.5" :disabled="li === 0" @click="moveLevel(ti, li, -1)">↑</button>
-                  <button type="button" class="btn btn-sm btn-ghost px-1.5" :disabled="li === t.levels.length - 1" @click="moveLevel(ti, li, 1)">↓</button>
-                  <button type="button" class="btn btn-sm btn-ghost px-1.5 hover:text-red-400" @click="removeLevel(ti, li)">✕</button>
+                  <button
+                    type="button" class="icon-btn" :disabled="li === 0"
+                    title="Move up" aria-label="Move level up"
+                    @click="moveLevel(ti, li, -1)"
+                  ><GdsrIcon name="up" :size="14" /></button>
+                  <button
+                    type="button" class="icon-btn" :disabled="li === t.levels.length - 1"
+                    title="Move down" aria-label="Move level down"
+                    @click="moveLevel(ti, li, 1)"
+                  ><GdsrIcon name="down" :size="14" /></button>
+                  <button
+                    type="button" class="icon-btn hover:text-red-400 hover:border-red-900/60"
+                    title="Remove from tier" aria-label="Remove level from tier"
+                    @click="removeLevel(ti, li)"
+                  ><GdsrIcon name="trash" :size="14" /></button>
                 </span>
               </li>
             </ul>
-            <p v-else class="px-3 py-5 text-xs text-zinc-600 text-center">
+
+            <p
+              v-else
+              class="px-3 py-6 text-xs text-center border-2 border-dashed rounded-lg m-2 transition-colors"
+              :class="dropTier === ti
+                ? 'border-accent/70 text-accent bg-accent/[0.04]'
+                : 'border-zinc-800/80 text-zinc-600'"
+            >
               {{ dropTier === ti
                 ? 'Drop to add'
                 : activeTier === ti
-                  ? 'Drag levels here, or click them in the palette.'
-                  : 'Empty — click or drag onto this tier to fill it.' }}
+                  ? 'Drag levels here, or click one in the palette'
+                  : 'Empty — click this tier, then pick levels' }}
             </p>
           </section>
 
-          <button type="button" class="btn btn-ghost w-full border border-dashed border-zinc-800" @click="addTier">
-            + Add tier
+          <button
+            type="button"
+            class="btn btn-md btn-ghost w-full border-dashed hover:border-accent/60 hover:text-accent"
+            @click="addTier"
+          >
+            <GdsrIcon name="plus" />
+            Add tier
           </button>
         </div>
       </div>

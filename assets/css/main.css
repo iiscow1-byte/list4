@@ -183,6 +183,23 @@
   }
 
   /*
+   * A square button holding one icon and no label.
+   *
+   * `.btn .btn-sm .btn-ghost` was being used for these, which is a pill sized
+   * for text: it carries horizontal padding for words that aren't there, so a
+   * row of three came out wide and rectangular with the glyph floating
+   * off-centre. This is sized from the icon out — one square, centred, with a
+   * hit area that still clears the 24px a thumb needs.
+   */
+  .icon-btn {
+    @apply inline-flex items-center justify-center h-7 w-7 rounded-md border border-transparent
+           text-zinc-500 transition-colors
+           hover:text-zinc-100 hover:border-zinc-700 hover:bg-zinc-900/60
+           disabled:opacity-30 disabled:pointer-events-none
+           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60;
+  }
+
+  /*
    * Text inputs, selects and textareas.
    *
    * Four paddings were in use for the same box, and the placeholder colour was
