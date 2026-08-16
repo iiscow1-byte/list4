@@ -55,7 +55,8 @@ export const SITE_UPDATES: SiteUpdate[] = [
       'The custom-level form has labels. It was four identical boxes distinguished only by placeholder text, which vanishes the moment you type in it.',
       'A tier holding one level says "Clear 1" rather than "Clear all 1".',
       'Records can be accepted or rejected on a GDSR, from a queue on the list itself, by whoever runs it — the same permissions and the same decisions as a custom list.',
-      'The list builder’s "Create a GDSR" moved up beside "Browse the ALL", with the other ways into the site, instead of sitting in the toolbar that acts on the draft you are editing.',
+      'The list builder’s "Create a GDSR" moved up beside "Browse the ALL", with the other ways into the site, instead of sitting in the toolbar that acts on the draft you are editing — and is marked Beta, because it is.',
+      'The builder page leads with what it is for: "Create your own list with any level".',
     ],
   },
   {

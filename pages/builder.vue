@@ -82,7 +82,7 @@ function movement(c: Change): { label: string; tone: string; title: string } {
   }
 }
 
-useHead({ title: 'Build your own list — All Levels List' })
+useHead({ title: 'Create your own list — All Levels List' })
 </script>
 
 <template>
@@ -93,7 +93,7 @@ useHead({ title: 'Build your own list — All Levels List' })
     <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div class="min-w-0">
         <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">All Levels List</p>
-        <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">Build your own list</h1>
+        <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">Create your own list with any level</h1>
         <p class="mt-1 text-sm text-zinc-500 max-w-2xl">
           Pull levels out of the ALL or add your own, order them however you like, then save and
           share it with a link.
@@ -117,7 +117,7 @@ useHead({ title: 'Build your own list — All Levels List' })
           to="/gdsr"
           class="rounded-lg border border-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
           title="Sort levels into difficulty tiers instead of ranking them"
-        >Create a GDSR</NuxtLink>
+        >Create a GDSR <span class="text-[10px] text-zinc-500">(Beta)</span></NuxtLink>
         <NuxtLink
           v-if="me"
           to="/lists?view=mine"
