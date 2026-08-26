@@ -20,9 +20,16 @@ import { clanForAccount, clanLeaderboard, invitesForAccount, type ClanSummary } 
  * offer "leave" instead of "join", and show an invite to somebody who would
  * otherwise have to already know about it.
  */
-export type ClanSort = 'points' | 'levels' | 'members' | 'newest' | 'name'
+export type ClanSort = 'tier' | 'points' | 'levels' | 'members' | 'newest' | 'name'
 
 const SORTS: Record<ClanSort, (a: ClanSummary, b: ClanSummary) => number> = {
+  /**
+   * The default. Sorted on `tier_points` rather than on the tier name, because
+   * a tier is a wide band — most of the strongest clans sit inside Tier 40, and
+   * ordering by the label alone would tie them all and fall back to whatever
+   * came second. The raw average keeps them in order inside the band.
+   */
+  tier:    (a, b) => b.tier_points - a.tier_points || b.points - a.points || a.name.localeCompare(b.name),
   points:  (a, b) => b.points - a.points || b.levels - a.levels || a.name.localeCompare(b.name),
   levels:  (a, b) => b.levels - a.levels || b.points - a.points || a.name.localeCompare(b.name),
   members: (a, b) => b.members - a.members || b.points - a.points || a.name.localeCompare(b.name),
@@ -36,7 +43,7 @@ export default defineEventHandler((event) => {
   const me = getCurrentAccount(event)
   const q = getQuery(event)
 
-  const sort = (typeof q.sort === 'string' && q.sort in SORTS ? q.sort : 'points') as ClanSort
+  const sort = (typeof q.sort === 'string' && q.sort in SORTS ? q.sort : 'tier') as ClanSort
   const search = String(q.q ?? '').trim().toLowerCase()
   /** 'open' hides clans you'd have to ask to join; 'invite' shows only those. */
   const joinable = q.joinable === 'open' || q.joinable === 'invite' ? q.joinable : null
@@ -44,14 +51,14 @@ export default defineEventHandler((event) => {
   let clans = clanLeaderboard(db)
 
   /**
-   * Rank is assigned before filtering, and always by points.
+   * Rank is assigned before filtering, and always by tier.
    *
    * A clan's rank is its standing among every clan; showing "#1" against the
-   * top result of a name search would be inventing a fact. Sorting by something
-   * else doesn't change it either — the number means "1st by points" wherever
-   * it is printed.
+   * top result of a name search would be inventing a fact. Sorting the view by
+   * something else doesn't change it either — the number means "1st by tier"
+   * wherever it is printed.
    */
-  const ranked = [...clans].sort(SORTS.points)
+  const ranked = [...clans].sort(SORTS.tier)
   const rankById = new Map(ranked.map((c, i) => [c.id, i + 1]))
 
   if (search) {

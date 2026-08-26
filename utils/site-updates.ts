@@ -43,6 +43,17 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.32.0',
+    date: '2026-08-16',
+    title: 'Clans have a tier',
+    tags: ['Community'],
+    changes: [
+      'A clan now has a tier of its own: the average of everything its members have cleared, matched to the level worth closest to that average.',
+      'Easy levels cannot drag it down. The average is weighted by what each level is worth, so a clear worth nothing counts for nothing and an easy one barely moves the number — a clan with the hardest level in the game and five hundred easy ones reads as Tier 40, not Tier 26.',
+      'Clans are ranked by tier rather than by total points, so covering more of the easy end no longer outranks a harder clan. Points, levels and members are still there as sort options.',
+    ],
+  },
+  {
     version: '1.31.0',
     date: '2026-08-16',
     title: 'Accounts are made through Discord',

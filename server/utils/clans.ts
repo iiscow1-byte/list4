@@ -42,6 +42,16 @@ export type ClanSummary = {
   points: number
   /** The hardest level anybody in the clan has beaten. */
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string | null } | null
+  /**
+   * The clan's difficulty, as a tier.
+   *
+   * A points-weighted average of everything the clan has cleared, mapped back
+   * to the tier of the level worth closest to that number. `tier_points` is the
+   * raw average behind it, which is what the leaderboard actually sorts on —
+   * tier names are coarse, and two clans deep in Tier 38 should not be tied.
+   */
+  tier: string | null
+  tier_points: number
 }
 
 /**
@@ -71,15 +81,42 @@ export function clanLeaderboard(db: DatabaseSync): ClanSummary[] {
                   JOIN records  r2 ON r2.player_name = COALESCE(a2.claimed_player, a2.username) COLLATE NOCASE
                  WHERE m2.clan_id = c.id AND r2.permanent = 1
               )
-           ), 0) AS points
+           ), 0) AS points,
+           /**
+            * A points-weighted average, not a plain one.
+            *
+            * Each level counts in proportion to what it is worth, so the sum is
+            * Σ(p²)/Σ(p) rather than Σ(p)/n. A plain mean is unusable here: most
+            * of the list is worth nothing — thousands of levels sit at zero
+            * points — so a clan that had beaten the hardest level in the game
+            * and five hundred easy ones averaged out somewhere around Tier 26.
+            * Beating easy levels should never cost a clan standing, and under
+            * this it cannot: a zero-point level contributes nothing to either
+            * sum, and an easy one moves the result by a fraction of a percent.
+            *
+            * Weight is the points themselves. Using a lower power instead --
+            * SUM(p * SQRT(p)) over SUM(SQRT(p)) -- spreads clans out more and
+            * leans less on the single hardest clear, if this ever reads as too
+            * top-heavy.
+            */
+           COALESCE((
+             SELECT SUM(l3.points * l3.points) / NULLIF(SUM(l3.points), 0) FROM levels l3
+              WHERE l3.points IS NOT NULL AND l3.id IN (
+                SELECT DISTINCT r3.level_id
+                  FROM clan_members m3
+                  JOIN accounts a3 ON a3.id = m3.account_id
+                  JOIN records  r3 ON r3.player_name = COALESCE(a3.claimed_player, a3.username) COLLATE NOCASE
+                 WHERE m3.clan_id = c.id AND r3.permanent = 1
+              )
+           ), 0) AS tier_points
       FROM clans c
       LEFT JOIN accounts o ON o.id = c.owner_account_id
       LEFT JOIN clan_members m ON m.clan_id = c.id
       LEFT JOIN accounts a ON a.id = m.account_id
       LEFT JOIN records  r ON r.player_name = ${MEMBER_NAME_SQL} COLLATE NOCASE AND r.permanent = 1
      GROUP BY c.id
-     ORDER BY points DESC, levels DESC, members DESC, c.name COLLATE NOCASE ASC
-  `).all() as Omit<ClanSummary, 'hardest'>[]
+     ORDER BY tier_points DESC, points DESC, levels DESC, members DESC, c.name COLLATE NOCASE ASC
+  `).all() as Omit<ClanSummary, 'hardest' | 'tier'>[]
 
   // The hardest level per clan, one query for all of them rather than one each.
   const hardest = new Map<number, ClanSummary['hardest']>()
@@ -97,12 +134,66 @@ export function clanLeaderboard(db: DatabaseSync): ClanSummary[] {
     })
   }
 
+  const toTier = tierForPoints(db)
+
   return rows.map((c: any) => ({
     ...c,
     has_icon: !!c.has_icon,
     has_banner: !!c.has_banner,
     hardest: hardest.get(c.id) ?? null,
+    tier_points: c.tier_points ?? 0,
+    tier: c.levels > 0 ? toTier(c.tier_points ?? 0) : null,
   })) as ClanSummary[]
+}
+
+/**
+ * Turn a points figure into the tier of the level worth closest to it.
+ *
+ * Built once per call and closed over, because the alternative — an
+ * `ORDER BY ABS(points - ?)` per clan — is a scan of fifty-four thousand rows
+ * each time. There are only about 5,600 distinct point values on the whole
+ * list, so one sorted copy answers every clan by binary search.
+ *
+ * Two things are tie-broken here, and they break opposite ways:
+ *
+ * Equal *points across different tiers* resolve to the easiest of them. Most of
+ * the list is worth zero, so "0 points" alone names dozens of tiers; a clan
+ * whose only clears are free levels is at the bottom of the list, and saying
+ * Subtier 3 because that row happened to sort first would be inventing a
+ * standing it has not got.
+ *
+ * A target sitting *between* two different point values goes to the harder one.
+ * That is genuinely arbitrary, and rounding a clan up is the kinder half of it.
+ */
+function tierForPoints(db: DatabaseSync): (points: number) => string | null {
+  const table = db.prepare(`
+    SELECT DISTINCT points, gddl_tier FROM levels
+     WHERE points IS NOT NULL AND gddl_tier IS NOT NULL
+     ORDER BY points ASC,
+       CASE
+         WHEN gddl_tier LIKE 'Subtier %' THEN CAST(SUBSTR(gddl_tier, 9) AS INTEGER)
+         WHEN gddl_tier LIKE 'Tier %'    THEN 5 + CAST(SUBSTR(gddl_tier, 6) AS INTEGER)
+         ELSE 999
+       END ASC
+  `).all() as { points: number; gddl_tier: string }[]
+
+  return (target: number): string | null => {
+    if (!table.length) return null
+    let lo = 0
+    let hi = table.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (table[mid]!.points < target) lo = mid + 1
+      else hi = mid
+    }
+    // `lo` is the first entry at or above the target. Because equal points are
+    // ordered easiest-tier-first, an exact hit lands on the easiest tier worth
+    // that many points, which is the answer for the many levels worth zero.
+    const above = table[lo]!
+    const below = table[lo - 1]
+    if (!below) return above.gddl_tier
+    return (target - below.points) < (above.points - target) ? below.gddl_tier : above.gddl_tier
+  }
 }
 
 export type ClanMember = {

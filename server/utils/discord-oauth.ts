@@ -36,6 +36,42 @@ export type DiscordConfig = {
 }
 
 /**
+ * The site's own origin, or null when what is configured cannot be one.
+ *
+ * `SITE_URL` used to be pasted straight into the redirect URI, so anything
+ * short of a full origin produced a redirect Discord refuses with "redirect
+ * uri: Not a well formed url" — and the refusal happens on Discord's page,
+ * where this site cannot add a word of explanation. The three ways it went
+ * wrong in practice:
+ *
+ *   alllevelslist.com                     no scheme, so not a URL at all
+ *   "https://alllevelslist.com"           quotes kept by the shell or panel
+ *   https://…/api/auth/discord/callback   the callback pasted in, doubling the path
+ *
+ * All three are handled here: a bare host is assumed to be https, quotes are
+ * stripped, and only the origin is kept so a pasted path cannot be doubled.
+ * Anything still not resolvable to an http(s) origin returns null, which
+ * switches Discord sign-in off — a hidden button beats one that leads to an
+ * error page nobody can act on.
+ */
+function siteOrigin(): string | null {
+  const raw = process.env.SITE_URL?.trim()?.replace(/^["']|["']$/g, '')
+  if (!raw) return null
+  // A value with no scheme is not parseable; assume https rather than reject,
+  // since a bare hostname is the single most common way this is written.
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const url = new URL(candidate)
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+    if (!url.hostname) return null
+    // `origin` drops any path, query and fragment.
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+/**
  * Configuration, or null when Discord login is switched off.
  *
  * Every piece is required together — a half-configured OAuth app is worse than
@@ -43,18 +79,30 @@ export type DiscordConfig = {
  * error page with no explanation this site can add.
  */
 export function discordConfig(): DiscordConfig | null {
-  const clientId = process.env.DISCORD_CLIENT_ID?.trim()
-  const clientSecret = process.env.DISCORD_CLIENT_SECRET?.trim()
-  const guildId = process.env.DISCORD_GUILD_ID?.trim()
-  const siteUrl = process.env.SITE_URL?.trim()?.replace(/\/+$/, '')
-  if (!clientId || !clientSecret || !guildId || !siteUrl) return null
+  const clientId = process.env.DISCORD_CLIENT_ID?.trim()?.replace(/^["']|["']$/g, '')
+  const clientSecret = process.env.DISCORD_CLIENT_SECRET?.trim()?.replace(/^["']|["']$/g, '')
+  const guildId = process.env.DISCORD_GUILD_ID?.trim()?.replace(/^["']|["']$/g, '')
+  const origin = siteOrigin()
+
+  if (!clientId || !clientSecret || !guildId || !origin) {
+    // Said once and loudly, because the alternative is a button that silently
+    // isn't there and no indication of which of four values is missing.
+    if (clientId && clientSecret && guildId && !origin && process.env.SITE_URL) {
+      console.warn(
+        `[discord] SITE_URL is not a usable origin (${JSON.stringify(process.env.SITE_URL)}). ` +
+        `Discord sign-in is off. Set it to e.g. https://alllevelslist.com`,
+      )
+    }
+    return null
+  }
+
   return {
     clientId,
     clientSecret,
     guildId,
-    roleId: process.env.DISCORD_REQUIRED_ROLE_ID?.trim() || null,
-    redirectUri: `${siteUrl}/api/auth/discord/callback`,
-    inviteUrl: process.env.DISCORD_INVITE_URL?.trim() || null,
+    roleId: process.env.DISCORD_REQUIRED_ROLE_ID?.trim()?.replace(/^["']|["']$/g, '') || null,
+    redirectUri: `${origin}/api/auth/discord/callback`,
+    inviteUrl: process.env.DISCORD_INVITE_URL?.trim()?.replace(/^["']|["']$/g, '') || null,
   }
 }
 

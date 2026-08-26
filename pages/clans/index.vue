@@ -29,6 +29,8 @@ type Clan = {
   members: number; levels: number; completions: number; points: number
   rank: number | null
   hardest: { position: number; sheet_placement: number | null; name: string; gddl_tier: string | null } | null
+  tier: string | null
+  tier_points: number
 }
 
 type Invite = {
@@ -36,8 +38,9 @@ type Invite = {
   message: string | null; created_at: string; invited_by_username: string | null
 }
 
-type Sort = 'points' | 'levels' | 'members' | 'newest' | 'name'
+type Sort = 'tier' | 'points' | 'levels' | 'members' | 'newest' | 'name'
 const SORTS: { value: Sort; label: string }[] = [
+  { value: 'tier',    label: 'Tier' },
   { value: 'points',  label: 'Points' },
   { value: 'levels',  label: 'Levels' },
   { value: 'members', label: 'Members' },
@@ -45,7 +48,7 @@ const SORTS: { value: Sort; label: string }[] = [
   { value: 'name',    label: 'Name' },
 ]
 
-const sort = ref<Sort>('points')
+const sort = ref<Sort>('tier')
 const search = ref('')
 const joinable = ref<'' | 'open' | 'invite'>('')
 
@@ -382,11 +385,14 @@ async function create() {
             <span v-if="c.description" class="block truncate text-[11px] text-zinc-500 mt-0.5">{{ c.description }}</span>
           </span>
 
+          <!-- The clan's own tier: a points-weighted average of everything it
+               has cleared, not the tier of its single hardest level. -->
           <span
-            v-if="c.hardest?.gddl_tier"
+            v-if="c.tier"
             class="hidden sm:inline-block shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
-            :style="{ backgroundColor: tierColor(c.hardest.gddl_tier), color: textOn(tierColor(c.hardest.gddl_tier)) }"
-          >{{ c.hardest.gddl_tier }}</span>
+            :style="{ backgroundColor: tierColor(c.tier), color: textOn(tierColor(c.tier)) }"
+            :title="`Clan tier — the average of everything they've cleared, weighted by what each level is worth`"
+          >{{ c.tier }}</span>
 
           <span class="shrink-0 text-right w-16">
             <span class="block text-sm font-semibold tabular-nums text-amber-300">{{ fmt(c.points) }}</span>
