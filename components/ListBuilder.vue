@@ -442,7 +442,7 @@ function copyShare() {
       <div v-if="settingsOpen" class="px-4 py-3 border-b border-zinc-800/80 grid gap-3 sm:grid-cols-4">
         <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none sm:col-span-4">
           <input v-model="draft.acceptsRecords" type="checkbox" class="accent-accent" />
-          Accept record submissions — players can submit completions and appear on this list's leaderboard
+          Accept record submissions (players can submit clears to this list's leaderboard)
         </label>
         <label class="block">
           <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at #1</span>
@@ -570,12 +570,12 @@ function copyShare() {
             <label class="flex items-start gap-2 cursor-pointer select-none sm:col-span-2 pt-1">
               <input v-model="item.is_challenge" type="checkbox" class="mt-0.5 accent-accent" />
               <span class="text-[10px] text-zinc-500 leading-snug">
-                <span class="text-zinc-300">Challenge</span> — this list counts the level as one.
-                Independent of the ALL's own challenge list.
+                <span class="text-zinc-300">Challenge</span> on this list.
+                Doesn't affect the ALL's challenge list.
               </span>
             </label>
             <p v-if="item.level_id" class="text-[10px] text-zinc-600 sm:col-span-4">
-              Name, creator and tier come from the ALL list for linked levels and can't be overridden here.
+              Name, creator and tier come from the ALL list and can't be edited here.
             </p>
           </li>
         </template>
@@ -596,7 +596,7 @@ function copyShare() {
         @drop="onDropSlot($event, 0)"
       >
         <p class="text-sm text-zinc-400 font-medium">Drag levels here to start your list</p>
-        <p class="text-xs text-zinc-600 mt-1.5">…or add one that isn't on the ALL list below.</p>
+        <p class="text-xs text-zinc-600 mt-1.5">or add a custom level below</p>
       </div>
 
       <!-- Manual entry -->

@@ -226,7 +226,7 @@ async function submit() {
           <span class="text-sm text-zinc-200">
             Request that this level be moved on the list
             <span class="block text-[11px] text-zinc-500 mt-0.5">
-              Pick a comparison level to suggest a new placement; mods see the old vs. new placement in the opinions tab.
+              Pick a comparison level to suggest a new placement.
             </span>
           </span>
         </label>
@@ -280,7 +280,7 @@ async function submit() {
           :disabled="submitting"
           class="btn btn-md btn-primary"
         >{{ submitting ? 'Submitting…' : 'Submit opinion' }}</button>
-        <span v-if="success" class="text-xs text-emerald-400">Submitted — pending review.</span>
+        <span v-if="success" class="text-xs text-emerald-400">Submitted, pending review.</span>
         <span v-if="error" class="text-xs text-red-400">{{ error }}</span>
       </div>
     </form>

@@ -393,7 +393,7 @@ async function postNow() {
       { method: 'POST' },
     )
     if (res.posted.length === 0) {
-      flash('err', 'No webhooks found — add one above or check that at least one is configured.')
+      flash('err', 'No webhooks found. Add one above first.')
     } else {
       const ok = res.posted.filter((p) => p.status === 'ok')
       const noChanges = res.posted.filter((p) => p.status === 'no changes')
@@ -403,7 +403,7 @@ async function postNow() {
       } else if (ok.length) {
         flash('ok', `Posted to Discord. (${ok.length} webhook${ok.length === 1 ? '' : 's'})`)
       } else {
-        flash('ok', `No changes to post for today — only level placements and moves appear in the summary.`)
+        flash('ok', `No changes to post today. Only level placements and moves appear in the summary.`)
       }
     }
     await loadWebhooks()
@@ -454,7 +454,7 @@ const IMPORT_GROUPS: ImportGroup[] = [
   },
   {
     heading: 'Demon lists',
-    note: 'Third-party demon lists. Levels they carry that this list doesn’t arrive as pending.',
+    note: 'Third-party demon lists. Levels this list doesn’t have arrive as pending.',
     sources: [
       { key: 'gdl', label: 'GDL', blurb: 'Geometry Dash Demonlist', pendingKey: 'gdl' },
       ...gdtplIn('demon'),
@@ -559,7 +559,7 @@ async function runImport(source: ImportSourceKey) {
   importBusy[source] = true
   try {
     const res = await $fetch<{ started: boolean; queued: boolean }>('/api/admin/imports/run', { method: 'POST', body: { source } })
-    if (res.queued) flash('ok', `${source} queued — will start when current run finishes.`)
+    if (res.queued) flash('ok', `${source} queued. It'll start when the current run finishes.`)
     else flash('ok', `Started ${source} import.`)
     await loadImportsStatus()
   } catch (e: any) {
@@ -586,7 +586,7 @@ async function repairPlacements() {
       '/api/admin/repair-placements', { method: 'POST' },
     )
     repairResult.value = res.changed === 0
-      ? 'Placements were already in order — nothing to fix.'
+      ? 'Placements were already in order. Nothing to fix.'
       : `Rewrote ${res.changed.toLocaleString()} placement${res.changed === 1 ? '' : 's'} `
         + `(${res.inversions_before} out-of-order → ${res.inversions_after}).`
   } catch (e: any) {
@@ -738,8 +738,8 @@ async function sendRestore(apply: boolean) {
     restorePreview.value = res
     if (apply) {
       restoreDone.value = res.moved === 0
-        ? 'The list already matched that file — nothing moved.'
-        : `Restored — ${res.moved.toLocaleString()} level${res.moved === 1 ? '' : 's'} moved.`
+        ? 'The list already matches that file. Nothing moved.'
+        : `Restored ${res.moved.toLocaleString()} level${res.moved === 1 ? '' : 's'}.`
         + (res.backup ? ` Previous placements saved as ${res.backup}.` : '')
       restoreText.value = null
       restoreFileName.value = null
@@ -781,7 +781,7 @@ async function sheetReset(apply: boolean) {
     sheetResetPreview.value = res
     if (apply) {
       sheetResetDone.value = res.moved === 0
-        ? 'Already in sheet order — nothing moved.'
+        ? 'Already in sheet order. Nothing moved.'
         : `${res.moved.toLocaleString()} level${res.moved === 1 ? '' : 's'} moved back to the sheet's order.`
         + (res.backup ? ` Previous placements saved as ${res.backup}.` : '')
       sheetResetPreview.value = null
@@ -796,7 +796,7 @@ async function sheetReset(apply: boolean) {
 function applySheetReset() {
   const p = sheetResetPreview.value
   if (!p) return
-  if (!confirm(`Move ${p.moved.toLocaleString()} level(s) back to the order the sheet gives them?`)) return
+  if (!confirm(`Move ${p.moved.toLocaleString()} level(s) back to the sheet's order?`)) return
   sheetReset(true)
 }
 
@@ -1175,9 +1175,8 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <div>
               <h2 class="text-sm font-semibold text-zinc-100">Repair placements</h2>
               <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
-                Re-attaches every placement number to the slot it belongs to, so the numbers
-                the list prints climb in list order. Runs automatically at boot and after every
-                move; this is here for lists that drifted before that. Safe to run any time.
+                Fixes placement numbers so they climb in list order. Runs automatically at
+                boot and after every move. Safe to run any time.
               </p>
             </div>
             <button
@@ -1198,10 +1197,9 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <div>
               <h2 class="text-sm font-semibold text-zinc-100">Levels stored here, not on the sheet</h2>
               <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
-                Promoted submissions and hand-placed additions. The site owns their data and the
-                importer leaves them alone — right until the curators add them to the sheet, after
-                which the copy here is a stale duplicate. Handing one over takes the sheet's data
-                and gives the importer the row from then on.
+                Promoted submissions and hand-placed additions. Once a level is on the sheet,
+                hand it over: the sheet's data replaces the copy here and the importer keeps
+                it updated.
               </p>
             </div>
             <button
@@ -1249,8 +1247,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
           <h2 class="text-sm font-semibold text-zinc-100">Placement backups</h2>
           <p class="text-xs text-zinc-500 mt-0.5 max-w-lg">
             The list's order as a file. Download one before anything risky; upload it back to
-            undo. The CSV is the one to edit — retype a few numbers in a spreadsheet and feed it
-            back in to move those levels.
+            undo. Edit the CSV in a spreadsheet to move specific levels.
           </p>
 
           <div class="mt-3 flex items-center gap-2 flex-wrap">
@@ -1295,11 +1292,10 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 <span class="tabular-nums text-zinc-100">{{ restorePreview.moved.toLocaleString() }}</span> would move.
               </p>
               <p v-if="restorePreview.untouched_extra > 0" class="text-[11px] text-zinc-600 mt-1">
-                {{ restorePreview.untouched_extra.toLocaleString() }} level(s) here aren't in the file — each keeps the neighbour it currently follows.
+                {{ restorePreview.untouched_extra.toLocaleString() }} level(s) here aren't in the file; they stay where they are.
               </p>
               <p v-if="restorePreview.retiered" class="text-[11px] text-zinc-500 mt-1">
-                {{ restorePreview.retiered.toLocaleString() }} level(s) also get their tier back — moving a level
-                rewrites its tier, so the file carries the ones those moves replaced.
+                {{ restorePreview.retiered.toLocaleString() }} level(s) also get their tier restored.
               </p>
               <ul v-if="restorePreview.sample.length" class="mt-2 space-y-0.5 max-h-40 overflow-y-auto">
                 <li v-for="m in restorePreview.sample" :key="m.level_id" class="text-[11px] text-zinc-500 flex gap-2">
@@ -1329,9 +1325,8 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               <div>
                 <h3 class="text-xs font-semibold text-zinc-200">Reset to the sheet's order</h3>
                 <p class="text-[11px] text-zinc-500 mt-0.5 max-w-lg">
-                  Undo every move made here and put the sheet-backed levels back in the sheet's own
-                  order. Site-only levels — the ones the sheet doesn't carry — hold their positions
-                  and the rest flow around them, exactly as a full sheet import leaves things.
+                  Undo every move made here and put sheet-backed levels back in the sheet's
+                  order. Site-only levels keep their positions.
                 </p>
               </div>
               <button
@@ -1379,17 +1374,15 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             </li>
             <li class="flex gap-2">
               <span class="text-zinc-600 shrink-0">2.</span>
-              <span><span class="text-zinc-200">Site-only levels</span> — nothing on the sheet carries this level's ID.</span>
+              <span><span class="text-zinc-200">Site-only levels</span> — levels the sheet doesn't have.</span>
             </li>
             <li class="flex gap-2">
               <span class="text-zinc-600 shrink-0">3.</span>
-              <span><span class="text-zinc-200">Sheet-exclusive rows</span> — the last import read the row and no level here represents it, with the sheet's own data. Recorded during the ALL sheet import.</span>
+              <span><span class="text-zinc-200">Sheet-exclusive rows</span> — sheet rows with no matching level here, with the sheet's own data.</span>
             </li>
           </ul>
           <p class="mt-2 text-[11px] text-zinc-600 max-w-lg">
-            An offset introduced near the top makes every level below it differ by the same amount, so the
-            per-level list is tens of thousands of rows all saying one thing. The drift points are that list,
-            compressed to the places it actually changes.
+            Drift points only list the places where the offset changes, not every affected level.
           </p>
           <div class="mt-3 flex items-center gap-2 flex-wrap">
             <button
@@ -1422,7 +1415,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
           <div>
             <h2 class="text-base font-semibold tracking-tight">Manage imports</h2>
             <p class="text-xs text-zinc-500 mt-0.5">
-              Importers are idempotent — re-running won't create duplicates. Status refreshes every 5 s.
+              Re-running an import won't create duplicates. Status refreshes automatically.
             </p>
           </div>
           <button
@@ -1724,7 +1717,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             <button
               type="button"
               class="rounded-lg border border-zinc-800 text-zinc-400 text-xs px-2.5 py-1.5 hover:border-zinc-600 hover:text-zinc-200 transition-colors"
-              title="Post today's changes so far — a partial day"
+              title="Post today's changes so far"
               @click="postNow"
             >Post today</button>
           </div>
@@ -1767,8 +1760,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               class="btn btn-sm btn-primary"
             >{{ webhookBusy ? 'Adding…' : 'Add webhook' }}</button>
             <p class="text-[10px] text-zinc-600 ml-auto max-w-xs leading-snug">
-              The URL is a write credential for that channel. It's stored, then only
-              ever shown back with its token removed.
+              Webhook URLs are secret, so they're shown back with the token hidden.
             </p>
           </div>
         </form>
@@ -1838,8 +1830,8 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                   class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] transition-colors"
                   :class="w.split_long ? 'text-accent' : 'text-zinc-500 hover:text-zinc-300'"
                   :title="w.split_long
-                    ? 'A day too long for one embed is sent as several messages — click to go back to cutting it off'
-                    : 'Send the whole day across several messages when it is too long for one embed'"
+                    ? 'Long changelogs are split into several messages — click to disable'
+                    : 'Split long changelogs into several messages instead of cutting them off'"
                 >
                   <input type="checkbox" :checked="!!w.split_long" class="accent-accent" @change="toggleSplitLong(w)" />
                   Split long changelogs
@@ -1877,7 +1869,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
             </li>
           </ul>
           <p v-else class="px-3.5 py-3 text-[11px] text-zinc-600">
-            Nothing receives this yet.
+            No webhooks yet.
           </p>
         </section>
 

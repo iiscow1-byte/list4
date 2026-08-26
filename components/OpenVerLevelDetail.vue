@@ -93,7 +93,7 @@ async function saveEdit() {
 
 async function deleteLevel() {
   if (deleting.value) return
-  if (!confirm(`Delete "${props.level.name}" from the open verifications list? This cannot be undone from the UI.`)) return
+  if (!confirm(`Delete "${props.level.name}" from open verifications? This can't be undone.`)) return
   deleting.value = true
   deleteError.value = null
   try {
@@ -280,7 +280,7 @@ const tagList = computed(() => {
       </div>
     </a>
     <div v-else class="card mb-6 px-6 py-12 text-center">
-      <p class="text-sm text-zinc-400">Not verified — no showcase video provided.</p>
+      <p class="text-sm text-zinc-400">No showcase video yet.</p>
     </div>
 
     <!-- Tags -->

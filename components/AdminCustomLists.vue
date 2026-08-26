@@ -135,10 +135,8 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
     <header>
       <h2 class="text-sm font-semibold text-zinc-100">Create a custom list from an imported list</h2>
       <p class="text-xs text-zinc-500 mt-1">
-        Pick a slice of the ALL list — or of any list the site mirrors — and turn it into a
-        custom list you own. It behaves like any other custom list (leaderboard, records,
-        packs) and you can reorder it in the builder. Levels that also exist on the ALL list
-        stay linked to it.
+        Turn a slice of the ALL list (or any mirrored list) into a custom list you own.
+        You can reorder it in the builder, and levels on the ALL list stay linked to it.
       </p>
     </header>
 
@@ -210,9 +208,9 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
         <p class="text-[11px] text-zinc-500 tabular-nums">
           <template v-if="previewing">Counting matching levels…</template>
           <template v-else-if="previewCount == null">Set a range to see how many levels match.</template>
-          <template v-else-if="previewCount === 0">Nothing matches — has this list been imported yet?</template>
+          <template v-else-if="previewCount === 0">No matches. Has this list been imported yet?</template>
           <template v-else>
-            {{ previewCount.toLocaleString() }} level{{ previewCount === 1 ? '' : 's' }} match —
+            {{ previewCount.toLocaleString() }} level{{ previewCount === 1 ? '' : 's' }} match,
             <span class="text-zinc-300">{{ willTake?.toLocaleString() }}</span> will be added.
           </template>
         </p>
@@ -241,8 +239,8 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       </div>
 
       <p v-if="created" class="sm:col-span-2 text-xs text-emerald-400">
-        Created “{{ created.title }}” with {{ created.count }} levels —
-        <NuxtLink :to="`/lists/${created.public_id}`" class="underline hover:text-emerald-300">open it →</NuxtLink>
+        Created “{{ created.title }}” with {{ created.count }} levels.
+        <NuxtLink :to="`/lists/${created.public_id}`" class="underline hover:text-emerald-300">Open it →</NuxtLink>
       </p>
     </div>
   </div>

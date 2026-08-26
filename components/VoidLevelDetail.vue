@@ -156,7 +156,7 @@ async function saveEdit() {
 
 async function deleteLevel() {
   if (deleting.value) return
-  if (!confirm(`Delete "${props.level.name}" (#${props.level.position}) from the void list? This shifts everything below up by one and cannot be undone from the UI.`)) return
+  if (!confirm(`Delete "${props.level.name}" (#${props.level.position}) from the void list? Everything below moves up one. This can't be undone.`)) return
   deleting.value = true
   deleteError.value = null
   try {
@@ -208,7 +208,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           </span>
         </div>
         <p class="text-sm text-zinc-400 mt-2 leading-relaxed">
-          Levels submitted without a difficulty opinion are added to the voided list where levels go without a concrete difficulty opinion, or are here for other reasons. Complete a level to bring it to pending!
+          Levels submitted without a difficulty opinion end up here. Beat one and send it to pending!
         </p>
       </div>
       <button
@@ -232,7 +232,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbours</span></span>
           <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="field field-md mt-1" />
         </label>
         <label class="block">
@@ -342,11 +342,11 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
       <div v-if="pendingFormOpen" class="border-t border-fuchsia-800/30 px-4 pb-4 pt-3 space-y-4">
         <p class="text-xs text-fuchsia-200/70">
-          Submit this level to the pending list with a tier and difficulty opinion. A moderator will review before the level moves to the main list. If approved, it is removed from the void list.
+          Add a tier and difficulty to send this level to pending. A moderator reviews it, and approved levels leave the void list.
         </p>
 
         <div v-if="pendingSuccess" class="rounded border border-emerald-800/50 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-300">
-          Submitted — a moderator will review your submission.
+          Submitted. A moderator will review it.
         </div>
         <template v-else>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

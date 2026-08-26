@@ -1761,113 +1761,6 @@ function initSchema(db: DatabaseSync) {
   if (!clCols2.some((c) => c.name === 'accepts_submissions')) {
     db.exec(`ALTER TABLE custom_lists ADD COLUMN accepts_submissions INTEGER NOT NULL DEFAULT 0`)
   }
-  /**
-   * What shape this list is.
-   *
-   * `ranked` is every list that existed before this column: an ordered 1..N
-   * where rank is the whole point, and tiers (`custom_list_tiers`) are bands
-   * drawn across that order.
-   *
-   * `gdsr` is the other shape, after the GDSR sheets — levels are sorted into
-   * named difficulty tiers (Bronze, Silver, Gold, …) and rank means nothing
-   * inside one. Those tiers are `custom_list_packs`, which already group items
-   * explicitly rather than by rank band; the only thing a pack was missing is
-   * the clear requirement below.
-   */
-  if (!clCols2.some((c) => c.name === 'kind')) {
-    db.exec(`ALTER TABLE custom_lists ADD COLUMN kind TEXT NOT NULL DEFAULT 'ranked'`)
-  }
-
-  /**
-   * A ranked list's companion GDSR, if it has one.
-   *
-   * The two describe the same levels differently — one in order, one sorted
-   * into tiers — and a community that keeps both wants readers to move between
-   * them. Held on the ranked list rather than duplicated on both sides, so
-   * there is one row to change and no way for the pair to disagree about who
-   * points at whom. `ON DELETE SET NULL` is done by hand below, since SQLite
-   * cannot add a foreign key to an existing table.
-   */
-  if (!clCols2.some((c) => c.name === 'linked_gdsr_id')) {
-    db.exec(`ALTER TABLE custom_lists ADD COLUMN linked_gdsr_id INTEGER`)
-  }
-  db.exec(`CREATE INDEX IF NOT EXISTS idx_cl_linked_gdsr ON custom_lists(linked_gdsr_id)`)
-  // A deleted GDSR must not leave ranked lists pointing at nothing.
-  db.exec(`
-    CREATE TRIGGER IF NOT EXISTS trg_cl_unlink_gdsr
-    AFTER DELETE ON custom_lists
-    BEGIN
-      UPDATE custom_lists SET linked_gdsr_id = NULL WHERE linked_gdsr_id = OLD.id;
-    END;
-  `)
-
-  /**
-   * GDSR tiers.
-   *
-   * These began as `custom_list_packs`, which was the right shape and the wrong
-   * table: a pack is a curator's grouping *within* a ranked list, and any list
-   * can have both packs and tiers without meaning the same thing by them. A
-   * GDSR's tiers are the list's structure, not an annotation on it, and giving
-   * them their own table is what lets a pack stay a pack — and lets a tier own
-   * things a pack has no business carrying, starting with `require_count`.
-   *
-   * `require_count` is the GDSR sheets' "Clear Any 9". NULL asks for all of the
-   * tier's levels.
-   */
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS gdsr_tiers (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      list_id       INTEGER NOT NULL REFERENCES custom_lists(id) ON DELETE CASCADE,
-      name          TEXT    NOT NULL,
-      color         TEXT,
-      sort_order    INTEGER NOT NULL DEFAULT 0,
-      require_count INTEGER
-    );
-    CREATE INDEX IF NOT EXISTS idx_gdsr_tiers_list ON gdsr_tiers(list_id, sort_order);
-
-    CREATE TABLE IF NOT EXISTS gdsr_tier_items (
-      tier_id INTEGER NOT NULL REFERENCES gdsr_tiers(id)        ON DELETE CASCADE,
-      item_id INTEGER NOT NULL REFERENCES custom_list_items(id) ON DELETE CASCADE,
-      PRIMARY KEY (tier_id, item_id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_gdsr_tier_items_item ON gdsr_tier_items(item_id);
-  `)
-
-  /**
-   * One-time move of any GDSR that was built while tiers were packs. Runs only
-   * for lists that have packs and no tiers yet, so it cannot re-import a tier an
-   * author has since deleted, and it leaves the packs alone — a GDSR that also
-   * wanted packs keeps them.
-   */
-  const packCols = db.prepare(`PRAGMA table_info(custom_list_packs)`).all() as { name: string }[]
-  const hasPackRequire = packCols.some((c) => c.name === 'require_count')
-  const strays = db.prepare(`
-    SELECT DISTINCT p.list_id
-      FROM custom_list_packs p
-      JOIN custom_lists cl ON cl.id = p.list_id
-     WHERE cl.kind = 'gdsr'
-       AND NOT EXISTS (SELECT 1 FROM gdsr_tiers t WHERE t.list_id = p.list_id)
-  `).all() as { list_id: number }[]
-  if (strays.length) {
-    const insTier = db.prepare(
-      `INSERT INTO gdsr_tiers (list_id, name, color, sort_order, require_count) VALUES (?,?,?,?,?)`,
-    )
-    const insItem = db.prepare(`INSERT OR IGNORE INTO gdsr_tier_items (tier_id, item_id) VALUES (?,?)`)
-    for (const { list_id } of strays) {
-      const packs = db.prepare(
-        `SELECT id, name, color, sort_order${hasPackRequire ? ', require_count' : ''}
-           FROM custom_list_packs WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
-      ).all(list_id) as { id: number; name: string; color: string | null; sort_order: number; require_count?: number | null }[]
-      for (const pk of packs) {
-        const tierId = Number(insTier.run(list_id, pk.name, pk.color, pk.sort_order, pk.require_count ?? null).lastInsertRowid)
-        for (const it of db.prepare(
-          `SELECT item_id FROM custom_list_pack_items WHERE pack_id = ?`,
-        ).all(pk.id) as { item_id: number }[]) insItem.run(tierId, it.item_id)
-      }
-      db.prepare(`DELETE FROM custom_list_packs WHERE list_id = ?`).run(list_id)
-    }
-    console.log(`[db-init] moved ${strays.length} GDSR list(s) from packs to tiers`)
-  }
   // Presentation: a list's own icon and accent colour, so a community's list
   // reads as theirs rather than as a generic entry in the gallery.
   if (!clCols2.some((c) => c.name === 'icon_url')) {
@@ -2214,21 +2107,6 @@ function initSchema(db: DatabaseSync) {
   const cliChallengeCols = db.prepare(`PRAGMA table_info(custom_list_items)`).all() as { name: string }[]
   if (!cliChallengeCols.some((c) => c.name === 'is_challenge')) {
     db.exec(`ALTER TABLE custom_list_items ADD COLUMN is_challenge INTEGER NOT NULL DEFAULT 0`)
-  }
-
-  /**
-   * A level nobody has verified yet.
-   *
-   * GDSR lists carry these routinely — a tier is drafted with the levels it
-   * will contain before anyone has cleared them — and they are not the same as
-   * a level with no record: the level itself is unbeaten, so it cannot be
-   * cleared by anybody and must not count toward a tier's requirement or the
-   * denominator of the leaderboard. A flag rather than an inference, because
-   * "no records yet" and "unverified" look identical in the data and mean
-   * opposite things to a player reading the list.
-   */
-  if (!cliChallengeCols.some((c) => c.name === 'unverified')) {
-    db.exec(`ALTER TABLE custom_list_items ADD COLUMN unverified INTEGER NOT NULL DEFAULT 0`)
   }
 
   // AREDL mirrors each player's Discord avatar hash. Paired with `discord_id`

@@ -18,7 +18,7 @@ useHead(() => ({ title: 'Open Verifications' }))
     <div class="px-4 py-10 sm:p-12 max-w-2xl mx-auto text-center">
       <h1 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Open verifications</h1>
       <p class="text-sm text-zinc-400 mb-6">
-        Levels submitted by the community that have not yet been verified.
+        Levels submitted by the community that haven't been verified yet.
         Showcase clips appear in place of a verification video.
       </p>
       <NuxtLink

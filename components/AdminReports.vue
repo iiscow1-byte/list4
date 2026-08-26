@@ -65,7 +65,7 @@ async function decide(r: Report, action: 'action' | 'dismiss') {
     await refresh()
     emit('changed')
   } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? 'That did not work.'
+    error.value = e?.data?.statusMessage ?? 'Something went wrong.'
   } finally {
     busyId.value = null
   }
@@ -112,15 +112,14 @@ function isSevere(r: Report): boolean {
         <h2 class="text-sm font-semibold text-zinc-100">Reports</h2>
         <p class="text-[11px] text-zinc-500 mt-0.5 max-w-2xl">
           Accounts, comments, custom lists, levels and forum posts people have flagged.
-          Nothing is deleted by resolving one — both outcomes are kept, and a run of dismissed
-          reports about the same account is worth seeing.
+          Resolved reports stay in the log.
           <span v-if="data?.isAdmin" class="text-amber-400/80">
-            Reports about staff are admin-only and are never shown to the person they name.
+            Reports about staff are admin-only and hidden from the person reported.
           </span>
         </p>
       </div>
       <div class="flex items-center gap-2">
-        <select v-model="targetFilter" class="field field-sm w-auto text-xs" aria-label="Kind of thing">
+        <select v-model="targetFilter" class="field field-sm w-auto text-xs" aria-label="Filter by type">
           <option value="">Everything</option>
           <option v-for="(l, k) in TARGET_LABEL" :key="k" :value="k">{{ l }}</option>
         </select>
@@ -204,7 +203,7 @@ function isSevere(r: Report): boolean {
             <input
               v-model="notes[r.id]"
               maxlength="500"
-              placeholder="What you did, optional"
+              placeholder="Note (optional)"
               class="field field-sm text-xs"
             />
             <div class="flex items-center gap-1.5">
@@ -212,14 +211,14 @@ function isSevere(r: Report): boolean {
                 type="button"
                 :disabled="busyId != null"
                 class="btn btn-sm btn-primary flex-1"
-                title="You dealt with it"
+                title="Mark as actioned"
                 @click="decide(r, 'action')"
               >{{ busyId === r.id ? '…' : 'Actioned' }}</button>
               <button
                 type="button"
                 :disabled="busyId != null"
                 class="btn btn-sm btn-ghost flex-1"
-                title="Nothing to do here"
+                title="No action needed"
                 @click="decide(r, 'dismiss')"
               >Dismiss</button>
             </div>

@@ -450,13 +450,13 @@ async function applyTierMidpoint(tier: string) {
     if (placementEstimate.value !== '' && placementEstimate.value !== autofilledPlacement) return
 
     if (res.midpoint == null) {
-      tierPlacementNote.value = `The ALL has no ${tier} levels yet, so there's no middle of it to point at.`
+      tierPlacementNote.value = `The ALL has no ${tier} levels yet.`
       return
     }
     autofilledPlacement = String(res.midpoint)
     placementEstimate.value = autofilledPlacement
     tierPlacementNote.value =
-      `Middle of ${tier} — ${res.count.toLocaleString()} level${res.count === 1 ? '' : 's'} on the ALL. Change it if you know better.`
+      `Middle of ${tier} (${res.count.toLocaleString()} level${res.count === 1 ? '' : 's'}). Change it if you know better.`
   } catch {
     tierPlacementNote.value = null
   }
@@ -671,8 +671,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
       <h1 class="text-3xl font-bold tracking-tight">Submit a level</h1>
       <p class="text-sm text-zinc-400 mt-1 max-w-prose">
         Anything the All Levels List doesn't have yet. A moderator reads every submission
-        and decides where it goes — the more you can say about the difficulty, the closer
-        that placement starts.
+        and decides where it goes, so the more difficulty info the better.
       </p>
 
       <!-- Live requirements, so "what's missing" is answerable without pressing
@@ -758,8 +757,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             </div>
           </div>
           <p v-else class="text-[11px] text-zinc-600">
-            The level's thumbnail appears here once the ID is in — it's the quickest way to
-            catch a wrong one.
+            Enter an ID to see the level's thumbnail and check it's the right one.
           </p>
         </div>
       </section>
@@ -869,8 +867,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             <span class="text-[11px] text-zinc-500 flex-1">
               <template v-if="isChallenge">
                 Not sure where it fits? Compare it against
-                <span class="text-amber-300">other challenges</span> — the list opens on
-                challenges only, ranked among themselves.
+                <span class="text-amber-300">other challenges</span>, ranked among themselves.
               </template>
               <template v-else>
                 Not sure where it fits? Pick a level you'd call about as hard, and its tier,
@@ -938,7 +935,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
           >
             ⚠ Without a tier this goes to the
             <NuxtLink to="/void" class="underline hover:no-underline">void list</NuxtLink>
-            rather than to pending — that's where levels nobody has given a difficulty to wait.
+            instead of pending.
           </p>
         </div>
       </details>
@@ -955,7 +952,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
           <label class="block">
             <span :class="label">
               Source
-              <span :class="hint">— where you found this level. Leave on "None" if it's first-party to the All Levels List.</span>
+              <span :class="hint">— where you found this level. Leave on "None" if it's from the ALL itself.</span>
             </span>
             <SearchableSelect
               v-model="placementSource"
@@ -1076,7 +1073,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
       </section>
 
       <p v-if="success" class="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-300">
-        Submitted — pending review. You'll get an inbox message when a moderator decides.
+        Submitted. You'll get an inbox message when a moderator decides.
       </p>
       <p v-if="error" class="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2.5 text-sm text-red-300">{{ error }}</p>
 

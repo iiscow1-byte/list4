@@ -307,9 +307,9 @@ function onMove(e: MouseEvent) {
           </template>
         </svg>
         <p class="px-4 pb-3 text-[10px] text-zinc-600">
-          Each line has its own scale — ALL placements on the left, AREDL ranks on the right.
+          Each line has its own scale: ALL placement on the left, AREDL rank on the right.
           <template v-if="allIsSinglePoint">
-            This level has never been moved here, so its ALL placement is a single point at today.
+            This level hasn't moved yet, so its ALL placement is a single point.
           </template>
         </p>
       </template>

@@ -29,7 +29,7 @@ async function logout() {
 
         <span
           class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300"
-          title="The site is closed while it is being developed — things move, break and change without warning."
+          title="The site is still in development. Things may break or change without warning."
         >
           <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
           In development
@@ -60,7 +60,7 @@ async function logout() {
         List data by <span class="text-zinc-400">{{ DATA_AUTHORS.join(', ') }}</span>
         <span class="text-zinc-700" aria-hidden="true"> · </span>
         Website by <span class="text-zinc-400">{{ SITE_AUTHORS.join(', ') }}</span>
-        <span class="text-zinc-700"> — and everyone who submits records, levels and opinions.</span>
+        <span class="text-zinc-700">, and everyone who submits records and levels.</span>
       </p>
     </div>
   </footer>

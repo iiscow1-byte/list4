@@ -188,8 +188,7 @@ useHead({ title: 'Changelog — All Levels List' })
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Changelog</h1>
         <p class="text-sm text-zinc-500 mt-1 max-w-2xl">
-          Every placement and movement on the ALL list, including history imported from
-          AREDL and converted to ALL placements. Website changes live on
+          Every placement and move on the ALL list. Website changes live on
           <NuxtLink to="/updates" class="text-accent hover:underline">List updates</NuxtLink>.
         </p>
       </div>

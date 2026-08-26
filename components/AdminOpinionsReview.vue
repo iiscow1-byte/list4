@@ -163,7 +163,7 @@ async function decide(action: 'approve' | 'reject') {
         </div>
 
         <div v-if="selected.source_record_id" class="rounded border border-sky-800/60 bg-sky-950/30 px-3 py-2 text-xs text-sky-200">
-          Attached to record submission #{{ selected.source_record_id }} — will resolve with that record.
+          Attached to record submission #{{ selected.source_record_id }}. Resolves with that record.
         </div>
 
         <div v-if="selected.notes">

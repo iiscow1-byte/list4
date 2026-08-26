@@ -97,7 +97,7 @@ defineExpose({ reset, enabled: computed(() => !!config.value?.enabled) })
   <div v-if="config?.enabled" class="space-y-1.5">
     <div ref="container" />
     <p v-if="failed" class="text-[11px] text-amber-400">
-      The captcha could not load. Check that nothing is blocking
+      Captcha didn't load. Check that nothing is blocking
       <span class="text-zinc-400">{{ config.provider === 'turnstile' ? 'challenges.cloudflare.com' : 'hcaptcha.com' }}</span>,
       then reload.
     </p>

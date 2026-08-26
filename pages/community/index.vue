@@ -322,7 +322,7 @@ useHead({ title: 'Community — All Levels List' })
           and follow players to see their completions here.
         </p>
         <p v-else-if="feedLoaded && shownFeed.length === 0" class="px-4 py-16 text-sm text-zinc-500 text-center">
-          Nothing yet — follow some players from the
+          Nothing yet. Follow some players from the
           <NuxtLink to="/leaderboard" class="text-accent hover:underline">leaderboard</NuxtLink>.
         </p>
         <ul v-else class="divide-y divide-zinc-900/60">

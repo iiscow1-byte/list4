@@ -976,7 +976,7 @@ async function submitPendingMove() {
 
 async function deleteLevel() {
   if (deleting.value) return
-  if (!confirm(`Delete "${props.level.name}" (#${props.level.position})? This shifts everything below up by one and cannot be undone from the UI.`)) return
+  if (!confirm(`Delete "${props.level.name}" (#${props.level.position})? Everything below moves up one. This can't be undone.`)) return
   deleting.value = true
   deleteError.value = null
   try {
@@ -1063,7 +1063,7 @@ const challengeRankTitle = computed(() =>
     ? undefined
     // The badge is a link now, and the tooltip is where that gets said — a
     // chip that navigates looks exactly like one that doesn't.
-    : `${ordinal(props.level.challenge_rank)} challenge on the All Levels List — open the challenge list`,
+    : `${ordinal(props.level.challenge_rank)} challenge on the All Levels List. Click to open the challenge list.`,
 )
 
 // GDL/AREDL placements are suppressed for non-extreme levels; CL is suppressed for non-challenge levels.
@@ -1307,7 +1307,7 @@ const chartAredlSeries = computed(() =>
             :disabled="challengeBusy"
             class="text-[11px] text-zinc-600 hover:text-red-400 disabled:opacity-50 transition-colors"
             :title="level.force_challenge
-              ? 'Marked as a challenge by an admin — take it back off the challenge list'
+              ? 'Marked as a challenge by an admin. Take it off the challenge list.'
               : 'Take this level off the challenge list'"
             @click="setChallenge(false)"
           >{{ challengeBusy ? 'Saving…' : 'Unmark' }}</button>
@@ -1357,7 +1357,7 @@ const chartAredlSeries = computed(() =>
                   ? 'border-amber-900/50 bg-amber-950/30 text-amber-500/90 hover:border-amber-700/60 hover:text-amber-300'
                   : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
                 :title="s.challenge
-                  ? `${s.name} is a challenge list — which is why this level is one`
+                  ? `${s.name} is a challenge list`
                   : `Placed from ${s.name}`"
               >
                 {{ s.name }}
@@ -1370,7 +1370,7 @@ const chartAredlSeries = computed(() =>
                   ? 'border-amber-900/50 bg-amber-950/30 text-amber-500/90'
                   : 'border-zinc-800 bg-zinc-900/60 text-zinc-400'"
                 :title="s.challenge
-                  ? `${s.name} is a challenge list — which is why this level is one`
+                  ? `${s.name} is a challenge list`
                   : `Placed from ${s.name}`"
               >{{ s.name }}</span>
             </template>
@@ -1524,7 +1524,7 @@ const chartAredlSeries = computed(() =>
     <!-- Suggest-move submission: admins/mods only, outside edit mode -->
     <section v-if="canEdit && isPermanent && !editing && (pendingMoveReady || pendingMoveSuccess)" class="rounded-md border border-sky-900/50 bg-sky-950/20 p-4 mb-6 space-y-3">
       <p v-if="pendingMoveSuccess" class="text-xs text-emerald-400">
-        Pending move submitted — a moderator will review it.
+        Pending move submitted. A moderator will review it.
       </p>
       <template v-else>
         <p class="text-[11px] text-sky-400 uppercase tracking-widest font-medium">Submit as pending move</p>
@@ -1662,7 +1662,7 @@ const chartAredlSeries = computed(() =>
           <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement <span class="text-zinc-600 normal-case">— moves the level, shifts neighbors</span></span>
+          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement <span class="text-zinc-600 normal-case">— moves the level, shifts neighbours</span></span>
           <div class="mt-1 flex items-center gap-2 flex-wrap">
             <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="flex-1 min-w-[7rem] rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
 
@@ -1723,7 +1723,7 @@ const chartAredlSeries = computed(() =>
                page navigates to the level's new placement on success. -->
           <div v-if="placementChanged" class="mt-1 flex items-center gap-2 flex-wrap">
             <span class="text-[11px] text-zinc-600">
-              Its tier will change to whatever the levels it lands between are.
+              The tier updates to match its new neighbours.
             </span>
             <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors">
               <input v-model="keepTier" type="checkbox" class="accent-accent" />
@@ -2060,7 +2060,7 @@ const chartAredlSeries = computed(() =>
         >
           Tentative
           <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-center text-[11px] leading-relaxed text-zinc-200 shadow-xl opacity-0 transition-opacity group-hover/tent:opacity-100 z-20">
-            Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate.
+            No solid estimate for this level yet, so its placement may be off.
           </span>
         </span>
         <template v-for="(t, i) in tags" :key="`${i}-${t.label}`">
@@ -2103,7 +2103,7 @@ const chartAredlSeries = computed(() =>
           v-if="hiddenListCount"
           type="button"
           class="px-2 py-1 rounded-full text-[11px] font-medium leading-none bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-accent hover:border-accent/40 transition-colors"
-          :title="`On ${visibleOtherLists.length} lists in total — see them all`"
+          :title="`See all ${visibleOtherLists.length} lists`"
           @click="revealOtherLists"
         >+{{ hiddenListCount }}</button>
 

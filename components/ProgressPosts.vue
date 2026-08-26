@@ -240,7 +240,7 @@ function bar(p: ProgressPost) {
           <input
             v-model="form.level_name"
             type="text"
-            placeholder="Type a name, for a level not on the list"
+            placeholder="Type a name for a level not on the list"
             class="field field-sm flex-1 min-w-0"
           />
         </div>
@@ -285,7 +285,7 @@ function bar(p: ProgressPost) {
     </form>
 
     <p v-if="posts.length === 0" class="px-4 py-5 text-xs text-zinc-600">
-      No progress posts yet.<template v-if="canPost"> Post one and it shows up here with a bar and, if you link it, the run.</template>
+      No progress posts yet.<template v-if="canPost"> Post one with the button above.</template>
     </p>
 
     <ul v-else class="divide-y divide-zinc-900">

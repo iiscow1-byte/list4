@@ -38,9 +38,6 @@ const props = defineProps<{
     accent_color?: string | null
     discord_url?: string | null
     youtube_url?: string | null
-    /** A companion GDSR of the same levels, sorted into tiers. */
-    linked_gdsr_public_id?: string | null
-    linked_gdsr_title?: string | null
     kind?: string | null
     show_editors?: number
     items: any[]
@@ -232,7 +229,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           v-if="showBuilder"
           type="button"
           class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
-          title="Open this list in the builder — add, remove and reorder levels"
+          title="Add, remove and reorder levels in the builder"
           @click="openInBuilder"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
@@ -289,21 +286,12 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
             </p>
             <CustomListStaff :staff="staffList" />
             <p class="px-3 py-2 text-[10px] leading-snug text-zinc-600 border-t border-zinc-900">
-              They decide this list's order and review what's submitted to it.
+              They manage the list and review submissions.
             </p>
           </div>
         </div>
 
         <span class="w-px h-5 bg-zinc-800 mx-0.5 shrink-0" aria-hidden="true" />
-
-        <!-- The same levels sorted into tiers, when the owner keeps both. Small
-             and inline: it is another view of this list, not another list. -->
-        <NuxtLink
-          v-if="list.linked_gdsr_public_id"
-          :to="`/gdsr/${list.linked_gdsr_public_id}`"
-          class="shrink-0 rounded border border-amber-800/60 bg-amber-950/40 px-2 py-1 text-[10px] uppercase tracking-widest text-amber-300 hover:bg-amber-900/40 transition-colors"
-          :title="list.linked_gdsr_title ? `GDSR: ${list.linked_gdsr_title}` : 'Companion GDSR'"
-        >GDSR</NuxtLink>
 
         <!-- The list's own community links -->
         <a

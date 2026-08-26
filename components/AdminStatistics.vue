@@ -199,7 +199,7 @@ const headline = computed(() => {
   return [
     { label: 'Page views', value: fmt(r.views), hint: `in ${data.value!.days} days`, tone: COLORS.views },
     { label: 'Unique visitors', value: fmt(r.visitors), hint: `${fmt(r.visitorDays)} visitor-days`, tone: COLORS.visitors },
-    { label: 'Views per visitor', value: per ? per.toFixed(1) : '—', hint: 'how deep a visit goes', tone: undefined },
+    { label: 'Views per visitor', value: per ? per.toFixed(1) : '—', hint: `in ${data.value!.days} days`, tone: undefined },
     { label: 'Signed-in accounts', value: fmt(r.accounts), hint: `${fmt(r.logins)} fresh logins`, tone: COLORS.accounts },
   ]
 })
@@ -261,9 +261,8 @@ const shownLevels = computed(() =>
         <div>
           <h1 class="text-lg font-semibold tracking-tight text-zinc-100">Statistics</h1>
           <p class="text-xs text-zinc-500 mt-0.5 max-w-2xl">
-            How much the site is read, and how much is added to it. A <em>view</em> is one page
-            opened; a <em>visitor</em> is one person, counted once a day from a salted hash that
-            can't be turned back into anyone. Everything is UTC.
+            A <em>view</em> is one page opened; a <em>visitor</em> is one person, counted
+            once a day, anonymously. All times are UTC.
           </p>
         </div>
         <div class="flex items-center gap-1">
@@ -305,8 +304,7 @@ const shownLevels = computed(() =>
           v-if="!data.totals.viewsAllTime"
           class="card px-4 py-6 text-center text-sm text-zinc-500"
         >
-          Nothing counted yet. Views start being recorded the first time someone opens a
-          page after this version went up.
+          Nothing counted yet. View tracking started with this version of the site.
         </p>
 
         <!-- Traffic over time -->

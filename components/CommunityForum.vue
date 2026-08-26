@@ -154,7 +154,7 @@ async function submit() {
     })
     await router.push(`/community/thread/${res.id}`)
   } catch (e: any) {
-    postError.value = e?.data?.statusMessage ?? 'Could not post that.'
+    postError.value = e?.data?.statusMessage ?? "Couldn't post that."
   } finally {
     posting.value = false
   }
@@ -184,8 +184,8 @@ async function toggleLike(t: Thread) {
          header, so this is only the form. -->
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <p class="text-sm text-zinc-500 min-w-0">
-        Talk about levels, post progress, ask for advice. A thread can name a level — those
-        show up on that level's own page.
+        Talk about levels, post progress, ask for advice. Threads about a level also show
+        up on that level's page.
       </p>
       <button
         v-if="me"
@@ -218,7 +218,7 @@ async function toggleLike(t: Thread) {
           v-model="draft.body"
           rows="5"
           maxlength="8000"
-          placeholder="Say what you mean."
+          placeholder="Write your post…"
           class="field field-md mt-1"
         />
       </label>

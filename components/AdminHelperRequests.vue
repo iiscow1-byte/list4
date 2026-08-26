@@ -75,7 +75,7 @@ async function decide(r: Request, action: 'apply' | 'reject') {
     await load()
     emit('changed')
   } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? 'That did not work.'
+    error.value = e?.data?.statusMessage ?? 'That didn\'t work.'
   } finally {
     busyId.value = null
   }
@@ -104,12 +104,11 @@ const STATUS_TONE: Record<Request['status'], string> = {
         </h2>
         <p class="text-[11px] text-zinc-500 mt-0.5 max-w-2xl">
           <template v-if="mine">
-            What you have asked for, and what came of it. Moves and challenge changes need an
-            admin because they rewrite a placement somebody already decided.
+            Your move and challenge requests, and what happened to them.
           </template>
           <template v-else>
-            Moves and challenge changes list helpers have asked for. Applying a move runs it
-            through the same tool the move buttons use, so the changelog and the tier follow.
+            Move and challenge requests from list helpers. Applied moves update the changelog
+            and tiers like any other move.
           </template>
         </p>
       </div>
@@ -131,7 +130,7 @@ const STATUS_TONE: Record<Request['status'], string> = {
 
     <p v-if="loading && !items.length" class="text-sm text-zinc-500">Loading…</p>
     <p v-else-if="!items.length" class="card px-6 py-12 text-center text-sm text-zinc-500">
-      <template v-if="mine">You haven't asked for anything yet.</template>
+      <template v-if="mine">No requests yet.</template>
       <template v-else-if="status === 'pending'">Nothing waiting.</template>
       <template v-else>Nothing here.</template>
     </p>
@@ -176,7 +175,7 @@ const STATUS_TONE: Record<Request['status'], string> = {
             <input
               v-model="notes[r.id]"
               maxlength="500"
-              placeholder="A note back, optional"
+              placeholder="Optional note"
               class="field field-sm text-xs"
             />
             <div class="flex items-center gap-1.5">

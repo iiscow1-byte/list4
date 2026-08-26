@@ -103,7 +103,6 @@ const cards = computed(() => {
     v-else-if="isSelf"
     class="rounded-xl border border-dashed border-zinc-800 px-4 py-5 text-center text-xs text-zinc-500"
   >
-    Pick a hardest completion and a favourite level below — they show up here with the
-    level art behind them.
+    Pick your hardest completion and favourite level below to show them here.
   </p>
 </template>

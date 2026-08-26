@@ -94,8 +94,7 @@ function isRelease(version: string): boolean {
         </span>
       </div>
       <p class="text-sm text-zinc-500 mt-1">
-        Everything the website itself has gained, newest first. Looking for level
-        placements instead? That's the
+        Site changes, newest first. Level placements are in the
         <NuxtLink to="/changelog" class="text-accent hover:underline">list changelog</NuxtLink>.
       </p>
       <!-- Said plainly rather than left to be noticed: staff are reading a
@@ -103,7 +102,7 @@ function isRelease(version: string): boolean {
            you are on before you quote a line from it to somebody. -->
       <p v-if="isStaff" class="text-[11px] text-zinc-600 mt-2 inline-flex items-center gap-1.5">
         <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true" />
-        You're seeing staff-only entries too. Readers of the list don't see the amber ones.
+        Amber entries are staff-only. Regular users don't see them.
       </p>
     </header>
 
@@ -150,7 +149,7 @@ function isRelease(version: string): boolean {
             <span
               class="select-none shrink-0"
               :class="isAdminChange(c) ? 'text-amber-500/70' : 'text-accent/60'"
-              :title="isAdminChange(c) ? 'Staff only — not shown to readers of the list' : undefined"
+              :title="isAdminChange(c) ? 'Staff only, hidden from regular users' : undefined"
               aria-hidden="true"
             >›</span>
             <span>

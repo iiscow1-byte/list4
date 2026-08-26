@@ -241,7 +241,7 @@ function avatarOf(username: string) {
         </li>
       </ul>
       <p v-else class="text-xs text-zinc-600" :class="alwaysOpen ? 'py-2' : ''">
-        No comments yet.<template v-if="me"> Say the first thing.</template>
+        No comments yet.<template v-if="me"> Be the first.</template>
       </p>
 
       <form v-if="me" class="flex items-start gap-2 pt-1" @submit.prevent="post">

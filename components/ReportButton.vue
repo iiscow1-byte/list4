@@ -65,7 +65,7 @@ const REASONS: Record<string, { value: string; label: string; hint?: string }[]>
     {
       value: 'staff_abuse',
       label: 'Abusing a staff role',
-      hint: 'Goes to the site admins only. The person you name is never shown it.',
+      hint: 'Only site admins see this, never the person you name.',
     },
     { value: 'other', label: 'Something else' },
   ],
@@ -85,14 +85,14 @@ const REASONS: Record<string, { value: string; label: string; hint?: string }[]>
     {
       value: 'impossible',
       label: 'This level is impossible',
-      hint: 'Nobody can complete it — a broken trigger, an unbeatable section, a faked verification.',
+      hint: 'A broken trigger, an unbeatable section, or a faked verification.',
     },
     {
       value: 'removal_request',
       label: 'It should be removed from the list',
-      hint: 'It belongs on the list no longer — deleted from the game, a duplicate entry, or never qualified.',
+      hint: 'Deleted from the game, a duplicate entry, or it never qualified.',
     },
-    { value: 'wrong_placement', label: 'It is placed wrongly' },
+    { value: 'wrong_placement', label: 'Wrong placement' },
     { value: 'inappropriate', label: 'Inappropriate content' },
     { value: 'other', label: 'Something else' },
   ],
@@ -153,7 +153,7 @@ async function send() {
     close()
     setTimeout(() => { sent.value = null }, 6000)
   } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? 'Could not send that.'
+    error.value = e?.data?.statusMessage ?? 'Couldn\'t send the report.'
   } finally {
     busy.value = false
   }

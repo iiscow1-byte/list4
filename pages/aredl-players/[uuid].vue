@@ -39,7 +39,7 @@ function fmt(n: number | null | undefined) {
 
 <template>
   <div class="container-tight py-8 max-w-5xl">
-    <div v-if="error" class="text-sm text-zinc-500">Aredl player not found.</div>
+    <div v-if="error" class="text-sm text-zinc-500">AREDL player not found.</div>
     <div v-else-if="data && !data.claimedBy" class="grid lg:grid-cols-[240px_minmax(0,1fr)] gap-6">
       <aside class="lg:sticky lg:top-20 lg:self-start">
         <RecordCharts :completed="data.completedLevels" />
@@ -62,7 +62,7 @@ function fmt(n: number | null | undefined) {
         </header>
 
         <div class="rounded-md border border-amber-900/40 bg-amber-950/20 p-4 text-sm text-amber-200">
-          This AREDL player has not claimed their account yet.
+          This AREDL player hasn't claimed their account yet.
           <span class="text-amber-200/70 block text-xs mt-1">
             Stats below are mirrored from the AREDL list. If this is you,
             <NuxtLink to="/signup" class="underline hover:text-amber-100">create an account</NuxtLink>

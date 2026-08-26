@@ -439,7 +439,7 @@ async function decide(action: 'approve' | 'reject' | 'await') {
   if (action === 'approve') {
     const n = Number(placement.value)
     if (!Number.isInteger(n) || n <= 0) {
-      flash('err', 'Enter a placement (1-based) before approving.')
+      flash('err', 'Enter a placement before approving.')
       return
     }
   }
@@ -789,7 +789,7 @@ const selectedNeighbours = computed(() => estimateNeighbours(selected.value))
 function estimateTitle(r: PendingRow): string {
   const head = isImported.value
     ? `Estimated placement #${r.placement_estimate?.toLocaleString()}`
-    : `Placement the submitter estimated: #${r.placement_estimate?.toLocaleString()}`
+    : `Submitter estimated #${r.placement_estimate?.toLocaleString()}`
   const { above, below } = estimateNeighbours(r)
   const at = (n: EstimateNeighbour) =>
     n.position != null ? `${n.name} (#${n.position.toLocaleString()})` : n.name
@@ -1030,7 +1030,7 @@ watch(preview, (p) => {
                 <span
                   class="shrink-0 w-1.5 h-1.5 rounded-full"
                   :class="missingFields(r).length ? 'bg-amber-500/70' : 'bg-emerald-500'"
-                  :title="missingFields(r).length ? `Needs ${missingFields(r).join(', ')}` : 'Has everything it needs'"
+                  :title="missingFields(r).length ? `Needs ${missingFields(r).join(', ')}` : 'Ready to place'"
                 />
                 <span class="truncate drop-shadow-sm">{{ r.name ?? `Level ${r.gd_id}` }}</span>
                 <span
@@ -1282,7 +1282,7 @@ watch(preview, (p) => {
             class="inline-block text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60"
             title="Approving will remove the level from the void list"
           >
-            From void list (ID {{ selected.from_void_level_id }}) — approval removes it from void
+            From void list (ID {{ selected.from_void_level_id }}). Approving removes it from void.
           </span>
         </div>
 
@@ -1295,11 +1295,11 @@ watch(preview, (p) => {
           <h3 class="text-[10px] uppercase tracking-widest text-amber-300/90 font-medium">Still missing</h3>
           <p class="text-sm text-amber-100/90 mt-1">{{ selectedMissing.join(', ') }}</p>
           <p class="text-[11px] text-amber-200/50 mt-1">
-            Fill them in with Edit above, or approve anyway if the list can carry it as it is.
+            Fill them in with Edit, or approve anyway.
           </p>
         </div>
         <div v-else class="rounded-md border border-emerald-900/50 bg-emerald-950/20 px-4 py-2.5">
-          <p class="text-xs text-emerald-300/90">Everything the list needs is filled in.</p>
+          <p class="text-xs text-emerald-300/90">Nothing missing.</p>
         </div>
 
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden">
@@ -1379,7 +1379,7 @@ watch(preview, (p) => {
               type="button"
               class="text-[10px] uppercase tracking-widest text-accent hover:bg-accent/10 px-1.5 py-0.5 rounded transition-colors"
               @click="placementHelperOpen = true"
-              title="Open the full main-list browser to pick an anchor"
+              title="Pick a spot from the list"
             >Placement helper</button>
           </div>
           <input
@@ -1530,7 +1530,7 @@ watch(preview, (p) => {
             </div>
             <label
               class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
-              title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
+              title="No concrete estimate, so this placement may be off."
             >
               <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" @change="autoSaveFlags" />
               <span>

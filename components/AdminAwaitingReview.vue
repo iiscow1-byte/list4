@@ -157,7 +157,7 @@ async function decide(action: 'place' | 'remove') {
   if (action === 'place') {
     const n = Number(placement.value)
     if (!Number.isInteger(n) || n <= 0) {
-      flash('err', 'Enter a placement (1-based) before placing.')
+      flash('err', 'Enter a placement first.')
       return
     }
   }
@@ -331,7 +331,7 @@ async function submitAllPending() {
   submitAllLoading.value = true
   try {
     const res = await $fetch<{ placed: number; moved: number }>('/api/admin/submit-all', { method: 'POST' })
-    flash('ok', `Done — ${res.placed} level${res.placed === 1 ? '' : 's'} placed, ${res.moved} movement${res.moved === 1 ? '' : 's'} approved.`)
+    flash('ok', `Placed ${res.placed} level${res.placed === 1 ? '' : 's'}, approved ${res.moved} movement${res.moved === 1 ? '' : 's'}.`)
     selectedId.value = null
     placement.value = ''
     preview.value = null
@@ -864,7 +864,7 @@ watch(verificationYtId, async (id) => {
         </div>
 
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GDDL Tier <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">GDDL Tier <span class="text-zinc-600 normal-case">auto-filled from the level above</span></span>
           <input
             v-model="tierOverride"
             type="text"
@@ -875,7 +875,7 @@ watch(verificationYtId, async (id) => {
         </label>
 
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty <span class="text-zinc-600 normal-case">— auto-filled from level above</span></span>
+          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty <span class="text-zinc-600 normal-case">auto-filled from the level above</span></span>
           <input
             v-model="difficultyOverride"
             type="text"
@@ -908,12 +908,12 @@ watch(verificationYtId, async (id) => {
               <input v-model="isDuplicate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Duplicate (same difficulty as above)</span>
-                <span class="text-zinc-500 normal-case">— inherits the previous level's points.</span>
+                <span class="text-zinc-500 normal-case">Inherits the level above's points.</span>
                 <span v-if="selected?.same_as_above" class="text-accent ml-1">Submitter requested this.</span>
               </span>
             </label>
             <div v-if="isDuplicate" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Duplicate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">the Duplicate tag links to it</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -934,12 +934,12 @@ watch(verificationYtId, async (id) => {
               <input v-model="isAlternate" type="checkbox" class="mt-0.5 accent-accent" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Alternate</span>
-                <span class="text-zinc-500 normal-case">— related variation; doesn't affect points.</span>
+                <span class="text-zinc-500 normal-case">Related version. Doesn't affect points.</span>
                 <span v-if="selected?.is_alternate" class="text-accent ml-1">Submitter requested this.</span>
               </span>
             </label>
             <div v-if="isAlternate" class="pl-6">
-              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">makes the Alternate tag link</span></span>
+              <span class="block text-[11px] uppercase tracking-widest text-zinc-500">Original level <span class="text-zinc-600 normal-case">the Alternate tag links to it</span></span>
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -958,12 +958,12 @@ watch(verificationYtId, async (id) => {
             </div>
             <label
               class="flex items-start gap-2 text-xs text-zinc-300 cursor-pointer select-none"
-              title="Levels that do not have concrete estimations, leaving their placement on the List somewhat inaccurate."
+              title="No solid estimate yet, so the placement may be off."
             >
               <input v-model="isTentative" type="checkbox" class="mt-0.5 accent-yellow-400" @change="autoSaveFlags" />
               <span>
                 <span class="block uppercase tracking-widest text-[11px] text-zinc-500">Tentative placement</span>
-                <span class="text-zinc-500 normal-case">— shown as a yellow tag when this level's position is uncertain.</span>
+                <span class="text-zinc-500 normal-case">Shows a yellow tag while the placement is uncertain.</span>
               </span>
             </label>
           </div>

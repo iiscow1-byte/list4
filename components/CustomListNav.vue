@@ -304,10 +304,10 @@ async function remove(item: CustomItem) {
       <p v-if="editing" class="mt-2 text-[10px] leading-snug" :class="error ? 'text-red-400' : 'text-zinc-500'">
         <template v-if="error">{{ error }}</template>
         <template v-else-if="followAllOrder">
-          This list is ordered by ALL placements — turn that off in settings to reorder by hand.
+          This list is ordered by ALL placements. Turn that off in settings to reorder by hand.
         </template>
         <template v-else-if="search.trim()">Clear the search to drag rows.</template>
-        <template v-else>Drag a row to move it, or type a rank into the number.</template>
+        <template v-else>Drag a row to move it, or click its rank to type a new one.</template>
       </p>
     </div>
 

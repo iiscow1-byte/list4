@@ -18,7 +18,7 @@ useHead(() => ({ title: 'Awaiting Placement' }))
     <div class="px-4 py-10 sm:p-12 max-w-2xl mx-auto text-center">
       <h1 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Awaiting placement</h1>
       <p class="text-sm text-zinc-400 mb-6">
-        Levels approved out of pending review that haven't been given a final position yet.
+        Approved levels that don't have a placement on the list yet.
       </p>
       <NuxtLink
         v-if="firstId"

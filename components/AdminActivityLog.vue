@@ -102,7 +102,7 @@ const undoError = reactive<Record<number, string>>({})
 
 async function undo(r: Row) {
   if (undoing.value) return
-  if (!confirm(`${r.undo}?\n\n${r.summary}\n\nThis performs the opposite action and records it in the log.`)) return
+  if (!confirm(`${r.undo}?\n\n${r.summary}\n\nThis reverses the action and gets logged.`)) return
   undoing.value = r.id
   delete undoError[r.id]
   try {
@@ -158,7 +158,7 @@ function subjectLink(r: Row): string | null {
         <input
           v-model="search"
           type="search"
-          placeholder="Search what happened, who did it, or what to…"
+          placeholder="Search the log…"
           class="field field-sm flex-1 min-w-[14rem] text-xs"
         />
         <SegmentedControl

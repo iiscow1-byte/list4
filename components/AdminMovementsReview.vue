@@ -156,7 +156,7 @@ async function quickReject(id: number) {
             to
             <span class="tabular-nums text-zinc-200">#{{ selected.to_position }}</span>.
             All levels in between will shift by one position.
-            <span v-if="selected.level_gd_id" class="text-zinc-500"> The level will be looked up by its GD ID at approval time, so if it was already moved by an admin it will still be found correctly.</span>
+            <span v-if="selected.level_gd_id" class="text-zinc-500"> The level is matched by its GD ID, so this still works if it was already moved.</span>
           </p>
         </section>
       </div>

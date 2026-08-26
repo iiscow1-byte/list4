@@ -153,8 +153,7 @@ function profileHref(p: { username: string }) {
 
     <div v-if="open" class="border-t border-zinc-900 px-4 py-4 space-y-5">
       <p class="text-[11px] text-zinc-600 -mt-1">
-        A friendship is mutual — both sides agree to one. Following is separate, and one-sided:
-        you can follow anybody without asking.
+        Friends are mutual, so both sides have to accept. Following is separate and doesn't need approval.
       </p>
 
       <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
@@ -258,7 +257,7 @@ function profileHref(p: { username: string }) {
                 type="button"
                 :disabled="busy != null"
                 class="shrink-0 text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
-                title="Take the request back"
+                title="Cancel the request"
                 @click="act(p, 'cancel')"
               >Cancel</button>
             </li>

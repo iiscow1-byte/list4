@@ -74,8 +74,7 @@ useHead({ title: 'Find a level — All Levels List' })
     <header class="space-y-2">
       <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Find a level</h1>
       <p class="text-sm text-zinc-500">
-        Search Geometry Dash directly, then submit the level to the list or submit a record for it —
-        no need to track down the level ID first.
+        Search Geometry Dash, then submit the level to the list or submit a record for it.
       </p>
     </header>
 

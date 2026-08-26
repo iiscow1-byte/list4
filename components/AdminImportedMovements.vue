@@ -170,9 +170,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
         <div class="min-w-0">
           <h2 class="text-sm font-semibold text-zinc-100">Imported movements</h2>
           <p class="text-xs text-zinc-500 mt-0.5 max-w-2xl">
-            Levels an imported list and the ALL both carry, ranked differently. Each row is a level
-            that would have to move for the two orderings to agree, and where that list's ordering
-            puts it relative to the levels the two already agree about.
+            Levels the ALL and an imported list both have but rank differently. Move accepts that list's placement.
           </p>
         </div>
         <label class="flex items-center gap-1.5 text-[11px] text-zinc-400 cursor-pointer select-none shrink-0">
@@ -197,7 +195,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
         </button>
       </div>
       <p v-else-if="!loading" class="mt-3 text-xs text-zinc-600">
-        No imported list shares levels with the ALL yet — run an import first.
+        No imported lists yet. Run an import first.
       </p>
     </div>
 
@@ -237,7 +235,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
       <p v-if="loading" class="px-4 py-16 text-center text-sm text-zinc-500">Comparing lists…</p>
       <p v-else-if="loadError" class="px-4 py-16 text-center text-sm text-red-400">{{ loadError }}</p>
       <p v-else-if="!items.length && source" class="px-4 py-16 text-center text-sm text-zinc-500">
-        The ALL agrees with {{ current?.label ?? 'this list' }} about every level they share.
+        No disagreements with {{ current?.label ?? 'this list' }}.
       </p>
 
       <ul v-else class="divide-y divide-zinc-900/60">
@@ -281,8 +279,8 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
                   v-if="m.confidence !== 'exact'"
                   class="shrink-0 text-[9px] uppercase tracking-widest px-1 py-px rounded border border-zinc-800 bg-zinc-900 text-zinc-500"
                   :title="m.confidence === 'bracketed'
-                    ? 'Other levels are moving into the same gap — the order is right, the exact slots settle as each is applied'
-                    : 'Only one side is anchored, so this is “after X” rather than a slot between two known levels'"
+                    ? 'The order is known, but the exact slot settles as other moves are applied'
+                    : 'Only one neighbor is known, so the exact slot is a guess'"
                 >{{ m.confidence }}</span>
               </span>
               <p class="text-[11px] text-zinc-600 truncate">
@@ -315,7 +313,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
                   type="button"
                   :disabled="busyId != null"
                   class="rounded border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 text-xs px-2.5 py-1 disabled:opacity-40 transition-colors"
-                  title="We disagree with this list here on purpose"
+                  title="Keep the ALL's placement"
                   @click="dismiss(m)"
                 >Keep</button>
               </template>

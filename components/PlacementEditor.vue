@@ -262,7 +262,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
         <div class="px-4 py-3 border-b border-zinc-800 flex items-center gap-3">
           <div class="min-w-0">
             <h2 class="text-sm font-semibold text-zinc-100 truncate">Place “{{ name }}”</h2>
-            <p class="text-[11px] text-zinc-500">Drag the highlighted row — the list scrolls at the edges — or use ↑ ↓.</p>
+            <p class="text-[11px] text-zinc-500">Drag the highlighted row or use ↑ ↓. The list scrolls at the edges.</p>
           </div>
           <div class="ml-auto flex items-center gap-1.5 shrink-0">
             <button

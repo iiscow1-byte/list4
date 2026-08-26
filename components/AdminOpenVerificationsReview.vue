@@ -50,7 +50,7 @@ async function decide(action: 'approve' | 'reject') {
     const body: any = { action }
     if (action === 'reject') body.reason = rejectReason.value.trim() || undefined
     await $fetch(`/api/admin/open-verifications/${selected.value.id}`, { method: 'POST', body })
-    flash('ok', action === 'approve' ? 'Approved — added to open verifications.' : 'Rejected.')
+    flash('ok', action === 'approve' ? 'Approved and added to open verifications.' : 'Rejected.')
     selectedId.value = null
     rejectReason.value = ''
     await load()
@@ -204,7 +204,7 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
     <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
       <div v-if="selected" class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
         <p class="text-[11px] text-zinc-500">
-          Approving adds the level to the open verifications list. Rejecting hides it; the submitter is notified.
+          Approving adds the level to the open verifications list. Rejecting hides it and notifies the submitter.
         </p>
 
         <div class="mt-auto flex flex-col gap-2 pt-2">

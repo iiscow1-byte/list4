@@ -377,16 +377,15 @@ useHead({ title: 'Leaderboard — All Levels List' })
           Players from AREDL, Pointercrate, GDL, and the ALL list, ranked by their ALL list points.
         </template>
         <template v-else-if="tab === 'records' && recordsMode === 'challenges'">
-          Every challenge record from every source — this site, AREDL, Pointercrate and GDL —
-          scored on ALL list points. A clear reported by several sources counts once.
+          Challenge records from this site, AREDL, Pointercrate and GDL, scored with ALL list
+          points. A clear reported by several sources counts once.
         </template>
         <template v-else-if="tab === 'records'">
-          Every record from every source — this site, AREDL, Pointercrate and GDL — scored on
-          ALL list points. A clear reported by several sources counts once.
+          Records from this site, AREDL, Pointercrate and GDL, scored with ALL list points.
+          A clear reported by several sources counts once.
         </template>
         <template v-else-if="tab === 'challenges'">
-          Players ranked by the challenges they've beaten — a separate ranking, because the
-          main list's points barely register a challenge.
+          Players ranked by the challenges they've beaten.
         </template>
         <template v-else-if="tab === 'members'">
           ALL list members ranked by total points.

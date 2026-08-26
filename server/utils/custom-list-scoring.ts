@@ -62,20 +62,7 @@ export type LeaderboardRow = {
   hardest_gd_id: number | null
   account_username: string | null
   has_avatar: boolean
-  /**
-   * GDSR lists only — how far this player is through the list and its tiers.
-   *
-   * A GDSR is not ranked, so points mean nothing on one: what a player has is a
-   * count of levels cleared out of the clearable total, and the set of tiers
-   * that count has earned them.
-   */
-  cleared?: number
-  clearable?: number
-  tiers_earned?: string[]
 }
-
-/** A GDSR tier: its levels, and how many of them earn it. */
-type GdsrTier = { name: string; itemIds: Set<number>; require: number | null }
 
 /**
  * Rank every player holding an approved record on the list. Points come from
@@ -84,38 +71,9 @@ type GdsrTier = { name: string; itemIds: Set<number>; require: number | null }
  */
 export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardRow[] {
   const settings = db.prepare(
-    `SELECT max_points, min_points, scored_count, follow_all_order, kind FROM custom_lists WHERE id = ?`,
-  ).get(listId) as (ListScoreSettings & { follow_all_order: number; kind: string }) | undefined
+    `SELECT max_points, min_points, scored_count, follow_all_order FROM custom_lists WHERE id = ?`,
+  ).get(listId) as (ListScoreSettings & { follow_all_order: number }) | undefined
   if (!settings) return []
-  const isGdsr = settings.kind === 'gdsr'
-
-  /**
-   * GDSR tiers, and the levels that can actually be cleared.
-   *
-   * An unverified level has never been beaten by anyone, so counting it in the
-   * denominator would cap every player below 100% on a list that is complete as
-   * far as anyone can play it — and would make a tier requirement unreachable
-   * if enough of its levels were drafts.
-   */
-  const gdsrTiers: GdsrTier[] = []
-  const unclearable = new Set<number>()
-  if (isGdsr) {
-    for (const r of db.prepare(
-      `SELECT id FROM custom_list_items WHERE list_id = ? AND unverified = 1`,
-    ).all(listId) as { id: number }[]) unclearable.add(r.id)
-
-    const tierRows = db.prepare(
-      `SELECT id, name, require_count FROM gdsr_tiers WHERE list_id = ? ORDER BY sort_order ASC, id ASC`,
-    ).all(listId) as { id: number; name: string; require_count: number | null }[]
-    for (const t of tierRows) {
-      const ids = (db.prepare(
-        `SELECT item_id FROM gdsr_tier_items WHERE tier_id = ?`,
-      ).all(t.id) as { item_id: number }[])
-        .map((r) => r.item_id)
-        .filter((id) => !unclearable.has(id))
-      gdsrTiers.push({ name: t.name, itemIds: new Set(ids), require: t.require_count })
-    }
-  }
 
   /**
    * Rank per item, in whatever order the list actually presents.
@@ -161,8 +119,6 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
 
   type Acc = Omit<LeaderboardRow, 'rank'>
   const byPlayer = new Map<string, Acc>()
-  /** Items each player has a 100% record on — the input to tier progress. */
-  const clearedItems = new Map<string, Set<number>>()
 
   for (const r of rows) {
     const rank = rankOf.get(r.item_id)
@@ -183,21 +139,12 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
         hardest_gd_id: null,
         account_username: null,
         has_avatar: false,
-        ...(isGdsr ? { cleared: 0, clearable: 0, tiers_earned: [] as string[] } : {}),
       }
       byPlayer.set(key, acc)
     }
     acc.points = Math.round((acc.points + earned) * 100) / 100
-    if (r.percent >= 100) {
-      acc.completions++
-      // An unverified level cannot have been cleared; if a record exists for
-      // one it predates the flag, and the flag is the editors' current word.
-      if (!unclearable.has(r.item_id)) {
-        let set = clearedItems.get(key)
-        if (!set) { set = new Set<number>(); clearedItems.set(key, set) }
-        set.add(r.item_id)
-      }
-    } else acc.progresses++
+    if (r.percent >= 100) acc.completions++
+    else acc.progresses++
     // "Hardest" = the best-placed level they've actually completed.
     if (r.percent >= 100 && (acc.hardest_rank === null || rank < acc.hardest_rank)) {
       acc.hardest_rank = rank
@@ -239,34 +186,6 @@ export function buildLeaderboard(db: DatabaseSync, listId: number): LeaderboardR
       acc.account_username = hit.username
       acc.has_avatar = hit.has_avatar
     }
-  }
-
-  if (isGdsr) {
-    const clearable = ordered.filter((o) => !unclearable.has(o.id)).length
-    for (const [key, acc] of byPlayer) {
-      const mine = clearedItems.get(key) ?? new Set<number>()
-      acc.cleared = mine.size
-      acc.clearable = clearable
-      acc.tiers_earned = gdsrTiers
-        .filter((t) => {
-          if (t.itemIds.size === 0) return false
-          let hit = 0
-          for (const id of t.itemIds) if (mine.has(id)) hit++
-          // No requirement means the tier asks for all of its levels.
-          const need = t.require == null ? t.itemIds.size : Math.min(t.require, t.itemIds.size)
-          return hit >= need
-        })
-        .map((t) => t.name)
-    }
-
-    // A GDSR is not ranked, so points are meaningless on one: standing is how
-    // many levels you have cleared, then how many tiers that earned.
-    return Array.from(byPlayer.values())
-      .sort((a, b) =>
-        (b.cleared ?? 0) - (a.cleared ?? 0)
-        || (b.tiers_earned?.length ?? 0) - (a.tiers_earned?.length ?? 0)
-        || a.player_name.localeCompare(b.player_name))
-      .map((row, i) => ({ rank: i + 1, ...row }))
   }
 
   return Array.from(byPlayer.values())

@@ -496,7 +496,7 @@ async function submit() {
               @focus="holderOpen = holderMatches.length > 0"
               @blur="setTimeout(() => holderOpen = false, 150)"
             />
-            <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting on someone else's behalf.</span>
+            <span class="text-[11px] text-zinc-500 mt-1 block">Defaults to you. Change it if you're submitting for someone else.</span>
           </label>
           <ul
             v-if="holderOpen && holderMatches.length"
@@ -571,7 +571,7 @@ async function submit() {
       <!-- Outcomes as panels rather than a line of small text next to the
            button — a submission that half-failed deserves more than 11px. -->
       <p v-if="success" class="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5 text-sm text-emerald-300">
-        Submitted — pending review. You'll get an inbox message when a moderator decides.
+        Submitted. You'll get an inbox message when a moderator decides.
       </p>
       <p
         v-if="successMulti"
@@ -580,8 +580,8 @@ async function submit() {
           ? 'border-amber-900/60 bg-amber-950/30 text-amber-300'
           : 'border-emerald-900/60 bg-emerald-950/30 text-emerald-300'"
       >
-        Submitted {{ successMulti.submitted }} record{{ successMulti.submitted === 1 ? '' : 's' }} — pending review.
-        <template v-if="successMulti.failed">{{ successMulti.failed }} could not be submitted; see the error below.</template>
+        Submitted {{ successMulti.submitted }} record{{ successMulti.submitted === 1 ? '' : 's' }} for review.
+        <template v-if="successMulti.failed">{{ successMulti.failed }} failed; see the error below.</template>
       </p>
       <p v-if="error" class="rounded-lg border border-red-900/60 bg-red-950/30 px-3 py-2.5 text-sm text-red-300">{{ error }}</p>
 

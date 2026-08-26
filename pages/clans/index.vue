@@ -157,9 +157,8 @@ async function create() {
         <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">Community</p>
         <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">Clans</h1>
         <p class="mt-1 text-sm text-zinc-500 max-w-2xl">
-          Groups of players, ranked by what they've beaten between them. A clan's points count
-          each level once, however many members have it — so a clan climbs by covering more of
-          the list, not by having the same level several times over.
+          Groups of players ranked by their combined clears. Each level counts once per clan,
+          no matter how many members have beaten it.
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -212,7 +211,7 @@ async function create() {
               {{ inv.name }}
             </NuxtLink>
             <p class="text-[11px] text-zinc-600 truncate">
-              <template v-if="inv.invited_by_username">asked by {{ inv.invited_by_username }}</template>
+              <template v-if="inv.invited_by_username">invited by {{ inv.invited_by_username }}</template>
               <template v-if="inv.message"> · “{{ inv.message }}”</template>
             </p>
           </div>
@@ -234,7 +233,7 @@ async function create() {
         </li>
       </ul>
       <p v-if="data.mine" class="text-[11px] text-zinc-600">
-        You're already in a clan — leave it first and these will still be here.
+        You're already in a clan. Leave it first to accept an invite.
       </p>
     </section>
 
@@ -265,7 +264,7 @@ async function create() {
         </label>
         <label class="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
           <input v-model="form.invite_only" type="checkbox" class="accent-accent" />
-          Ask before joining
+          Invite only
         </label>
         <button
           type="submit"

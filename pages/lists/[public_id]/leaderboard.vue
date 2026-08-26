@@ -7,8 +7,6 @@ const { list } = useCustomList(publicId)
 
 type LbRow = {
   rank: number; player_name: string; points: number; completions: number
-  /** GDSR only: levels cleared, of the clearable total, and tiers earned. */
-  cleared?: number; clearable?: number; tiers_earned?: string[]
   progresses: number; hardest_name: string | null; hardest_rank: number | null
   hardest_gd_id: number | null
   account_username: string | null; has_avatar: boolean
@@ -50,14 +48,8 @@ const emptyReason = computed<'search' | 'all-on-podium' | null>(() => {
   return search.value.trim() ? 'search' : 'all-on-podium'
 })
 const topPoints = computed(() => all.value[0]?.points ?? 0)
-/**
- * A GDSR has no points — a player's standing is levels cleared — so the bar,
- * the column and the caption all measure that instead.
- */
-const isGdsr = computed(() => all.value.some((p) => p.clearable != null))
-const topCleared = computed(() => all.value[0]?.cleared ?? 0)
-const barMax = computed(() => (isGdsr.value ? topCleared.value : topPoints.value))
-const barOf = (p: Row) => (isGdsr.value ? (p.cleared ?? 0) : p.points)
+const barMax = computed(() => topPoints.value)
+const barOf = (p: LbRow) => p.points
 
 /** Totals across everyone, for the strip above the table. */
 const totals = computed(() => ({
@@ -100,20 +92,12 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
         <div>
           <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Leaderboard</h2>
           <p class="text-sm text-zinc-400 mt-0.5">
-            {{ isGdsr
-              ? 'Ranked by how many of the list’s levels each player has cleared.'
-              : 'Ranked by the points each approved record is worth.' }}
+            Ranked by the points each approved record is worth.
           </p>
         </div>
         <div class="text-[10px] text-zinc-600 tabular-nums text-right">
-          <template v-if="isGdsr">
-            <div>{{ all[0]?.clearable ?? 0 }} clearable level(s)</div>
-            <div>unverified levels don’t count</div>
-          </template>
-          <template v-else>
-            <div>#1 worth {{ l.max_points }} pts · last worth {{ l.min_points }}</div>
-            <div v-if="l.scored_count">only the top {{ l.scored_count }} score</div>
-          </template>
+          <div>#1 worth {{ l.max_points }} pts · last worth {{ l.min_points }}</div>
+          <div v-if="l.scored_count">only the top {{ l.scored_count }} score</div>
         </div>
       </header>
 
@@ -219,10 +203,7 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
                 >{{ p.progresses }} prog</span>
               </span>
               <span class="shrink-0 tabular-nums text-amber-300 font-semibold w-20 text-right">
-                <template v-if="isGdsr">
-                  <span class="tabular-nums">{{ p.cleared ?? 0 }}<span class="text-zinc-600">/{{ p.clearable ?? 0 }}</span></span>
-                </template>
-                <template v-else>{{ fmt(p.points) }}</template>
+                {{ fmt(p.points) }}
               </span>
             </div>
           </li>

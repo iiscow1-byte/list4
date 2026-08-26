@@ -810,7 +810,7 @@ watch(
               : 'text-accent hover:bg-accent/10'"
             :aria-expanded="variantOpen"
             aria-haspopup="menu"
-            title="Read a different list"
+            title="Switch list"
             @click.stop="variantOpen = !variantOpen"
           >
             {{ listVariant }}
@@ -991,7 +991,7 @@ watch(
               </button>
             </div>
             <p v-else class="text-[11px] text-zinc-600">
-              No filters — the whole list, in placement order.
+              No filters active.
             </p>
           </div>
 
@@ -1189,7 +1189,7 @@ watch(
                   </label>
                 </div>
                 <p class="text-[10px] text-zinc-600 mt-1">
-                  Levels stored here whose ID appears nowhere on the ALL sheet.
+                  Levels on the site that aren't on the ALL sheet.
                 </p>
               </div>
 
@@ -1234,7 +1234,7 @@ watch(
                 <label class="flex items-start gap-2 cursor-pointer select-none">
                   <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
                   <span class="text-[10px] text-zinc-500">
-                    Numbers reflect each level's place within the filtered list rather than the global list.
+                    Number levels by their rank within the filtered list.
                   </span>
                 </label>
               </div>
@@ -1245,13 +1245,13 @@ watch(
                   <label class="flex items-start gap-2 cursor-pointer select-none">
                     <input v-model="showTierDecimal" type="checkbox" class="mt-0.5 accent-accent" />
                     <span class="text-[10px] text-zinc-500">
-                      Show tier decimal — shows "Tier 20.75" instead of "Tier 20" in the level panel.
+                      Show tier decimals, e.g. "Tier 20.75" instead of "Tier 20".
                     </span>
                   </label>
                   <label class="flex items-start gap-2 cursor-pointer select-none">
                     <input v-model="showTierInList" type="checkbox" class="mt-0.5 accent-accent" />
                     <span class="text-[10px] text-zinc-500">
-                      Show tier in list — adds a tier label to each level row.
+                      Show a tier label on each level row.
                     </span>
                   </label>
                   <!-- A reading preference, not a filter: it changes nothing
@@ -1261,8 +1261,7 @@ watch(
                   <label class="flex items-start gap-2 cursor-pointer select-none">
                     <input v-model="showViews" type="checkbox" class="mt-0.5 accent-accent" />
                     <span class="text-[10px] text-zinc-500">
-                      Show view counts — how many times each level's page has been opened,
-                      shown on the level itself. Turn it off to hide it everywhere.
+                      Show view counts on level pages.
                     </span>
                   </label>
                 </div>

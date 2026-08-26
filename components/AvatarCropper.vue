@@ -393,7 +393,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
           :class="dragging ? 'cursor-grabbing' : 'cursor-grab'"
           tabindex="0"
           role="application"
-          aria-label="Crop area — drag to reposition, arrow keys to nudge, plus and minus to zoom"
+          aria-label="Crop area. Drag to reposition, arrow keys to nudge, plus and minus to zoom"
           @pointerdown="onPointerDown"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
@@ -476,7 +476,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
             type="button"
             :disabled="!ready"
             class="btn btn-sm btn-ghost shrink-0"
-            title="Fit the whole picture and centre it"
+            title="Reset zoom and position"
             @click="reset"
           >Reset</button>
         </div>

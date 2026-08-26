@@ -509,8 +509,7 @@ async function unclaim(kind: ClaimKind) {
   const what = kind === 'player' ? 'your ALL leaderboard name' : `your ${CLAIM_LABELS[kind]} player`
   const extra = kind === 'player'
     ? ''
-    : '\n\nThe records it brought here are removed from your profile. They stay on '
-      + `${CLAIM_LABELS[kind]} — claiming again brings them back.`
+    : `\n\nIts records will be removed from your profile. They stay on ${CLAIM_LABELS[kind]}, and claiming again brings them back.`
   if (!confirm(`Unclaim ${what}?${extra}`)) return
   claimBusy.value = kind
   claimNote.value = null
@@ -537,7 +536,7 @@ async function syncClaimedRecords() {
     const res = await $fetch<{ added: number }>('/api/account/claim/records', { method: 'POST' })
     claimNote.value = res.added
       ? `${res.added} record(s) added to your profile.`
-      : 'Nothing new — your profile already has every record those accounts carry that the ALL list has.'
+      : 'Nothing new to import.'
     await loadProfileData()
   } catch (e: any) {
     claimError.value = e?.data?.statusMessage ?? 'Could not import those records.'
@@ -934,7 +933,7 @@ function fmt(n: number | null | undefined) {
         <span
           v-if="profileData"
           :class="profileChipClass()"
-          title="Times your profile has been opened by somebody else. Your own visits are never counted."
+          title="Views from other people. Your own visits don't count."
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 text-zinc-600" aria-hidden="true">
             <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
@@ -973,7 +972,7 @@ function fmt(n: number | null | undefined) {
             <p class="text-[11px] text-amber-200/70 mt-0.5">
               We sent a link to
               <span class="text-amber-100">{{ (me as any).pending_email || (me as any).email }}</span>.
-              Until you click it you can look around, but not comment, post or submit.
+              You can't comment, post or submit until you click it.
             </p>
           </div>
         </div>
@@ -1165,7 +1164,7 @@ function fmt(n: number | null | undefined) {
               <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
                 <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Where else to find you</legend>
                 <p class="text-[11px] text-zinc-600 -mt-1">
-                  Each one is checked against the site it belongs to, and shows as a chip on your profile.
+                  These show as chips on your profile.
                 </p>
                 <label class="block">
                   <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— a handle, not a link</span></span>
@@ -1500,7 +1499,7 @@ function fmt(n: number | null | undefined) {
 
               <label class="block">
                 <span class="text-[11px] uppercase tracking-widest text-zinc-500">
-                  Showcase link <span class="text-zinc-600 normal-case">a layout / preview clip, embedded in place of verification</span>
+                  Showcase link <span class="text-zinc-600 normal-case">a layout or preview clip</span>
                 </span>
                 <input
                   v-model="ovShowcaseUrl"
@@ -1702,7 +1701,7 @@ function fmt(n: number | null | undefined) {
                 @click="syncClaimedRecords"
               >{{ claimBusy === 'sync' ? 'Importing…' : 'Import records from my claimed accounts' }}</button>
               <p class="text-zinc-600 mt-0.5 leading-snug">
-                Their completions become records on your ALL profile, for the levels this list carries.
+                Adds their completions to your profile for levels on the ALL list.
               </p>
             </div>
 
@@ -1883,7 +1882,7 @@ function fmt(n: number | null | undefined) {
     v-model:open="bannerLevelPickerOpen"
     :confirm-on-pick="true"
     title="Pick a banner level"
-    hint="Click a level to paint your profile header with its art."
+    hint="Click a level to use its art as your header."
     @confirm="(lvl) => {
       bannerLevelId = lvl.id ?? null
       bannerLevelDisplay = lvl.id

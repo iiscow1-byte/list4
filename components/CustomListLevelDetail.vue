@@ -206,7 +206,7 @@ async function linkToAll(unlink = false) {
       `${props.apiBase}/items/${props.item.id}/link`,
       { method: 'POST', body: { unlink } },
     )
-    linkNote.value = res.linked ? 'Linked to the ALL list.' : 'Unlinked — this row is hand-entered again.'
+    linkNote.value = res.linked ? 'Linked to the ALL list.' : 'Unlinked. This row is hand-entered again.'
     emit('changed')
   } catch (e: any) {
     error.value = e?.data?.statusMessage ?? 'Could not change the link.'
@@ -379,7 +379,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             v-if="linked && overrides.has('name')" type="button"
             class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
             @click="followAll('name')"
-          >The ALL says “{{ allValue('name') }}” — follow it</button>
+          >Reset to ALL: “{{ allValue('name') }}”</button>
         </label>
         <label class="block">
           <span :class="label">Creator</span>
@@ -388,7 +388,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             v-if="linked && overrides.has('creator')" type="button"
             class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
             @click="followAll('creator')"
-          >The ALL says “{{ allValue('creator') ?? '—' }}” — follow it</button>
+          >Reset to ALL: “{{ allValue('creator') ?? '—' }}”</button>
         </label>
         <label class="block">
           <span :class="label">Level ID</span>
@@ -405,7 +405,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             v-if="linked && overrides.has('gddl_tier')" type="button"
             class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
             @click="followAll('gddl_tier')"
-          >The ALL says {{ allValue('gddl_tier') ?? 'no tier' }} — follow it</button>
+          >Reset to ALL: {{ allValue('gddl_tier') ?? 'no tier' }}</button>
         </label>
         <label class="block sm:col-span-2">
           <span :class="label">Verification video</span>
@@ -414,7 +414,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             v-if="linked && overrides.has('verification_url')" type="button"
             class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
             @click="followAll('verification_url')"
-          >The ALL uses a different video — follow it</button>
+          >Reset to the ALL's video</button>
         </label>
 
         <label class="block">
@@ -443,8 +443,8 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <span class="min-w-0">
             <span class="block text-xs font-medium text-zinc-200">Mark as a challenge</span>
             <span class="block text-[11px] text-zinc-500 leading-snug">
-              This list's own call. Challenges get a badge on the list and can be counted separately
-              on its leaderboard — independent of whether the ALL considers it one.
+              Challenges get a badge and can be counted separately on this list's leaderboard.
+              Doesn't affect the ALL.
             </span>
           </span>
         </label>
@@ -472,7 +472,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           </template>
           <template v-else>
             <p class="text-[11px] text-zinc-400">
-              Not linked to the ALL list — this row is hand-entered and won't follow the main list.
+              Not linked to the ALL list. This row is hand-entered and won't follow it.
             </p>
             <div class="mt-1.5 flex flex-wrap items-center gap-3">
               <button

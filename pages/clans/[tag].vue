@@ -83,7 +83,7 @@ async function act(action: string, accountId?: number, message?: string) {
     )
     if (res.disbanded) { await navigateTo('/clans'); return }
     notice.value = res.requested
-      ? 'Asked to join — the owner has been told.'
+      ? 'Request sent to the owner.'
       : res.joined ? 'You\'re in.' : null
     await refresh()
   } catch (e: any) {
@@ -243,7 +243,7 @@ async function invite(person: Invitable) {
   await act('invite', person.id, inviteNote.value.trim() || undefined)
   if (!actionError.value) {
     notice.value = person.clan_tag
-      ? `Invited ${person.username}. They're in [${person.clan_tag}] — they can take it up after leaving.`
+      ? `Invited ${person.username}. They'll need to leave [${person.clan_tag}] first.`
       : `Invited ${person.username}.`
     // Mark them locally rather than clearing the list: inviting several people
     // in a row is the normal case, and wiping the list after each one means

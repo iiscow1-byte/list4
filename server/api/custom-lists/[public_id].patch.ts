@@ -157,34 +157,6 @@ export default defineEventHandler(async (event) => {
         .run(Math.max(0, Math.min(10_000, Math.round(scored))), row.id)
     }
 
-    /**
-     * Link (or unlink) a companion GDSR.
-     *
-     * Resolved from a public id and checked against the caller's own lists, so
-     * a request cannot attach somebody else's list — or a ranked one, which
-     * would make the button on the list lead somewhere that isn't a GDSR.
-     */
-    if (body?.linked_gdsr_public_id !== undefined) {
-      const wanted = String(body.linked_gdsr_public_id ?? '').trim()
-      if (!wanted) {
-        db.prepare(`UPDATE custom_lists SET linked_gdsr_id = NULL WHERE id = ?`).run(row.id)
-      } else {
-        const target = db.prepare(
-          `SELECT id, kind, owner_account_id FROM custom_lists WHERE public_id = ?`,
-        ).get(wanted) as { id: number; kind: string; owner_account_id: number } | undefined
-        if (!target || target.kind !== 'gdsr') {
-          throw createError({ statusCode: 400, statusMessage: 'That is not a GDSR list.' })
-        }
-        if (target.owner_account_id !== account.id) {
-          throw createError({ statusCode: 403, statusMessage: 'You do not own that GDSR list.' })
-        }
-        if (target.id === row.id) {
-          throw createError({ statusCode: 400, statusMessage: 'A list cannot link to itself.' })
-        }
-        db.prepare(`UPDATE custom_lists SET linked_gdsr_id = ? WHERE id = ?`).run(target.id, row.id)
-      }
-    }
-
     if (Array.isArray(body?.items)) replaceItems(db, row.id, body.items, account.id)
 
     /**
@@ -240,39 +212,6 @@ export default defineEventHandler(async (event) => {
         }
       })
     }
-    /**
-     * GDSR tiers, replaced wholesale like packs — and like packs, item ids are
-     * filtered to this list so a stale client cannot attach someone else's rows.
-     */
-    if (Array.isArray((body as any)?.gdsr_tiers)) {
-      db.prepare(`DELETE FROM gdsr_tiers WHERE list_id = ?`).run(row.id)
-      const insTier = db.prepare(
-        `INSERT INTO gdsr_tiers (list_id, name, color, sort_order, require_count) VALUES (?,?,?,?,?)`,
-      )
-      const insTierItem = db.prepare(
-        `INSERT OR IGNORE INTO gdsr_tier_items (tier_id, item_id) VALUES (?,?)`,
-      )
-      const ownIds = new Set(
-        (db.prepare(`SELECT id FROM custom_list_items WHERE list_id = ?`).all(row.id) as { id: number }[])
-          .map((r) => r.id),
-      )
-      ;((body as any).gdsr_tiers as any[]).slice(0, 50).forEach((t, i) => {
-        const name = String(t?.name ?? '').trim().slice(0, 80)
-        if (!name) return
-        assertClean(name, 'Tier names')
-        const raw = String(t?.color ?? '').trim()
-        const color = /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : null
-        // "Clear Any N" — null asks for all of the tier's levels.
-        const rawReq = Number(t?.require_count)
-        const requireCount = Number.isInteger(rawReq) && rawReq > 0 ? Math.min(rawReq, MAX_ITEMS) : null
-        const tierId = Number(insTier.run(row.id, name, color, i, requireCount).lastInsertRowid)
-        for (const rawId of (t?.item_ids ?? []).slice(0, MAX_ITEMS)) {
-          const itemId = Number(rawId)
-          if (ownIds.has(itemId)) insTierItem.run(tierId, itemId)
-        }
-      })
-    }
-
     db.prepare(`UPDATE custom_lists SET updated_at = datetime('now') WHERE id = ?`).run(row.id)
     db.exec('COMMIT')
   } catch (err) {

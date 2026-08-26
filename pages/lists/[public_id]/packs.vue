@@ -9,18 +9,6 @@ function itemById(id: number) {
   return list.value?.items.find((i: any) => i.id === id) ?? null
 }
 
-/**
- * A tier's requirement is measured against the levels somebody could actually
- * clear. Counting unverified drafts would make "clear any 9 of 12" unreachable
- * whenever three of the twelve are unbeaten.
- */
-function clearableIn(p: any): number {
-  return (p.item_ids ?? []).filter((id: number) => !itemById(id)?.unverified).length
-}
-function unverifiedIn(p: any): number {
-  return (p.item_ids ?? []).filter((id: number) => itemById(id)?.unverified).length
-}
-
 useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }))
 </script>
 
@@ -44,17 +32,7 @@ useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }
             :style="{ backgroundColor: p.color ? `${p.color}12` : undefined }"
           >
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" :style="{ backgroundColor: p.color || '#71717a' }" />
-            <span class="min-w-0">
-              <h3 class="text-sm font-semibold text-zinc-100 truncate">{{ p.name }}</h3>
-              <!-- A GDSR tier is earned by clearing some of its levels, not all
-                   of them, so the requirement is the tier's headline fact. -->
-              <span class="block text-[11px] text-zinc-500 truncate">
-                {{ gdsrRequirementLabel(p.require_count ?? null, clearableIn(p)) }}
-                <template v-if="unverifiedIn(p)">
-                  · <span class="text-amber-400/80">{{ unverifiedIn(p) }} unverified</span>
-                </template>
-              </span>
-            </span>
+            <h3 class="text-sm font-semibold text-zinc-100 truncate">{{ p.name }}</h3>
             <span class="ml-auto text-[11px] text-zinc-600 tabular-nums shrink-0">{{ p.item_ids.length }}</span>
           </header>
           <ul class="divide-y divide-zinc-900/60">

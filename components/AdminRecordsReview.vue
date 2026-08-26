@@ -151,7 +151,7 @@ async function decide(action: 'approve' | 'reject') {
         <div v-else-if="selected.is_verification_claim && selected.level_verifier"
              class="rounded border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-xs text-zinc-400">
           Submitter checked "is verification" but the level already lists
-          <span class="text-zinc-200">{{ selected.level_verifier }}</span> — claim will be ignored.
+          <span class="text-zinc-200">{{ selected.level_verifier }}</span>, so the claim will be ignored.
         </div>
 
         <div v-if="selected.submitter_note">

@@ -478,7 +478,7 @@ const coveragePct = computed(() => {
         <div class="grid gap-px sm:grid-cols-3 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <NuxtLink to="/levels/submit" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
             <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Submit a level</span>
-            <span class="block text-[11px] text-zinc-500 mt-0.5">Something missing? Say roughly where it goes and we'll place it.</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">Spotted a missing level? Send it in with a rough placement.</span>
           </NuxtLink>
           <NuxtLink to="/records/submit" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
             <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Submit a record</span>
@@ -486,7 +486,7 @@ const coveragePct = computed(() => {
           </NuxtLink>
           <NuxtLink to="/clans" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
             <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Start a clan</span>
-            <span class="block text-[11px] text-zinc-500 mt-0.5">Play with people, and be ranked together for it.</span>
+            <span class="block text-[11px] text-zinc-500 mt-0.5">Team up and get ranked together.</span>
           </NuxtLink>
         </div>
       </section>
@@ -537,7 +537,7 @@ const coveragePct = computed(() => {
             class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline"
           >Global Stats Viewer</a>. Placements are drawn from
           <button type="button" class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline" @click="tab = 'sources'">{{ totalLists }} other demonlists</button>.
-          Thanks to everyone who submits records, levels and opinions to keep the list current.
+          Thanks to everyone who submits records, levels and opinions.
         </p>
 
         <!-- Where the data actually comes from.
@@ -560,15 +560,14 @@ const coveragePct = computed(() => {
             </li>
           </ul>
           <p class="text-[11px] text-zinc-500 leading-relaxed mt-2">
-            Extreme demon placements, records, player profiles and level metadata are mirrored from
+            Extreme demon placements, records and player profiles are mirrored from
             <a
               href="https://aredl.net"
               target="_blank"
               rel="noopener noreferrer"
               class="text-accent hover:underline underline-offset-2 font-medium"
-            >AREDL.net</a> — the All Rated Extreme Demons List. Their public API is what makes the
-            cross-list comparisons, the AREDL player pages and the AREDL ranking view on this site
-            possible. Thank you to the AREDL team.
+            >AREDL.net</a>. Their public API powers the cross-list comparisons and the AREDL
+            pages here. Thanks to the AREDL team.
           </p>
         </div>
       </section>
