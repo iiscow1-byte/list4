@@ -181,6 +181,22 @@ function initSchema(db: DatabaseSync) {
   db.exec(`UPDATE levels SET placement_source = 'All Levels List' WHERE LOWER(placement_source) = 'hand placed'`)
 
   // Accounts: banned_at = ISO timestamp when an admin banned the account.
+  /**
+   * Settings an admin can change without a redeploy.
+   *
+   * Deliberately a key/value table rather than columns: these are operational
+   * switches, not data, and each new one should cost a row rather than a
+   * migration. The environment still supplies the initial value for anything
+   * that has never been set — see `server/utils/site-access.ts`.
+   */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key        TEXT PRIMARY KEY,
+      value      TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+
   // NULL = active. Sessions for banned accounts are rejected at the auth layer.
   const accCols = db.prepare(`PRAGMA table_info(accounts)`).all() as { name: string }[]
   if (!accCols.some((c) => c.name === 'banned_at')) {

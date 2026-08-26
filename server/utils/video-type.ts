@@ -27,9 +27,11 @@ export const VIDEO_EXT: Record<VideoType, string> = {
 }
 
 /** The reverse, for serving a file back under the type its extension implies. */
-export const TYPE_BY_EXT: Record<string, VideoType> = {
+export const TYPE_BY_EXT: Record<string, string> = {
   mp4: 'video/mp4',
   webm: 'video/webm',
+  // Poster frames written beside a clip — see `api/uploads/poster.post.ts`.
+  jpg: 'image/jpeg',
 }
 
 function startsWith(buf: Uint8Array, bytes: number[], offset = 0): boolean {

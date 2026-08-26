@@ -200,7 +200,7 @@ async function submit() {
             </select>
           </label>
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
             <select
               v-model="difficulty"
               class="field field-md mt-1"

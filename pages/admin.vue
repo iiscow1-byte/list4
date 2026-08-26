@@ -7,7 +7,7 @@ useHead({ title: 'Admin — All Levels List' })
 
 const route = useRoute()
 const router = useRouter()
-const { data: meRes } = useCurrentUser()
+const { data: meRes, refresh: refreshMe } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 const isAdmin = computed(() => {
   const r = me.value?.role
@@ -965,6 +965,69 @@ const ROLE_RANK: Record<string, number> = {
   owner: 4,
   developer: 4,
 }
+/**
+ * Registration, on a switch.
+ *
+ * The value is read from `/api/auth/me`, which already reports it for the login
+ * and signup pages, so this control agrees with what those pages do rather than
+ * keeping its own copy.
+ */
+const signupsOpen = ref(false)
+const signupsBusy = ref(false)
+watch(() => meRes.value?.site?.signupsEnabled, (v) => { signupsOpen.value = !!v }, { immediate: true })
+
+/**
+ * Whether the site is readable by anyone at all.
+ *
+ * Kept beside registration because they are the same kind of decision at two
+ * strengths — one stops new people joining, the other stops everyone reading —
+ * and in the situation where you reach for either, you want to see both.
+ */
+const siteOpen = ref(false)
+const siteBusy = ref(false)
+watch(() => meRes.value?.site?.adminOnly, (v) => { siteOpen.value = !v }, { immediate: true })
+
+type SiteSetting = 'signups' | 'admin_only'
+async function saveSetting(setting: SiteSetting, enabled: boolean) {
+  const res = await $fetch<{ signupsEnabled: boolean; adminOnly: boolean }>('/api/admin/signups', {
+    method: 'POST', body: { setting, enabled },
+  })
+  signupsOpen.value = res.signupsEnabled
+  siteOpen.value = !res.adminOnly
+  await refreshMe()
+}
+
+async function toggleSignups() {
+  if (signupsBusy.value) return
+  const next = !signupsOpen.value
+  if (!next && !confirm('Close registration? Nobody new will be able to make an account.')) return
+  signupsBusy.value = true
+  try {
+    await saveSetting('signups', next)
+    flash('ok', signupsOpen.value ? 'Registration is open.' : 'Registration is closed.')
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? 'Could not change that.')
+  } finally {
+    signupsBusy.value = false
+  }
+}
+
+async function toggleSiteAccess() {
+  if (siteBusy.value) return
+  const nextOpen = !siteOpen.value
+  if (!nextOpen && !confirm('Close the site? Only staff will be able to read it — everyone else gets the locked page.')) return
+  siteBusy.value = true
+  try {
+    // The stored setting is `admin_only`, which is the inverse of "open".
+    await saveSetting('admin_only', !nextOpen)
+    flash('ok', siteOpen.value ? 'The site is open to everyone.' : 'The site is staff-only.')
+  } catch (e: any) {
+    flash('err', e?.data?.statusMessage ?? 'Could not change that.')
+  } finally {
+    siteBusy.value = false
+  }
+}
+
 /** Offered in the accounts table, in rank order. Mirrors `ROLES` on the server. */
 const ASSIGNABLE_ROLES: Role[] = ['user', 'list_helper', 'moderator', 'admin', 'owner', 'developer']
 
@@ -1586,7 +1649,57 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
 
     <!-- Accounts tab -->
     <div v-else-if="tab === 'accounts'" class="flex-1 overflow-y-auto">
-      <div class="container-tight py-8 max-w-4xl">
+      <div class="container-tight py-8 max-w-4xl space-y-4">
+        <!-- Whether anyone can join, which is the setting most worth being able
+             to reach in a hurry. -->
+        <section class="card px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span class="min-w-0">
+            <span class="block text-xs uppercase tracking-widest text-zinc-500 font-medium">Registration</span>
+            <span class="block text-[11px] text-zinc-600 mt-0.5">
+              {{ signupsOpen
+                ? 'Anyone can make an account.'
+                : 'Closed. Existing accounts still sign in; nobody new can register.' }}
+            </span>
+          </span>
+          <span
+            class="ml-auto shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border"
+            :class="signupsOpen
+              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-900/60'
+              : 'bg-zinc-900 text-zinc-500 border-zinc-800'"
+          >{{ signupsOpen ? 'Open' : 'Closed' }}</span>
+          <button
+            type="button"
+            class="btn btn-sm shrink-0"
+            :class="signupsOpen ? 'btn-ghost hover:border-red-600 hover:text-red-400' : 'btn-primary'"
+            :disabled="signupsBusy"
+            @click="toggleSignups"
+          >{{ signupsBusy ? 'Saving…' : signupsOpen ? 'Close signups' : 'Open signups' }}</button>
+        </section>
+
+        <section class="card px-4 py-3 flex items-center gap-3 flex-wrap">
+          <span class="min-w-0">
+            <span class="block text-xs uppercase tracking-widest text-zinc-500 font-medium">Site access</span>
+            <span class="block text-[11px] text-zinc-600 mt-0.5">
+              {{ siteOpen
+                ? 'Anyone can read the site.'
+                : 'Staff only. Everyone else sees the locked page, signed in or not.' }}
+            </span>
+          </span>
+          <span
+            class="ml-auto shrink-0 text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border"
+            :class="siteOpen
+              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-900/60'
+              : 'bg-amber-950/40 text-amber-300 border-amber-900/60'"
+          >{{ siteOpen ? 'Public' : 'Staff only' }}</span>
+          <button
+            type="button"
+            class="btn btn-sm shrink-0"
+            :class="siteOpen ? 'btn-ghost hover:border-red-600 hover:text-red-400' : 'btn-primary'"
+            :disabled="siteBusy"
+            @click="toggleSiteAccess"
+          >{{ siteBusy ? 'Saving…' : siteOpen ? 'Close site' : 'Open site' }}</button>
+        </section>
+
         <section class="card">
           <div class="px-4 pt-3 pb-2 flex items-center gap-3 flex-wrap">
             <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Accounts</h2>

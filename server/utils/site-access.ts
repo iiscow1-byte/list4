@@ -1,4 +1,5 @@
 import type { Account } from './auth'
+import { getDb } from '~/server/db'
 
 /**
  * Who can use the site, and whether anyone can join.
@@ -9,11 +10,60 @@ import type { Account } from './auth'
  * that forgets to set anything is locked, which is the safe direction to fail.
  */
 
-/** `ALLOW_SIGNUPS=1` re-opens registration. */
-export const SIGNUPS_ENABLED = process.env.ALLOW_SIGNUPS === '1'
+/**
+ * Whether anyone can register, as a setting rather than a constant.
+ *
+ * This was `process.env.ALLOW_SIGNUPS === '1'`, read once at module load, so
+ * opening or closing registration meant editing the environment and restarting
+ * — which on a hosted deploy is a redeploy, and is not something to be doing at
+ * the moment a wave of spam accounts arrives. It is a row in `site_settings`
+ * now, flipped from the admin panel and effective on the next request.
+ *
+ * The environment variable is still the *initial* value: a fresh database takes
+ * `ALLOW_SIGNUPS` for its first answer, so existing deployments come up exactly
+ * as they were configured. After that the stored value wins.
+ */
+export function signupsEnabled(): boolean {
+  const row = getDb().prepare(
+    `SELECT value FROM site_settings WHERE key = 'signups_enabled'`,
+  ).get() as { value: string } | undefined
+  if (row) return row.value === '1'
+  return process.env.ALLOW_SIGNUPS === '1'
+}
 
-/** `PUBLIC_SITE=1` re-opens the site to everyone. */
-export const ADMIN_ONLY = process.env.PUBLIC_SITE !== '1'
+export function setSignupsEnabled(on: boolean): void {
+  getDb().prepare(`
+    INSERT INTO site_settings (key, value, updated_at) VALUES ('signups_enabled', ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(on ? '1' : '0')
+}
+
+/**
+ * Whether the site is closed to everyone but staff.
+ *
+ * Runtime, for the same reason registration is: shutting the doors is something
+ * you want to do at the moment it becomes necessary, and an environment
+ * variable means a redeploy to get there and another to come back. Stored under
+ * `admin_only`; `PUBLIC_SITE` still decides the answer until it is first set,
+ * so an existing deployment comes up exactly as configured.
+ *
+ * Both directions default closed if nothing is set anywhere, which is the safe
+ * way to fail for a switch about who may read the site at all.
+ */
+export function adminOnly(): boolean {
+  const row = getDb().prepare(
+    `SELECT value FROM site_settings WHERE key = 'admin_only'`,
+  ).get() as { value: string } | undefined
+  if (row) return row.value === '1'
+  return process.env.PUBLIC_SITE !== '1'
+}
+
+export function setAdminOnly(on: boolean): void {
+  getDb().prepare(`
+    INSERT INTO site_settings (key, value, updated_at) VALUES ('admin_only', ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+  `).run(on ? '1' : '0')
+}
 
 /**
  * Roles that may use the site while it is locked down.

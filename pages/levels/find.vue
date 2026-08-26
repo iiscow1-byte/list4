@@ -149,7 +149,7 @@ useHead({ title: 'Find a level — All Levels List' })
             </template>
             <template v-else>
               <NuxtLink
-                :to="`/levels/submit?gd_id=${r.gd_id}&name=${encodeURIComponent(r.name)}`"
+                :to="`/levels/submit?gd_id=${r.gd_id}&name=${encodeURIComponent(r.name)}${r.difficulty ? `&difficulty=${encodeURIComponent(r.difficulty)}` : ''}`"
                 class="btn btn-sm btn-primary text-center"
               >Submit to the list</NuxtLink>
               <span class="text-[10px] text-zinc-600 text-center">Not ranked yet</span>

@@ -1141,7 +1141,10 @@ const clEstimatedFetched = ref(false)
 
 function fetchAredlEstimate() {
   if (!isExtremeLevel.value) return
-  if (props.level.other_lists?.some((e) => e.list === 'AREDL')) return
+  // Keyed on `key`, not on the printed label: the label is display text that
+  // differs between the two places a list can come from, and an estimate must
+  // never appear beside a real placement for the same list.
+  if (props.level.other_lists?.some((e) => e.key === 'aredl')) return
   if (estimatedFetched.value) return
   estimatedLoading.value = true
   $fetch<EstimatedPlacement>(`/api/levels/${props.level.position}/estimated-placement`)
@@ -1152,7 +1155,7 @@ function fetchAredlEstimate() {
 
 function fetchGdlEstimate() {
   if (!isExtremeLevel.value) return
-  if (props.level.other_lists?.some((e) => e.list === 'GDL')) return
+  if (props.level.other_lists?.some((e) => e.key === 'gdl')) return
   if (gdlEstimatedFetched.value) return
   gdlEstimatedLoading.value = true
   $fetch<EstimatedGdlPlacement>(`/api/levels/${props.level.position}/estimated-gdl-placement`)
@@ -1163,7 +1166,7 @@ function fetchGdlEstimate() {
 
 function fetchClEstimate() {
   if (!isChallengeLevel.value) return
-  if (props.level.other_lists?.some((e) => e.list === 'Challenge List')) return
+  if (props.level.other_lists?.some((e) => e.key === 'gdtpl:cl')) return
   if (clEstimatedFetched.value) return
   clEstimatedLoading.value = true
   $fetch<EstimatedClPlacement>(`/api/levels/${props.level.position}/estimated-cl-placement`)
@@ -2478,7 +2481,7 @@ const chartAredlSeries = computed(() =>
           <li v-for="entry in visibleOtherLists" :key="entry.key ?? entry.list">
             <component
               :is="entry.url ? 'a' : 'div'"
-              :href="entry.url ?? undefined"
+              :href="entry.home ?? entry.url ?? undefined"
               :target="entry.url ? '_blank' : undefined"
               :rel="entry.url ? 'noopener' : undefined"
               class="flex items-center gap-3 px-4 py-3 group/row"
@@ -2503,7 +2506,7 @@ const chartAredlSeries = computed(() =>
         </ul>
 
         <!-- GDL estimation — only for extreme levels not already on GDL, shown once data arrives -->
-        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'GDL') && gdlEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.key === 'gdl') && gdlEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <template v-if="gdlEstimatedData.bracket.above && !gdlEstimatedData.bracket.below">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-400">GDL</span>
@@ -2531,7 +2534,7 @@ const chartAredlSeries = computed(() =>
         </div>
 
         <!-- AREDL estimation — only for extreme levels not already on AREDL, shown once data arrives -->
-        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.list === 'AREDL') && estimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+        <div v-if="isExtremeLevel && !level.other_lists?.some(e => e.key === 'aredl') && estimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <template v-if="estimatedData.bracket.above && !estimatedData.bracket.below">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-400">AREDL</span>
@@ -2559,19 +2562,21 @@ const chartAredlSeries = computed(() =>
         </div>
 
         <!-- CL estimation — only for challenge levels not already on CL, shown once data arrives -->
-        <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.list === 'Challenge List') && clEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
+        <div v-if="isChallengeLevel && !level.other_lists?.some(e => e.key === 'gdtpl:cl') && clEstimatedData" class="border-t border-zinc-900 px-4 py-3 space-y-2">
           <template v-if="clEstimatedData.estimated_cl">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
-              <!-- An estimate inside the top 100 is reported as NLW rather than
-                   as a number: the bracket either side of it is too wide up
-                   there for a specific placement to mean anything. -->
+              <!-- NLW — Not List Worthy. An estimate at #101 or beyond falls
+                   past the end of the Challenge List, so the honest answer is
+                   that it would not make the list rather than a placement on a
+                   list that stops before it. Anything #100 or better gets its
+                   number. -->
               <span
-                v-if="clEstimatedData.estimated_cl < 100"
-                class="text-base font-semibold text-amber-300"
-                :title="`Estimated around #${clEstimatedData.estimated_cl}`"
+                v-if="clEstimatedData.estimated_cl >= 101"
+                class="text-base font-semibold text-zinc-500"
+                :title="`Not List Worthy — estimated around #${clEstimatedData.estimated_cl}, past the end of the list`"
               >NLW</span>
-              <span v-else class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
+              <span v-else class="tabular-nums text-base text-amber-300">~#{{ clEstimatedData.estimated_cl }}</span>
             </div>
             <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
               Based on:

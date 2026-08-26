@@ -1545,7 +1545,7 @@ function fmt(n: number | null | undefined) {
                   </select>
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon level</span>
+                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
                   <select
                     v-model="ovDifficulty"
                     class="field field-md mt-1"

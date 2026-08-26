@@ -144,7 +144,7 @@ async function decide(action: 'approve' | 'reject') {
           <dl class="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1.5 text-xs">
             <dt class="text-zinc-500">GDDL Tier</dt>
             <dd class="text-zinc-100">{{ selected.gddl_tier ?? '—' }}</dd>
-            <dt class="text-zinc-500">Demon level</dt>
+            <dt class="text-zinc-500">Difficulty</dt>
             <dd class="text-zinc-100">{{ selected.difficulty ?? '—' }}</dd>
             <dt class="text-zinc-500">Enjoyment</dt>
             <dd class="text-zinc-100">{{ selected.enjoyment != null ? Number(selected.enjoyment).toFixed(1) : '—' }}</dd>

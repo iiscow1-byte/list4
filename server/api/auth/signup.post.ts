@@ -1,7 +1,7 @@
 import { LOCKDOWN_HEADLINE } from '~/utils/lockdown'
 import { getDb } from '~/server/db'
 import { hashPassword, createSession, setSessionCookie } from '~/server/utils/auth'
-import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
+import { signupsEnabled } from '~/server/utils/site-access'
 import { assertClean } from '~/server/utils/profanity-guard'
 import { touchAccountDay } from '~/server/utils/analytics'
 import { enforceRateLimit, ipSubject, LIMITS } from '~/server/utils/rate-limit'
@@ -15,7 +15,7 @@ const BOOTSTRAP_ADMIN = (process.env.BOOTSTRAP_ADMIN_USERNAME || 'Gerg').toLower
 export default defineEventHandler(async (event) => {
   // Closed here, not just hidden in the UI — the form is one `curl` away.
   // Admin accounts are created with `npm run make-admin` while this is off.
-  if (!SIGNUPS_ENABLED) {
+  if (!signupsEnabled()) {
     throw createError({
       statusCode: 403,
       statusMessage: `Account creation is closed. ${LOCKDOWN_HEADLINE}`,

@@ -1,7 +1,7 @@
 import { LOCKDOWN_NOTICE } from '~/utils/lockdown'
 import { timingSafeEqual } from 'node:crypto'
 import { getCurrentAccount } from '~/server/utils/auth'
-import { ADMIN_ONLY, isPublicPath, isStaff, normalisePath } from '~/server/utils/site-access'
+import { adminOnly, isPublicPath, isStaff, normalisePath } from '~/server/utils/site-access'
 import { INTERNAL_HEADER, INTERNAL_TOKEN } from '~/server/utils/internal-token'
 
 /** Constant-time compare, so the token can't be probed a byte at a time. */
@@ -22,7 +22,7 @@ function isInternalCall(header: string | undefined): boolean {
  * Numbered `00.` so it runs before any other server middleware.
  */
 export default defineEventHandler((event) => {
-  if (!ADMIN_ONLY) return
+  if (!adminOnly()) return
 
   const path = normalisePath(event.path.split('?')[0] ?? '/')
   if (isPublicPath(path)) return

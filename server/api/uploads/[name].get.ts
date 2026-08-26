@@ -7,7 +7,8 @@ import { TYPE_BY_EXT } from '~/server/utils/video-type'
  * Serve a clip uploaded through `index.post.ts`.
  *
  * The name is the whole security boundary, so it is matched against a literal
- * shape rather than sanitised: exactly lowercase hex, one dot, `mp4` or `webm`.
+ * shape rather than sanitised: exactly lowercase hex, one dot, and one of the
+ * three extensions this server writes — `mp4`, `webm` or the `jpg` poster.
  * Nothing that shape allows can escape the uploads directory — there is no
  * slash, no backslash, no second dot, no `..`, no NUL — so path traversal is
  * closed by construction instead of by a blocklist that has to anticipate every
@@ -18,7 +19,7 @@ import { TYPE_BY_EXT } from '~/server/utils/video-type'
  * side chose that extension from the file's own bytes; a client has never had a
  * say in it. See `server/utils/video-type.ts`.
  */
-const NAME_RE = /^[a-f0-9]+\.(mp4|webm)$/
+const NAME_RE = /^[a-f0-9]+\.(mp4|webm|jpg)$/
 
 export default defineEventHandler((event) => {
   const name = getRouterParam(event, 'name') ?? ''

@@ -126,13 +126,17 @@ export function resolveVideo(url: string | null | undefined): VideoSource {
 
   const medalId = medalIdFrom(raw)
   if (medalId) {
-    // Medal exposes no predictable still for a clip id — the poster frame is
-    // only in the oEmbed/API payload, which is a server round trip this does
-    // not have. Callers fall back to level art, as they already do.
+    /**
+     * Medal has no guessable still for a clip, only one named in an oEmbed
+     * reply — which is JSON, and an `<img>` cannot read JSON. The endpoint
+     * below asks Medal and answers with a redirect to the image, so this can
+     * hand back something an ordinary `<img src>` will load. A clip with no
+     * thumbnail 404s there and the image quietly hides.
+     */
     return {
       kind: 'medal',
       embedUrl: `https://medal.tv/clip/${medalId}/embed`,
-      thumbUrl: null,
+      thumbUrl: `/api/video/medal-thumb/${encodeURIComponent(medalId)}`,
       rawUrl: raw,
     }
   }
@@ -140,7 +144,20 @@ export function resolveVideo(url: string | null | undefined): VideoSource {
   if (isSafeMediaUrl(raw)) {
     const path = pathOf(raw)
     if (path.startsWith('/api/uploads/') || /\.(mp4|webm)$/i.test(path)) {
-      return { kind: 'file', embedUrl: raw, thumbUrl: null, rawUrl: raw }
+      /**
+       * A clip uploaded here has its poster frame stored beside it under the
+       * same stem — see `api/uploads/poster.post.ts`. The name is predictable,
+       * so no lookup is needed; if the poster was never written the image 404s
+       * and the caller falls back exactly as it does for a video with none.
+       *
+       * Only for our own uploads: a bare `.mp4` on somebody else's host has no
+       * such convention and guessing one would request a file that isn't there
+       * on every render.
+       */
+      const poster = /^\/api\/uploads\/[a-f0-9]+\.(mp4|webm)$/.test(path)
+        ? path.replace(/\.(mp4|webm)$/, '.jpg')
+        : null
+      return { kind: 'file', embedUrl: raw, thumbUrl: poster, rawUrl: raw }
     }
   }
 

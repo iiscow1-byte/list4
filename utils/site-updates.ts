@@ -43,6 +43,34 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.30.0',
+    date: '2026-08-16',
+    title: 'Clips bring their own thumbnail and date',
+    tags: ['Submissions', 'UI'],
+    changes: [
+      'An uploaded MP4 fills in its own verification date. The file records when it was made, so asking you to type it was asking for something the clip already knew.',
+      'Uploaded clips get a thumbnail. A frame is taken a second in — not the first frame, which on a recording is usually black — and shows anywhere level art would.',
+      'Medal.tv clips show their thumbnail too.',
+      adm('The site can be closed to everyone but staff from the accounts page, next to the registration switch. Like registration, it used to be an environment variable and a redeploy.'),
+    ],
+  },
+  {
+    version: '1.29.0',
+    date: '2026-08-16',
+    title: 'Bigger clips, and fixes to estimates and thumbnails',
+    tags: ['List', 'Submissions', 'UI', 'Fixes'],
+    changes: [
+      'Fixed challenge estimates showing NLW the wrong way round. NLW means Not List Worthy, so it belongs on estimates past the end of the list — #101 or beyond. A level estimated at #44 was being called unworthy when it would comfortably make the list; it shows ~#44 now.',
+      'A level already on a list no longer shows an estimate for that list beside its real placement.',
+      'Clicking another list in the rankings panel takes you to that list’s homepage. The links pointed at level pages built from ids and slugs that go stale, so they often led nowhere.',
+      'Uploaded clips can be up to 1 GB, up from 64 MB. The upload streams to disk now instead of being held in memory, which is what makes a limit that size safe to offer.',
+      'Level thumbnails that fail to load show nothing at all rather than an empty box, and the site now loads at most four YouTube thumbnails at a time. Asking for fifty at once is what was getting the site rate limited on profiles.',
+      'Submitting a level from Find a Level fills in the difficulty from the search result.',
+      'The "Demon level" field is called Difficulty, since it is also the field for levels that are not demons.',
+      adm('Registration can be opened and closed from the accounts page, taking effect immediately. It was an environment variable, so changing it meant a redeploy — not what you want mid-spam-wave.'),
+    ],
+  },
+  {
     version: '1.28.0',
     date: '2026-08-16',
     title: 'Sign in with Discord',

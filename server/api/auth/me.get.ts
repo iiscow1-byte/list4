@@ -1,5 +1,5 @@
 import { getCurrentAccount } from '~/server/utils/auth'
-import { ADMIN_ONLY, SIGNUPS_ENABLED, isStaff } from '~/server/utils/site-access'
+import { adminOnly, signupsEnabled, isStaff } from '~/server/utils/site-access'
 import { getDb } from '~/server/db'
 import { clanForAccount } from '~/server/utils/clans'
 
@@ -29,9 +29,9 @@ export default defineEventHandler((event) => {
         }
       : null,
     site: {
-      adminOnly: ADMIN_ONLY,
-      signupsEnabled: SIGNUPS_ENABLED,
-      canAccess: !ADMIN_ONLY || isStaff(account),
+      adminOnly: adminOnly(),
+      signupsEnabled: signupsEnabled(),
+      canAccess: !adminOnly() || isStaff(account),
     },
   }
 })

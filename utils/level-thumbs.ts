@@ -195,3 +195,46 @@ export function videoThumbUrlMax(videoUrl: string | null | undefined): string | 
   if (!id) return null
   return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`
 }
+
+
+/**
+ * A gate on how many YouTube thumbnails are in flight at once.
+ *
+ * This is the actual cause of the rate limiting, and no amount of retrying
+ * fixes it on its own: a profile listing fifty levels puts fifty <img> elements
+ * on the page, the browser opens them all, and i.ytimg.com answers a burst like
+ * that with 429s. Retrying then re-sends the same burst slightly later.
+ *
+ * So requests are queued instead. `levelthumbs` is not gated — it is our own
+ * host and has never been the one refusing — and neither is anything already
+ * cached, since a cache hit costs nobody anything. Only the YouTube stages go
+ * through here.
+ *
+ * A slot is held until the image reports back, and released by a timer if it
+ * never does, so one stalled request cannot wedge the queue for the page.
+ */
+const MAX_INFLIGHT = 4
+const SLOT_TIMEOUT_MS = 10_000
+let inflight = 0
+const waiting: (() => void)[] = []
+
+export function acquireThumbSlot(): Promise<() => void> {
+  return new Promise((resolve) => {
+    const grant = () => {
+      inflight++
+      let released = false
+      const timer = setTimeout(() => release(), SLOT_TIMEOUT_MS)
+      const release = () => {
+        if (released) return
+        released = true
+        clearTimeout(timer)
+        inflight--
+        const next = waiting.shift()
+        if (next) next()
+      }
+      resolve(release)
+    }
+    if (inflight < MAX_INFLIGHT) grant()
+    else waiting.push(grant)
+  })
+}

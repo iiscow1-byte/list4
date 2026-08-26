@@ -26,6 +26,16 @@ export type OtherListEntry = {
   position: number
   /** The level's own page on that list, when the list has addressable levels. */
   url: string | null
+  /**
+   * The list's front page.
+   *
+   * Deep links into another site's level page are the ones that rot: AREDL
+   * keys on a GD id the row may not carry, Pointercrate's path is a placement
+   * that moves, and a GDListTemplate slug is only right until that list renames
+   * the level. The panel links here instead — a homepage is the one address
+   * about another list that stays true.
+   */
+  home: string | null
 }
 
 /** How many of these are worth putting next to the title. */
@@ -66,9 +76,8 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       list: 'GDL',
       badge: 'GDL',
       position: level.gdl_position,
-      // The Global Demonlist keys its level pages on its own ids, which the ALL
-      // row doesn't carry — the list's front page is the honest destination.
       url: 'https://demonlist.org',
+      home: 'https://demonlist.org',
     })
   }
   if (level.aredl_position != null) {
@@ -78,6 +87,7 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       badge: 'AREDL',
       position: level.aredl_position,
       url: level.gd_id ? `https://aredl.net/level/${level.gd_id}` : 'https://aredl.net',
+      home: 'https://aredl.net',
     })
   }
   if (level.pointercrate_position != null) {
@@ -87,6 +97,7 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       badge: 'PC',
       position: level.pointercrate_position,
       url: `https://pointercrate.com/demonlist/${level.pointercrate_position}/`,
+      home: 'https://pointercrate.com/demonlist/',
     })
   }
   if (level.challenge_list_position != null) {
@@ -99,6 +110,7 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       badge: 'CH',
       position: level.challenge_list_position,
       url: `https://challengelist.gd/challenges/${level.challenge_list_position}/`,
+      home: 'https://challengelist.gd',
     })
   }
   // The ACS is deliberately absent.
@@ -116,6 +128,7 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
       badge: 'MSCL',
       position: level.mscl_position,
       url: 'https://mscl.dev',
+      home: 'https://mscl.dev',
     })
   }
 
@@ -139,6 +152,7 @@ export function otherListsFor(db: DatabaseSync, level: LevelRow): OtherListEntry
         position: hit.position,
         // GDListTemplate sites route levels by their own slug.
         url: hit.level_slug ? `${g.home}/#/level/${encodeURIComponent(hit.level_slug)}` : g.home,
+        home: g.home,
       })
     }
   }

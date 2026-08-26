@@ -795,7 +795,14 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
 
           <!-- Outside the <label> above: clicking the label text would
                otherwise open the file picker rather than focus the field. -->
-          <ClipUpload v-model="verificationUrl" label="Upload a clip" />
+          <!-- An uploaded MP4 carries its own recording date; use it the same
+               way a YouTube link's upload date is used, and never over
+               something already typed. -->
+          <ClipUpload
+            v-model="verificationUrl"
+            label="Upload a clip"
+            @recorded-at="(d) => { if (!verifyDate) verifyDate = d }"
+          />
 
           <VideoEmbed
             :url="verificationUrl"
@@ -904,7 +911,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
               </select>
             </label>
             <div class="block">
-              <span :class="label">Demon level</span>
+              <span :class="label">Difficulty</span>
               <select v-model="difficulty" :class="field">
                 <option v-for="d in DIFFICULTY_OPTIONS" :key="d" :value="d">{{ d || '— none —' }}</option>
               </select>

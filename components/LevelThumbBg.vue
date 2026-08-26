@@ -2,9 +2,10 @@
 import {
   levelThumbUrl, levelThumbSrcset, videoThumbUrl, videoThumbUrlMax,
   isKnownThumbMiss, rememberThumbMiss,
-  isKnownMaxresMiss, rememberMaxresMiss, youtubeIdFrom,
+  isKnownMaxresMiss, rememberMaxresMiss, youtubeIdFrom, acquireThumbSlot,
   THUMB_SIZES, type ThumbRes,
 } from '~/utils/level-thumbs'
+import { resolveVideo } from '~/utils/video-embed'
 
 /**
  * Absolutely-positioned level thumbnail used as a row / hero background.
@@ -68,7 +69,18 @@ const videoId = computed(() => youtubeIdFrom(props.videoUrl))
 const videoMaxUrl = computed(() =>
   res.value === 'small' ? null : videoThumbUrlMax(props.videoUrl),
 )
-const videoUrl = computed(() => videoThumbUrl(props.videoUrl, res.value))
+/**
+ * The still for the verification video, whatever kind of video it is.
+ *
+ * YouTube has two sizes at guessable URLs, which is why it gets its own stage.
+ * Medal and uploaded clips have exactly one image each — resolved by
+ * `resolveVideo` — so they slot into the same 'video' stage as a single
+ * candidate. A video with no still at all leaves this null and the component
+ * falls through to showing nothing, as before.
+ */
+const videoUrl = computed(() =>
+  videoThumbUrl(props.videoUrl, res.value) ?? resolveVideo(props.videoUrl).thumbUrl,
+)
 
 /**
  * The first video stage worth trying, or 'done' when there is no video.
@@ -107,11 +119,27 @@ const imgEl = ref<HTMLImageElement | null>(null)
  */
 const MAX_RETRIES = 2
 const retries = ref(0)
+
+/**
+ * Held while a YouTube thumbnail is loading, released when it settles.
+ *
+ * Paired with the gate in `utils/level-thumbs.ts`: without a release on both
+ * the load and the error path a failed image would keep its slot forever and
+ * the page would stop loading thumbnails after the first four failures.
+ */
+let releaseSlot: (() => void) | null = null
+function freeSlot() {
+  if (!releaseSlot) return
+  const fn = releaseSlot
+  releaseSlot = null
+  fn()
+}
 /** Appended to the URL so a retry is a fresh request, not a cached failure. */
 const nonce = ref(0)
 let retryTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleRetry() {
+  freeSlot()
   if (retryTimer) clearTimeout(retryTimer)
   const backoff = 400 * 2 ** retries.value
   retryTimer = setTimeout(() => {
@@ -121,7 +149,7 @@ function scheduleRetry() {
   }, backoff + Math.random() * 400)
 }
 
-onBeforeUnmount(() => { if (retryTimer) clearTimeout(retryTimer) })
+onBeforeUnmount(() => { if (retryTimer) clearTimeout(retryTimer); freeSlot() })
 
 /**
  * A server-rendered <img> often finishes loading (or fails) before hydration
@@ -149,8 +177,22 @@ onMounted(() => {
   else stage.value = next
 })
 
-// Each stage swaps the src, so re-check once the new <img> is in the DOM.
-watch(stage, () => nextTick(syncFromDom))
+/**
+ * Each stage swaps the src, so re-check once the new <img> is in the DOM — and
+ * take a queue slot first when the new stage is one of YouTube's.
+ */
+watch(stage, async (next) => {
+  freeSlot()
+  if (import.meta.client && (next === 'videoMax' || next === 'video')) {
+    releaseSlot = await acquireThumbSlot()
+  }
+  nextTick(syncFromDom)
+})
+watch(nonce, async () => {
+  if (import.meta.client && (stage.value === 'videoMax' || stage.value === 'video')) {
+    releaseSlot = await acquireThumbSlot()
+  }
+})
 
 const url = computed(() => {
   if (stage.value === 'primary') return levelThumbUrl(props.gdId, res.value)
@@ -195,9 +237,11 @@ function onError() {
     return
   }
   stage.value = 'done'
+  freeSlot()
 }
 
 function resetRetries() {
+  freeSlot()
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
   retries.value = 0
   nonce.value = 0
@@ -214,6 +258,12 @@ watch(
 </script>
 
 <template>
+  <!--
+    Nothing is rendered until an image has actually loaded, and nothing is left
+    behind when one fails: `stage` reaching 'done' drops `url` to null and takes
+    this element with it. A thumbnail that cannot load leaves the plain
+    background rather than an empty box or a broken-image glyph.
+  -->
   <div
     v-if="url"
     class="absolute inset-0 pointer-events-none select-none"
@@ -233,7 +283,7 @@ watch(
       draggable="false"
       class="w-full h-full object-cover transition-opacity duration-300"
       :class="[imgClass, loaded ? '' : '!opacity-0']"
-      @load="loaded = true"
+      @load="loaded = true; freeSlot()"
       @error="onError"
     />
     <div v-if="overlayClass && loaded" class="absolute inset-0" :class="overlayClass" />

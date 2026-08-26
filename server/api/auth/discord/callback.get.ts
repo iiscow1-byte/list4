@@ -3,7 +3,7 @@ import { createSession, setSessionCookie, getCurrentAccount } from '~/server/uti
 import { enforceRateLimit, ipSubject, LIMITS } from '~/server/utils/rate-limit'
 import { touchAccountDay } from '~/server/utils/analytics'
 import { logActivity } from '~/server/utils/activity-log'
-import { SIGNUPS_ENABLED } from '~/server/utils/site-access'
+import { signupsEnabled } from '~/server/utils/site-access'
 import {
   discordConfig, consumeState, statesMatch, exchangeCode, fetchDiscordUser,
   checkGuildMembership, usernameFromDiscord, safeReturnTo,
@@ -117,7 +117,7 @@ export default defineEventHandler(async (event) => {
    * unusable hash is stored so the password columns stay NOT NULL and no
    * password can ever match. Signing in again goes back through Discord.
    */
-  if (!SIGNUPS_ENABLED) return fail(event, 'signups_closed', returnTo)
+  if (!signupsEnabled()) return fail(event, 'signups_closed', returnTo)
 
   let username = usernameFromDiscord(profile)
   const isTaken = db.prepare(`SELECT 1 AS n FROM accounts WHERE username = ? COLLATE NOCASE`)
