@@ -4,6 +4,7 @@ import { gdLevelUrl } from '~/utils/gd-links'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
+import { youtubeIdFrom } from '~/utils/level-thumbs'
 
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a level — All Levels List' })
@@ -491,21 +492,14 @@ const verificationWarning = computed(() =>
 )
 const noOpinion = computed(() => !gddlTier.value)
 
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
-const ytId = computed(() => youtubeId(verificationUrl.value.trim()))
+/**
+ * Still YouTube-specific, and now only for the date autofill below.
+ *
+ * The preview no longer goes through here — `<VideoEmbed>` resolves the link
+ * itself, so a Medal clip or an uploaded file previews too. What is left needs
+ * a real YouTube id, because it asks YouTube for an upload date.
+ */
+const ytId = computed(() => youtubeIdFrom(verificationUrl.value.trim()))
 
 const dateLoading = ref(false)
 // `immediate` matters: arriving from a custom list or from /levels/find brings
@@ -788,21 +782,20 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
               :class="field"
             />
             <span class="mt-1 block text-[11px] text-zinc-600">
-              A YouTube link fills in the verification date from the upload for you.
+              A YouTube link, a Medal.tv clip, or a clip uploaded here are all accepted.
+              A YouTube link also fills in the verification date from the upload for you.
             </span>
           </label>
 
-          <div v-if="ytId" class="aspect-video rounded-lg border border-zinc-800 bg-black overflow-hidden">
-            <iframe
-              :src="`https://www.youtube.com/embed/${ytId}`"
-              class="w-full h-full"
-              title="Verification preview"
-              frameborder="0"
-              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              referrerpolicy="strict-origin-when-cross-origin"
-            />
-          </div>
+          <!-- Outside the <label> above: clicking the label text would
+               otherwise open the file picker rather than focus the field. -->
+          <ClipUpload v-model="verificationUrl" label="Upload a clip" />
+
+          <VideoEmbed
+            :url="verificationUrl"
+            title="Verification preview"
+            frame-class="aspect-video rounded-lg border border-zinc-800 bg-black overflow-hidden"
+          />
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">

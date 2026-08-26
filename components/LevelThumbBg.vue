@@ -91,6 +91,39 @@ function initialStage(): Stage {
 const imgEl = ref<HTMLImageElement | null>(null)
 
 /**
+ * Retrying a video thumbnail before believing it is missing.
+ *
+ * An <img> error carries no status code, so a 404 (this video genuinely has no
+ * HD thumbnail) and a 429 (YouTube is rate-limiting us) arrive identically —
+ * and the miss cache treated both as "there is no thumbnail here", writing the
+ * rate-limit to localStorage for a week. A profile listing fifty levels asks
+ * i.ytimg.com for fifty images at once, which is exactly when 429s happen, so
+ * one busy page could permanently blank the thumbnails on it.
+ *
+ * A 404 fails again immediately; a rate-limit usually doesn't. So retry with a
+ * jittered backoff, and only record a miss once the retries agree. The jitter
+ * matters as much as the delay: without it, fifty rows would retry in lockstep
+ * and rebuild the same burst that failed.
+ */
+const MAX_RETRIES = 2
+const retries = ref(0)
+/** Appended to the URL so a retry is a fresh request, not a cached failure. */
+const nonce = ref(0)
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleRetry() {
+  if (retryTimer) clearTimeout(retryTimer)
+  const backoff = 400 * 2 ** retries.value
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    retries.value++
+    nonce.value++
+  }, backoff + Math.random() * 400)
+}
+
+onBeforeUnmount(() => { if (retryTimer) clearTimeout(retryTimer) })
+
+/**
  * A server-rendered <img> often finishes loading (or fails) before hydration
  * attaches these handlers — from cache that's essentially always. The events
  * are gone by then, so `loaded` would stay false and the image would sit at
@@ -121,9 +154,12 @@ watch(stage, () => nextTick(syncFromDom))
 
 const url = computed(() => {
   if (stage.value === 'primary') return levelThumbUrl(props.gdId, res.value)
-  if (stage.value === 'videoMax') return videoMaxUrl.value
-  if (stage.value === 'video') return videoUrl.value
-  return null
+  const base = stage.value === 'videoMax'
+    ? videoMaxUrl.value
+    : stage.value === 'video' ? videoUrl.value : null
+  if (!base) return null
+  // i.ytimg.com ignores unknown query params, so this only defeats the cache.
+  return nonce.value > 0 ? `${base}?r=${nonce.value}` : base
 })
 
 /**
@@ -139,21 +175,41 @@ function onError() {
   if (stage.value === 'primary') {
     rememberThumbMiss(props.gdId)
     stage.value = firstVideoStage()
+    resetRetries()
     return
   }
+
+  // Video stages only: give a possible rate-limit a chance to clear before
+  // concluding anything about the video itself.
+  if (retries.value < MAX_RETRIES) {
+    scheduleRetry()
+    return
+  }
+
   if (stage.value === 'videoMax') {
-    // Not uploaded in HD — the common case, not an error. Remembered so the
-    // next render of this video doesn't spend the same 404 again.
+    // Failed every attempt, so it really isn't uploaded in HD — the common
+    // case, not an error. Remembered so the next render doesn't spend it again.
     rememberMaxresMiss(videoId.value)
     stage.value = videoUrl.value ? 'video' : 'done'
+    resetRetries()
     return
   }
   stage.value = 'done'
 }
 
+function resetRetries() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  retries.value = 0
+  nonce.value = 0
+}
+
 watch(
   () => [props.gdId, props.videoUrl],
-  () => { loaded.value = false; stage.value = import.meta.client ? initialStage() : 'primary' },
+  () => {
+    loaded.value = false
+    resetRetries()
+    stage.value = import.meta.client ? initialStage() : 'primary'
+  },
 )
 </script>
 

@@ -189,6 +189,33 @@ function initSchema(db: DatabaseSync) {
   if (!accCols.some((c) => c.name === 'banned_reason')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN banned_reason TEXT`)
   }
+
+  /**
+   * A proved Discord identity.
+   *
+   * Distinct from `discord_handle`, which is a profile field somebody types and
+   * nobody checks — this is the snowflake Discord itself returned through
+   * OAuth, and it is what "signed in with Discord" means. Unique, because one
+   * Discord account granting an unbounded number of site accounts would defeat
+   * the entire point of requiring one.
+   *
+   * `discord_guild_checked_at` records when membership of the required server
+   * was last confirmed, so a stale link can be re-checked rather than trusted
+   * forever.
+   */
+  if (!accCols.some((c) => c.name === 'discord_id')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN discord_id TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'discord_username')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN discord_username TEXT`)
+  }
+  if (!accCols.some((c) => c.name === 'discord_guild_checked_at')) {
+    db.exec(`ALTER TABLE accounts ADD COLUMN discord_guild_checked_at TEXT`)
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_discord_id
+      ON accounts(discord_id) WHERE discord_id IS NOT NULL
+  `)
   if (!accCols.some((c) => c.name === 'pronouns')) {
     db.exec(`ALTER TABLE accounts ADD COLUMN pronouns TEXT`)
   }

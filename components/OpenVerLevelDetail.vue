@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { gdLevelUrl } from '~/utils/gd-links'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 type OpenVerLevel = {
   id: number
   gd_id: number | null
@@ -106,22 +107,11 @@ async function deleteLevel() {
   }
 }
 
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
-
-const ytId = computed(() => youtubeId(props.level.showcase_url))
+/**
+ * Whether the showcase link is playable inline — YouTube, a Medal.tv clip or a
+ * clip uploaded here. Anything else falls through to the link card below.
+ */
+const hasVideoEmbed = computed(() => isEmbeddableVideo(props.level.showcase_url))
 const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
 const tagList = computed(() => {
@@ -249,17 +239,12 @@ const tagList = computed(() => {
     </section>
 
     <!-- Showcase (replaces verification) -->
-    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
-      <iframe
-        :src="`https://www.youtube.com/embed/${ytId}`"
-        class="w-full h-full"
-        title="Showcase"
-        frameborder="0"
-        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"
-      />
-    </div>
+    <VideoEmbed
+      v-if="hasVideoEmbed"
+      :url="level.showcase_url"
+      title="Showcase"
+      frame-class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden"
+    />
     <a
       v-else-if="level.showcase_url"
       :href="level.showcase_url"

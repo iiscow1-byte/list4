@@ -458,16 +458,24 @@ async function submit() {
           </div>
         </div>
 
-        <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
-          <input
-            v-model="video"
-            type="url"
-            required
-            placeholder="https://www.youtube.com/watch?v=…"
-            class="field field-md mt-1"
-          />
-        </label>
+        <div>
+          <label class="block">
+            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
+            <input
+              v-model="video"
+              type="url"
+              required
+              placeholder="https://www.youtube.com/watch?v=…"
+              class="field field-md mt-1"
+            />
+            <span class="mt-1 block text-[11px] text-zinc-600">
+              A YouTube link, a Medal.tv clip, or a clip uploaded here — all three play on the level page.
+            </span>
+          </label>
+          <!-- Outside the <label>: clicking the label text would otherwise open
+               the file picker, which is not what "Video URL" should do. -->
+          <ClipUpload v-model="video" />
+        </div>
 
         <label v-if="canClaimVerification" class="flex items-start gap-2 cursor-pointer select-none rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
           <input

@@ -40,8 +40,17 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   // The API talks only to itself; everything third-party is fetched server-side.
   "connect-src 'self'",
-  // Verification videos and level showcases.
-  "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+  /**
+   * Verification videos and level showcases.
+   *
+   * Medal.tv joins YouTube here because a Medal clip is embedded the same way —
+   * an `<iframe>` at `medal.tv/clip/<id>/embed`. Without the host in this list
+   * the frame is blocked by the policy and the level page shows an empty box,
+   * which is a confusing way to discover a CSP. Still an allow-list of two:
+   * `frame-src` is what decides whose code can run in a frame on this origin.
+   */
+  "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://medal.tv https://www.medal.tv",
+  // `'self'` covers clips uploaded here and served from /api/uploads/.
   "media-src 'self' https:",
   "object-src 'none'",
   "base-uri 'self'",

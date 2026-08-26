@@ -195,10 +195,22 @@ export function isVerified(account: { email_verified_at?: string | null } | null
 export function requiresVerification(account: {
   email_verified_at?: string | null
   role?: string
+  discord_id?: string | null
 } | null): boolean {
   if (!account) return false
   if (!mailEnabled()) return false
   if (account.role && account.role !== 'user') return false
+  /**
+   * A Discord sign-in is already proof.
+   *
+   * The gate exists so that posting costs more than a POST request — an
+   * account should cost somebody an inbox. Signing in through Discord costs
+   * more than that: the account had to already be in the community's server,
+   * which is revocable in a way an email address is not. Asking those accounts
+   * to also confirm an address they were never asked for would lock them out
+   * of the site entirely, since they have none to confirm.
+   */
+  if (account.discord_id) return false
   return !account.email_verified_at
 }
 
@@ -206,6 +218,7 @@ export function requiresVerification(account: {
 export function assertVerified(account: {
   email_verified_at?: string | null
   role?: string
+  discord_id?: string | null
 } | null): void {
   if (!requiresVerification(account)) return
   throw createError({

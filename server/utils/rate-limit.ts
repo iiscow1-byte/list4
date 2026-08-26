@@ -103,6 +103,15 @@ export const LIMITS = {
   submission: { bucket: 'submit', limit: 20, windowSec: 3600,
     message: 'You have submitted a lot recently. Try again later.' },
 
+  /**
+   * Discord sign-in round trips.
+   *
+   * Each one makes this server call Discord three times, so an unbounded loop
+   * here spends our OAuth app's rate budget rather than the caller's.
+   */
+  discordOauth: { bucket: 'oauth:discord', limit: 20, windowSec: 900,
+    message: 'Too many Discord sign-in attempts. Wait fifteen minutes.' },
+
   /** Friend requests, which arrive in somebody else's inbox. */
   friendRequest: { bucket: 'friend', limit: 20, windowSec: 3600,
     message: 'Too many friend requests. Try again later.' },

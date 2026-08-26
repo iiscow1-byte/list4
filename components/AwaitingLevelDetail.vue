@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { gdLevelUrl } from '~/utils/gd-links'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 type AwaitingLevel = {
   id: number
   gd_id: number | null
@@ -23,22 +24,11 @@ type AwaitingLevel = {
 
 const props = defineProps<{ level: AwaitingLevel }>()
 
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
-
-const ytId = computed(() => youtubeId(props.level.verification_url))
+/**
+ * Whether the verification link is playable inline — YouTube, a Medal.tv clip
+ * or a clip uploaded here. Anything else falls through to the link card below.
+ */
+const hasVideoEmbed = computed(() => isEmbeddableVideo(props.level.verification_url))
 // No video means no video box — see the matching note in LevelDetail.vue.
 const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
@@ -66,17 +56,12 @@ const tagList = computed(() => {
     </header>
 
     <!-- Verification -->
-    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
-      <iframe
-        :src="`https://www.youtube.com/embed/${ytId}`"
-        class="w-full h-full"
-        :title="level.verification ?? 'Verification'"
-        frameborder="0"
-        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"
-      />
-    </div>
+    <VideoEmbed
+      v-if="hasVideoEmbed"
+      :url="level.verification_url"
+      :title="level.verification ?? 'Verification'"
+      frame-class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden"
+    />
     <a
       v-else-if="level.verification_url"
       :href="level.verification_url"

@@ -4,7 +4,7 @@
 // `<NuxtLink>` element that looks right and doesn't navigate.
 import { NuxtLink } from '#components'
 import { tierColor, textOn } from '~/utils/tier-colors'
-import { youtubeIdFrom } from '~/utils/level-thumbs'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 import { gdLevelUrl } from '~/utils/gd-links'
 import { estimateForItem, ALL_TIERS } from '~/utils/tier-ordinal'
 
@@ -44,7 +44,11 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
-const videoId = computed(() => youtubeIdFrom(props.item?.verification_url))
+/**
+ * Whether the verification link is playable inline — YouTube, a Medal.tv clip
+ * or a clip uploaded here. Anything else gets the "watch it there" link below.
+ */
+const hasVideoEmbed = computed(() => isEmbeddableVideo(props.item?.verification_url))
 const { to } = useStandaloneList()
 
 /**
@@ -525,13 +529,12 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       </form>
 
       <!-- Verification video -->
-      <div v-if="videoId" class="aspect-video rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-xl shadow-black/40">
-        <iframe
-          :src="`https://www.youtube.com/embed/${videoId}`"
-          class="w-full h-full" frameborder="0" allowfullscreen
-          referrerpolicy="strict-origin-when-cross-origin" :title="item.name"
-        />
-      </div>
+      <VideoEmbed
+        v-if="hasVideoEmbed"
+        :url="item.verification_url"
+        :title="item.name"
+        frame-class="aspect-video rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-xl shadow-black/40"
+      />
       <a
         v-else-if="item.verification_url"
         :href="item.verification_url" target="_blank" rel="noopener"

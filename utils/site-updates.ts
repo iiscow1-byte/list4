@@ -43,6 +43,20 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.28.0',
+    date: '2026-08-16',
+    title: 'Sign in with Discord',
+    tags: ['Accounts', 'Security', 'List', 'Fixes'],
+    changes: [
+      'You can sign in with Discord, if you’re in the All Levels List server. No email, no password, no confirmation link — being in the server is the check. Leave the server and the next sign-in stops working.',
+      'Discord accounts can post straight away. The email confirmation exists so an account costs more than a form submission, and a server membership already costs more than that.',
+      'Existing accounts can link their Discord from the login page, so you can keep your password or stop using it.',
+      'Reading the challenge list, a level now leads with its challenge rank and shows its ALL placement in the badge underneath. It was the other way round, so a level you reached from challenge #12 opened on #4,021. Switching lists from the dropdown swaps them instantly.',
+      'Challenge estimates inside the top 100 say NLW instead of a number — the levels either side are too far apart up there for a specific guess to mean much.',
+      'Fixed level thumbnails going missing on profiles. A page listing fifty levels asks YouTube for fifty images at once, which sometimes gets rate limited — and the site was recording that as "this video has no thumbnail" and remembering it for a week. It retries now, and only gives up once the retries agree.',
+    ],
+  },
+  {
     version: '1.27.0',
     date: '2026-08-16',
     title: 'Text cleanup, and the GDSR beta is out',

@@ -5,6 +5,8 @@ import { splitSources, isChallengeSource } from '~/utils/challenge-sources'
 import { sourceUrlByName } from '~/utils/list-source-catalog'
 import { compactCount, viewsLabel } from '~/utils/format-count'
 import { relativeTime } from '~/utils/relative-time'
+import { youtubeIdFrom } from '~/utils/level-thumbs'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 
 type Community = {
   count: number
@@ -238,23 +240,23 @@ const tags = computed<Tag[]>(() => {
   return list
 })
 
-/** Pull a YouTube video ID from any of the URL forms YouTube uses. */
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
+/**
+ * Still YouTube-specific, and only for the date autofill below.
+ *
+ * The embed no longer goes through here — `<VideoEmbed>` resolves the URL
+ * itself so Medal clips and uploaded files render too. What is left needs an
+ * actual YouTube id, because it asks YouTube for an upload date.
+ */
+const ytId = computed(() => youtubeIdFrom(props.level.verification_url))
 
-const ytId = computed(() => youtubeId(props.level.verification_url))
+/**
+ * Whether the verification link is something we can play inline.
+ *
+ * Gating on this rather than on `ytId` is what lets a Medal.tv clip or an
+ * uploaded MP4 show a player instead of falling through to the "open the
+ * link" card below.
+ */
+const hasVideoEmbed = computed(() => isEmbeddableVideo(props.level.verification_url))
 
 // Autofill verify_date from the YouTube upload date when a level has a
 // verification link but no date yet — mirrors the submit page. Mods/admins
@@ -337,6 +339,35 @@ function copyPermalink() {
  * ordering + URL key; the sheet's own placement is what readers recognise.
  */
 const shownPlacement = computed(() => props.level.sheet_placement ?? props.level.position)
+
+/**
+ * Which ranking this page is being read through.
+ *
+ * Taken from `?list=` — the same parameter the list panel's variant menu keeps
+ * in step — rather than from a prop or a fetch. That is what makes the swap
+ * below instant: picking Challenge from the dropdown is a `router.replace`, so
+ * these recompute on the spot with no request and nothing to wait for.
+ */
+const route = useRoute()
+const readingChallengeList = computed(
+  () => String(route.query.list ?? '').toLowerCase() === 'challenge',
+)
+
+/**
+ * Rank and badge swap places on the challenge list.
+ *
+ * Reading the challenge list, the number that matters is the challenge rank —
+ * it is the ranking you are actually in — and the ALL placement becomes the
+ * aside, which is exactly the relationship the classic list has the other way
+ * round. Showing #4,021 at the top of a level you reached from challenge #12
+ * answered a question nobody had asked.
+ */
+const swapRanks = computed(
+  () => readingChallengeList.value && props.level.challenge_rank != null,
+)
+const headlineRank = computed(() =>
+  swapRanks.value ? props.level.challenge_rank! : shownPlacement.value,
+)
 
 /** Drag-to-place dialog (admins only). */
 const placementEditorOpen = ref(false)
@@ -1263,7 +1294,10 @@ const chartAredlSeries = computed(() =>
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <div class="flex items-baseline gap-3 flex-wrap">
-          <span class="tabular-nums text-accent text-base font-semibold drop-shadow">#{{ shownPlacement }}</span>
+          <span
+            class="tabular-nums text-accent text-base font-semibold drop-shadow"
+            :title="swapRanks ? 'Challenge list placement' : 'All Levels List placement'"
+          >#{{ headlineRank.toLocaleString() }}</span>
           <!-- `break-words` because level names are user-supplied and often one
                long unbroken token, which at `text-3xl` is wider than a phone. -->
           <h1 class="text-2xl sm:text-4xl font-bold tracking-tight drop-shadow-lg break-words min-w-0">{{ level.name }}</h1>
@@ -1290,14 +1324,29 @@ const chartAredlSeries = computed(() =>
                the list beside it becomes the one the number counts against. -->
           <NuxtLink
             v-if="level.challenge_rank != null"
-            :to="{ path: `/levels/${level.position}`, query: { list: 'challenge' } }"
-            class="group inline-flex items-stretch rounded-full overflow-hidden border border-amber-900/50 text-[11px] font-medium leading-none transition-colors hover:border-amber-600/70"
-            :title="challengeRankTitle"
+            :to="swapRanks
+              ? { path: `/levels/${level.position}`, query: { ...route.query, list: undefined } }
+              : { path: `/levels/${level.position}`, query: { ...route.query, list: 'challenge' } }"
+            class="group inline-flex items-stretch rounded-full overflow-hidden border text-[11px] font-medium leading-none transition-colors"
+            :class="swapRanks
+              ? 'border-accent/40 hover:border-accent/70'
+              : 'border-amber-900/50 hover:border-amber-600/70'"
+            :title="swapRanks
+              ? `#${shownPlacement.toLocaleString()} on the All Levels List. Click to read it there.`
+              : challengeRankTitle"
           >
-            <span class="px-2.5 py-1 bg-amber-950/40 text-amber-500/90 group-hover:text-amber-300 transition-colors">Challenge</span>
-            <span class="px-2 py-1 tabular-nums bg-amber-900/30 text-amber-300 group-hover:bg-amber-900/50 transition-colors">
-              #{{ level.challenge_rank.toLocaleString() }}
-            </span>
+            <span
+              class="px-2.5 py-1 transition-colors"
+              :class="swapRanks
+                ? 'bg-accent/10 text-accent/80 group-hover:text-accent'
+                : 'bg-amber-950/40 text-amber-500/90 group-hover:text-amber-300'"
+            >{{ swapRanks ? 'ALL' : 'Challenge' }}</span>
+            <span
+              class="px-2 py-1 tabular-nums transition-colors"
+              :class="swapRanks
+                ? 'bg-accent/15 text-accent group-hover:bg-accent/25'
+                : 'bg-amber-900/30 text-amber-300 group-hover:bg-amber-900/50'"
+            >#{{ (swapRanks ? shownPlacement : level.challenge_rank).toLocaleString() }}</span>
           </NuxtLink>
           <!-- Beside the badge, because the badge is the thing being removed.
                Admins only: which levels are challenges decides a whole list. -->
@@ -2020,18 +2069,14 @@ const chartAredlSeries = computed(() =>
     </section>
 
     <template v-else>
-      <!-- Verification: real embed if YouTube; link card otherwise -->
-      <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
-        <iframe
-          :src="`https://www.youtube.com/embed/${ytId}`"
-          class="w-full h-full"
-          :title="level.verification ?? 'Verification'"
-          frameborder="0"
-          allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowfullscreen
-          referrerpolicy="strict-origin-when-cross-origin"
-        />
-      </div>
+      <!-- Verification: real embed when the link is one we can play
+           (YouTube, Medal.tv, an uploaded clip); link card otherwise -->
+      <VideoEmbed
+        v-if="hasVideoEmbed"
+        :url="level.verification_url"
+        :title="level.verification ?? 'Verification'"
+        frame-class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden"
+      />
       <a
         v-else-if="level.verification_url"
         :href="level.verification_url"
@@ -2518,7 +2563,15 @@ const chartAredlSeries = computed(() =>
           <template v-if="clEstimatedData.estimated_cl">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-zinc-300">Challenge List (estimated)</span>
-              <span class="tabular-nums text-base" :class="clEstimatedData.estimated_cl <= 100 ? 'text-amber-300' : 'text-zinc-400'">~#{{ clEstimatedData.estimated_cl }}</span>
+              <!-- An estimate inside the top 100 is reported as NLW rather than
+                   as a number: the bracket either side of it is too wide up
+                   there for a specific placement to mean anything. -->
+              <span
+                v-if="clEstimatedData.estimated_cl < 100"
+                class="text-base font-semibold text-amber-300"
+                :title="`Estimated around #${clEstimatedData.estimated_cl}`"
+              >NLW</span>
+              <span v-else class="tabular-nums text-base text-zinc-400">~#{{ clEstimatedData.estimated_cl }}</span>
             </div>
             <p v-if="clEstimatedData.bracket.above || clEstimatedData.bracket.below" class="text-[11px] text-zinc-600">
               Based on:

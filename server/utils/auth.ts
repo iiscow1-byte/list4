@@ -92,6 +92,14 @@ export type Account = {
   has_avatar: boolean
   pronouns: string | null
   discord_handle: string | null
+  /**
+   * The proved Discord identity, when there is one.
+   *
+   * Not `discord_handle`, which is a profile field somebody types. This is the
+   * snowflake OAuth returned, and it stands in for a confirmed email — see
+   * `requiresVerification`.
+   */
+  discord_id: string | null
   youtube_url: string | null
   twitch_url: string | null
   twitter_url: string | null
@@ -148,7 +156,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
             a.claimed_aredl_uuid, a.claimed_pointercrate_id, a.claimed_gdl_id,
             a.email, a.email_verified_at, a.pending_email,
             (a.avatar_blob IS NOT NULL) AS has_avatar, a.banned_at, s.expires_at,
-            a.pronouns, a.discord_handle, a.youtube_url, a.gd_username,
+            a.pronouns, a.discord_handle, a.discord_id, a.youtube_url, a.gd_username,
             a.twitch_url, a.twitter_url, a.bluesky_url,
             a.favorite_level_id, a.favorite_level_note,
             a.hardest_record_id, a.banner_choice, a.banner_level_id,
@@ -185,6 +193,7 @@ export function getCurrentAccount(event: H3Event): Account | null {
     has_avatar: !!row.has_avatar,
     pronouns: row.pronouns,
     discord_handle: row.discord_handle,
+    discord_id: row.discord_id ?? null,
     youtube_url: row.youtube_url,
     // Returned like every other field: a mapper that queries a column and
     // doesn't return it makes any partial PATCH bind `undefined` and throw.

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { gdLevelUrl } from '~/utils/gd-links'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 type OpenVerLevel = {
   id: number
   gd_id: number | null
@@ -62,21 +63,8 @@ async function decide(action: 'approve' | 'reject') {
 }
 
 
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
-const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? null))
+/** Whether the showcase link is something we can play in the drawer. */
+const showcaseEmbeddable = computed(() => isEmbeddableVideo(selected.value?.showcase_url))
 </script>
 
 <template>
@@ -164,17 +152,12 @@ const showcaseYtId = computed(() => youtubeId(selected.value?.showcase_url ?? nu
         <!-- Showcase -->
         <section class="card">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Showcase</h3>
-          <div v-if="showcaseYtId" class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800">
-            <iframe
-              :src="`https://www.youtube.com/embed/${showcaseYtId}`"
-              class="w-full h-full"
-              title="Showcase"
-              frameborder="0"
-              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              referrerpolicy="strict-origin-when-cross-origin"
-            />
-          </div>
+          <VideoEmbed
+            v-if="showcaseEmbeddable"
+            :url="selected.showcase_url"
+            title="Showcase"
+            frame-class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800"
+          />
           <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt class="text-zinc-500">Link</dt>
             <dd class="text-zinc-200 truncate">

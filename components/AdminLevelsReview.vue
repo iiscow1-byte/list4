@@ -4,6 +4,7 @@ import { gdLevelUrl } from '~/utils/gd-links'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { tierColor, textOn } from '~/utils/tier-colors'
 import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
+import { isEmbeddableVideo } from '~/utils/video-embed'
 
 type PendingLevel = {
   id: number
@@ -623,21 +624,8 @@ onMounted(() => document.addEventListener('keydown', onReviewKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onReviewKey))
 
 
-function youtubeId(url: string | null): string | null {
-  if (!url) return null
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{6,})/,
-    /youtu\.be\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/embed\/([A-Za-z0-9_-]{6,})/,
-    /youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/,
-  ]
-  for (const re of patterns) {
-    const m = url.match(re)
-    if (m) return m[1]!
-  }
-  return null
-}
-const verificationYtId = computed(() => youtubeId(selected.value?.verification_url ?? null))
+/** Whether the verification link is something we can play in the drawer. */
+const verificationEmbeddable = computed(() => isEmbeddableVideo(selected.value?.verification_url))
 
 // Placement helper: same comparison drawer the submit-level page uses. On
 // pick, set `placement` to the position right below the chosen level — it'll
@@ -1330,17 +1318,12 @@ watch(preview, (p) => {
         <!-- Verification -->
         <section class="card">
           <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h3>
-          <div v-if="verificationYtId" class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800">
-            <iframe
-              :src="`https://www.youtube.com/embed/${verificationYtId}`"
-              class="w-full h-full"
-              :title="selected.verification ?? 'Verification'"
-              frameborder="0"
-              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowfullscreen
-              referrerpolicy="strict-origin-when-cross-origin"
-            />
-          </div>
+          <VideoEmbed
+            v-if="verificationEmbeddable"
+            :url="selected.verification_url"
+            :title="selected.verification ?? 'Verification'"
+            frame-class="aspect-video bg-black mx-4 mt-3 rounded overflow-hidden border border-zinc-800"
+          />
           <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
             <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ selected.verifier ?? '—' }}</dd>
             <dt class="text-zinc-500">Title</dt><dd class="text-zinc-200">{{ selected.verification ?? '—' }}</dd>

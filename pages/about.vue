@@ -4,7 +4,9 @@ import { yearColor, difficultyColor, ratingColor } from '~/utils/stat-colors'
 import { SITE_VERSION, versionLabel } from '~/utils/site-updates'
 import { ALL_SHEET_URL } from '~/utils/sheet'
 // Out of the page so they can be checked without a browser — see `utils/prose.ts`.
-import { faqParts, linkLabel } from '~/utils/prose'
+import { faqParts } from '~/utils/prose'
+// The page's own copy, rather than whatever the sheet's landing tab says today.
+import { ABOUT_INTRO, ABOUT_FAQ } from '~/utils/about-content'
 
 /**
  * About &amp; stats.
@@ -239,17 +241,6 @@ function isStale(at: string | null): boolean {
 
 useHead({ title: 'About & stats — The All Levels List' })
 
-const URL_RE = /(https?:\/\/[^\s]+)/g
-
-/** Split a paragraph that may contain a trailing URL into text + link parts. */
-function paraParts(p: string): { text: string; href: string | null } {
-  const m = p.match(URL_RE)
-  if (!m || m.length === 0) return { text: p, href: null }
-  const href = m[m.length - 1]!
-  const idx = p.lastIndexOf(href)
-  return { text: p.slice(0, idx).trim(), href }
-}
-
 /**
  * The four numbers worth knowing before reading anything.
  *
@@ -359,8 +350,8 @@ const coveragePct = computed(() => {
           </div>
         </div>
 
-        <div v-if="landing" class="space-y-2 text-zinc-300 leading-relaxed max-w-3xl">
-          <p v-for="(p, i) in landing.intro" :key="`i-${i}`">{{ p }}</p>
+        <div class="space-y-2 text-zinc-300 leading-relaxed max-w-3xl">
+          <p v-for="(p, i) in ABOUT_INTRO" :key="`i-${i}`">{{ p }}</p>
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">
@@ -430,30 +421,17 @@ const coveragePct = computed(() => {
         </span>
       </button>
 
-      <section v-if="landing?.faq?.length" class="space-y-3">
+      <section v-if="ABOUT_FAQ.length" class="space-y-3">
         <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">How the list works</h2>
         <!-- One question per row, with the question as the heading. It was a
              stack of identical grey blocks with the questions buried inside
              them, which is the one shape a FAQ must not have: it is read by
-             scanning for a question and stopping. -->
+             scanning for a question and stopping. The copy is the site's own
+             now, so the question and the answer arrive already separated. -->
         <div class="card divide-y divide-zinc-900">
-          <div v-for="(p, i) in landing.faq" :key="`f-${i}`" class="px-4 py-3.5">
-            <template v-for="(part, j) in [paraParts(p)]" :key="j">
-              <template v-for="(qa, k) in [faqParts(part.text)]" :key="k">
-                <h3 v-if="qa.question" class="text-sm font-semibold text-zinc-100 leading-snug">{{ qa.question }}</h3>
-                <p class="text-sm text-zinc-400 leading-relaxed" :class="qa.question ? 'mt-1' : ''">
-                  {{ qa.answer }}
-                  <a
-                    v-if="part.href"
-                    :href="part.href"
-                    target="_blank"
-                    rel="noopener"
-                    :title="part.href"
-                    class="text-accent hover:underline whitespace-nowrap"
-                  >{{ linkLabel(part.href) }} ↗</a>
-                </p>
-              </template>
-            </template>
+          <div v-for="(f, i) in ABOUT_FAQ" :key="`f-${i}`" class="px-4 py-3.5">
+            <h3 class="text-sm font-semibold text-zinc-100 leading-snug">{{ f.question }}</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed mt-1">{{ f.answer }}</p>
           </div>
         </div>
       </section>
