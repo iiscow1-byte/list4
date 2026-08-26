@@ -773,10 +773,16 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
               <span v-if="!isAdmin" class="text-red-400">*</span>
               <span v-else :class="hint">— optional for admins</span>
             </span>
+            <!-- `type="text"` rather than `type="url"`: an uploaded clip is a
+                 site-relative path, which the browser's URL validation rejects
+                 outright — it would have made the field it was just written
+                 into un-submittable. `inputmode` keeps the URL keyboard on
+                 phones. -->
             <input
               v-model="verificationUrl"
               data-field="verification_url"
-              type="url"
+              type="text"
+              inputmode="url"
               :required="!isAdmin"
               placeholder="https://www.youtube.com/watch?v=…"
               :class="field"

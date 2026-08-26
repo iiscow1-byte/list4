@@ -4,6 +4,7 @@ import { enforceRateLimit, LIMITS } from '~/server/utils/rate-limit'
 import { assertVerified } from '~/server/utils/email-verify'
 import { ALLOWED_DIFFICULTIES } from '~/server/utils/opinions'
 import { isValidTier } from '~/utils/tier-ordinal'
+import { isAcceptableVideoUrl } from '~/utils/video-embed'
 
 export default defineEventHandler(async (event) => {
   const me = requireAccount(event)
@@ -24,7 +25,16 @@ export default defineEventHandler(async (event) => {
   if (!holder) {
     throw createError({ statusCode: 400, statusMessage: 'Record holder is required.' })
   }
-  if (!/^https?:\/\/\S+$/i.test(video)) {
+  /**
+   * An http(s) link, or a clip uploaded here.
+   *
+   * This was `^https?://` inline, which quietly made the upload endpoint
+   * useless for records: a clip uploaded through `/api/uploads` is stored as
+   * the site-relative path that endpoint returns, and that path is not a URL by
+   * that test. The submission would have been rejected at the last step, after
+   * the file had already been written.
+   */
+  if (!isAcceptableVideoUrl(video)) {
     throw createError({ statusCode: 400, statusMessage: 'A valid video URL is required.' })
   }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
 import { useLevelPicker } from '~/composables/useLevelPicker'
+import { isAcceptableVideoUrl } from '~/utils/video-embed'
 
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Submit a record — All Levels List' })
@@ -215,7 +216,9 @@ async function submit() {
         error.value = 'Pick every level from the suggestions before submitting.'
         return
       }
-      if (!/^https?:\/\/\S+$/i.test(r.video.trim())) {
+      // Same test the endpoint applies, so an uploaded clip carried over from
+      // single mode isn't rejected here by a stricter local copy of the rule.
+      if (!isAcceptableVideoUrl(r.video)) {
         error.value = `Video URL is missing or invalid for "${r.selected.name}".`
         return
       }
@@ -262,6 +265,13 @@ async function submit() {
   }
   if (!video.value.trim()) {
     error.value = 'A video link is required.'
+    return
+  }
+  // The field is `type="text"` now (an uploaded clip is a relative path, which
+  // `type="url"` refuses), so this stands in for the validation the browser
+  // used to do — and matches what the endpoint will accept.
+  if (!isAcceptableVideoUrl(video.value)) {
+    error.value = 'That video link does not look like a URL.'
     return
   }
   submitting.value = true
@@ -461,9 +471,15 @@ async function submit() {
         <div>
           <label class="block">
             <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
+            <!-- `type="text"` rather than `type="url"`: an uploaded clip is a
+                 site-relative path, which the browser's URL validation rejects
+                 outright — it would have made the field it was just written
+                 into un-submittable. `inputmode` keeps the URL keyboard on
+                 phones, and `isAcceptableVideoUrl` still checks the value. -->
             <input
               v-model="video"
-              type="url"
+              type="text"
+              inputmode="url"
               required
               placeholder="https://www.youtube.com/watch?v=…"
               class="field field-md mt-1"

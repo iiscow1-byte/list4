@@ -151,3 +151,29 @@ export function resolveVideo(url: string | null | undefined): VideoSource {
 export function isEmbeddableVideo(url: string | null | undefined): boolean {
   return resolveVideo(url).kind !== 'none'
 }
+
+/**
+ * Exactly what `server/api/uploads/index.post.ts` mints, and nothing else.
+ *
+ * Deliberately the same shape `[name].get.ts` will serve — lowercase hex, one
+ * dot, mp4 or webm — so a value that passes this is one the site can actually
+ * play back. Anything looser would let a submission be accepted and then 400 on
+ * the way to the player.
+ */
+export const UPLOADED_CLIP_RE = /^\/api\/uploads\/[a-f0-9]+\.(mp4|webm)$/
+
+/**
+ * Whether a submitted proof URL is one the site will take.
+ *
+ * The record endpoint used to demand `^https?://` inline, which was correct
+ * while every proof lived on someone else's server. An uploaded clip is stored
+ * as a site-relative path — deliberately, so the value survives the site moving
+ * domains — and that path is not a URL by that test. Both the form and the
+ * endpoint ask this instead, so the two cannot drift into a state where the
+ * form accepts something the server rejects.
+ */
+export function isAcceptableVideoUrl(url: string | null | undefined): boolean {
+  if (!url) return false
+  const u = url.trim()
+  return /^https?:\/\/\S+$/i.test(u) || UPLOADED_CLIP_RE.test(u)
+}

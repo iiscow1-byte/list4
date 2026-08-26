@@ -77,10 +77,10 @@ export default defineEventHandler((event) => {
 
     setResponseStatus(event, 206)
     setHeader(event, 'content-range', `bytes ${start}-${end}/${size}`)
-    setHeader(event, 'content-length', String(end - start + 1))
+    setHeader(event, 'content-length', end - start + 1)
     return sendStream(event, createReadStream(full, { start, end }))
   }
 
-  setHeader(event, 'content-length', String(size))
+  setHeader(event, 'content-length', size)
   return sendStream(event, createReadStream(full))
 })
