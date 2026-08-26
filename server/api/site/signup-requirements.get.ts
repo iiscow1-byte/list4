@@ -2,12 +2,12 @@ import { mailEnabled } from '~/server/utils/mail'
 import { discordConfig } from '~/server/utils/discord-oauth'
 
 /**
- * What the sign-up form has to collect.
+ * What the sign-up page can offer.
  *
- * An email address is required only when the server can actually send to one —
- * otherwise the form would demand an address that could never be verified and
- * refuse to proceed on a check that can never pass. The signup endpoint applies
- * the same rule; this exists so the form agrees with it instead of guessing.
+ * Accounts are made through Discord only, so `discordEnabled` is the question
+ * that decides whether the page has anything to show at all. `emailRequired`
+ * stays because the account settings page still asks for an address — it is
+ * just no longer part of creating one.
  */
 export default defineEventHandler(() => {
   const discord = discordConfig()

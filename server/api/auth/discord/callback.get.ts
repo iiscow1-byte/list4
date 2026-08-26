@@ -25,8 +25,21 @@ import {
  * before anything is written.
  */
 function fail(event: any, code: string, returnTo = '/login') {
-  const sep = returnTo.includes('?') ? '&' : '?'
-  return sendRedirect(event, `${returnTo}${sep}discord_error=${encodeURIComponent(code)}`, 302)
+  /**
+   * Land somewhere that renders the reason.
+   *
+   * `/login` and `/signup` both know how to turn `?discord_error=` into a
+   * sentence; nothing else does. A failure sent anywhere else — the homepage,
+   * a level page — would be silent, which is how "not in the server" ended up
+   * looking like the button was broken.
+   */
+  const target = returnTo === '/login' || returnTo === '/signup' ? returnTo : '/login'
+  return sendRedirect(event, `${target}?discord_error=${encodeURIComponent(code)}`, 302)
+}
+
+/** Auth pages are where a journey starts, so success never returns to one. */
+function landing(returnTo: string, fallback = '/') {
+  return returnTo === '/login' || returnTo === '/signup' ? fallback : returnTo
 }
 
 export default defineEventHandler(async (event) => {
@@ -79,7 +92,7 @@ export default defineEventHandler(async (event) => {
     ).run(displayName, now, existing.id)
     setSessionCookie(event, createSession(existing.id))
     touchAccountDay(existing.id)
-    return sendRedirect(event, returnTo === '/login' ? '/' : returnTo, 302)
+    return sendRedirect(event, landing(returnTo), 302)
   }
 
   // Signed in already: this is "link my Discord", not "sign me in".
@@ -101,7 +114,7 @@ export default defineEventHandler(async (event) => {
       summary: 'Linked a Discord account',
       detail: { discord_username: displayName },
     })
-    return sendRedirect(event, returnTo === '/login' ? '/account' : returnTo, 302)
+    return sendRedirect(event, landing(returnTo, '/account'), 302)
   }
 
   /**
@@ -147,5 +160,5 @@ export default defineEventHandler(async (event) => {
     summary: 'Created an account with Discord',
     detail: { discord_username: displayName },
   })
-  return sendRedirect(event, returnTo === '/login' ? '/' : returnTo, 302)
+  return sendRedirect(event, landing(returnTo), 302)
 })

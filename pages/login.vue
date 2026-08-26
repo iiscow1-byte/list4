@@ -36,8 +36,18 @@ const { data: siteConfig } = await useFetch<{
 const discordEnabled = computed(() => siteConfig.value?.discordEnabled ?? false)
 const discordInvite = computed(() => siteConfig.value?.discordInviteUrl ?? null)
 const discordHref = computed(() => {
+  /**
+   * Always send a `return_to`, defaulting to this page.
+   *
+   * Without one the round trip came back to `/`, and every failure — not in the
+   * server, cancelled, Discord down — redirected to the homepage carrying a
+   * `?discord_error=` that the homepage does not render. The attempt simply
+   * appeared to do nothing. Failures have to land somewhere that can say what
+   * went wrong, and that is the page you started on.
+   */
   const next = safeNext(route.query.next)
-  return `/api/auth/discord${next && next !== '/' ? `?return_to=${encodeURIComponent(next)}` : ''}`
+  const back = next && next !== '/' ? next : '/login'
+  return `/api/auth/discord?return_to=${encodeURIComponent(back)}`
 })
 
 /** What came back on `?discord_error=`, in words. */

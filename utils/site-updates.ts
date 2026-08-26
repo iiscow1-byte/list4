@@ -43,6 +43,19 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.31.0',
+    date: '2026-08-16',
+    title: 'Accounts are made through Discord',
+    tags: ['Accounts', 'Security'],
+    changes: [
+      'New accounts are created through Discord, and you need to be in the All Levels List server. The password sign-up form is gone.',
+      'This is the anti-spam measure. An email address costs a throwaway inbox; being in the server costs an invite, and it can be taken away again.',
+      'Nothing changes if you already have an account — your password still signs you in, and you can link Discord from the login page whenever you like.',
+      'If you are not in the Discord server, signing up now tells you so, with a link to join. It used to fail silently — the attempt came back to the homepage carrying an error the homepage had no way to show.',
+      'There is a Discord button in the header now, next to the theme picker.',
+    ],
+  },
+  {
     version: '1.30.0',
     date: '2026-08-16',
     title: 'Clips bring their own thumbnail and date',

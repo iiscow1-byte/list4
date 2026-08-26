@@ -3,62 +3,46 @@ import { LOCKDOWN_LINES } from '~/utils/lockdown'
 
 useHead({ title: 'Sign up — All Levels List' })
 
-// The server refuses signups outright; this only decides which of the two
-// states the page renders, so the form isn't offered when it can't work.
+// Whether registration is open at all, which admins control from the panel.
+// The server enforces it; this only picks which of the two states to render.
 const { data: meRes } = useCurrentUser()
 const signupsOpen = computed(() => meRes.value?.site?.signupsEnabled ?? false)
 
-const username = ref('')
-const password = ref('')
-const email = ref('')
-const error = ref<string | null>(null)
-const loading = ref(false)
-const router = useRouter()
+/** What the server can actually offer — see /api/site/signup-requirements. */
+const { data: mailConfig } = await useFetch<{
+  discordEnabled: boolean
+  discordInviteUrl: string | null
+}>('/api/site/signup-requirements')
 
 /**
- * The captcha token, and a handle on the widget so a failed submit can throw it
- * away. A token is spent whether or not the request it accompanied succeeded,
- * so retrying with the same one always fails.
+ * Discord is the only way to make an account.
+ *
+ * The password form that used to be here is gone, and `/api/auth/signup`
+ * refuses regardless — an email address costs a throwaway inbox, while being in
+ * the community's server costs an invite and can be taken away again. A plain
+ * link rather than a fetch, because OAuth is a full-page trip to another origin
+ * and back, which XHR cannot make.
  */
-const captchaToken = ref('')
-const captcha = ref<{ reset: () => void; enabled: boolean } | null>(null)
+const discordEnabled = computed(() => mailConfig.value?.discordEnabled ?? false)
+const discordInvite = computed(() => mailConfig.value?.discordInviteUrl ?? null)
 
-/** Whether an address is required, which depends on the server having a mailer. */
-const { data: mailConfig } = await useFetch<{ emailRequired: boolean }>('/api/site/signup-requirements')
-const emailRequired = computed(() => mailConfig.value?.emailRequired ?? false)
-
-/** Whether a captcha is on the page and still unsolved. */
-const captchaPending = computed(() => !!captcha.value?.enabled && !captchaToken.value)
-
-async function submit() {
-  if (loading.value) return
-  error.value = null
-  loading.value = true
-  try {
-    const res = await $fetch<{ needsVerification: boolean; verificationSent: boolean }>(
-      '/api/auth/signup',
-      {
-        method: 'POST',
-        body: {
-          username: username.value,
-          password: password.value,
-          email: email.value.trim() || undefined,
-          captcha_token: captchaToken.value || undefined,
-        },
-      },
-    )
-    await refreshNuxtData('auth-me')
-    // Somebody who has to go and click a link needs telling where to look,
-    // which the account page says. Landing them on the list instead would be
-    // landing them somewhere they cannot yet post.
-    await router.push(res.needsVerification ? '/account?verify=1' : '/account')
-  } catch (e: any) {
-    error.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Signup failed.'
-    captcha.value?.reset()
-  } finally {
-    loading.value = false
-  }
+const DISCORD_ERRORS: Record<string, string> = {
+  cancelled: 'Discord sign-up was cancelled.',
+  not_in_server: 'You need to be in the All Levels List Discord server to sign up this way.',
+  missing_role: "Your Discord account is in the server but doesn't have the role needed to sign up.",
+  discord_taken: 'That Discord account is already linked to an account here. Log in instead.',
+  banned: 'That account is banned.',
+  signups_closed: 'Account creation is closed at the moment.',
+  discord_unavailable: "Couldn't reach Discord. Try again in a minute.",
+  bad_state: 'That sign-up link expired. Try again.',
+  no_code: 'Discord did not send anything back. Try again.',
 }
+const route = useRoute()
+const discordError = computed(() => {
+  const code = String(route.query.discord_error ?? '')
+  if (!code) return null
+  return DISCORD_ERRORS[code] ?? 'Discord sign-up failed. Try again.'
+})
 </script>
 
 <template>
@@ -86,60 +70,51 @@ async function submit() {
       Sign up, then claim your leaderboard player from your account page.
     </p>
 
-    <form class="space-y-4" @submit.prevent="submit">
-      <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Username <span class="text-red-400">*</span></span>
-        <input
-          v-model="username"
-          autocomplete="username"
-          required
-          class="field field-md mt-1"
-        />
-        <span class="text-[11px] text-zinc-500 mt-1 block">3–32 chars: letters, numbers, underscore, hyphen.</span>
-      </label>
-      <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Password <span class="text-red-400">*</span></span>
-        <input
-          v-model="password"
-          type="password"
-          autocomplete="new-password"
-          required
-          minlength="8"
-          class="field field-md mt-1"
-        />
-        <span class="text-[11px] text-zinc-500 mt-1 block">At least 8 characters.</span>
-      </label>
+    <div v-if="discordError" class="mb-4 rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2.5 text-xs text-red-300 leading-relaxed">
+      {{ discordError }}
+      <a
+        v-if="discordInvite && String(route.query.discord_error) === 'not_in_server'"
+        :href="discordInvite"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="block mt-1 text-red-200 underline underline-offset-2 hover:text-red-100"
+      >Join the Discord server ↗</a>
+    </div>
 
-      <!-- Asked for only when the server can send to it. On a deployment with
-           no mail provider this field is absent rather than optional-and-
-           pointless — see /api/site/signup-requirements. -->
-      <label v-if="emailRequired" class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Email <span class="text-red-400">*</span></span>
-        <input
-          v-model="email"
-          type="email"
-          autocomplete="email"
-          required
-          class="field field-md mt-1"
-        />
-        <span class="text-[11px] text-zinc-500 mt-1 block">
-          You'll get a link to confirm it. Until you do, you can look around but not post.
-        </span>
-      </label>
-
-      <!-- Renders nothing unless a captcha provider is configured. -->
-      <CaptchaBox ref="captcha" @update:token="captchaToken = $event" />
-
-      <p v-if="error" class="text-xs text-red-400">{{ error }}</p>
-
-      <button
-        type="submit"
-        :disabled="loading || captchaPending"
-        class="btn btn-md btn-primary w-full"
+    <template v-if="discordEnabled">
+      <a
+        href="/api/auth/discord?return_to=%2Fsignup"
+        class="btn btn-md w-full justify-center gap-2 bg-[#5865F2] text-white hover:bg-[#4752c4] transition-colors"
       >
-        {{ loading ? 'Creating…' : captchaPending ? 'Complete the captcha' : 'Sign up' }}
-      </button>
-    </form>
+        <svg viewBox="0 0 127.14 96.36" fill="currentColor" class="w-4 h-4" aria-hidden="true">
+          <path d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.25 8.09C2.79 32.65-1.71 56.6.54 80.21a105.73 105.73 0 0 0 32.17 16.15 77.7 77.7 0 0 0 6.89-11.11 68.42 68.42 0 0 1-10.85-5.18c.91-.66 1.8-1.34 2.66-2a75.57 75.57 0 0 0 64.32 0c.87.71 1.76 1.39 2.66 2a68.68 68.68 0 0 1-10.87 5.19 77 77 0 0 0 6.89 11.1 105.25 105.25 0 0 0 32.19-16.14c2.64-27.38-4.51-51.11-18.9-72.15ZM42.45 65.69C36.18 65.69 31 60 31 53s5-12.74 11.43-12.74S54 46 53.89 53s-5.05 12.69-11.44 12.69Zm42.24 0C78.41 65.69 73.25 60 73.25 53s5-12.74 11.44-12.74S96.23 46 96.12 53s-5.04 12.69-11.43 12.69Z"/>
+        </svg>
+        Sign up with Discord
+      </a>
+      <p class="mt-2 text-[11px] text-zinc-600 leading-relaxed">
+        You'll need to be in the All Levels List Discord server. No email or password needed.
+      </p>
+      <a
+        v-if="discordInvite"
+        :href="discordInvite"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mt-2 inline-block text-[11px] text-zinc-500 hover:text-accent underline underline-offset-2"
+      >Not in the server yet? Join it first ↗</a>
+    </template>
+
+    <!--
+      Discord is the only way to make an account, so a server that hasn't got it
+      configured has nothing to offer here. Saying so is the honest state: a
+      dead button, or a password form the server refuses, would both waste
+      somebody's time before failing.
+    -->
+    <div v-else class="rounded-lg border border-amber-900/50 bg-amber-950/25 px-4 py-3 text-sm text-amber-200/90 leading-relaxed">
+      <span class="block font-semibold text-amber-200">Sign-ups aren't available right now</span>
+      <span class="block mt-1 text-amber-200/70">
+        Accounts are made through Discord, and Discord sign-in isn't set up on this server yet.
+      </span>
+    </div>
 
     <p class="text-xs text-zinc-500 mt-6">
       Already registered?

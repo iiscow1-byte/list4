@@ -23,6 +23,27 @@ export default defineEventHandler(async (event) => {
   }
 
   /**
+   * Accounts are made through Discord, and only through Discord.
+   *
+   * This is the anti-spam measure the whole Discord sign-in exists for. An
+   * email address costs a throwaway inbox and a captcha costs a few cents at a
+   * solver farm; being in the community's server costs an invite, a join, and
+   * whatever that server asks of a newcomer — and unlike an address it can be
+   * taken away, which takes the account's ability to sign in with it.
+   *
+   * Refused on the server rather than only hidden on the page, because the form
+   * this replaces is still one `curl` away and every check it ran — captcha,
+   * rate limit, email confirmation — is one an attacker gets to skip by posting
+   * here directly. Existing password accounts are untouched: `login.post.ts`
+   * still accepts them, and `npm run make-admin` still creates accounts from
+   * the command line, which is the way back in if Discord is ever unreachable.
+   */
+  throw createError({
+    statusCode: 403,
+    statusMessage: 'Accounts are created through Discord. Use "Sign up with Discord" on the sign-up page.',
+  })
+
+  /**
    * Limited by address, before anything else happens.
    *
    * Keyed on the address rather than `rateSubject`, because an account is
