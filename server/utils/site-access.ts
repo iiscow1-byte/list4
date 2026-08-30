@@ -91,6 +91,9 @@ export function isStaff(account: Pick<Account, 'role'> | null | undefined): bool
  * anything. Kept as narrow as that requirement allows.
  */
 const ALLOWED_EXACT = new Set([
+  // The platform's health check. Never gated: a closed site that answers the
+  // health check with a redirect gets restarted for being closed.
+  '/api/site/health',
   '/login',
   '/locked',
   '/favicon.ico',
