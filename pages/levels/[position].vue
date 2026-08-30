@@ -143,6 +143,8 @@ const columns = computed(() => (sidebarOpen.value ? '20% 60% 20%' : '0px 80% 20%
       type="button"
       class="hidden lg:block absolute top-3 left-3 z-20 p-1.5 rounded-lg border border-zinc-800 bg-zinc-950/80 backdrop-blur text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
       :title="sidebarOpen ? 'Collapse level list' : 'Expand level list'"
+      :aria-label="sidebarOpen ? 'Collapse level list' : 'Expand level list'"
+      :aria-expanded="sidebarOpen"
       @click="sidebarOpen = !sidebarOpen"
     >
       <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 transition-transform" :class="sidebarOpen ? '' : 'rotate-180'" aria-hidden="true">

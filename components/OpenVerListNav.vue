@@ -176,11 +176,11 @@ watch(
           v-model="search"
           type="search"
           placeholder="Search…"
-          class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-sm flex-1 min-w-0 text-xs"
         />
         <button
           type="button"
-          class="shrink-0 px-2 rounded border text-xs font-medium transition-colors flex items-center gap-1"
+          class="shrink-0 px-2 rounded border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="filtersOpen || activeFilterCount
             ? 'border-accent/60 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
@@ -229,7 +229,7 @@ watch(
           <div class="flex flex-wrap gap-1.5">
             <label
               v-for="t in TAGS" :key="t"
-              class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize"
+              class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
               :class="tagSet[t]
                 ? 'border-accent/60 text-accent bg-accent/10'
                 : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -263,12 +263,12 @@ watch(
           <div class="flex items-center gap-1.5">
             <input
               v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
             <span class="text-zinc-600">→</span>
             <input
               v-model="enjoyMax" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="max"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
           </div>
         </div>
@@ -286,7 +286,7 @@ watch(
         <div class="flex items-center justify-between pt-1">
           <button
             type="button"
-            class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+            class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="resetFilters"
           >Reset filters</button>
         </div>
@@ -298,7 +298,7 @@ watch(
         <li v-for="lvl in items" :key="lvl.id" :data-id="lvl.id">
           <NuxtLink
             :to="{ path: `/open-verifications/${lvl.id}`, query: search ? { q: search } : {} }"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="lvl.id === activeId
               ? 'ring-2 ring-inset ring-violet-400 text-zinc-50 bg-zinc-900'
               : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"

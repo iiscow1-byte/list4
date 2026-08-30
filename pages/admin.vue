@@ -1707,7 +1707,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
               v-model="userSearch"
               type="search"
               placeholder="Search by username or player…"
-              class="ml-auto w-64 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm ml-auto w-64 text-xs"
             />
           </div>
           <div v-if="users.length === 0" class="px-4 pb-4 text-xs text-zinc-600">No accounts.</div>
@@ -1754,7 +1754,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                 <input
                   :value="claimEdits[u.id] ?? u.claimed_player ?? ''"
                   :placeholder="u.claimed_player ? 'edit claim' : 'claim player'"
-                  class="w-44 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none"
+                  class="field field-sm w-44 text-xs"
                   @input="(e) => (claimEdits[u.id] = (e.target as HTMLInputElement).value)"
                 />
                 <button
@@ -1967,7 +1967,7 @@ async function unclaimFor(u: AdminUser, kind: ClaimKind, name: string, records: 
                      control rather than a full-width dropdown on every row. -->
                 <select
                   :value="w.kind"
-                  class="rounded-lg border border-zinc-800 bg-zinc-900 text-[11px] px-1.5 py-1 text-zinc-500 hover:text-zinc-300 focus:border-accent focus:outline-none"
+                  class="rounded-lg border border-zinc-800 bg-zinc-900 text-[11px] px-1.5 py-1 text-zinc-500 hover:text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/60"
                   title="Move to another kind"
                   @change="changeWebhookKind(w, ($event.target as HTMLSelectElement).value as WebhookKind)"
                 >

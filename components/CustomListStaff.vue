@@ -36,7 +36,7 @@ const listRole = (role: ListStaff['role']) => (role === 'owner' ? 'list-owner' :
     <li v-for="p in staff" :key="p.id">
       <NuxtLink
         :to="`/users/${encodeURIComponent(p.username)}`"
-        class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg group hover:bg-zinc-900 transition-colors"
+        class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg group hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         :title="`${p.username} — ${p.role} of this list`"
       >
         <span class="w-7 h-7 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">

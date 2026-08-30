@@ -145,7 +145,7 @@ async function submit() {
       <button
         v-if="levelInfo"
         type="button"
-        class="mt-1 w-full flex items-center gap-3 rounded border border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 px-3 py-2.5 text-left transition-colors"
+        class="mt-1 w-full flex items-center gap-3 rounded border border-zinc-800 bg-zinc-950/40 hover:border-zinc-700 px-3 py-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         @click="subjectOpen = true"
       >
         <span class="min-w-0 flex-1">
@@ -164,7 +164,7 @@ async function submit() {
       <button
         v-else
         type="button"
-        class="mt-1 w-full rounded border border-dashed border-zinc-700 hover:border-accent hover:text-accent px-3 py-4 text-sm text-zinc-400 transition-colors"
+        class="mt-1 w-full rounded border border-dashed border-zinc-700 hover:border-accent hover:text-accent px-3 py-4 text-sm text-zinc-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         @click="subjectOpen = true"
       >
         Choose a level →
@@ -238,7 +238,7 @@ async function submit() {
             </span>
             <button
               type="button"
-              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+              class="btn btn-sm border border-accent/60 text-accent hover:bg-accent/10 shrink-0"
               @click="compareOpen = true"
             >Level comparison</button>
           </div>
@@ -248,8 +248,8 @@ async function submit() {
             class="rounded border border-accent/40 bg-accent/5 px-3 py-2 text-xs flex items-center gap-2"
           >
             <span class="text-zinc-400">Compared to</span>
-            <span class="text-zinc-100 font-medium truncate">#{{ comparisonLevel.position }} {{ comparisonLevel.name }}</span>
-            <button type="button" class="ml-auto text-zinc-500 hover:text-red-400" @click="clearComparison">clear</button>
+            <span class="text-zinc-100 font-medium truncate min-w-0">#{{ comparisonLevel.position }} {{ comparisonLevel.name }}</span>
+            <button type="button" class="ml-auto shrink-0 text-zinc-500 hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="clearComparison">clear</button>
           </div>
 
           <label class="block">

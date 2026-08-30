@@ -42,6 +42,7 @@ type Preview = {
 }
 
 const items = ref<AwaitingRow[]>([])
+const listLoaded = ref(false)
 const selectedId = ref<number | null>(null)
 const search = ref('')
 
@@ -62,6 +63,7 @@ watch(filteredItems, (list) => {
   }
 })
 const selected = ref<AwaitingLevel | null>(null)
+const detailError = ref(false)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
 const placement = ref<string>('')
@@ -92,6 +94,7 @@ async function load(opts: { keepSelection?: boolean } = {}) {
   // levels appear next to each other in the list.
   const res = await $fetch<{ items: AwaitingRow[] }>('/api/awaiting/levels', { query: { page: 1, pageSize: 500, sort: 'tier_desc' } })
   items.value = res.items
+  listLoaded.value = true
   if (opts.keepSelection) return
   if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
     selectedId.value = items.value[0]?.id ?? null
@@ -372,6 +375,7 @@ watch(selectedId, async (id) => {
   adminNotes.value = ''
   editingVideo.value = false
   editVideoUrl.value = ''
+  detailError.value = false
   if (id == null) { selected.value = null; return }
   try {
     selected.value = await $fetch<AwaitingLevel>(`/api/awaiting/levels/${id}`)
@@ -388,6 +392,7 @@ watch(selectedId, async (id) => {
     adminNotes.value = selected.value?.admin_notes ?? ''
   } catch {
     selected.value = null
+    detailError.value = true
   }
 }, { immediate: true })
 
@@ -581,7 +586,7 @@ watch(verificationYtId, async (id) => {
         <button
           type="button"
           :disabled="submitAllLoading"
-          class="w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60"
+          class="w-full rounded bg-emerald-700 hover:bg-emerald-600 text-zinc-100 font-medium text-xs py-1.5 transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           title="Place all awaiting levels that have a placement suggestion, and approve all pending movements."
           @click="submitAllPending"
         >{{ submitAllLoading ? 'Submitting…' : 'Submit all pending changes' }}</button>
@@ -591,7 +596,7 @@ watch(verificationYtId, async (id) => {
           <li v-for="r in filteredItems" :key="r.id" class="relative group/li">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors"
+              class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="selectedId === r.id ? 'bg-sky-900/30 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
@@ -603,12 +608,14 @@ watch(verificationYtId, async (id) => {
             </button>
             <button
               type="button"
-              class="absolute top-2 right-2 p-0.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover/li:opacity-100"
+              class="absolute top-2 right-2 p-0.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover/li:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               title="Remove from awaiting"
+              aria-label="Remove from awaiting"
               @click.stop="quickRemove(r.id)"
             >✕</button>
           </li>
         </ul>
+        <div v-else-if="!listLoaded" class="px-3 py-6 text-xs text-zinc-500 text-center">Loading…</div>
         <div v-else-if="items.length" class="px-3 py-6 text-xs text-zinc-500 text-center">No matches in {{ items.length }} unplaced.</div>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">Nothing awaiting placement.</div>
       </div>
@@ -617,7 +624,8 @@ watch(verificationYtId, async (id) => {
     <!-- Center: level details -->
     <section class="overflow-y-auto min-h-0 px-6 py-6">
       <div v-if="!selected" class="text-center text-sm text-zinc-500 py-12">
-        {{ items.length === 0 ? 'Nothing to place.' : 'Pick a level on the left.' }}
+        <template v-if="detailError">Couldn’t load that level. Pick it again to retry.</template>
+        <template v-else>{{ items.length === 0 ? 'Nothing to place.' : 'Pick a level on the left.' }}</template>
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
         <header class="flex items-start justify-between gap-3">
@@ -782,17 +790,17 @@ watch(verificationYtId, async (id) => {
                     v-model="editVideoUrl"
                     type="url"
                     placeholder="https://www.youtube.com/watch?v=…"
-                    class="flex-1 min-w-0 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-sm flex-1 min-w-0 text-xs"
                   />
                   <button type="button" class="btn btn-sm btn-primary shrink-0" @click="saveVideoUrl">Save</button>
-                  <button type="button" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 px-1" @click="editingVideo = false">Cancel</button>
+                  <button type="button" class="shrink-0 text-xs text-zinc-400 hover:text-zinc-200 px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="editingVideo = false">Cancel</button>
                 </div>
               </template>
               <template v-else>
                 <div class="flex items-center gap-2 min-w-0">
                   <a v-if="selected.verification_url" :href="selected.verification_url" target="_blank" rel="noopener" class="text-accent hover:underline break-all truncate flex-1">{{ selected.verification_url }}</a>
                   <span v-else class="text-zinc-600 flex-1">—</span>
-                  <button type="button" class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-accent border border-zinc-800 hover:border-accent/60 rounded px-1.5 py-0.5 transition-colors" @click="startEditVideo">Edit</button>
+                  <button type="button" class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-500 hover:text-accent border border-zinc-800 hover:border-accent/60 rounded px-1.5 py-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="startEditVideo">Edit</button>
                 </div>
               </template>
             </dd>
@@ -834,11 +842,11 @@ watch(verificationYtId, async (id) => {
               v-model="placement"
               type="number" inputmode="numeric" min="1"
               placeholder="position #"
-              class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 min-w-0"
             />
             <button
               type="button"
-              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors"
+              class="shrink-0 rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               @click="placementHelperOpen = true"
             >Helper…</button>
           </div>
@@ -879,7 +887,7 @@ watch(verificationYtId, async (id) => {
         <div class="rounded border border-zinc-800/80 bg-zinc-950/40">
           <button
             type="button"
-            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :aria-expanded="flagsOpen"
             @click="flagsOpen = !flagsOpen"
           >
@@ -907,7 +915,7 @@ watch(verificationYtId, async (id) => {
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                   @click="flagsDuplicatePickerOpen = true"
                 >{{ draftDuplicateOf ? 'Change…' : 'Pick a level…' }}</button>
                 <span v-if="draftDuplicateOf" class="text-xs text-zinc-200 truncate">#{{ draftDuplicateOf.position }} {{ draftDuplicateOf.name }}</span>
@@ -933,7 +941,7 @@ watch(verificationYtId, async (id) => {
               <div class="mt-1 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors"
+                  class="rounded border border-accent/60 text-accent hover:bg-accent/10 text-xs px-2.5 py-1 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                   @click="flagsAlternatePickerOpen = true"
                 >{{ draftAlternateOf ? 'Change…' : 'Pick a level…' }}</button>
                 <span v-if="draftAlternateOf" class="text-xs text-zinc-200 truncate">#{{ draftAlternateOf.position }} {{ draftAlternateOf.name }}</span>

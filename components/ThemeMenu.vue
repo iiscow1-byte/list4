@@ -73,12 +73,13 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
   <div ref="root" class="relative">
     <button
       type="button"
-      class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+      class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
       :class="{ 'bg-zinc-900 text-zinc-100': open }"
       aria-label="Theme settings"
+      title="Theme settings"
       @click="toggle"
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
       </svg>
     </button>
@@ -94,7 +95,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
             v-for="(p, name) in PRESETS"
             :key="name"
             type="button"
-            class="flex items-center gap-2 rounded border px-2.5 py-1.5 text-xs transition-colors"
+            class="flex items-center gap-2 rounded border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="state.preset === name
               ? 'border-accent bg-accent/10 text-zinc-100'
               : 'border-zinc-800 text-zinc-300 hover:border-zinc-700'"
@@ -120,7 +121,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
             v-for="l in LOCALES"
             :key="l.code"
             type="button"
-            class="flex items-center gap-1.5 rounded border px-2 py-1.5 text-xs transition-colors text-left"
+            class="flex items-center gap-1.5 rounded border px-2 py-1.5 text-xs transition-colors text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="locale === l.code
               ? 'border-accent bg-accent/10 text-zinc-100'
               : 'border-zinc-800 text-zinc-300 hover:border-zinc-700'"
@@ -138,7 +139,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
       <div class="px-4 py-3">
         <button
           type="button"
-          class="w-full flex items-center justify-between text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 font-medium"
+          class="w-full flex items-center justify-between text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 font-medium rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           @click="advanced = !advanced"
         >
           <span>Advanced</span>
@@ -161,7 +162,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
             <button
               v-if="state.overrides[row.key]"
               type="button"
-              class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300"
+              class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               @click="clearOverride(row.key)"
             >Clear</button>
           </div>
@@ -171,7 +172,7 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
       <div v-if="hasOverrides || state.preset !== DEFAULT_PRESET" class="border-t border-zinc-800 px-4 py-2 flex justify-end">
         <button
           type="button"
-          class="text-[11px] text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline"
+          class="text-[11px] text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           @click="reset"
         >Reset to default</button>
       </div>

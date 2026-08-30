@@ -395,7 +395,7 @@ function copyShare() {
           type="text"
           maxlength="120"
           placeholder="List title"
-          class="flex-1 min-w-[12rem] bg-transparent text-lg font-semibold tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+          class="flex-1 min-w-[12rem] bg-transparent text-lg font-semibold tracking-tight text-zinc-100 placeholder:text-zinc-600 border-b border-transparent focus:border-accent/60 focus:outline-none transition-colors"
         />
         <span class="text-[11px] text-zinc-500 tabular-nums">{{ draft.items.length }} level{{ draft.items.length === 1 ? '' : 's' }}</span>
         <button
@@ -417,7 +417,7 @@ function copyShare() {
           type="text"
           maxlength="2000"
           placeholder="Optional description…"
-          class="flex-1 min-w-[12rem] bg-transparent text-xs text-zinc-400 placeholder:text-zinc-600 focus:outline-none"
+          class="flex-1 min-w-[12rem] bg-transparent text-xs text-zinc-400 placeholder:text-zinc-600 border-b border-transparent focus:border-accent/60 focus:outline-none transition-colors"
         />
         <label class="flex items-center gap-1.5 text-[11px] text-zinc-500 cursor-pointer select-none shrink-0" title="Show this list in the public gallery">
           <input v-model="draft.isPublic" type="checkbox" class="accent-accent" />

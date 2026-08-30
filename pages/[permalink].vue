@@ -92,7 +92,7 @@ useHead(() => ({ title: `Level ${gdId.value} — All Levels List` }))
       <li v-for="m in data?.matches ?? []" :key="`${m.kind}:${m.path}`">
         <NuxtLink
           :to="m.path"
-          class="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 hover:border-accent/50 transition-colors group"
+          class="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 hover:border-accent/50 transition-colors group focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         >
           <span
             v-if="m.placement != null"

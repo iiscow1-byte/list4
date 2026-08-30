@@ -282,16 +282,17 @@ async function remove(item: CustomItem) {
           v-model="search"
           type="search"
           placeholder="Search… name, creator, #rank"
-          class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="flex-1 min-w-0 field field-sm text-xs"
         />
         <button
           v-if="canEdit"
           type="button"
-          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1"
+          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="editing
             ? 'border-accent/60 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
           :aria-pressed="editing"
+          aria-label="Reorder levels"
           title="Reorder levels"
           @click="editing = !editing"
         >
@@ -425,14 +426,17 @@ async function remove(item: CustomItem) {
             <button
               v-if="editing"
               type="button"
-              class="relative shrink-0 text-zinc-600 hover:text-red-400 transition-colors leading-none px-1"
+              class="relative shrink-0 text-zinc-600 hover:text-red-400 transition-colors leading-none px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              aria-label="Remove from list"
               title="Remove from list"
               @click.prevent.stop="remove(lvl)"
             >✕</button>
           </NuxtLink>
         </li>
         </template>
-        <li v-if="!filtered.length" class="px-3 py-8 text-xs text-zinc-500 text-center">No matches.</li>
+        <li v-if="!filtered.length" class="px-3 py-8 text-xs text-zinc-500 text-center">
+          {{ search.trim() ? 'No matches.' : 'No levels on this list yet.' }}
+        </li>
       </ul>
     </div>
   </aside>

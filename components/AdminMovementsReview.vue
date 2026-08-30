@@ -18,6 +18,7 @@ const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
 const rejectReason = ref('')
 const loadError = ref<string | null>(null)
+const loading = ref(true)
 
 async function load() {
   try {
@@ -31,6 +32,8 @@ async function load() {
     }
   } catch (e: any) {
     loadError.value = e?.data?.statusMessage ?? e?.statusMessage ?? 'Failed to load movements.'
+  } finally {
+    loading.value = false
   }
 }
 onMounted(load)
@@ -81,11 +84,12 @@ async function quickReject(id: number) {
         <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} pending</p>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
-        <ul v-if="items.length" class="divide-y divide-zinc-900/60">
+        <div v-if="loading" class="px-3 py-6 text-xs text-zinc-500 text-center">Loading…</div>
+        <ul v-else-if="items.length" class="divide-y divide-zinc-900/60">
           <li v-for="m in items" :key="m.id" class="relative group/li">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors"
+              class="w-full text-left px-3 py-2 pr-8 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="selectedId === m.id ? 'bg-sky-900/30 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = m.id"
             >
@@ -97,8 +101,9 @@ async function quickReject(id: number) {
             </button>
             <button
               type="button"
-              class="absolute top-2 right-2 p-0.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover/li:opacity-100"
-              title="Reject"
+              class="absolute top-2 right-2 p-0.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover/li:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              title="Reject movement"
+              aria-label="Reject movement"
               @click.stop="quickReject(m.id)"
             >✕</button>
           </li>
@@ -111,7 +116,7 @@ async function quickReject(id: number) {
     <!-- Center: details -->
     <section class="overflow-y-auto min-h-0 px-6 py-6">
       <div v-if="!selected" class="text-center text-sm text-zinc-500 py-12">
-        {{ items.length === 0 ? 'No pending movements.' : 'Pick a movement on the left.' }}
+        {{ loading ? 'Loading…' : items.length === 0 ? 'No pending movements.' : 'Pick a movement on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
         <header>

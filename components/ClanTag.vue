@@ -75,7 +75,7 @@ const chip = computed(() => [
   <NuxtLink
     v-if="tag && link"
     :to="`/clans/${encodeURIComponent(tag)}`"
-    :class="[chip, 'hover:brightness-125']"
+    :class="[chip, 'hover:brightness-125 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60']"
     :style="style"
     :title="title"
     @click.stop

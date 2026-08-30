@@ -285,9 +285,10 @@ function confirm() {
           </div>
           <button
             type="button"
-            class="ml-auto text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1"
+            class="ml-auto text-zinc-500 hover:text-zinc-200 text-sm px-2 py-1 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="close"
             aria-label="Close"
+            title="Close"
           >✕</button>
         </header>
 
@@ -296,18 +297,20 @@ function confirm() {
             v-model="compareSearch"
             type="search"
             placeholder="Search… [Tier], #placement, ID"
-            class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            class="flex-1 min-w-0 field field-sm text-xs"
           />
           <button
             type="button"
-            class="shrink-0 px-2 py-1.5 rounded border text-xs font-medium transition-colors flex items-center gap-1"
+            class="shrink-0 px-2 py-1.5 rounded border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="filtersOpen || activeCompareFilterCount
               ? 'border-accent/60 text-accent bg-accent/10'
               : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
             :aria-expanded="filtersOpen"
+            aria-label="Filter levels"
+            title="Filter levels"
             @click="filtersOpen = !filtersOpen"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
               <path d="M3 4h18l-7 9v6l-4 2v-8z" />
             </svg>
             <span v-if="activeCompareFilterCount" class="tabular-nums">{{ activeCompareFilterCount }}</span>
@@ -315,7 +318,7 @@ function confirm() {
           <button
             v-if="compareMode === 'browse'"
             type="button"
-            class="shrink-0 text-[11px] text-zinc-400 hover:text-zinc-100 px-2 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
+            class="shrink-0 btn btn-sm btn-ghost"
             @click="backToSearch"
           >Back to search</button>
         </div>
@@ -353,7 +356,7 @@ function confirm() {
             <div class="flex flex-wrap gap-1.5">
               <label
                 v-for="r in RATINGS" :key="r"
-                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors"
+                class="cursor-pointer select-none px-2 py-0.5 rounded border text-[11px] transition-colors focus-within:ring-1 focus-within:ring-accent/60"
                 :class="ratingSet[r]
                   ? 'border-accent/60 text-accent bg-accent/10'
                   : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -375,7 +378,7 @@ function confirm() {
             <li v-for="lvl in compareItems" :key="lvl.position" :data-pos="lvl.position">
               <button
                 type="button"
-                class="w-full text-left flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors"
+                class="w-full text-left flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/60"
                 :style="comparePicked?.position === lvl.position
                   ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
                   : undefined"
@@ -386,7 +389,7 @@ function confirm() {
                   class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
                   :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
                 >#{{ lvl.sheet_placement ?? lvl.position }}</span>
-                <span class="truncate flex-1">{{ lvl.name }}</span>
+                <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
                 <span v-if="lvl.gddl_tier" class="text-[10px] opacity-70 shrink-0">{{ lvl.gddl_tier }}</span>
               </button>
             </li>
@@ -402,7 +405,7 @@ function confirm() {
         </div>
 
         <footer class="p-3 border-t border-zinc-800 shrink-0 flex items-center gap-2">
-          <div class="text-[11px] text-zinc-400 truncate flex-1">
+          <div class="text-[11px] text-zinc-400 truncate flex-1 min-w-0">
             <template v-if="comparePicked">
               Selected: <span class="text-zinc-100 font-medium">#{{ comparePicked.position }} {{ comparePicked.name }}</span>
             </template>

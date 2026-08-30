@@ -214,7 +214,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
       <button
         v-if="canEdit && !editing"
         type="button"
-        class="shrink-0 rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
+        class="shrink-0 rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         @click="startEdit"
       >Edit</button>
     </header>
@@ -281,7 +281,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           v-if="isAdmin"
           type="button"
           :disabled="deleting"
-          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 transition-colors"
+          class="ml-auto rounded border border-red-900/60 text-red-400 text-sm px-4 py-1.5 hover:bg-red-950/40 hover:border-red-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           @click="deleteLevel"
         >{{ deleting ? 'Deleting…' : 'Delete level' }}</button>
         <span v-if="saveError" class="text-xs text-red-400">{{ saveError }}</span>
@@ -306,7 +306,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
       :href="level.verification_url"
       target="_blank"
       rel="noopener"
-      class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors"
+      class="block aspect-video rounded-xl border border-zinc-800 bg-gradient-to-br from-zinc-900 via-zinc-950 to-zinc-900 mb-6 relative group overflow-hidden hover:border-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
     >
       <div class="absolute inset-0 flex items-center justify-center">
         <div class="text-center px-6">
@@ -325,7 +325,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
     <section v-if="isLoggedIn" class="rounded-md border border-fuchsia-800/40 bg-fuchsia-950/20 mt-6">
       <button
         type="button"
-        class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-fuchsia-300 hover:text-fuchsia-200 transition-colors"
+        class="w-full px-4 py-3 flex items-center justify-between text-sm font-medium text-fuchsia-300 hover:text-fuchsia-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         :aria-expanded="pendingFormOpen"
         @click="pendingFormOpen = !pendingFormOpen"
       >
@@ -424,7 +424,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
             <button
               type="button"
               :disabled="pendingSubmitting"
-              class="rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-zinc-50 font-medium text-sm px-4 py-1.5 disabled:opacity-60 transition-colors"
+              class="rounded bg-fuchsia-700 hover:bg-fuchsia-600 text-zinc-50 font-medium text-sm px-4 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               @click="submitToPending"
             >{{ pendingSubmitting ? 'Submitting…' : 'Submit to pending' }}</button>
             <span v-if="pendingError" class="text-xs text-red-400">{{ pendingError }}</span>

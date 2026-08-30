@@ -37,7 +37,14 @@ async function load() {
     selectedId.value = items.value[0].id
   }
 }
-onMounted(load)
+const loading = ref(true)
+onMounted(async () => {
+  try {
+    await load()
+  } finally {
+    loading.value = false
+  }
+})
 
 function flash(kind: 'ok' | 'err', msg: string) {
   banner.value = { kind, msg }
@@ -80,7 +87,7 @@ const showcaseEmbeddable = computed(() => isEmbeddableVideo(selected.value?.show
           <li v-for="r in items" :key="r.id">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 text-sm transition-colors"
+              class="w-full text-left px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="selectedId === r.id ? 'bg-violet-900/30 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
@@ -92,6 +99,7 @@ const showcaseEmbeddable = computed(() => isEmbeddableVideo(selected.value?.show
             </button>
           </li>
         </ul>
+        <div v-else-if="loading" class="px-3 py-6 text-xs text-zinc-500 text-center">Loading…</div>
         <div v-else class="px-3 py-6 text-xs text-zinc-500 text-center">No pending submissions.</div>
       </div>
     </aside>
@@ -99,7 +107,7 @@ const showcaseEmbeddable = computed(() => isEmbeddableVideo(selected.value?.show
     <!-- Center: submitted level details -->
     <section class="overflow-y-auto min-h-0 px-6 py-6">
       <div v-if="!selected" class="text-center text-sm text-zinc-500 py-12">
-        {{ items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
+        {{ loading ? 'Loading submissions…' : items.length === 0 ? 'No submissions to review.' : 'Pick a submission on the left.' }}
       </div>
       <div v-else class="max-w-2xl mx-auto space-y-5">
         <header>
@@ -204,13 +212,13 @@ const showcaseEmbeddable = computed(() => isEmbeddableVideo(selected.value?.show
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-medium text-sm py-2 transition-colors disabled:opacity-60"
+            class="btn btn-md btn-primary w-full"
             @click="decide('approve')"
           >Approve</button>
           <button
             type="button"
             :disabled="decideLoading"
-            class="w-full rounded border border-zinc-700 hover:border-red-600 hover:text-red-400 text-sm py-2 transition-colors disabled:opacity-60"
+            class="btn btn-md btn-danger w-full"
             @click="decide('reject')"
           >Reject</button>
         </div>

@@ -84,7 +84,7 @@ useHead({ title: 'Find a level — All Levels List' })
         type="search"
         placeholder="Level name or ID…"
         autofocus
-        class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+        class="field field-md flex-1 min-w-0"
       />
       <button
         type="submit"

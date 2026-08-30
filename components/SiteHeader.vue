@@ -196,7 +196,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         <NuxtLink
           v-if="me?.role && me.role !== 'user'"
           to="/admin"
-          class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors"
+          class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-accent/80 hover:text-accent hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           active-class="text-accent bg-zinc-900"
         >
           {{ me.role === 'moderator' ? 'Mod' : 'Admin' }}
@@ -211,7 +211,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         <template v-if="me">
           <NuxtLink
             to="/inbox"
-            class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+            class="relative hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             active-class="text-zinc-100 bg-zinc-900"
             aria-label="Inbox"
           >
@@ -223,7 +223,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           </NuxtLink>
           <NuxtLink
             to="/account"
-            class="px-2 py-1.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors flex items-center gap-2"
+            class="px-2 py-1.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-900 transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             active-class="text-zinc-100 bg-zinc-900"
           >
             <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center">
@@ -246,7 +246,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           </NuxtLink>
         </template>
         <template v-else>
-          <NuxtLink to="/login" class="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors">{{ t('Log in') }}</NuxtLink>
+          <NuxtLink to="/login" class="hidden sm:inline-block px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60">{{ t('Log in') }}</NuxtLink>
           <NuxtLink
             v-if="signupsOpen"
             to="/signup"
@@ -329,8 +329,9 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
             >
               <button
                 type="button"
-                class="absolute top-3 right-3 rounded-lg p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                aria-label="Close"
+                class="absolute top-3 right-3 rounded-lg p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                aria-label="Close credits"
+                title="Close credits"
                 @click="creditsOpen = false"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
@@ -368,7 +369,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
           href="https://discord.gg/KfZvUpS3PB"
           target="_blank"
           rel="noopener noreferrer"
-          class="p-2 rounded-lg text-zinc-400 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors"
+          class="p-2 rounded-lg text-zinc-400 hover:text-[#5865F2] hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           title="Discord"
           aria-label="Discord"
         >
@@ -382,7 +383,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false })
         <!-- One button for everything the row above can't fit on a phone. -->
         <button
           type="button"
-          class="lg:hidden relative p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+          class="lg:hidden relative p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :aria-expanded="menuOpen"
           :aria-label="t('Open menu')"
           @click="menuOpen = true"

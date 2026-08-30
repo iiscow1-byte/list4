@@ -361,7 +361,7 @@ const coveragePct = computed(() => {
           >Browse the list →</NuxtLink>
           <NuxtLink
             to="/levels/submit"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-accent/40 text-accent bg-accent/5 font-medium text-sm px-4 py-2 hover:bg-accent/15 transition-colors"
+            class="btn btn-md border border-accent/40 text-accent bg-accent/5 hover:bg-accent/15"
           >Submit a level +</NuxtLink>
           <NuxtLink
             to="/records/submit"
@@ -387,7 +387,7 @@ const coveragePct = computed(() => {
             v-for="t in TABS"
             :key="t.id"
             type="button"
-            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors"
+            class="px-4 py-2.5 text-sm font-medium border-b-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="tab === t.id
               ? 'border-accent text-accent'
               : 'border-transparent text-zinc-500 hover:text-zinc-200'"
@@ -406,7 +406,7 @@ const coveragePct = computed(() => {
       <button
         v-if="glance.length"
         type="button"
-        class="w-full text-left group"
+        class="w-full text-left group rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         title="Open the stats"
         @click="tab = 'stats'"
       >
@@ -514,7 +514,7 @@ const coveragePct = computed(() => {
             rel="noopener"
             class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline"
           >Global Stats Viewer</a>. Placements are drawn from
-          <button type="button" class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline" @click="tab = 'sources'">{{ totalLists }} other demonlists</button>.
+          <button type="button" class="text-zinc-400 hover:text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="tab = 'sources'">{{ totalLists }} other demonlists</button>.
           Thanks to everyone who submits records, levels and opinions.
         </p>
 
@@ -764,7 +764,7 @@ const coveragePct = computed(() => {
               v-for="o in LIST_SORTS"
               :key="o.id"
               type="button"
-              class="rounded-lg border px-2 py-0.5 text-[10px] transition-colors"
+              class="rounded-lg border px-2 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="listSort === o.id
                 ? 'border-accent/60 text-accent bg-accent/10'
                 : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'"
@@ -860,7 +860,8 @@ const coveragePct = computed(() => {
       </section>
 
       <p v-if="!shownImported.length && !shownOther.length" class="text-sm text-zinc-500 py-12 text-center">
-        No list matches “{{ listsSearch }}”.
+        <template v-if="listsSearch.trim()">No list matches “{{ listsSearch }}”.</template>
+        <template v-else>No lists to show yet.</template>
       </p>
     </div>
   </div>

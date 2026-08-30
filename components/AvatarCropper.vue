@@ -468,7 +468,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
               :max="MAX_ZOOM"
               step="0.01"
               :disabled="!ready"
-              class="w-full mt-1 accent-accent"
+              class="w-full mt-1 accent-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               aria-label="Zoom"
             />
           </label>

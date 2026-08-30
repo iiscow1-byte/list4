@@ -196,18 +196,18 @@ useHead({ title: 'Community — All Levels List' })
         <nav class="mt-2 flex flex-wrap items-center gap-1.5">
           <NuxtLink
             to="/clans"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           >Clans →</NuxtLink>
           <NuxtLink
             to="/leaderboard"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           >Leaderboard →</NuxtLink>
           <!-- Your friends live on your own profile, not on a page of the
                site — this is a shortcut to that half of it. -->
           <NuxtLink
             v-if="me"
             to="/account?panel=friends"
-            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] text-zinc-300 hover:border-accent/60 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           >Your friends →</NuxtLink>
         </nav>
       </div>
@@ -321,7 +321,10 @@ useHead({ title: 'Community — All Levels List' })
           <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink>
           and follow players to see their completions here.
         </p>
-        <p v-else-if="feedLoaded && shownFeed.length === 0" class="px-4 py-16 text-sm text-zinc-500 text-center">
+        <p v-else-if="!feedLoaded" class="px-4 py-16 text-sm text-zinc-500 text-center">
+          Loading activity…
+        </p>
+        <p v-else-if="shownFeed.length === 0" class="px-4 py-16 text-sm text-zinc-500 text-center">
           Nothing yet. Follow some players from the
           <NuxtLink to="/leaderboard" class="text-accent hover:underline">leaderboard</NuxtLink>.
         </p>
@@ -464,7 +467,7 @@ useHead({ title: 'Community — All Levels List' })
             <li v-for="m in community.newMembers" :key="m.username">
               <NuxtLink
                 :to="`/users/${encodeURIComponent(m.username)}`"
-                class="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors"
+                class="inline-flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full border border-zinc-800 text-[11px] text-zinc-300 hover:text-accent hover:border-accent/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               >
                 <span class="w-5 h-5 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center">
                   <img v-if="m.has_avatar" :src="`/api/users/${encodeURIComponent(m.username)}/avatar`" class="w-full h-full object-cover" alt="" />

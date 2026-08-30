@@ -14,6 +14,7 @@ type PendingRec = {
 }
 
 const items = ref<PendingRec[]>([])
+const listLoading = ref(true)
 const selectedId = ref<number | null>(null)
 const banner = ref<{ kind: 'ok' | 'err'; msg: string } | null>(null)
 const decideLoading = ref(false)
@@ -21,12 +22,16 @@ const bulkLoading = ref(false)
 const rejectReason = ref<string>('')
 
 async function load() {
-  const res = await $fetch<{ items: PendingRec[] }>('/api/admin/records/pending')
-  items.value = res.items
-  if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
-    selectedId.value = items.value[0]?.id ?? null
-  } else if (!selectedId.value && items.value[0]) {
-    selectedId.value = items.value[0].id
+  try {
+    const res = await $fetch<{ items: PendingRec[] }>('/api/admin/records/pending')
+    items.value = res.items
+    if (selectedId.value && !items.value.some((r) => r.id === selectedId.value)) {
+      selectedId.value = items.value[0]?.id ?? null
+    } else if (!selectedId.value && items.value[0]) {
+      selectedId.value = items.value[0].id
+    }
+  } finally {
+    listLoading.value = false
   }
 }
 onMounted(load)
@@ -99,11 +104,12 @@ async function decide(action: 'approve' | 'reject') {
         <p class="text-[11px] text-zinc-600 mt-0.5">{{ items.length }} waiting</p>
       </div>
       <div class="flex-1 min-h-0 overflow-y-auto">
-        <ul v-if="items.length" class="divide-y divide-zinc-900/60">
+        <div v-if="listLoading" class="px-3 py-6 text-xs text-zinc-500 text-center">Loading…</div>
+        <ul v-else-if="items.length" class="divide-y divide-zinc-900/60">
           <li v-for="r in items" :key="r.id">
             <button
               type="button"
-              class="w-full text-left px-3 py-2 text-sm transition-colors"
+              class="w-full text-left px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="selectedId === r.id ? 'bg-accent/15 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-900/70'"
               @click="selectedId = r.id"
             >
@@ -120,7 +126,7 @@ async function decide(action: 'approve' | 'reject') {
     <section class="overflow-y-auto min-h-0">
       <LevelDetail v-if="reviewLevel" :level="reviewLevel" :readonly="true" />
       <div v-else class="p-12 text-center text-sm text-zinc-500">
-        {{ items.length === 0 ? 'No records to review.' : 'Pick a record on the left.' }}
+        {{ listLoading ? 'Loading…' : items.length === 0 ? 'No records to review.' : 'Pick a record on the left.' }}
       </div>
     </section>
 

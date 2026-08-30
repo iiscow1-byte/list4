@@ -12,7 +12,8 @@ function handleHome() {
       <h1 class="text-5xl font-semibold mt-2 tabular-nums">{{ error.statusCode }}</h1>
       <p class="text-zinc-400 mt-3">{{ error.statusMessage || error.message || 'Something went wrong.' }}</p>
       <button
-        class="mt-8 px-4 py-2 rounded border border-zinc-800 text-sm hover:bg-zinc-900"
+        type="button"
+        class="btn btn-md btn-ghost mt-8"
         @click="handleHome"
       >
         Back to the list

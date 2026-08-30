@@ -248,7 +248,7 @@ useHead({ title: 'Changelog — All Levels List' })
 
         <button
           type="button"
-          class="rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] font-medium transition-colors"
+          class="rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="dense ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
           :aria-pressed="dense"
           title="Tighter rows, no level art"
@@ -370,8 +370,9 @@ useHead({ title: 'Changelog — All Levels List' })
               <button
                 v-if="isMod"
                 type="button"
-                class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 leading-none"
+                class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 leading-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 title="Remove changelog entry"
+                aria-label="Remove changelog entry"
                 @click="deleteChange(c)"
               >✕</button>
             </div>

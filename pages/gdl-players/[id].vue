@@ -79,7 +79,7 @@ function badgeLabel(b: string | null): string | null {
           </div>
         </header>
 
-        <div class="rounded-md border border-amber-900/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+        <div class="rounded-xl border border-amber-900/40 bg-amber-950/20 p-4 text-sm text-amber-200">
           This GDL player has not claimed their account yet.
           <span class="text-amber-200/70 block text-xs mt-1">
             Stats below are mirrored from the Global Demonlist. If this is you,
@@ -131,7 +131,7 @@ function badgeLabel(b: string | null): string | null {
               <span class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded bg-zinc-800 text-zinc-400">
                 G#{{ l.gdl_position }}
               </span>
-              <span class="truncate flex-1 text-zinc-300">{{ l.name }}</span>
+              <span class="truncate flex-1 min-w-0 text-zinc-300">{{ l.name }}</span>
               <span v-if="l.is_verification" class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">Verifier</span>
               <a v-if="l.video_url" :href="l.video_url" target="_blank" rel="noopener" class="text-accent hover:underline text-xs">video ↗</a>
             </li>

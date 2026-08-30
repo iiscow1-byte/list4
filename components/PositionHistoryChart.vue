@@ -211,7 +211,7 @@ function onMove(e: MouseEvent) {
     class="group card overflow-hidden"
     @toggle="onToggle"
   >
-    <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 list-none hover:bg-zinc-900/40 transition-colors">
+    <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 list-none hover:bg-zinc-900/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60">
       <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement over time</h3>
       <div class="flex items-center gap-3 text-[10px]">
         <!-- The legend doubles as the series toggles, so clicks inside it must
@@ -219,7 +219,7 @@ function onMove(e: MouseEvent) {
         <button
           v-if="props.allSeries.length"
           type="button"
-          class="hidden group-open:inline-flex items-center gap-1.5 transition-colors"
+          class="hidden group-open:inline-flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="showAll ? 'text-accent' : 'text-zinc-600 hover:text-zinc-400'"
           @click.prevent.stop="showAll = !showAll"
         >
@@ -229,7 +229,7 @@ function onMove(e: MouseEvent) {
         <button
           v-if="props.aredlSeries?.length"
           type="button"
-          class="hidden group-open:inline-flex items-center gap-1.5 transition-colors"
+          class="hidden group-open:inline-flex items-center gap-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="showAredl ? 'text-sky-300' : 'text-zinc-600 hover:text-zinc-400'"
           @click.prevent.stop="showAredl = !showAredl"
         >

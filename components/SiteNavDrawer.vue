@@ -91,7 +91,7 @@ const visible = (links: NavLink[]) => links.filter((l) => !l.authOnly || props.s
             <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">{{ t('Menu') }}</span>
             <button
               type="button"
-              class="p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+              class="p-2 -mr-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :aria-label="t('Close')"
               @click="close"
             >

@@ -207,7 +207,7 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
            it. -->
       <div v-if="navDrawer" class="pane-head">
         <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(navLabel) }}</span>
-        <button type="button" data-pane-close class="pane-close" :aria-label="t('Close')" @click="closeAll">
+        <button type="button" data-pane-close class="pane-close focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" :aria-label="t('Close')" :title="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
@@ -222,7 +222,7 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
            disappears at its own pane's breakpoint, and the bar with the last
            of them. -->
       <div class="pane-bar shrink-0 flex items-center gap-2 px-3 py-2 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-sm">
-        <button type="button" class="pane-btn pane-btn-nav" @click="open('nav')">
+        <button type="button" class="pane-btn pane-btn-nav focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="open('nav')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-3.5 h-3.5" aria-hidden="true">
             <path d="M4 6h16M4 12h16M4 18h16" />
           </svg>
@@ -232,7 +232,7 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
         <span v-if="title" class="flex-1 min-w-0 truncate text-center text-[11px] text-zinc-500">{{ title }}</span>
         <span v-else class="flex-1" />
 
-        <button v-if="hasAside" type="button" class="pane-btn pane-btn-aside" @click="open('aside')">
+        <button v-if="hasAside" type="button" class="pane-btn pane-btn-aside focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="open('aside')">
           {{ t(asideLabel) }}
           <span v-if="asideCount" class="tabular-nums text-zinc-500">{{ asideCount }}</span>
         </button>
@@ -253,7 +253,7 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
     >
       <div v-if="asideDrawer" class="pane-head">
         <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(asideLabel) }}</span>
-        <button type="button" data-pane-close class="pane-close" :aria-label="t('Close')" @click="closeAll">
+        <button type="button" data-pane-close class="pane-close focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" :aria-label="t('Close')" :title="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>

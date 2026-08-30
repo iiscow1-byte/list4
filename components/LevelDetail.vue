@@ -2266,6 +2266,7 @@ const chartAredlSeries = computed(() =>
               v-if="permalink"
               type="button"
               :title="permalinkCopied ? 'Copied!' : `Copy permanent link — ${permalink}`"
+          aria-label="Copy permanent link"
               class="text-zinc-600 hover:text-zinc-300 transition-colors shrink-0"
               @click="copyPermalink"
             >

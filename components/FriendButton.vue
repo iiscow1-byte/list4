@@ -69,8 +69,8 @@ function onAdd() {
 
 const base = computed(() =>
   props.small
-    ? 'rounded-lg border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50'
-    : 'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50',
+    ? 'rounded-lg border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60'
+    : 'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60',
 )
 </script>
 
@@ -140,7 +140,7 @@ const base = computed(() =>
       >{{ busy ? 'Sending…' : 'Send' }}</button>
       <button
         type="button"
-        class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+        class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         @click="noteOpen = false"
       >Cancel</button>
     </div>

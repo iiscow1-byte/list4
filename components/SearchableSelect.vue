@@ -57,7 +57,7 @@ function pick(val: string) {
         ref="inputEl"
         :value="open ? query : selectedLabel"
         :placeholder="!open && !modelValue ? (placeholder ?? emptyLabel ?? '') : (open ? 'Type to search…' : '')"
-        :class="inputClass ?? 'w-full rounded border border-zinc-800 bg-zinc-900 px-3 py-2 pr-7 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'"
+        :class="inputClass ?? 'field field-md pr-7'"
         autocomplete="off"
         @focus="onFocus"
         @blur="scheduleClose"
@@ -72,7 +72,7 @@ function pick(val: string) {
       <li v-if="emptyLabel">
         <button
           type="button"
-          class="w-full px-3 py-2 text-left text-sm transition-colors"
+          class="w-full px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="modelValue === '' ? 'text-accent bg-accent/10' : 'text-zinc-400 hover:bg-zinc-900 italic'"
           @mousedown.prevent="pick('')"
         >{{ emptyLabel }}</button>
@@ -80,7 +80,7 @@ function pick(val: string) {
       <li v-for="opt in filtered" :key="opt.value">
         <button
           type="button"
-          class="w-full px-3 py-2 text-left text-sm transition-colors"
+          class="w-full px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="opt.value === modelValue ? 'text-accent bg-accent/10' : 'text-zinc-200 hover:bg-zinc-900'"
           @mousedown.prevent="pick(opt.value)"
         >{{ opt.label }}</button>

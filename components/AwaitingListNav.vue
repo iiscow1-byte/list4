@@ -214,7 +214,7 @@ watch(
           v-model="search"
           type="search"
           placeholder="Search… [Tier], #placement, ID"
-          class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-sm flex-1 min-w-0 text-xs"
         />
         <button
           type="button"
@@ -301,12 +301,12 @@ watch(
           <div class="flex items-center gap-1.5">
             <input
               v-model="verifyFrom" type="date"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
             <span class="text-zinc-600">→</span>
             <input
               v-model="verifyTo" type="date"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
           </div>
         </div>
@@ -316,12 +316,12 @@ watch(
           <div class="flex items-center gap-1.5">
             <input
               v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
             <span class="text-zinc-600">→</span>
             <input
               v-model="enjoyMax" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="max"
-              class="flex-1 rounded border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+              class="field field-sm flex-1 text-xs"
             />
           </div>
         </div>

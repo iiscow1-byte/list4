@@ -1151,7 +1151,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                 v-model="compareSearch"
                 type="search"
                 placeholder="Search… [Tier], #placement, name"
-                class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                class="field field-sm flex-1 min-w-0 text-xs"
               />
               <button
                 v-if="compareMode === 'browse'"
@@ -1179,7 +1179,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                 <span class="text-[10px] uppercase tracking-widest text-zinc-600">Rating</span>
                 <select
                   v-model="compareRatingFilter"
-                  class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] text-zinc-300 focus:border-accent focus:outline-none"
+                  class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/60"
                   :class="compareRatingFilter ? 'border-accent/60 text-accent bg-accent/10' : ''"
                   :title="compareChallengeMode ? 'Set by the Challenge checkbox — change it here to browse everything' : undefined"
                 >

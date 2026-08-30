@@ -69,7 +69,7 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
 const levelFilter = ref<number | null>(props.levelId ?? null)
 watch(() => props.levelId, (v) => { levelFilter.value = v ?? null })
 
-const { data } = await useFetch<{
+const { data, pending } = await useFetch<{
   total: number
   items: Thread[]
   counts: Record<string, number>
@@ -232,7 +232,7 @@ async function toggleLike(t: Thread) {
           <span class="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs text-accent">
             #{{ levelPicked.sheet_placement ?? levelPicked.position }} {{ levelPicked.name }}
           </span>
-          <button type="button" class="text-[11px] text-zinc-500 hover:text-red-400 transition-colors" @click="clearLevel">
+          <button type="button" class="text-[11px] text-zinc-500 hover:text-red-400 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="clearLevel">
             Remove
           </button>
         </div>
@@ -328,7 +328,10 @@ async function toggleLike(t: Thread) {
     </div>
 
     <!-- Threads -->
-    <p v-if="!threads.length" class="card px-6 py-16 text-center text-sm text-zinc-500">
+    <p v-if="pending && !threads.length" class="card px-6 py-16 text-center text-sm text-zinc-500">
+      Loading threads…
+    </p>
+    <p v-else-if="!threads.length" class="card px-6 py-16 text-center text-sm text-zinc-500">
       <template v-if="debounced">No threads match “{{ debounced }}”.</template>
       <template v-else-if="category">Nothing in {{ CATEGORY_LABELS[category] }} yet.</template>
       <template v-else>No threads yet. Start the first one.</template>

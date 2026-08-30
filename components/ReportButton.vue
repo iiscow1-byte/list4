@@ -168,7 +168,7 @@ async function send() {
     v-if="me"
     type="button"
     v-bind="$attrs"
-    class="inline-flex items-center gap-1 rounded-lg p-1 -m-1 text-[11px] text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+    class="inline-flex items-center gap-1 rounded-lg p-1 -m-1 text-[11px] text-zinc-600 hover:text-red-400 hover:bg-red-950/30 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
     :class="variant === 'text' ? 'px-1.5 -mx-1.5' : ''"
     :title="label ? `Report ${label}` : 'Report this'"
     :aria-label="label ? `Report ${label}` : 'Report this'"

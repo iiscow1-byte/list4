@@ -174,7 +174,7 @@ async function openInBuilder() {
   await router.push('/builder')
 }
 
-const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 transition-colors'
+const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60'
 </script>
 
 <template>
@@ -228,7 +228,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
         <button
           v-if="showBuilder"
           type="button"
-          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
+          class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           title="Add, remove and reorder levels in the builder"
           @click="openInBuilder"
         >
@@ -242,7 +242,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
         <div v-if="showStaff" ref="staffRoot" class="relative shrink-0">
           <button
             type="button"
-            class="inline-flex items-center gap-1.5 rounded-lg border pl-1.5 pr-2 py-1 text-xs transition-colors"
+            class="inline-flex items-center gap-1.5 rounded-lg border pl-1.5 pr-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="staffOpen
               ? 'border-accent/50 text-accent bg-accent/10'
               : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
@@ -337,7 +337,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
 
         <button
           type="button"
-          class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors shrink-0"
+          class="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="liked
             ? 'border-accent/50 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'"
@@ -381,7 +381,7 @@ const iconBtn = 'shrink-0 p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-900 trans
           <span class="w-px h-5 bg-zinc-800 mx-0.5 shrink-0" aria-hidden="true" />
           <NuxtLink
             to="/"
-            class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors"
+            class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-accent/60 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             title="Open the All Levels List"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">

@@ -63,7 +63,7 @@ const canClaimVerification = computed(
       <li v-for="l in picker.matches.value" :key="l.position">
         <button
           type="button"
-          class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
+          class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-900 flex items-center gap-3 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="{ 'bg-accent/10': picker.isExactMatch(l) }"
           @mousedown.prevent="picker.pick(l)"
         >
@@ -82,7 +82,7 @@ const canClaimVerification = computed(
       v-model="video"
       type="url"
       placeholder="https://www.youtube.com/watch?v=…"
-      class="flex-1 min-w-0 rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+      class="field field-md flex-1 min-w-0"
     />
     <label
       v-if="canClaimVerification"

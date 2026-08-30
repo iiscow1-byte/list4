@@ -60,9 +60,9 @@ async function removeRecord(id: number) {
             <NuxtLink
               v-if="r.account_username"
               :to="`/users/${encodeURIComponent(r.account_username)}`"
-              class="text-sm font-medium truncate hover:text-accent transition-colors"
+              class="text-sm font-medium truncate min-w-0 hover:text-accent transition-colors"
             >{{ r.player_name }}</NuxtLink>
-            <span v-else class="text-sm font-medium truncate">{{ r.player_name }}</span>
+            <span v-else class="text-sm font-medium truncate min-w-0">{{ r.player_name }}</span>
             <div class="ml-auto flex items-center gap-2 shrink-0">
               <a
                 v-if="r.video"
@@ -76,8 +76,9 @@ async function removeRecord(id: number) {
                 v-if="canModerate"
                 type="button"
                 :disabled="busy != null"
-                class="text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-colors leading-none sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                class="text-[10px] text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-colors leading-none sm:opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 title="Remove record"
+                aria-label="Remove record"
                 @click="removeRecord(r.id)"
               >✕</button>
             </div>

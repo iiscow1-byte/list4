@@ -258,7 +258,7 @@ const submitToAllHref = computed(() => {
   return `/levels/submit?${params.toString()}`
 })
 
-const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50'
+const field = 'field field-sm mt-1 disabled:opacity-50'
 const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 </script>
 
@@ -301,13 +301,13 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <NuxtLink
             v-if="canEdit && !linked"
             :to="submitToAllHref"
-            class="ml-auto rounded-lg border border-accent/60 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors"
+            class="ml-auto rounded-lg border border-accent/60 bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent hover:bg-accent/20 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             title="Open the ALL list's submit form with this level's details filled in"
           >Submit to the ALL →</NuxtLink>
           <button
             v-if="canEdit && apiBase"
             type="button"
-            class="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
+            class="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="[
               open ? 'border-accent/60 text-accent bg-accent/10' : 'border-zinc-700 text-zinc-300 hover:border-accent/60 hover:text-accent',
               linked ? 'ml-auto' : '',
@@ -381,7 +381,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <input v-model="draft.name" :class="field" />
           <button
             v-if="linked && overrides.has('name')" type="button"
-            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="followAll('name')"
           >Reset to ALL: “{{ allValue('name') }}”</button>
         </label>
@@ -390,7 +390,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <input v-model="draft.creator" :class="field" />
           <button
             v-if="linked && overrides.has('creator')" type="button"
-            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="followAll('creator')"
           >Reset to ALL: “{{ allValue('creator') ?? '—' }}”</button>
         </label>
@@ -407,7 +407,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           </select>
           <button
             v-if="linked && overrides.has('gddl_tier')" type="button"
-            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="followAll('gddl_tier')"
           >Reset to ALL: {{ allValue('gddl_tier') ?? 'no tier' }}</button>
         </label>
@@ -416,7 +416,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <input v-model="draft.verification_url" :class="field" placeholder="https://youtube.com/watch?v=…" />
           <button
             v-if="linked && overrides.has('verification_url')" type="button"
-            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block"
+            class="mt-0.5 text-[10px] text-zinc-500 hover:text-accent transition-colors truncate max-w-full block focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             @click="followAll('verification_url')"
           >Reset to the ALL's video</button>
         </label>
@@ -470,7 +470,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             <button
               type="button"
               :disabled="busy"
-              class="mt-1.5 text-[11px] text-zinc-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+              class="mt-1.5 text-[11px] text-zinc-500 hover:text-red-400 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               @click="linkToAll(true)"
             >Unlink and edit by hand</button>
           </template>
@@ -482,7 +482,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
               <button
                 type="button"
                 :disabled="busy"
-                class="text-[11px] text-accent hover:underline disabled:opacity-50"
+                class="text-[11px] text-accent hover:underline disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 @click="linkToAll(false)"
               >Link to the matching ALL level</button>
               <NuxtLink
@@ -520,7 +520,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           <button
             type="button"
             :disabled="busy"
-            class="ml-auto rounded-lg border border-red-900/60 text-red-400 text-xs px-3 py-1.5 hover:bg-red-950/40 disabled:opacity-50 transition-colors"
+            class="btn btn-sm btn-danger ml-auto"
             @click="remove"
           >Remove from list</button>
           <span v-if="error" class="sm:col-span-2 text-xs text-red-400">{{ error }}</span>

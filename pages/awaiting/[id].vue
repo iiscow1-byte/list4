@@ -28,5 +28,8 @@ useHead(() => ({
       <NuxtLink to="/awaiting" class="text-accent hover:underline text-sm mt-2 inline-block">Back to list</NuxtLink>
     </div>
     <AwaitingLevelDetail v-else-if="level" :level="level" />
+    <div v-else class="p-12 text-center text-zinc-500">
+      <p class="text-sm">Loading…</p>
+    </div>
   </ListPaneLayout>
 </template>

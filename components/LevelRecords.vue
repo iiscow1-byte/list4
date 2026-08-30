@@ -127,7 +127,7 @@ async function deleteRecord(id: number) {
       </div>
       <div v-else-if="filtered.length === 0" class="p-6 text-center text-sm text-zinc-600">
         Nothing from that list.
-        <button type="button" class="block mx-auto mt-1 text-xs text-accent hover:underline" @click="filter = 'all'">
+        <button type="button" class="block mx-auto mt-1 text-xs text-accent hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="filter = 'all'">
           Show all {{ records.length }}
         </button>
       </div>
@@ -154,7 +154,7 @@ async function deleteRecord(id: number) {
           </div>
 
           <!-- Line 2: where it came from, and what else is known about it -->
-          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
+          <div class="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
             <Badge tone="quiet" size="sm" :title="sourceBadge(r).title">{{ sourceBadge(r).label }}</Badge>
             <Badge v-if="r.is_verification" tone="emerald" size="sm" title="This is the level's verification">Verifier</Badge>
             <Badge v-if="r.mobile" tone="sky" size="sm" title="Beaten on mobile">Mobile</Badge>
@@ -173,8 +173,9 @@ async function deleteRecord(id: number) {
               v-if="isAdmin && r.id && bucket(r) === 'site'"
               type="button"
               :disabled="deletingId != null"
-              class="shrink-0 text-[10px] leading-none text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
+              class="shrink-0 text-[10px] leading-none text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all sm:opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="r.video ? '' : 'ml-auto'"
+              aria-label="Remove this record"
               title="Remove this record"
               @click="deleteRecord(r.id!)"
             >✕</button>

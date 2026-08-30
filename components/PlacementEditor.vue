@@ -267,20 +267,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
           <div class="ml-auto flex items-center gap-1.5 shrink-0">
             <button
               type="button"
-              class="w-7 h-7 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
+              class="w-7 h-7 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              aria-label="Move up"
               title="Move up"
               @click="nudge(-1)"
             >↑</button>
             <button
               type="button"
-              class="w-7 h-7 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors"
+              class="w-7 h-7 rounded-lg border border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              aria-label="Move down"
               title="Move down"
               @click="nudge(1)"
             >↓</button>
             <button
               type="button"
-              class="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+              class="rounded-lg p-1.5 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               aria-label="Close"
+              title="Close"
               @click="close"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4">
@@ -292,12 +295,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
 
         <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto p-2">
           <p v-if="loading" class="py-10 text-center text-xs text-zinc-500">Loading…</p>
+          <p v-else-if="rows.length === 0" class="py-10 text-center text-xs text-zinc-500">No levels to show.</p>
           <ul v-else class="space-y-0.5">
             <li v-if="windowStart > 1" class="pb-1">
               <button
                 type="button"
                 :disabled="extending"
-                class="w-full rounded-lg border border-dashed border-zinc-800 text-[11px] text-zinc-500 py-1.5 hover:border-zinc-600 hover:text-zinc-300 disabled:opacity-50 transition-colors"
+                class="w-full rounded-lg border border-dashed border-zinc-800 text-[11px] text-zinc-500 py-1.5 hover:border-zinc-600 hover:text-zinc-300 disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 @click="showMore"
               >{{ extending ? 'Loading…' : `Show ${EXTEND_BY} more above and below` }}</button>
             </li>

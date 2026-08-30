@@ -466,6 +466,42 @@ async function importLevels(report?: ProgressReporter) {
     existingRows.map((r) => [r.id, r]),
   )
 
+  /**
+   * The name a sheet row means, including rows whose name cell is empty.
+   *
+   * Geometry Dash allows a level to have no name at all, and the curators
+   * place them — placement #319 is a nameless Insane by BiancaDiAngelo. The
+   * old rule read "no name" as "decoration row" and dropped it, which is
+   * worse than a missing level: everything below it sits one position away
+   * from its sheet placement, so by-placement lookups and the sheet layout
+   * disagree for the whole rest of the list.
+   *
+   * A row is only rescued when it is still identifiable — it has a placement
+   * and a Level ID. If a level with that ID is already on the site, its
+   * existing name wins (continuity if a curator merely blanked the cell);
+   * otherwise the level is called "Unnamed", the way the community writes it.
+   * The dupKey pairs the name with the ID, so several unnamed levels coexist.
+   * A row with neither name nor ID stays decoration — there is nothing to
+   * key it on.
+   */
+  const nameByGdStmt = db.prepare(`SELECT name FROM levels WHERE gd_id = ?`)
+  const rescuedRows = new Set<string>()
+  function nameForRow(rawName: string | null, gdId: number | null, placement: number | null): string | null {
+    if (rawName) return rawName
+    if (placement === null || gdId == null) return null
+    const existing = nameByGdStmt.all(gdId) as { name: string }[]
+    // Two site rows sharing the ID (Solo/2P variants) cannot be told apart
+    // from here — skip rather than guess.
+    if (existing.length > 1) return null
+    const name = existing.length === 1 ? existing[0]!.name : 'Unnamed'
+    const key = `${placement}:${gdId}`
+    if (!rescuedRows.has(key)) {
+      rescuedRows.add(key)
+      console.log(`[import]   sheet row #${placement} has no Level Name — using "${name}" (gd ${gdId})`)
+    }
+    return name
+  }
+
   /** Ids already claimed by a sheet row this run, so two rows can't share one. */
   const claimed = new Set<number>()
 
@@ -622,10 +658,10 @@ async function importLevels(report?: ProgressReporter) {
     let usable = 0
     for (let i = found.headerIdx + 1; i < text.length; i++) {
       const r = text[i]!
-      const rowName = txt(r[c['level name']!])
+      const gd = num(r[c['level id']!])
+      const rowName = nameForRow(txt(r[c['level name']!]), gd, num(r[c['placement']!]))
       if (!rowName || num(r[c['placement']!]) === null) continue
       usable++
-      const gd = num(r[c['level id']!])
       if (gd != null) {
         sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
         sheetGdIds.add(gd)
@@ -666,11 +702,11 @@ async function importLevels(report?: ProgressReporter) {
       for (let i = found.headerIdx + 1; i < text.length; i++) {
         const r = text[i]!
         const rh = html[i]!
-        const name = txt(r[c['level name']!])
+        const gdId = num(r[c['level id']!])
         const placement = num(r[c['placement']!])
+        const name = nameForRow(txt(r[c['level name']!]), gdId, placement)
         // Filter, don't assign — placement === null means decoration row.
         if (!name || placement === null) { skipped++; continue }
-        const gdId = num(r[c['level id']!])
         if (gdId !== null && permGdIds.has(gdId)) {
           permSkipped++
           // The sheet's version of this level never lands here — a permanent

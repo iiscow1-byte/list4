@@ -126,7 +126,7 @@ async function create(openInBuilder: boolean) {
   }
 }
 
-const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-40'
+const field = 'mt-1 field field-sm disabled:opacity-40'
 const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
 </script>
 
@@ -149,7 +149,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
             v-for="s in LIST_SOURCES"
             :key="s.key"
             type="button"
-            class="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
+            class="rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="form.source === s.key
               ? 'border-accent/60 text-accent bg-accent/10'
               : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"

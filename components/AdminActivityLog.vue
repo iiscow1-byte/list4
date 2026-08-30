@@ -192,7 +192,7 @@ function subjectLink(r: Row): string | null {
           v-for="s in sections"
           :key="s.id"
           type="button"
-          class="px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
+          class="px-2 py-0.5 rounded-lg border text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="area === s.id
             ? 'border-accent/60 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
@@ -212,7 +212,8 @@ function subjectLink(r: Row): string | null {
 
     <!-- Rows -->
     <div class="flex-1 min-h-0 overflow-y-auto">
-      <p v-if="!rows.length" class="px-6 py-16 text-center text-sm text-zinc-500">
+      <p v-if="pending && !rows.length" class="px-6 py-16 text-center text-sm text-zinc-500">Loading…</p>
+      <p v-else-if="!rows.length" class="px-6 py-16 text-center text-sm text-zinc-500">
         <template v-if="debounced">Nothing matches “{{ debounced }}”.</template>
         <template v-else>Nothing logged in this range.</template>
       </p>
@@ -260,7 +261,7 @@ function subjectLink(r: Row): string | null {
                 <button
                   v-if="r.detail"
                   type="button"
-                  class="text-zinc-600 hover:text-zinc-300 transition-colors"
+                  class="text-zinc-600 hover:text-zinc-300 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                   @click="open[r.id] = !open[r.id]"
                 >{{ open[r.id] ? 'less' : 'details' }}</button>
 
@@ -272,7 +273,7 @@ function subjectLink(r: Row): string | null {
                   <button
                     type="button"
                     :disabled="undoing === r.id"
-                    class="text-amber-500/80 hover:text-amber-300 disabled:opacity-50 transition-colors"
+                    class="text-amber-500/80 hover:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                     :title="r.undo"
                     @click="undo(r)"
                   >{{ undoing === r.id ? 'undoing…' : 'undo' }}</button>

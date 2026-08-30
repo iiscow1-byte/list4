@@ -109,7 +109,7 @@ const emoji = computed(() => {
       <NuxtLink
         v-if="bannerLevel?.position"
         :to="`/levels/${bannerLevel.position}`"
-        class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors"
+        class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
       >
         <span class="tabular-nums text-zinc-400">#{{ bannerLevel.sheet_placement ?? bannerLevel.position }}</span>
         <span class="truncate max-w-[10rem]">{{ bannerLevel.name }}</span>
@@ -153,7 +153,7 @@ const emoji = computed(() => {
               :name="account.clan.name"
               :color="account.clan.color"
             />
-            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ account.username }}</h1>
+            <h1 class="min-w-0 max-w-full break-words text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50 drop-shadow">{{ account.username }}</h1>
             <!-- No flag here. The country chip below carries the flag *and* the
                  country's name, so a second flag beside the name was the same
                  fact twice — which is the thing the meta row was rebuilt to

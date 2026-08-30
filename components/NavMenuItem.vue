@@ -35,7 +35,7 @@ const isCurrent = computed(() => {
 })
 
 const rowClass = computed(() => [
-  'group/item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-left transition-colors',
+  'group/item w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60',
   isCurrent.value
     ? 'bg-zinc-900 text-zinc-100'
     : props.accent

@@ -118,7 +118,7 @@ function isSevere(r: Report): boolean {
           </span>
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
         <select v-model="targetFilter" class="field field-sm w-auto text-xs" aria-label="Filter by type">
           <option value="">Everything</option>
           <option v-for="(l, k) in TARGET_LABEL" :key="k" :value="k">{{ l }}</option>

@@ -79,7 +79,7 @@ async function toggle() {
     <template v-if="to">
       <NuxtLink
         :to="to"
-        class="relative pl-3 pr-2 py-1.5 rounded-l-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+        class="relative pl-3 pr-2 py-1.5 rounded-l-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         :class="{ 'text-zinc-100 bg-zinc-900': active }"
       >
         {{ label }}
@@ -91,7 +91,7 @@ async function toggle() {
       </NuxtLink>
       <button
         type="button"
-        class="relative px-1.5 py-1.5 rounded-r-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+        class="relative px-1.5 py-1.5 rounded-r-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
         :class="{ 'text-zinc-100 bg-zinc-900': open || active }"
         :aria-expanded="open"
         aria-haspopup="menu"
@@ -113,7 +113,7 @@ async function toggle() {
     <button
       v-else
       type="button"
-      class="relative flex items-center gap-1 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors"
+      class="relative flex items-center gap-1 rounded-lg text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
       :class="[
         iconOnly ? 'p-1.5' : 'px-3 py-1.5',
         (open || active) ? 'text-zinc-100 bg-zinc-900' : '',

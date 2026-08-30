@@ -36,7 +36,7 @@ const emit = defineEmits<{ (e: 'titleClick'): void }>()
         <button
           v-if="clickable"
           type="button"
-          class="uppercase tracking-widest hover:text-accent transition-colors"
+          class="uppercase tracking-widest hover:text-accent transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           @click="emit('titleClick')"
         >{{ title }}</button>
         <template v-else>{{ title }}</template>

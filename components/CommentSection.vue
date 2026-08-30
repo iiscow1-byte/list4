@@ -48,10 +48,12 @@ const comments = ref<Comment[]>([])
 const count = ref(0)
 const loaded = ref(false)
 const loading = ref(false)
+const loadError = ref<string | null>(null)
 
 async function load() {
   if (loaded.value) return
   loading.value = true
+  loadError.value = null
   try {
     const res = await $fetch<{ items: Comment[] }>('/api/comments', {
       query: { kind: props.kind, target_id: props.targetId },
@@ -61,6 +63,7 @@ async function load() {
     loaded.value = true
   } catch {
     comments.value = []
+    loadError.value = 'Failed to load comments.'
   } finally {
     loading.value = false
   }
@@ -172,7 +175,7 @@ function avatarOf(username: string) {
     <button
       v-else
       type="button"
-      class="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors mt-2"
+      class="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors mt-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
       :aria-expanded="open"
       @click="toggle"
     >
@@ -188,6 +191,8 @@ function avatarOf(username: string) {
     <div v-if="shown" :class="alwaysOpen ? 'p-3 sm:p-4 space-y-3' : 'mt-2 space-y-2 pl-1'">
       <p v-if="loading" class="text-xs text-zinc-600">Loading…</p>
 
+      <p v-else-if="loadError" class="text-xs text-red-400">{{ loadError }}</p>
+
       <ul v-else-if="comments.length" class="space-y-2">
         <li
           v-for="c in comments"
@@ -197,7 +202,9 @@ function avatarOf(username: string) {
           <div class="flex items-center gap-2">
             <NuxtLink
               :to="`/users/${encodeURIComponent(c.username)}`"
-              class="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center"
+              class="w-6 h-6 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              :aria-label="`View ${c.username}'s profile`"
+              :title="`View ${c.username}'s profile`"
             >
               <img v-if="c.has_avatar" :src="avatarOf(c.username)" class="w-full h-full object-cover" alt="" loading="lazy" />
               <span v-else class="text-[9px] font-bold uppercase text-zinc-500">{{ c.username.charAt(0) }}</span>
@@ -217,7 +224,7 @@ function avatarOf(username: string) {
             <button
               v-if="canDelete(c)"
               type="button"
-              class="shrink-0 text-[11px] text-zinc-700 hover:text-red-400 transition-colors sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
+              class="shrink-0 text-[11px] text-zinc-700 hover:text-red-400 transition-colors sm:opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               title="Delete this comment"
               @click="remove(c.id)"
             >Delete</button>
@@ -259,7 +266,7 @@ function avatarOf(username: string) {
         <button
           type="submit"
           :disabled="submitting || !draft.trim()"
-          class="self-stretch rounded-lg bg-accent/15 text-accent hover:bg-accent/25 text-xs font-medium px-3 transition-colors disabled:opacity-40"
+          class="btn btn-sm btn-primary self-stretch"
         >{{ submitting ? '…' : 'Post' }}</button>
       </form>
       <p v-if="submitError" class="text-xs text-red-400">{{ submitError }}</p>

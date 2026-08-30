@@ -804,7 +804,7 @@ watch(
         <div ref="variantRoot" class="relative">
           <button
             type="button"
-            class="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] uppercase tracking-widest font-semibold transition-colors"
+            class="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] uppercase tracking-widest font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="variantOpen
               ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/30'
               : 'text-accent hover:bg-accent/10'"
@@ -833,7 +833,7 @@ watch(
               type="button"
               role="menuitemradio"
               :aria-checked="listVariant === v.id"
-              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors"
+              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
               @click="pickVariant(v.id)"
             >
@@ -857,7 +857,7 @@ watch(
               type="button"
               role="menuitemradio"
               :aria-checked="listVariant === v.id"
-              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors"
+              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
               :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
               @click="pickVariant(v.id)"
             >
@@ -891,11 +891,11 @@ watch(
           v-model="search"
           type="search"
           placeholder="Search… [Tier], #placement, ID"
-          class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+          class="field field-sm flex-1 min-w-0 text-xs"
         />
         <button
           type="button"
-          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1"
+          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="filtersOpen || activeFilterCount
             ? 'border-accent/60 text-accent bg-accent/10'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
@@ -953,7 +953,7 @@ watch(
                 <button
                   v-if="activeFilters.length"
                   type="button"
-                  class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors"
+                  class="text-[11px] text-zinc-500 hover:text-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                   @click="resetFilters"
                 >Reset all</button>
                 <!-- Closing is what applies the filters, so it needs to look
@@ -965,8 +965,9 @@ watch(
                 >{{ filtersDirty ? 'Show results' : 'Done' }}</button>
                 <button
                   type="button"
-                  class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-                  aria-label="Close"
+                  class="rounded p-1 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                  aria-label="Close advanced search"
+                  title="Close advanced search"
                   @click="closeFilters"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
@@ -982,7 +983,7 @@ watch(
                 v-for="f in activeFilters"
                 :key="f.key"
                 type="button"
-                class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent hover:border-accent hover:bg-accent/20 transition-colors"
+                class="inline-flex items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] text-accent hover:border-accent hover:bg-accent/20 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 :title="`Remove: ${f.label}`"
                 @click="f.clear()"
               >
@@ -1039,7 +1040,7 @@ watch(
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="r in RATINGS" :key="r"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors focus-within:ring-1 focus-within:ring-accent/60"
                     :class="ratingSet[r]
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1078,12 +1079,12 @@ watch(
                 <div class="flex items-center gap-1.5">
                   <input
                     v-model="verifyFrom" type="date"
-                    class="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-sm flex-1 text-xs"
                   />
                   <span class="text-zinc-600">→</span>
                   <input
                     v-model="verifyTo" type="date"
-                    class="flex-1 rounded-lg border border-zinc-800 bg-zinc-900 px-2 py-1 text-xs focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    class="field field-sm flex-1 text-xs"
                   />
                 </div>
               </div>
@@ -1141,7 +1142,7 @@ watch(
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="s in SKILLSETS" :key="s"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors focus-within:ring-1 focus-within:ring-accent/60"
                     :class="skillsetSet[s]
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1158,7 +1159,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="`tent-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
                     :class="tentativePlacements === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1179,7 +1180,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="`site-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
                     :class="siteOnly === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1199,7 +1200,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="opt"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
                     :class="altVersions === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1217,7 +1218,7 @@ watch(
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
                     :key="`alt-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize"
+                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
                     :class="alternates === opt
                       ? 'border-accent/60 text-accent bg-accent/10'
                       : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
@@ -1279,7 +1280,7 @@ watch(
           <button
             v-if="pickMode"
             type="button"
-            class="relative overflow-hidden w-full flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
+            class="relative overflow-hidden w-full flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
               ? 'ring-2 ring-inset ring-accent text-zinc-50'
               : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60'"
@@ -1296,14 +1297,14 @@ watch(
               class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
               :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
             >{{ displayNum(lvl) }}</span>
-            <span class="relative truncate flex-1 text-left font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span class="relative truncate min-w-0 flex-1 text-left font-medium drop-shadow-sm">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
           <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
             v-else
             :to="{ path: `/levels/${lvl.position}`, query: rowQuery }"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
+            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
             :class="lvl.position === activePosition
               ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'
               : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
@@ -1321,7 +1322,7 @@ watch(
             >
               {{ displayNum(lvl) }}
             </span>
-            <span class="relative truncate flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span class="relative truncate min-w-0 flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
             <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
             <!-- The view count used to sit here. It is on the level's own page
                  instead, beside "From": a list row is a rank, a name and a

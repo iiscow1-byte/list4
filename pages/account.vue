@@ -1148,7 +1148,7 @@ function fmt(n: number | null | undefined) {
                     <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
                     <div class="mt-1 flex items-center gap-2">
                       <CountryFlag v-if="profile.country" :country="profile.country" class="shrink-0" />
-                      <select v-model="profile.country" class="flex-1 min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent">
+                      <select v-model="profile.country" class="field field-md flex-1 min-w-0">
                         <option value="">— none —</option>
                         <option v-for="c in countryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
                       </select>

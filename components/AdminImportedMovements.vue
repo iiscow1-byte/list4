@@ -184,7 +184,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
           v-for="s in sources"
           :key="s.key"
           type="button"
-          class="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border"
+          class="rounded-lg px-2.5 py-1 text-xs font-medium transition-colors border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           :class="source === s.key
             ? 'bg-accent/10 text-accent border-accent/30'
             : 'border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700'"
@@ -273,7 +273,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
               <span class="flex items-baseline gap-2">
                 <NuxtLink
                   :to="`/levels/${m.from_position}`"
-                  class="text-sm font-medium text-zinc-100 hover:text-accent transition-colors truncate"
+                  class="min-w-0 text-sm font-medium text-zinc-100 hover:text-accent transition-colors truncate"
                 >{{ m.name }}</NuxtLink>
                 <span
                   v-if="m.confidence !== 'exact'"
@@ -312,7 +312,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
                 <button
                   type="button"
                   :disabled="busyId != null"
-                  class="rounded border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 text-xs px-2.5 py-1 disabled:opacity-40 transition-colors"
+                  class="btn btn-sm btn-ghost"
                   title="Keep the ALL's placement"
                   @click="dismiss(m)"
                 >Keep</button>
@@ -321,7 +321,7 @@ const shortTier = (t: string | null) => (t ? t.replace('Subtier ', 'S').replace(
                 v-else
                 type="button"
                 :disabled="busyId != null"
-                class="rounded border border-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs px-2.5 py-1 disabled:opacity-40 transition-colors"
+                class="btn btn-sm btn-ghost"
                 @click="dismiss(m, true)"
               >Undismiss</button>
             </div>

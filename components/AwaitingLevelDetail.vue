@@ -42,7 +42,7 @@ const tagList = computed(() => {
   <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
     <header class="mb-6">
       <div class="flex items-baseline gap-3 flex-wrap">
-        <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
+        <h1 class="min-w-0 break-words text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
         <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-sky-900/40 text-sky-300 border border-sky-800/60">
           Awaiting placement
         </span>

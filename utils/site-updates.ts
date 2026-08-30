@@ -43,6 +43,17 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '1.33.0',
+    date: '2026-08-30',
+    title: 'Nameless levels, and a UI pass',
+    tags: ['List', 'UI', 'Fixes'],
+    changes: [
+      'Fixed placements drifting away from the sheet. Geometry Dash allows a level to have no name, and seven of them are placed on the list — the importer read a blank name as a decoration row and dropped all seven, so every level below one sat a place away from its sheet number. They import now, named after the level already here or shown as "Unnamed".',
+      'The importer also follows the sheet’s latest column reshuffle on the Main tab.',
+      'A consistency pass across the site: form fields on the shared style, focus outlines on things you can tab to, labels on icon-only buttons, and rows that wrap instead of overflowing on phones.',
+    ],
+  },
+  {
     version: '1.32.0',
     date: '2026-08-16',
     title: 'Clans have a tier',

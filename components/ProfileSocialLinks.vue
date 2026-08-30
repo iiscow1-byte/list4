@@ -53,7 +53,7 @@ const icon = computed(() => PROFILE_CHIP_ICON[props.size ?? 'md'])
       :href="gdUrl"
       target="_blank"
       rel="noopener"
-      :class="[chip, 'hover:text-accent hover:border-accent/50']"
+      :class="[chip, 'hover:text-accent hover:border-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60']"
       :title="`${account!.gd_username} on gdbrowser`"
     >
       <GdCubeIcon :class="[icon, 'shrink-0']" />
@@ -66,7 +66,7 @@ const icon = computed(() => PROFILE_CHIP_ICON[props.size ?? 'md'])
       :href="l.url"
       target="_blank"
       rel="noopener"
-      :class="[chip, l.def.tone]"
+      :class="[chip, l.def.tone, 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60']"
       :title="`${l.handle} on ${l.def.label}`"
     >
       <svg v-if="l.def.key === 'youtube_url'" viewBox="0 0 24 24" fill="currentColor" :class="[icon, 'shrink-0']" aria-hidden="true">
@@ -88,7 +88,7 @@ const icon = computed(() => PROFILE_CHIP_ICON[props.size ?? 'md'])
     <button
       v-if="discord"
       type="button"
-      :class="[chip, 'hover:text-[#5865F2] hover:border-indigo-900/60']"
+      :class="[chip, 'hover:text-[#5865F2] hover:border-indigo-900/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60']"
       :title="copied ? 'Copied' : `Copy ${discord}`"
       @click="copyDiscord"
     >

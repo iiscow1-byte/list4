@@ -326,7 +326,7 @@ const shownLevels = computed(() =>
                 v-for="s in TRAFFIC_DEFS"
                 :key="s.key"
                 type="button"
-                class="rounded-lg border px-2 py-0.5 text-[11px] transition-colors flex items-center gap-1.5"
+                class="rounded-lg border px-2 py-0.5 text-[11px] transition-colors flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 :class="trafficSeries[s.key as keyof typeof trafficSeries]
                   ? 'border-zinc-600 text-zinc-100 bg-zinc-900'
                   : 'border-zinc-800 text-zinc-600 hover:text-zinc-300'"
@@ -391,7 +391,7 @@ const shownLevels = computed(() =>
                 v-for="s in GROWTH_SERIES"
                 :key="s.key"
                 type="button"
-                class="rounded-lg border px-2 py-0.5 text-[11px] transition-colors"
+                class="rounded-lg border px-2 py-0.5 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
                 :class="growthKey === s.key
                   ? 'border-zinc-600 text-zinc-100 bg-zinc-900'
                   : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'"
