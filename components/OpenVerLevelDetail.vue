@@ -21,6 +21,8 @@ type OpenVerLevel = {
 }
 
 const props = defineProps<{ level: OpenVerLevel }>()
+
+const showThumbs = useShowThumbnails()
 const emit = defineEmits<{ (e: 'refresh'): void }>()
 
 const { data: meRes } = useCurrentUser()
@@ -121,7 +123,19 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
+  <div class="relative">
+    <!-- The level's thumbnail, fading into the page, as on the main list. -->
+    <div v-if="showThumbs" class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
+      <LevelThumbBg
+        :gd-id="level.gd_id"
+        :video-url="level.showcase_url"
+        res="high"
+        priority
+        img-class="opacity-45 scale-105"
+        overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
+      />
+    </div>
+  <div class="relative px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6 flex items-start justify-between gap-3 flex-wrap">
       <div class="min-w-0">
         <p class="text-sm font-medium text-violet-300">Open verification</p>
@@ -326,5 +340,6 @@ const tagList = computed(() => {
     <section class="card px-4 py-3">
       <CommentSection kind="open_verification" :target-id="level.id" />
     </section>
+  </div>
   </div>
 </template>

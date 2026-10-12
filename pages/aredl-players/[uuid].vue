@@ -2,8 +2,8 @@
 const route = useRoute()
 const uuid = computed(() => String(route.params.uuid))
 
-type LevelRow = { position: number; name: string; points: number | null; gddl_tier: string | null }
-type CompletedLevel = LevelRow & { percent: number }
+type ListLevelRow = { position: number; name: string; points: number | null; gddl_tier: string | null }
+type CompletedLevel = ListLevelRow & { percent: number }
 type AredlOnlyLevel = { aredl_position: number; name: string; points: number | null; gddl_tier: string | null }
 
 const { data, error } = await useFetch<{
@@ -13,7 +13,7 @@ const { data, error } = await useFetch<{
   claimedBy: string | null
   completedLevels: CompletedLevel[]
   aredlOnlyCompleted: Array<AredlOnlyLevel & { percent?: number }>
-  createdLevels: LevelRow[]
+  createdLevels: ListLevelRow[]
   aredlOnlyCreated: AredlOnlyLevel[]
   publishedCount: number
 }>(() => `/api/aredl-players/${uuid.value}`, { watch: [uuid] })

@@ -364,13 +364,15 @@ export default defineEventHandler((event) => {
   }
 
   /**
-   * The list sidebar draws a strip, a number and a name, 500 rows at a time.
+   * The list sidebar draws a badge, a name and a thumbnail, 500 rows at a time.
    * `fields=nav` sends only that, plus the id staff tools need when a row is
    * picked; external ranks are left out when there are none.
    */
   if (navRows) {
     items = (items as any[]).map((i) => {
       const r: Record<string, unknown> = { id: i.id, position: i.position, name: i.name, gddl_tier: i.gddl_tier }
+      if (i.gd_id != null) r.gd_id = i.gd_id
+      if (i.verification_url) r.verification_url = i.verification_url
       if (i.displayRank != null) r.displayRank = i.displayRank
       if (i.gddl_tier_frac != null) r.gddl_tier_frac = i.gddl_tier_frac
       if (i.aredl_position != null) r.aredl_position = i.aredl_position

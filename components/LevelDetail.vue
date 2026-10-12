@@ -23,7 +23,7 @@ type HistoryEntry = {
   changed_at: string
   changed_by: string | null
 }
-type AredlHistoryEntry = { aredl_position: number | null; action_at: string }
+type AredlHistoryEntry = { event?: string | null; aredl_position: number | null; cause_name?: string | null; action_at: string }
 type Level = {
   id?: number
   position: number
@@ -162,6 +162,30 @@ const rating = computed(() => {
 const publisher = computed(() => props.level.publisher ?? gd.value?.author ?? null)
 const description = computed(() => props.level.description_override || gd.value?.description || null)
 
+const showThumbs = useShowThumbnails()
+
+/**
+ * The credits line can run to dozens of names on a megacollab. Each part keeps
+ * to one line and ends in "…" when it doesn't fit; clicking opens them up.
+ */
+const creditsOpen = ref(false)
+const creditsEl = ref<HTMLElement | null>(null)
+const creditsCut = ref(false)
+function measureCredits() {
+  const el = creditsEl.value
+  if (!el || creditsOpen.value) return
+  creditsCut.value = [...el.querySelectorAll<HTMLElement>('[data-credit]')].some((c) => c.scrollWidth > c.clientWidth + 1)
+}
+let creditsObserver: ResizeObserver | null = null
+onMounted(() => {
+  measureCredits()
+  if (creditsEl.value && typeof ResizeObserver !== 'undefined') {
+    creditsObserver = new ResizeObserver(measureCredits)
+    creditsObserver.observe(creditsEl.value)
+  }
+})
+onBeforeUnmount(() => creditsObserver?.disconnect())
+
 const credits = computed(() => {
   const parts: { label: string; value: string }[] = []
   if (props.level.creator) parts.push({ label: 'by', value: props.level.creator })
@@ -268,32 +292,6 @@ onMounted(loadEstimates)
 // ---------------------------------------------------------------- history
 
 const history = computed(() => props.level.position_history ?? [])
-const chartAllSeries = computed(() => {
-  const pts = history.value.map((h) => ({ at: h.changed_at, position: h.to_position }))
-  pts.sort((a, b) => (a.at < b.at ? -1 : 1))
-  pts.push({ at: new Date().toISOString(), position: props.level.position })
-  return pts
-})
-const chartAredlSeries = computed(() => (props.level.aredl_history ?? [])
-  .filter((e) => e.aredl_position != null)
-  .map((e) => ({ at: e.action_at, position: e.aredl_position! })))
-const showChart = computed(() => history.value.length > 0 || chartAredlSeries.value.length > 1)
-
-function fmtDay(at: string) {
-  return new Date(`${at.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' })
-}
-
-const deletingHistory = ref<number | null>(null)
-async function deleteHistory(id: number) {
-  if (deletingHistory.value != null) return
-  deletingHistory.value = id
-  try {
-    await $fetch(`/api/admin/position-history/${id}`, { method: 'DELETE' })
-    emit('refresh')
-  } finally {
-    deletingHistory.value = null
-  }
-}
 
 // ---------------------------------------------------------------- forum
 
@@ -309,14 +307,15 @@ onMounted(async () => {
 
 <template>
   <div class="relative">
-    <div class="absolute inset-x-0 top-0 h-72 overflow-hidden pointer-events-none" aria-hidden="true">
+    <!-- The level's thumbnail, fading into the page. -->
+    <div v-if="showThumbs" class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
       <LevelThumbBg
         :gd-id="level.gd_id"
         :video-url="level.verification_url"
-        res="medium"
+        res="high"
         priority
-        img-class="opacity-30 scale-110 blur-[1px]"
-        overlay-class="bg-gradient-to-b from-zinc-950/30 via-zinc-950/80 to-zinc-950"
+        img-class="opacity-45 scale-105"
+        overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
       />
     </div>
 
@@ -336,10 +335,25 @@ onMounted(async () => {
               <span v-if="swapRanks" class="ml-1 text-sm font-medium text-zinc-400">on the challenge list</span>
             </p>
             <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
-            <p v-if="credits.length" class="mt-2 text-sm text-zinc-400">
-              <template v-for="(c, i) in credits" :key="c.label">
-                <span v-if="i" class="text-zinc-600"> · </span>{{ c.label }} <span class="text-zinc-200">{{ c.value }}</span>
-              </template>
+            <p
+              v-if="credits.length"
+              ref="creditsEl"
+              class="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-zinc-400"
+              :class="creditsCut || creditsOpen ? 'cursor-pointer' : ''"
+              :title="creditsCut && !creditsOpen ? 'Show all' : undefined"
+              :role="creditsCut || creditsOpen ? 'button' : undefined"
+              :tabindex="creditsCut || creditsOpen ? 0 : undefined"
+              :aria-expanded="creditsCut || creditsOpen ? creditsOpen : undefined"
+              @click="(creditsCut || creditsOpen) && (creditsOpen = !creditsOpen)"
+              @keydown.enter.prevent="(creditsCut || creditsOpen) && (creditsOpen = !creditsOpen)"
+            >
+              <span
+                v-for="c in credits"
+                :key="c.label"
+                data-credit
+                class="max-w-full"
+                :class="creditsOpen ? 'break-words' : 'truncate'"
+              >{{ c.label }} <span class="text-zinc-200">{{ c.value }}</span></span>
             </p>
           </div>
           <div v-if="!readonly" class="shrink-0 flex items-center gap-1.5">
@@ -494,30 +508,14 @@ onMounted(async () => {
         </section>
       </div>
 
-      <section class="mb-8">
-        <h2 class="section-title mb-2">Placement history</h2>
-        <PositionHistoryChart v-if="showChart" :all-series="chartAllSeries" :aredl-series="chartAredlSeries" class="mb-3" />
-        <ul v-if="history.length" class="text-sm divide-y divide-zinc-800/80">
-          <li v-for="h in history" :key="h.id" class="flex items-center gap-3 py-1.5">
-            <span class="w-28 shrink-0 text-zinc-500 tabular-nums">{{ fmtDay(h.changed_at) }}</span>
-            <span v-if="h.from_position == null" class="text-emerald-300">Added at <span class="rank">#{{ h.to_position }}</span></span>
-            <span v-else class="tabular-nums">
-              <span :class="h.to_position < h.from_position ? 'text-emerald-300' : 'text-rose-300'">{{ h.to_position < h.from_position ? '▲' : '▼' }}</span>
-              <span class="text-zinc-400">#{{ h.from_position }}</span> → <span class="text-zinc-100">#{{ h.to_position }}</span>
-            </span>
-            <span v-if="h.changed_by" class="text-xs text-zinc-500 truncate">{{ h.changed_by }}</span>
-            <button
-              v-if="canEdit"
-              type="button"
-              class="ml-auto text-xs text-zinc-600 hover:text-red-300"
-              :disabled="deletingHistory != null"
-              title="Remove from the changelog"
-              @click="deleteHistory(h.id)"
-            >Remove</button>
-          </li>
-        </ul>
-        <p v-else class="text-sm text-zinc-500">Hasn't moved since it was added.</p>
-      </section>
+      <PlacementHistory
+        class="mb-8"
+        :all="history"
+        :aredl="level.aredl_history ?? []"
+        :current="level.position"
+        :can-edit="canEdit"
+        @refresh="emit('refresh')"
+      />
 
       <section v-if="level.id && !readonly" class="mb-8">
         <div class="flex items-baseline justify-between gap-3 mb-2">

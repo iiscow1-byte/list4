@@ -4,6 +4,7 @@ definePageMeta({ layout: 'level' })
 const route = useRoute()
 const publicId = computed(() => String(route.params.public_id))
 const { list } = useCustomList(publicId)
+const showThumbs = useShowThumbnails()
 
 function itemById(id: number) {
   return list.value?.items.find((i: any) => i.id === id) ?? null
@@ -35,34 +36,28 @@ useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }
             <h3 class="text-sm font-semibold text-zinc-100 truncate">{{ p.name }}</h3>
             <span class="ml-auto text-[11px] text-zinc-600 tabular-nums shrink-0">{{ p.item_ids.length }}</span>
           </header>
-          <ul class="divide-y divide-zinc-900/60">
+          <ul class="p-1.5 space-y-1">
             <li v-for="id in p.item_ids" :key="id">
-              <NuxtLink
+              <LevelRow
                 v-if="itemById(id)"
                 :to="`/lists/${publicId}/${itemById(id)!.rank}`"
-                class="relative overflow-hidden flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:text-accent transition-colors group"
+                :rank="`#${itemById(id)!.rank}`"
+                :name="itemById(id)!.name"
+                :tier="itemById(id)!.gddl_tier"
+                :gd-id="itemById(id)!.gd_id"
+                :video-url="itemById(id)!.verification_url"
+                :thumbs="showThumbs && l.show_thumbnails !== 0 && l.show_thumbnails !== false"
+                :name-class="itemById(id)!.unverified ? 'truncate italic text-zinc-400' : 'truncate'"
               >
-                <LevelThumbBg
-                  :gd-id="itemById(id)!.gd_id"
-                  :video-url="itemById(id)!.verification_url"
-                  res="small"
-                  img-class="opacity-20 group-hover:opacity-40"
-                  overlay-class="bg-gradient-to-r from-zinc-950/92 via-zinc-950/70 to-zinc-950/40"
-                />
-                <span class="relative text-zinc-600 tabular-nums text-[11px] shrink-0 w-7">#{{ itemById(id)!.rank }}</span>
-                <span class="relative truncate" :class="itemById(id)!.unverified ? 'text-zinc-500 italic' : ''">
-                  {{ itemById(id)!.name }}
-                </span>
-                <span
-                  v-if="itemById(id)!.unverified"
-                  class="relative shrink-0 text-xs px-1.5 py-px rounded bg-amber-950/60 text-amber-300/90 border border-amber-800/50"
-                  title="Nobody has verified this level yet — it can't be cleared"
-                >Unverified</span>
-                <span
-                  v-else
-                  class="relative ml-auto shrink-0 text-[10px] tabular-nums text-amber-300/70"
-                >{{ itemById(id)!.points }}</span>
-              </NuxtLink>
+                <template #trailing>
+                  <span
+                    v-if="itemById(id)!.unverified"
+                    class="text-xs px-1.5 py-px rounded bg-amber-950/60 text-amber-300/90 border border-amber-800/50"
+                    title="Nobody has verified this level yet, so it can't be cleared"
+                  >Unverified</span>
+                  <span v-else class="text-[11px] tabular-nums text-amber-300/80">{{ itemById(id)!.points }}</span>
+                </template>
+              </LevelRow>
             </li>
           </ul>
         </section>

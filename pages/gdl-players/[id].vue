@@ -2,8 +2,8 @@
 const route = useRoute()
 const gdlId = computed(() => String(route.params.id))
 
-type LevelRow = { position: number; name: string; points: number | null; gddl_tier: string | null }
-type CompletedLevel = LevelRow & { percent: number }
+type ListLevelRow = { position: number; name: string; points: number | null; gddl_tier: string | null }
+type CompletedLevel = ListLevelRow & { percent: number }
 type OffListLevel = {
   gdl_position: number | null
   name: string
@@ -21,7 +21,7 @@ const { data, error } = await useFetch<{
   claimedBy: string | null
   completedLevels: CompletedLevel[]
   offListCompleted: OffListLevel[]
-  createdLevels: LevelRow[]
+  createdLevels: ListLevelRow[]
   publishedCount: number
 }>(() => `/api/gdl-players/${gdlId.value}`, { watch: [gdlId] })
 

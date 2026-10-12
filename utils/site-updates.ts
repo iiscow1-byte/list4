@@ -43,6 +43,23 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-12',
+    title: 'Thumbnails are back, and every list matches',
+    tags: ['UI', 'List', 'Discord'],
+    changes: [
+      'Level thumbnails are back behind list rows and across the top of level pages. Turn them off from the palette menu in the header.',
+      'Every list of levels uses the same rows: the main list, the void, awaiting and open verification lists, custom lists, the builder, the changelog, profiles and clans.',
+      'Placement history is rebuilt. It shows the highest and lowest a level has been, a chart you can read its rank off at any date, and its moves with their dates. AREDL has its own tab, with shifts caused by other levels tucked away.',
+      'The changelog splits each day into moves, additions and removals, moves first. Long days show the first few and open the rest on request.',
+      'A long list of creators ends in "…" instead of filling the top of a level page. Click it to see them all.',
+      'The global leaderboard uses the profile picture from a player’s account here wherever it can match them, not only after a claim.',
+      'Discord posts are clearer: the daily summary gives moves, additions and removals their own coloured sections and says how far each level moved, and posts show the level’s thumbnail.',
+      'Custom list webhooks carry the list’s name, icon and colour.',
+      adm('Sending a test to a webhook posts a sample of what the channel will get.'),
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-10-12',
     title: 'Release: a simpler site, and placements you can trust',

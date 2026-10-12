@@ -64,6 +64,31 @@ function attachAccountBits(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
   const clans = clanTagsForPlayers(db, rows.map((r) => r.player))
   for (const r of rows) r.clan = clans.get(r.player.toLowerCase()) ?? null
 
+  /**
+   * Rows no claim links to an account: the account here whose username, or
+   * whose claimed player, is this name. The same match the other leaderboard
+   * tabs use, so a player's profile picture is the one from their ALL profile
+   * on every tab, not only once they have filed a claim.
+   */
+  const unlinked = [...new Set(rows.filter((r) => !r.claimed_account).map((r) => r.player))]
+  if (unlinked.length) {
+    const ph = unlinked.map(() => '?').join(',')
+    const accs = db.prepare(
+      `SELECT username, claimed_player FROM accounts
+        WHERE banned_at IS NULL
+          AND (username COLLATE NOCASE IN (${ph}) OR claimed_player COLLATE NOCASE IN (${ph}))`,
+    ).all(...unlinked, ...unlinked) as { username: string; claimed_player: string | null }[]
+    const byName = new Map<string, string>()
+    for (const a of accs) byName.set(a.username.toLowerCase(), a.username)
+    // A claim beats a matching username.
+    for (const a of accs) if (a.claimed_player) byName.set(a.claimed_player.toLowerCase(), a.username)
+    for (const r of rows) {
+      if (r.claimed_account) continue
+      const username = byName.get(r.player.toLowerCase())
+      if (username) r.claimed_account = { username, has_avatar: false }
+    }
+  }
+
   const names = [...new Set(
     rows.map((r) => r.claimed_account?.username).filter((u): u is string => !!u),
   )]

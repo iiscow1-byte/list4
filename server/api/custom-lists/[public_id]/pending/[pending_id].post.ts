@@ -3,6 +3,7 @@ import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
 import { appendApprovedLevel } from '~/server/utils/custom-list-pending'
 import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { escapeMarkdown } from '~/server/utils/discord'
 import { sendInboxMessage } from '~/server/utils/inbox'
 
 /** Approve a suggested level onto the list, or reject it with a reason. */
@@ -26,9 +27,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const row = db.prepare(
-    `SELECT id, name, status, submitted_by FROM custom_list_pending WHERE id = ? AND list_id = ?`,
+    `SELECT id, name, gd_id, status, submitted_by FROM custom_list_pending WHERE id = ? AND list_id = ?`,
   ).get(pendingId, list.id) as
-    { id: number; name: string; status: string; submitted_by: number | null } | undefined
+    { id: number; name: string; gd_id: number | null; status: string; submitted_by: number | null } | undefined
   if (!row) throw createError({ statusCode: 404, statusMessage: 'Suggestion not found' })
   if (row.status !== 'pending') {
     throw createError({ statusCode: 400, statusMessage: 'That suggestion has already been decided.' })
@@ -66,8 +67,9 @@ export default defineEventHandler(async (event) => {
 
   if (action === 'approve') {
     notifyListWebhooks(db, list.id, 'changes', {
-      title: `${row.name} added to ${list.title}`,
-      description: `Approved by ${account.username}.`,
+      title: `Added: ${row.name}`,
+      description: `Approved by ${escapeMarkdown(account.username)}.`,
+      gdId: row.gd_id ?? null,
     }).catch(() => {})
   }
 

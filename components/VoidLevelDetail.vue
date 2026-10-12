@@ -15,6 +15,8 @@ type VoidLevel = {
 }
 
 const props = defineProps<{ level: VoidLevel }>()
+
+const showThumbs = useShowThumbnails()
 const emit = defineEmits<{ (e: 'refresh'): void }>()
 
 const { data: meRes } = useCurrentUser()
@@ -197,7 +199,19 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
+  <div class="relative">
+    <!-- The level's thumbnail, fading into the page, as on the main list. -->
+    <div v-if="showThumbs" class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
+      <LevelThumbBg
+        :gd-id="level.gd_id"
+        :video-url="level.verification_url"
+        res="high"
+        priority
+        img-class="opacity-45 scale-105"
+        overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
+      />
+    </div>
+  <div class="relative px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
         <p class="rank text-fuchsia-300 text-xl leading-none">#{{ level.position }} <span class="ml-1 text-sm font-medium text-zinc-400">on the void list</span></p>
@@ -472,5 +486,6 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
       </dl>
     </section>
 
+  </div>
   </div>
 </template>

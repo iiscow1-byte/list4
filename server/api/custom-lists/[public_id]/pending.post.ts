@@ -3,6 +3,7 @@ import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { escapeMarkdown } from '~/server/utils/discord'
 import { appendApprovedLevel } from '~/server/utils/custom-list-pending'
 
 /**
@@ -95,8 +96,9 @@ export default defineEventHandler(async (event) => {
       related_id: list.id,
     })
     notifyListWebhooks(db, list.id, 'submissions', {
-      title: `Level suggested for ${list.title}`,
-      description: `**${name}** — suggested by ${account.username}`,
+      title: `Suggested: ${name}`,
+      description: `Suggested by ${escapeMarkdown(account.username)}. It's in the list's queue.`,
+      gdId: linked?.gd_id ?? (Number.isInteger(Number(body?.gd_id)) ? Number(body?.gd_id) : null),
     }).catch(() => {})
   }
 

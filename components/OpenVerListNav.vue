@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tierColor } from '~/utils/tier-colors'
+import { shortTierLabel } from '~/utils/tier-colors'
 import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 type OpenVerRow = {
@@ -10,7 +10,10 @@ type OpenVerRow = {
   difficulty: string | null
   main_skillset: string | null
   submitted_at: string
+  showcase_url?: string | null
 }
+
+const showThumbs = useShowThumbnails()
 
 const props = defineProps<{ activeId?: number | null }>()
 
@@ -295,18 +298,22 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="py-1">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.id" :data-id="lvl.id" class="list-item">
-          <NuxtLink
+          <LevelRow
             :to="{ path: `/open-verifications/${lvl.id}`, query: search ? { q: search } : {} }"
-            class="list-row group"
-            :class="lvl.id === activeId ? 'bg-zinc-800/80 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
-            :aria-current="lvl.id === activeId ? 'page' : undefined"
+            :rank="shortTierLabel(lvl.gddl_tier) ?? '—'"
+            :name="lvl.name"
+            :tier="lvl.gddl_tier"
+            :gd-id="lvl.gd_id"
+            :video-url="lvl.showcase_url"
+            :thumbs="showThumbs"
+            :active="lvl.id === activeId"
           >
-            <span class="list-row-strip mr-3" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
-            <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span class="ml-2 shrink-0 text-xs text-zinc-500 tabular-nums">{{ lvl.gddl_tier ?? lvl.difficulty ?? '' }}</span>
-          </NuxtLink>
+            <template v-if="!lvl.gddl_tier && lvl.difficulty" #trailing>
+              <span class="text-[11px] text-zinc-400">{{ lvl.difficulty }}</span>
+            </template>
+          </LevelRow>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">{{ search ? 'No levels match.' : 'Nothing here right now.' }}</li>
       </ul>

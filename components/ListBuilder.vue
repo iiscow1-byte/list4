@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
 import type { BuilderItem } from '~/composables/useListBuilder'
 
 /**
@@ -25,6 +24,7 @@ type PaletteLevel = {
   difficulty: string | null
   creator?: string | null
   sheet_placement?: number | null
+  verification_url?: string | null
 }
 const search = ref('')
 const palette = ref<PaletteLevel[]>([])
@@ -134,6 +134,7 @@ function toItem(l: PaletteLevel): BuilderItem {
   }
 }
 
+const showThumbs = useShowThumbnails()
 const alreadyAdded = computed(() => new Set(draft.value.items.map((i) => i.level_id).filter(Boolean)))
 
 function addLevel(l: PaletteLevel, at?: number) {
@@ -347,26 +348,34 @@ function copyShare() {
         />
       </div>
       <p class="px-4 pt-2 text-xs text-zinc-500">Drag a level into your list, or press +.</p>
-      <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto py-1">
-        <li v-for="l in palette" :key="l.id">
-          <div
-            draggable="true"
-            class="list-row cursor-grab active:cursor-grabbing text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
-            :class="alreadyAdded.has(l.id) ? 'opacity-45' : ''"
-            @dragstart="onPaletteDragStart($event, l)"
-            @dragend="endDrag"
+      <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto p-1.5 space-y-1">
+        <li
+          v-for="l in palette"
+          :key="l.id"
+          draggable="true"
+          class="cursor-grab active:cursor-grabbing"
+          :class="alreadyAdded.has(l.id) ? 'opacity-45' : ''"
+          @dragstart="onPaletteDragStart($event, l)"
+          @dragend="endDrag"
+        >
+          <LevelRow
+            :rank="`#${l.position}`"
+            :name="l.name"
+            :tier="l.gddl_tier"
+            :gd-id="l.gd_id"
+            :video-url="l.verification_url"
+            :thumbs="showThumbs"
           >
-            <span class="list-row-strip" :style="{ backgroundColor: tierColor(l.gddl_tier) }" />
-            <span class="list-row-rank text-zinc-500">#{{ l.position }}</span>
-            <span class="truncate flex-1">{{ l.name }}</span>
-            <button
-              type="button"
-              class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-zinc-500 hover:text-accent hover:bg-zinc-800 transition-colors"
-              :aria-label="`Add ${l.name} to your list`"
-              title="Add to your list"
-              @click="addLevel(l)"
-            >+</button>
-          </div>
+            <template #trailing>
+              <button
+                type="button"
+                class="w-6 h-6 rounded flex items-center justify-center text-zinc-400 hover:text-accent hover:bg-zinc-800 transition-colors"
+                :aria-label="`Add ${l.name} to your list`"
+                title="Add to your list"
+                @click="addLevel(l)"
+              >+</button>
+            </template>
+          </LevelRow>
         </li>
         <li v-if="palette.length === 0 && !paletteLoading" class="px-3 py-4 text-center text-xs text-zinc-600">No matches.</li>
         <!-- The bottom of the column: crossing it fetches the next page. -->
@@ -467,73 +476,71 @@ function copyShare() {
           />
           <li
             draggable="true"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 py-2 rounded-lg group ring-1 ring-inset ring-zinc-800/70 hover:ring-zinc-700 bg-zinc-900/30 cursor-grab active:cursor-grabbing transition-all"
+            class="cursor-grab active:cursor-grabbing"
             :class="dragKind === 'item' && dragIndex === i ? 'opacity-40' : ''"
             @dragstart="onItemDragStart($event, i)"
             @dragend="endDrag"
           >
-            <LevelThumbBg
+            <LevelRow
+              :rank="`#${i + 1}`"
+              :name="item.name"
+              :tier="item.gddl_tier"
               :gd-id="item.gd_id"
               :video-url="item.verification_url"
-              res="small"
-              img-class="opacity-25 group-hover:opacity-45"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-zinc-950/25"
-            />
-            <span class="relative shrink-0 w-8 text-center tabular-nums text-sm font-bold text-accent">{{ i + 1 }}</span>
-            <span
-              v-if="item.gddl_tier"
-              class="relative shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold"
-              :style="{ backgroundColor: tierColor(item.gddl_tier), color: textOn(tierColor(item.gddl_tier)) }"
-            >{{ item.gddl_tier }}</span>
-            <div class="relative flex-1 min-w-0">
+              :thumbs="showThumbs"
+              class="ring-1 ring-inset ring-zinc-800/70"
+            >
               <NuxtLink
                 v-if="item.position"
                 :to="`/levels/${item.position}`"
-                class="block truncate text-sm font-medium text-zinc-100 hover:text-accent transition-colors"
+                class="block truncate font-medium hover:text-accent transition-colors"
+                :title="item.name"
+                draggable="false"
               >{{ item.name }}</NuxtLink>
-              <span v-else class="block truncate text-sm font-medium text-zinc-100">{{ item.name }}</span>
-              <span v-if="item.creator || item.notes" class="block truncate text-[11px] text-zinc-500">
+              <span v-else class="block truncate font-medium" :title="item.name">{{ item.name }}</span>
+              <template v-if="item.creator || item.notes" #sub>
                 <template v-if="item.creator">{{ item.creator }}</template>
                 <template v-if="item.creator && item.notes"> · </template>
                 <template v-if="item.notes">{{ item.notes }}</template>
-              </span>
-            </div>
-            <!-- Marked as a challenge. Always visible when set, unlike the row
-                 controls beside it: it is a fact about the level rather than
-                 something you do to the row, and a flag you can only see by
-                 hovering is a flag you cannot scan a list for. -->
-            <span
-              v-if="item.is_challenge"
-              class="relative shrink-0 text-xs px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
-              title="This list counts this level as a challenge"
-            >challenge</span>
-            <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
-            <span v-else class="relative shrink-0 text-xs text-zinc-600">custom</span>
-            <div class="relative shrink-0 flex items-center gap-0.5 transition-opacity" :class="metaOpen === i ? '' : 'opacity-0 group-hover:opacity-100'">
-              <!-- One click, on the row, because marking challenges is
-                   something you do to a run of levels at a time — burying it in
-                   the details panel would mean four clicks each. -->
-              <button
-                type="button"
-                class="w-6 h-6 rounded text-sm leading-none transition-colors"
-                :class="item.is_challenge
-                  ? 'text-amber-400 bg-amber-950/40'
-                  : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'"
-                :title="item.is_challenge ? 'Not a challenge' : 'Mark as a challenge'"
-                :aria-pressed="!!item.is_challenge"
-                @click="item.is_challenge = !item.is_challenge"
-              >⚑</button>
-              <button
-                type="button"
-                class="w-6 h-6 rounded transition-colors"
-                :class="metaOpen === i ? 'text-accent bg-accent/10' : 'text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800'"
-                title="Level details (verifier, percent to qualify, FPS)"
-                @click="metaOpen = metaOpen === i ? null : i"
-              >⋯</button>
-              <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move up" @click="move(i, -1)">↑</button>
-              <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move down" @click="move(i, 1)">↓</button>
-              <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors" title="Remove" @click="removeAt(i)">✕</button>
-            </div>
+              </template>
+              <template #trailing>
+                <!-- Always visible when set, unlike the controls beside it: it
+                     is a fact about the level, and a flag you can only see by
+                     hovering is one you can't scan a list for. -->
+                <span
+                  v-if="item.is_challenge"
+                  class="text-xs px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
+                  title="This list counts this level as a challenge"
+                >challenge</span>
+                <span v-if="item.position" class="text-[10px] text-zinc-500 tabular-nums">ALL #{{ item.position }}</span>
+                <span v-else class="text-xs text-zinc-500">custom</span>
+                <div class="flex items-center gap-0.5 transition-opacity" :class="metaOpen === i ? '' : 'sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100'">
+                  <!-- One click, on the row, because marking challenges is
+                       something you do to a run of levels at a time — burying it in
+                       the details panel would mean four clicks each. -->
+                  <button
+                    type="button"
+                    class="w-6 h-6 rounded text-sm leading-none transition-colors"
+                    :class="item.is_challenge
+                      ? 'text-amber-400 bg-amber-950/40'
+                      : 'text-zinc-500 hover:text-amber-400 hover:bg-zinc-800'"
+                    :title="item.is_challenge ? 'Not a challenge' : 'Mark as a challenge'"
+                    :aria-pressed="!!item.is_challenge"
+                    @click="item.is_challenge = !item.is_challenge"
+                  >⚑</button>
+                  <button
+                    type="button"
+                    class="w-6 h-6 rounded transition-colors"
+                    :class="metaOpen === i ? 'text-accent bg-accent/10' : 'text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800'"
+                    title="Level details (verifier, percent to qualify, FPS)"
+                    @click="metaOpen = metaOpen === i ? null : i"
+                  >⋯</button>
+                  <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move up" @click="move(i, -1)">↑</button>
+                  <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors" title="Move down" @click="move(i, 1)">↓</button>
+                  <button type="button" class="w-6 h-6 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors" title="Remove" @click="removeAt(i)">✕</button>
+                </div>
+              </template>
+            </LevelRow>
           </li>
           <!-- Per-level list metadata -->
           <li v-if="metaOpen === i" class="rounded-lg border border-zinc-800/70 bg-zinc-900/40 p-3 grid gap-2 sm:grid-cols-4">

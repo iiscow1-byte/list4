@@ -24,6 +24,8 @@ type AwaitingLevel = {
 
 const props = defineProps<{ level: AwaitingLevel }>()
 
+const showThumbs = useShowThumbnails()
+
 /**
  * Whether the verification link is playable inline — YouTube, a Medal.tv clip
  * or a clip uploaded here. Anything else falls through to the link card below.
@@ -39,7 +41,19 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
+  <div class="relative">
+    <!-- The level's thumbnail, fading into the page, as on the main list. -->
+    <div v-if="showThumbs" class="absolute inset-x-0 top-0 h-[24rem] overflow-hidden pointer-events-none" aria-hidden="true">
+      <LevelThumbBg
+        :gd-id="level.gd_id"
+        :video-url="level.verification_url"
+        res="high"
+        priority
+        img-class="opacity-45 scale-105"
+        overlay-class="bg-gradient-to-b from-zinc-950/20 via-zinc-950/70 to-zinc-950"
+      />
+    </div>
+  <div class="relative px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6">
       <p class="text-sm font-medium text-sky-300">Awaiting placement</p>
       <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
@@ -147,5 +161,6 @@ const tagList = computed(() => {
       <h3 class="text-sm font-semibold text-zinc-200 mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>
+  </div>
   </div>
 </template>

@@ -105,7 +105,7 @@ async function sendWindow(db: DatabaseSync, hook: Hook, w: Window): Promise<{ st
   // `loadChanges` treats `since` as inclusive; timestamps are whole seconds.
   const since = sqlTs(new Date(new Date(w.after.replace(' ', 'T') + 'Z').getTime() + 1000))
   const changes = loadChanges(db, { since, until: w.through, limit: 2000 }).reverse()
-  const opts = { tierEmoji: !!hook.tier_emoji, split: !!hook.split_long }
+  const opts = { tierEmoji: !!hook.tier_emoji, split: !!hook.split_long, through: w.through }
   const payloads = hook.kind === 'challenge_changes'
     ? buildChallengeEmbeds(w.title.replace('List changes', 'Challenge changes'), changes, opts)
     : buildDailyEmbeds(w.title, changes, opts)

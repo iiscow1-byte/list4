@@ -1,5 +1,14 @@
 <script setup lang="ts">
-type VoidRow = { position: number; name: string; demon_ranking: string | null; days: number | null }
+type VoidRow = {
+  position: number
+  name: string
+  demon_ranking: string | null
+  days: number | null
+  gd_id?: number | null
+  verification_url?: string | null
+}
+
+const showThumbs = useShowThumbnails()
 
 const props = defineProps<{ activePosition?: number | null }>()
 
@@ -87,19 +96,22 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="py-1">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position" class="list-item">
-          <NuxtLink
+          <LevelRow
             :to="{ path: `/void/${lvl.position}`, query: search ? { q: search } : {} }"
-            class="list-row group"
-            :class="lvl.position === activePosition ? 'bg-zinc-800/80 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
-            :aria-current="lvl.position === activePosition ? 'page' : undefined"
+            :rank="`#${lvl.position}`"
+            :name="lvl.name"
+            color="#a21caf"
+            :gd-id="lvl.gd_id"
+            :video-url="lvl.verification_url"
+            :thumbs="showThumbs"
+            :active="lvl.position === activePosition"
           >
-            <span class="list-row-strip bg-fuchsia-500/70" />
-            <span class="list-row-rank" :class="lvl.position === activePosition ? 'text-fuchsia-300' : 'text-zinc-500'">#{{ lvl.position }}</span>
-            <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="lvl.days != null" class="ml-2 shrink-0 text-xs tabular-nums text-zinc-500" :title="`${lvl.days} days in the void`">{{ lvl.days.toLocaleString() }}d</span>
-          </NuxtLink>
+            <template v-if="lvl.days != null" #trailing>
+              <span class="text-[11px] tabular-nums text-zinc-400" :title="`${lvl.days} days in the void`">{{ lvl.days.toLocaleString() }}d</span>
+            </template>
+          </LevelRow>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">No levels match.</li>
       </ul>

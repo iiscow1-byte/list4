@@ -4,11 +4,24 @@ export type WebhookKind = 'changes' | 'leaderboard' | 'level_status' | 'challeng
 
 // Discord only turns a link into a link when it has a scheme.
 const _rawUrl = (process.env.SITE_URL ?? '').replace(/\/+$/, '')
-const SITE_URL = _rawUrl ? (/^https?:\/\//.test(_rawUrl) ? _rawUrl : `https://${_rawUrl}`) : ''
+export const SITE_URL = _rawUrl ? (/^https?:\/\//.test(_rawUrl) ? _rawUrl : `https://${_rawUrl}`) : ''
 const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:(?:ptb|canary)\.)?(?:discord|discordapp)\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+\/?$/
 
-const ACCENT = 0x06b6d4
-const CHALLENGE = 0xf59e0b
+const SITE_NAME = 'All Levels List'
+
+/** Embed colours, one per kind of news. */
+export const COLORS = {
+  accent: 0x22d3ee,
+  challenge: 0xf59e0b,
+  up: 0x34d399,
+  down: 0xf87171,
+  added: 0x38bdf8,
+  removed: 0x71717a,
+  record: 0x22c55e,
+  verification: 0xfacc15,
+  awaiting: 0x38bdf8,
+  void: 0xa855f7,
+} as const
 
 export function isValidDiscordWebhook(url: string): boolean {
   return DISCORD_WEBHOOK_PATTERN.test(url.trim())
@@ -21,6 +34,34 @@ export function isValidDiscordWebhook(url: string): boolean {
  */
 export function escapeMarkdown(s: string): string {
   return s.replace(/([\\*_~`|[\]<>])/g, '\\$1')
+}
+
+const fmt = (n: number) => n.toLocaleString('en-US')
+
+// ---------------------------------------------------------------- branding
+
+/** The site's name and icon, at the top of a post. */
+export function siteAuthor(name: string = SITE_NAME, url?: string | null) {
+  return {
+    name: name.slice(0, 256),
+    url: (url ?? SITE_URL) || undefined,
+    icon_url: SITE_URL ? `${SITE_URL}/icon-180.png` : undefined,
+  }
+}
+
+/** The site's name and icon, at the foot of a post. */
+export function siteFooter(text: string = SITE_NAME) {
+  return {
+    text: text.slice(0, 2048),
+    icon_url: SITE_URL ? `${SITE_URL}/icon-180.png` : undefined,
+  }
+}
+
+/** The level's community thumbnail, for an embed's corner. */
+export function levelThumbnail(gdId: number | null | undefined) {
+  return gdId && Number.isFinite(Number(gdId))
+    ? { url: `https://levelthumbs.prevter.me/thumbnail/${gdId}/small` }
+    : undefined
 }
 
 /**
@@ -48,110 +89,188 @@ function tierEmoji(tier: string | null): string {
   return t ? `:tier${t[1]!.padStart(2, '0')}:` : ''
 }
 
-/** Discord's embed description limit, less room for a "(continued)" heading. */
+// ---------------------------------------------------------------- the daily digest
+
+/** Discord's limits: 4096 per description, 6000 per message, 10 embeds. */
 const DESCRIPTION_LIMIT = 3900
+const MESSAGE_LIMIT = 5800
+const MAX_EMBEDS = 10
+/** Lines per section when not sending everything. */
+const PREVIEW_LINES = 12
 
 /**
- * Split lines into embed-sized pages on line boundaries. A section heading
- * (`**Moved up**`) is repeated at the top of a page that continues it.
+ * Split lines into embed-sized pages on line boundaries.
  */
 export function paginateLines(lines: string[], limit = DESCRIPTION_LIMIT): string[] {
   const pages: string[] = []
   let current: string[] = []
   let length = 0
-  let heading: string | null = null
-  const flush = () => {
-    const text = current.join('\n').trim()
-    if (text) pages.push(text)
-    current = []
-    length = 0
-  }
   for (const line of lines) {
-    if (line.startsWith('**') && line.endsWith('**')) heading = line
     if (length + line.length + 1 > limit && current.length) {
-      flush()
-      if (heading && heading !== line) {
-        const cont = `${heading.slice(0, -2)} (continued)**`
-        current.push(cont)
-        length += cont.length + 1
-      }
+      pages.push(current.join('\n'))
+      current = []
+      length = 0
     }
     current.push(line)
     length += line.length + 1
   }
-  flush()
+  if (current.length) pages.push(current.join('\n'))
   return pages
 }
 
 type DigestOptions = {
   /** Show `:tierNN:` emoji next to each level (the server needs those emoji). */
   tierEmoji?: boolean
-  /** Send every page instead of the first one with a note. */
+  /** Send every change across as many messages as it takes, instead of a preview. */
   split?: boolean
+  /** The end of the period, for the post's timestamp. */
+  through?: string
 }
 
-type Payload = { embeds: unknown[]; allowed_mentions: { parse: never[] } }
+type Embed = Record<string, unknown>
+type Payload = { embeds: Embed[]; allowed_mentions: { parse: never[] } }
 
-/** `#N` on the main list, `Ch. #N` on the challenge digest. */
+/** `#N` on the main list, `Challenge #N` on the challenge digest. */
 type Numbering = {
-  to: (c: Change) => string
-  from: (c: Change) => string
+  label: string
+  to: (c: Change) => number | null
+  from: (c: Change) => number | null
 }
 
 const MAIN_NUMBERS: Numbering = {
-  to: (c) => `#${c.to_position}`,
-  from: (c) => `#${c.from_position ?? c.to_position}`,
+  label: '#',
+  to: (c) => c.to_position,
+  from: (c) => c.from_position,
 }
 
 const CHALLENGE_NUMBERS: Numbering = {
-  to: (c) => (c.challenge_rank != null ? `Ch. #${c.challenge_rank}` : `#${c.to_position}`),
-  from: (c) => (c.from_challenge_rank != null ? `Ch. #${c.from_challenge_rank}` : `#${c.from_position ?? c.to_position}`),
+  label: 'Ch. #',
+  to: (c) => c.challenge_rank ?? c.to_position,
+  from: (c) => c.from_challenge_rank ?? c.from_position,
 }
 
-function digestLines(changes: Change[], n: Numbering, opts: DigestOptions): string[] {
-  const added = changes.filter((c) => c.kind === 'add')
-  const up = changes.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position < c.from_position)
-  const down = changes.filter((c) => c.kind === 'move' && c.from_position != null && c.to_position > c.from_position)
-  const removed = changes.filter((c) => c.kind === 'remove')
+type Section = { key: 'up' | 'down' | 'added' | 'removed'; title: string; color: number; lines: string[] }
+
+function sections(changes: Change[], n: Numbering, opts: DigestOptions): Section[] {
+  const num = (v: number | null) => (v != null ? `${n.label}${fmt(v)}` : '?')
   const emoji = (c: Change) => {
     const e = opts.tierEmoji ? tierEmoji(c.level_gddl_tier) : ''
     return e ? ` ${e}` : ''
   }
+  const byRank = (a: Change, b: Change) => (n.to(a) ?? 0) - (n.to(b) ?? 0)
+  const diff = (c: Change) => Math.abs((n.from(c) ?? 0) - (n.to(c) ?? 0))
 
-  const lines: string[] = []
-  const section = (title: string, rows: Change[], line: (c: Change) => string) => {
-    if (!rows.length) return
-    if (lines.length) lines.push('')
-    lines.push(`**${title}**`)
-    for (const c of [...rows].sort((a, b) => a.to_position - b.to_position)) lines.push(line(c))
-  }
-  section('Added', added, (c) => `\`${n.to(c)}\` ${levelRef(c)}${emoji(c)}${c.level_gddl_tier && !opts.tierEmoji ? ` · ${c.level_gddl_tier}` : ''}`)
-  section('Moved up', up, (c) => `\`${n.to(c)}\` ${levelRef(c)}${emoji(c)} ↑ from ${n.from(c)}`)
-  section('Moved down', down, (c) => `\`${n.to(c)}\` ${levelRef(c)}${emoji(c)} ↓ from ${n.from(c)}`)
-  section('Removed', removed, (c) => `~~${escapeMarkdown(c.level_name)}~~ (was ${n.from(c)})`)
-  return lines
+  const up = changes.filter((c) => c.kind === 'move' && (n.from(c) ?? 0) > (n.to(c) ?? 0)).sort(byRank)
+  const down = changes.filter((c) => c.kind === 'move' && (n.from(c) ?? 0) < (n.to(c) ?? 0)).sort(byRank)
+  const added = changes.filter((c) => c.kind === 'add').sort(byRank)
+  const removed = changes.filter((c) => c.kind === 'remove').sort((a, b) => (n.from(a) ?? n.to(a) ?? 0) - (n.from(b) ?? n.to(b) ?? 0))
+
+  const out: Section[] = []
+  if (up.length) out.push({
+    key: 'up', title: `▲ Moved up · ${fmt(up.length)}`, color: COLORS.up,
+    lines: up.map((c) => `\`${num(n.to(c))}\` ${levelRef(c)}${emoji(c)} · up ${fmt(diff(c))} from ${num(n.from(c))}`),
+  })
+  if (down.length) out.push({
+    key: 'down', title: `▼ Moved down · ${fmt(down.length)}`, color: COLORS.down,
+    lines: down.map((c) => `\`${num(n.to(c))}\` ${levelRef(c)}${emoji(c)} · down ${fmt(diff(c))} from ${num(n.from(c))}`),
+  })
+  if (added.length) out.push({
+    key: 'added', title: `＋ Added · ${fmt(added.length)}`, color: COLORS.added,
+    lines: added.map((c) => `\`${num(n.to(c))}\` ${levelRef(c)}${emoji(c)}${!opts.tierEmoji && c.level_gddl_tier ? ` · ${c.level_gddl_tier}` : ''}`),
+  })
+  if (removed.length) out.push({
+    key: 'removed', title: `✕ Removed · ${fmt(removed.length)}`, color: COLORS.removed,
+    lines: removed.map((c) => `~~${escapeMarkdown(c.level_name)}~~ · was ${num(n.from(c) ?? n.to(c))}`),
+  })
+  return out
+}
+
+function embedLength(e: Embed): number {
+  const s = (v: unknown) => (typeof v === 'string' ? v.length : 0)
+  const author = e.author as { name?: string } | undefined
+  const footer = e.footer as { text?: string } | undefined
+  return s(e.title) + s(e.description) + s(author?.name) + s(footer?.text)
+}
+
+/**
+ * The level to show in the header's corner: the highest one added, or else
+ * the highest one that moved.
+ */
+function headlineLevel(changes: Change[], n: Numbering): Change | undefined {
+  const pick = (kind: Change['kind']) => changes
+    .filter((c) => c.kind === kind && c.level_gd_id)
+    .sort((a, b) => (n.to(a) ?? 0) - (n.to(b) ?? 0))[0]
+  return pick('add') ?? pick('move')
 }
 
 function digestPayloads(title: string, changes: Change[], n: Numbering, color: number, opts: DigestOptions): Payload[] {
   if (!changes.length) return []
-  const pages = paginateLines(digestLines(changes, n, opts))
-  if (!pages.length) return []
-  const count = `${changes.length} change${changes.length === 1 ? '' : 's'}`
-  const url = SITE_URL ? `${SITE_URL}/changelog` : undefined
-  const shown = opts.split ? pages : pages.slice(0, 1)
-  return shown.map((description, i) => {
-    const last = i === shown.length - 1
-    const more = !opts.split && pages.length > 1 && last
-    return {
-      embeds: [{
-        title: shown.length > 1 ? `${title} (${i + 1}/${shown.length})` : title,
-        url,
-        description: more ? `${description}\n\n…and more on the changelog.` : description,
-        color,
-        footer: { text: last ? count : `${count} · continued` },
-      }],
-      allowed_mentions: { parse: [] },
+  const secs = sections(changes, n, opts)
+  if (!secs.length) return []
+  const changelogUrl = SITE_URL ? `${SITE_URL}/changelog` : undefined
+  const timestamp = opts.through ? new Date(`${opts.through.replace(' ', 'T')}Z`).toISOString() : new Date().toISOString()
+  const count = `${fmt(changes.length)} change${changes.length === 1 ? '' : 's'}`
+
+  const summary = secs.map((s) => s.title.replace(' · ', ' ')).join('   ')
+  const headline = headlineLevel(changes, n)
+  const header: Embed = {
+    author: siteAuthor(),
+    title: title.slice(0, 256),
+    url: changelogUrl,
+    description: summary,
+    color,
+    thumbnail: levelThumbnail(headline?.level_gd_id ?? null),
+  }
+
+  // One embed per section page. In preview mode each section is cut to its
+  // first lines with a pointer to the rest.
+  const bodies: Embed[] = []
+  for (const s of secs) {
+    let lines = s.lines
+    if (!opts.split && lines.length > PREVIEW_LINES) {
+      const rest = lines.length - PREVIEW_LINES
+      lines = [...lines.slice(0, PREVIEW_LINES), changelogUrl ? `[…and ${fmt(rest)} more on the changelog](${changelogUrl})` : `…and ${fmt(rest)} more`]
     }
+    const pages = paginateLines(lines)
+    pages.forEach((description, i) => {
+      bodies.push({
+        title: i === 0 ? s.title : `${s.title} (continued)`,
+        description,
+        color: s.color,
+      })
+    })
+  }
+
+  // Pack into messages within Discord's limits; the header leads the first.
+  const messages: Embed[][] = [[header]]
+  let used = embedLength(header)
+  for (const b of bodies) {
+    const len = embedLength(b)
+    const cur = messages[messages.length - 1]!
+    if (cur.length >= MAX_EMBEDS || used + len > MESSAGE_LIMIT) {
+      messages.push([b])
+      used = len
+    } else {
+      cur.push(b)
+      used += len
+    }
+  }
+
+  // In preview mode only the first message goes out; anything that didn't fit
+  // in it is summed up in its last embed.
+  let out = messages
+  if (!opts.split && messages.length > 1) {
+    out = [messages[0]!]
+    const left = messages.slice(1).flat().length
+    const last = out[0]![out[0]!.length - 1]!
+    last.description = `${String(last.description ?? '')}\n\n${changelogUrl ? `[More on the changelog](${changelogUrl})` : 'More on the changelog'} (${left} more section${left === 1 ? '' : 's'})`.slice(0, 4096)
+  }
+
+  return out.map((embeds, i) => {
+    const last = embeds[embeds.length - 1]!
+    last.footer = siteFooter(out.length > 1 ? `${count} · part ${i + 1} of ${out.length}` : count)
+    last.timestamp = timestamp
+    return { embeds, allowed_mentions: { parse: [] } }
   })
 }
 
@@ -162,41 +281,61 @@ export function dayLabel(ymd: string): string {
 }
 
 export function buildDailyEmbeds(title: string, changes: Change[], opts: DigestOptions = {}): Payload[] {
-  return digestPayloads(title, changes, MAIN_NUMBERS, ACCENT, opts)
+  return digestPayloads(title, changes, MAIN_NUMBERS, COLORS.accent, opts)
 }
 
 export function buildChallengeEmbeds(title: string, changes: Change[], opts: DigestOptions = {}): Payload[] {
-  return digestPayloads(title, changes.filter((c) => c.level_rated === 'Challenge'), CHALLENGE_NUMBERS, CHALLENGE, opts)
+  return digestPayloads(title, changes.filter((c) => c.level_rated === 'Challenge'), CHALLENGE_NUMBERS, COLORS.challenge, opts)
 }
+
+// ---------------------------------------------------------------- single events
 
 /** A record approval, for `leaderboard` webhooks. */
 export function buildLeaderboardEmbed(opts: {
   playerName: string
+  /** The player's account here, for the link and picture. */
+  playerUsername?: string | null
+  playerAvatarUrl?: string | null
   levelName: string
   levelPosition: number | null
   levelGdId: number | null
+  levelTier?: string | null
   levelPoints: number | null
   playerTotal: number | null
+  percent?: number | null
   videoUrl: string | null
   isVerification?: boolean
 }): Payload {
   const url = levelUrl({ level_gd_id: opts.levelGdId, level_position: opts.levelPosition })
-  const playerUrl = SITE_URL ? `${SITE_URL}/users/by-player/${encodeURIComponent(opts.playerName)}` : null
-  const player = playerUrl ? `[${escapeMarkdown(opts.playerName)}](${playerUrl})` : `**${escapeMarkdown(opts.playerName)}**`
-  const level = url ? `[${escapeMarkdown(opts.levelName)}](${url})` : `**${escapeMarkdown(opts.levelName)}**`
-  const verb = opts.isVerification ? 'verified' : 'beat'
+  const playerUrl = SITE_URL
+    ? (opts.playerUsername
+      ? `${SITE_URL}/users/${encodeURIComponent(opts.playerUsername)}`
+      : `${SITE_URL}/users/by-player/${encodeURIComponent(opts.playerName)}`)
+    : null
+  const progress = opts.percent != null && opts.percent < 100
+  // The player heads the post, so the title is what they did.
+  const action = opts.isVerification ? 'Verified' : progress ? `${opts.percent}% on` : 'Beat'
 
-  const lines = [`${player} ${verb} ${level}${opts.levelPosition ? ` (#${opts.levelPosition})` : ''}`]
-  if (opts.levelPoints != null) lines.push(`+${opts.levelPoints.toLocaleString('en-US')} points`)
-  if (opts.playerTotal != null) lines.push(`${opts.playerTotal.toLocaleString('en-US')} points total`)
-  if (!opts.isVerification && opts.videoUrl) lines.push(`[Video](${opts.videoUrl})`)
+  const fields: { name: string; value: string; inline: boolean }[] = []
+  if (opts.levelPosition) fields.push({ name: 'Placement', value: `#${fmt(opts.levelPosition)}`, inline: true })
+  if (opts.levelTier) fields.push({ name: 'Tier', value: opts.levelTier, inline: true })
+  if (opts.levelPoints != null && !progress) fields.push({ name: 'Points', value: `+${fmt(opts.levelPoints)}`, inline: true })
+  if (opts.playerTotal != null) fields.push({ name: 'Total points', value: fmt(opts.playerTotal), inline: true })
 
   return {
     embeds: [{
-      title: `${opts.playerName} ${verb} ${opts.levelName}`.slice(0, 256),
+      author: {
+        name: opts.playerName.slice(0, 256),
+        url: playerUrl ?? undefined,
+        icon_url: opts.playerAvatarUrl ?? (SITE_URL ? `${SITE_URL}/icon-180.png` : undefined),
+      },
+      title: `${action} ${opts.levelName}`.slice(0, 256),
       url: url ?? undefined,
-      description: lines.join('\n'),
-      color: 0x22c55e,
+      description: opts.videoUrl ? `[Watch the ${opts.isVerification ? 'verification' : 'run'}](${opts.videoUrl})` : undefined,
+      fields,
+      thumbnail: levelThumbnail(opts.levelGdId),
+      color: opts.isVerification ? COLORS.verification : COLORS.record,
+      footer: siteFooter('All Levels List · records'),
       timestamp: new Date().toISOString(),
     }],
     allowed_mentions: { parse: [] },
@@ -207,6 +346,7 @@ export function buildLeaderboardEmbed(opts: {
 export function buildLevelStatusEmbed(opts: {
   destination: 'awaiting' | 'void'
   levelName: string
+  gdId?: number | null
   gddlTier: string | null
   difficulty: string | null
   submitter: string | null
@@ -216,27 +356,63 @@ export function buildLevelStatusEmbed(opts: {
 }): Payload {
   const awaiting = opts.destination === 'awaiting'
   let url: string | undefined
+  let listUrl: string | undefined
   if (SITE_URL) {
-    if (awaiting) url = opts.awaitingId ? `${SITE_URL}/awaiting/${opts.awaitingId}` : `${SITE_URL}/awaiting`
-    else if (opts.voidPosition) url = `${SITE_URL}/void/${opts.voidPosition}`
+    listUrl = awaiting ? `${SITE_URL}/awaiting` : `${SITE_URL}/void`
+    if (awaiting) url = opts.awaitingId ? `${SITE_URL}/awaiting/${opts.awaitingId}` : listUrl
+    else url = opts.voidPosition ? `${SITE_URL}/void/${opts.voidPosition}` : listUrl
   }
-  const lines: string[] = []
-  if (opts.submitter) {
-    const who = SITE_URL
-      ? `[${escapeMarkdown(opts.submitter)}](${SITE_URL}/users/${encodeURIComponent(opts.submitter)})`
-      : `**${escapeMarkdown(opts.submitter)}**`
-    lines.push(`Submitted by ${who}`)
-  }
-  const meta = [opts.gddlTier, opts.difficulty].filter(Boolean)
-  if (meta.length) lines.push(meta.join(' · '))
+  const lines: string[] = [awaiting
+    ? 'Approved, and waiting for a place on the list.'
+    : 'On the void list until someone gives it a difficulty opinion.']
   if (opts.verificationUrl) lines.push(`[Verification](${opts.verificationUrl})`)
+
+  const fields: { name: string; value: string; inline: boolean }[] = []
+  if (opts.gddlTier) fields.push({ name: 'Tier', value: opts.gddlTier, inline: true })
+  if (opts.difficulty) fields.push({ name: 'Difficulty', value: opts.difficulty, inline: true })
+  if (opts.voidPosition && !awaiting) fields.push({ name: 'Void list', value: `#${fmt(opts.voidPosition)}`, inline: true })
+  if (opts.submitter) {
+    fields.push({
+      name: 'Submitted by',
+      value: SITE_URL
+        ? `[${escapeMarkdown(opts.submitter)}](${SITE_URL}/users/${encodeURIComponent(opts.submitter)})`
+        : escapeMarkdown(opts.submitter),
+      inline: true,
+    })
+  }
 
   return {
     embeds: [{
-      title: `${opts.levelName} → ${awaiting ? 'Awaiting placement' : 'Void list'}`.slice(0, 256),
+      author: siteAuthor(awaiting ? 'Awaiting placement' : 'Void list', listUrl),
+      title: opts.levelName.slice(0, 256),
       url,
-      description: lines.join('\n') || undefined,
-      color: awaiting ? 0x38bdf8 : 0xa855f7,
+      description: lines.join('\n'),
+      fields,
+      thumbnail: levelThumbnail(opts.gdId),
+      color: awaiting ? COLORS.awaiting : COLORS.void,
+      footer: siteFooter(),
+      timestamp: new Date().toISOString(),
+    }],
+    allowed_mentions: { parse: [] },
+  }
+}
+
+/** What a webhook will receive, for the "Send a test" button. */
+export function buildTestEmbed(kind: string): Payload {
+  const what: Record<string, string> = {
+    changes: 'A summary of every level added, moved or removed, once a day.',
+    challenge_changes: 'A summary of the challenge list changes, once a day.',
+    leaderboard: 'A post for every approved record.',
+    level_status: 'A post when a level is sent to Awaiting Placement or the void list.',
+  }
+  return {
+    embeds: [{
+      author: siteAuthor(),
+      title: 'This webhook works',
+      url: SITE_URL || undefined,
+      description: what[kind] ?? 'Posts from the All Levels List.',
+      color: COLORS.accent,
+      footer: siteFooter(),
       timestamp: new Date().toISOString(),
     }],
     allowed_mentions: { parse: [] },

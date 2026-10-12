@@ -13,6 +13,9 @@ const { state, PRESETS, setPreset, setOverride, reset, effectiveHex } = useTheme
  */
 const { locale, setLocale, t } = useLocale()
 
+/** Level thumbnails behind list rows and on level pages. */
+const showThumbs = useShowThumbnails()
+
 function pickLocale(code: LocaleCode) {
   setLocale(code)
   close()
@@ -103,6 +106,14 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
             <span class="truncate">{{ p.label }}</span>
           </button>
         </div>
+      </section>
+
+      <section>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm text-zinc-200">{{ t('Thumbnails') }}</span>
+          <ToggleSwitch v-model="showThumbs" :aria-label="t('Thumbnails')" />
+        </div>
+        <p class="mt-1 text-xs text-zinc-500">Level pictures in lists and on level pages.</p>
       </section>
 
       <section>

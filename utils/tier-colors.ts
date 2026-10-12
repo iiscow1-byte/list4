@@ -88,3 +88,11 @@ export function textOn(bg: string): string {
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
   return lum > 0.55 ? '#0a0a0a' : '#fafafa'
 }
+
+/** "Tier 24" as "T24" and "Subtier 4" as "S4", for a badge too small for the word. */
+export function shortTierLabel(tier: string | null | undefined): string | null {
+  if (!tier) return null
+  const m = tier.match(/^(Sub)?tier (\d{1,2})/i)
+  if (!m) return null
+  return `${m[1] ? 'S' : 'T'}${m[2]}`
+}

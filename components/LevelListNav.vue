@@ -4,12 +4,13 @@ import { tierColor } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
 
-type LevelRow = {
+type ListLevelRow = {
   position: number
   name: string
   difficulty: string | null
   points: number | null
   gddl_tier: string | null
+  id?: number
   gd_id?: number | null
   verification_url?: string | null
   gddl_tier_frac?: number | null
@@ -30,7 +31,7 @@ const props = defineProps<{
   pickedPositions?: number[]
   pickModeHint?: string
 }>()
-const emit = defineEmits<{ (e: 'pick', level: LevelRow): void }>()
+const emit = defineEmits<{ (e: 'pick', level: ListLevelRow): void }>()
 
 const route = useRoute()
 const router = useRouter()
@@ -144,9 +145,10 @@ const showTierInList = ref(false)
  * rebuilt list for a change that is pure presentation.
  */
 const showViews = useShowViews()
+const showThumbs = useShowThumbnails()
 
 
-function tierTextLabel(lvl: LevelRow): string | null {
+function tierTextLabel(lvl: ListLevelRow): string | null {
   if (!showTierInList.value) return null
   const tier = lvl.gddl_tier
   if (!tier) return null
@@ -256,7 +258,7 @@ function applyVariant(v: ListVariant) {
   }
 }
 
-function displayNum(lvl: LevelRow): string {
+function displayNum(lvl: ListLevelRow): string {
   if (listVariant.value === 'AREDL' && lvl.aredl_position != null) return `#${lvl.aredl_position}`
   if (listVariant.value === 'GDL' && lvl.gdl_position != null) return `#${lvl.gdl_position}`
   if (listVariant.value === 'CL' && lvl.challenge_list_position != null) return `#${lvl.challenge_list_position}`
@@ -362,7 +364,7 @@ const tagsDropdownActiveCount = computed(() => {
   return n
 })
 
-const items = ref<LevelRow[]>([])
+const items = ref<ListLevelRow[]>([])
 const total = ref(0)
 const challengeMode = ref(false)
 const nextPage = ref(1)
@@ -409,7 +411,7 @@ async function loadMore() {
   const ctrl = new AbortController()
   activeFetch = ctrl
   try {
-    const res = await $fetch<{ total: number; page: number; pageSize: number; items: LevelRow[]; challengeMode: boolean }>(
+    const res = await $fetch<{ total: number; page: number; pageSize: number; items: ListLevelRow[]; challengeMode: boolean }>(
       '/api/levels',
       { query: buildQuery(), signal: ctrl.signal },
     )
@@ -455,7 +457,7 @@ async function reloadFromStart() {
   activeFetch = ctrl
   loading.value = true
   try {
-    const res = await $fetch<{ total: number; items: LevelRow[]; challengeMode: boolean }>(
+    const res = await $fetch<{ total: number; items: ListLevelRow[]; challengeMode: boolean }>(
       '/api/levels',
       { query: { ...buildQuery(), page: 1 }, signal: ctrl.signal },
     )
@@ -560,7 +562,7 @@ const rowQuery = computed(() => ({
 
 // The first page goes through useAsyncData so the rows the server drew travel
 // with the page, rather than being fetched again before it can hydrate.
-type LevelsPage = { total: number; items: LevelRow[]; challengeMode: boolean }
+type LevelsPage = { total: number; items: ListLevelRow[]; challengeMode: boolean }
 const { data: firstPage } = await useAsyncData('level-nav-first-page', () =>
   $fetch<LevelsPage>('/api/levels', { query: { ...buildQuery(), page: 1 } }),
 )
@@ -1248,6 +1250,12 @@ watch(
                       Show view counts on level pages.
                     </span>
                   </label>
+                  <label class="flex items-start gap-2 cursor-pointer select-none">
+                    <input v-model="showThumbs" type="checkbox" class="mt-0.5 accent-accent" />
+                    <span class="text-[10px] text-zinc-500">
+                      Show level thumbnails in lists and on level pages.
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -1257,39 +1265,25 @@ watch(
     </Teleport>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="py-1">
+      <ul class="p-1.5 space-y-1">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position" class="nav-row">
-          <button
-            v-if="pickMode"
-            type="button"
-            class="row group"
-            :class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
-              ? 'bg-accent/15 text-zinc-50'
-              : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
-            @click="emit('pick', lvl)"
+          <LevelRow
+            :to="pickMode ? null : { path: `/levels/${lvl.position}`, query: rowQuery }"
+            :button="pickMode"
+            :rank="displayNum(lvl)"
+            :name="lvl.name"
+            :tier="lvl.gddl_tier"
+            :gd-id="lvl.gd_id"
+            :video-url="lvl.verification_url"
+            :thumbs="showThumbs"
+            :active="!pickMode && lvl.position === activePosition"
+            :selected="pickMode && (lvl.position === pickedPosition || !!props.pickedPositions?.includes(lvl.position))"
+            @select="emit('pick', lvl)"
           >
-            <span class="tier-strip" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
-            <span class="rank row-rank text-zinc-500">{{ displayNum(lvl) }}</span>
-            <span class="truncate flex-1 text-left">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="ml-2 text-xs text-zinc-500 tabular-nums shrink-0">{{ tierTextLabel(lvl) }}</span>
-          </button>
-          <NuxtLink
-            v-else
-            :to="{ path: `/levels/${lvl.position}`, query: rowQuery }"
-            class="row group"
-            :class="lvl.position === activePosition
-              ? 'bg-zinc-800/80 text-zinc-50'
-              : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
-            :aria-current="lvl.position === activePosition ? 'page' : undefined"
-          >
-            <span class="tier-strip" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
-            <span
-              class="rank row-rank"
-              :class="lvl.position === activePosition ? 'text-accent' : 'text-zinc-500 group-hover:text-zinc-300'"
-            >{{ displayNum(lvl) }}</span>
-            <span class="truncate flex-1">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="ml-2 text-xs text-zinc-500 tabular-nums shrink-0">{{ tierTextLabel(lvl) }}</span>
-          </NuxtLink>
+            <template v-if="tierTextLabel(lvl)" #trailing>
+              <span class="text-[11px] tabular-nums text-zinc-400">{{ tierTextLabel(lvl) }}</span>
+            </template>
+          </LevelRow>
         </li>
         <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">
           No levels match.
@@ -1307,16 +1301,7 @@ watch(
 <style scoped>
 .nav-row {
   content-visibility: auto;
-  contain-intrinsic-size: auto 36px;
-}
-.row {
-  @apply w-full h-9 flex items-center pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:bg-zinc-800;
-}
-.tier-strip {
-  @apply w-[3px] self-stretch my-1.5 rounded-r-full shrink-0 opacity-90;
-}
-.row-rank {
-  @apply w-[4.25rem] shrink-0 pr-3 text-right text-[13px];
+  contain-intrinsic-size: auto 40px;
 }
 .variant-row {
   @apply w-full text-left px-2.5 py-1.5 rounded-md text-sm flex flex-col hover:bg-zinc-800/70 transition-colors;

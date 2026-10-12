@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
@@ -32,6 +31,7 @@ const emit = defineEmits<{
   (e: 'confirm', v: ListLevel): void
 }>()
 
+const showThumbs = useShowThumbnails()
 const COMPARE_PAGE_SIZE = 500
 const RATINGS = ['Challenge', 'Unrated', 'Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'] as const
 
@@ -374,24 +374,23 @@ function confirm() {
             <span v-else-if="compareItems.length && !compareTopDone">↑ scroll for more</span>
           </div>
 
-          <ul v-if="compareItems.length" class="divide-y divide-zinc-900/60">
-            <li v-for="lvl in compareItems" :key="lvl.position" :data-pos="lvl.position">
-              <button
-                type="button"
-                class="w-full text-left flex items-center gap-2 pr-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent/60"
-                :style="comparePicked?.position === lvl.position
-                  ? { backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }
-                  : undefined"
-                :class="comparePicked?.position === lvl.position ? '' : 'text-zinc-300 hover:bg-zinc-900/70'"
-                @click="pickCompareItem(lvl)"
+          <ul v-if="compareItems.length" class="p-1.5 space-y-1">
+            <li v-for="lvl in compareItems" :key="lvl.position" :data-pos="lvl.position" class="list-item">
+              <LevelRow
+                button
+                :rank="`#${lvl.position}`"
+                :name="lvl.name"
+                :tier="lvl.gddl_tier"
+                :gd-id="lvl.gd_id"
+                :video-url="lvl.verification_url"
+                :thumbs="showThumbs"
+                :selected="comparePicked?.position === lvl.position"
+                @select="pickCompareItem(lvl)"
               >
-                <span
-                  class="text-[11px] tabular-nums px-2 py-1 w-14 shrink-0 text-center font-medium"
-                  :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-                >#{{ lvl.sheet_placement ?? lvl.position }}</span>
-                <span class="truncate flex-1 min-w-0">{{ lvl.name }}</span>
-                <span v-if="lvl.gddl_tier" class="text-[10px] opacity-70 shrink-0">{{ lvl.gddl_tier }}</span>
-              </button>
+                <template v-if="lvl.gddl_tier" #trailing>
+                  <span class="text-[11px] text-zinc-400">{{ lvl.gddl_tier }}</span>
+                </template>
+              </LevelRow>
             </li>
           </ul>
           <div v-else-if="compareLoading" class="px-3 py-6 text-xs text-zinc-500 text-center">loading…</div>

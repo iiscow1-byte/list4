@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { tierColor } from '~/utils/tier-colors'
 
 /** The social home: what your follows are doing, plus site-wide activity. */
 type Community = {
@@ -28,6 +27,7 @@ const { data: meRes } = useCurrentUser()
 const me = computed(() => meRes.value?.account ?? null)
 
 const { data: community } = await useFetch<Community>('/api/community')
+const showThumbs = useShowThumbnails()
 
 /**
  * The hub has two halves: what people have done, and what they are saying.
@@ -341,14 +341,20 @@ useHead({ title: 'Community — All Levels List' })
             <h2 class="section-title">Newly added</h2>
             <NuxtLink to="/changelog" class="text-xs text-zinc-500 hover:text-accent transition-colors">Changelog</NuxtLink>
           </div>
-          <ul class="card py-1">
+          <ul class="card p-1.5 space-y-1">
             <li v-for="l in community.newLevels" :key="l.position">
-              <NuxtLink :to="`/levels/${l.position}`" class="list-row text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50">
-                <span class="list-row-strip" :style="{ backgroundColor: tierColor(l.gddl_tier) }" />
-                <span class="list-row-rank text-zinc-500">#{{ l.position }}</span>
-                <span class="truncate flex-1">{{ l.name }}</span>
-                <span class="ml-2 shrink-0 text-xs text-zinc-500 tabular-nums">{{ relative(l.changed_at) }}</span>
-              </NuxtLink>
+              <LevelRow
+                :to="`/levels/${l.position}`"
+                :rank="`#${l.position}`"
+                :name="l.name"
+                :tier="l.gddl_tier"
+                :gd-id="l.gd_id"
+                :thumbs="showThumbs"
+              >
+                <template #trailing>
+                  <span class="text-xs text-zinc-400 tabular-nums">{{ relative(l.changed_at) }}</span>
+                </template>
+              </LevelRow>
             </li>
           </ul>
         </section>

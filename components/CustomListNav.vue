@@ -135,6 +135,9 @@ function tierHeadingFor(item: CustomItem) {
  * off the screen. `scale` keeps every row one line and buys the space back from
  * the type size instead, which suits a list that would rather stay dense.
  */
+/** The visitor's thumbnail setting; the list's own setting can still turn them off. */
+const showThumbs = useShowThumbnails()
+
 const nameClass = computed(() => {
   switch (props.nameDisplay) {
     case 'wrap': return 'break-words line-clamp-2 leading-snug'
@@ -341,97 +344,70 @@ async function remove(item: CustomItem) {
             aria-hidden="true"
           />
 
-          <NuxtLink
+          <LevelRow
             :to="rowHref(lvl.rank)"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2 text-sm rounded-lg group transition-all"
+            :name="lvl.name"
+            :color="colorOf(lvl)"
+            :gd-id="lvl.gd_id"
+            :video-url="lvl.verification_url"
+            :thumbs="showThumbnails !== false && showThumbs"
+            :active="lvl.id === activeId"
+            :compact="compact"
+            :name-class="nameClass"
             :class="[
-              compact ? 'py-1' : 'py-1.5',
-              lvl.id === activeId
-                ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'
-                : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50',
               dragId === lvl.id ? 'opacity-40' : '',
               canReorder ? 'cursor-grab active:cursor-grabbing' : '',
             ]"
           >
-            <LevelThumbBg
-              v-if="showThumbnails !== false"
-              :gd-id="lvl.gd_id"
-              :video-url="lvl.verification_url"
-              res="small"
-              :img-class="lvl.id === activeId ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
-            />
-
-            <!-- Rank: a badge normally, an input while editing -->
-            <input
-              v-if="editing && lvl.id in rankDraft"
-              v-model="rankDraft[lvl.id]"
-              type="number"
-              min="1"
-              :max="items.length"
-              class="relative w-14 shrink-0 text-center text-[11px] tabular-nums rounded-md border border-accent bg-zinc-900 py-1 focus:outline-none"
-              @click.prevent.stop
-              @keydown.enter.prevent="commitRank(lvl)"
-              @keydown.esc.prevent="delete rankDraft[lvl.id]"
-              @blur="commitRank(lvl)"
-            />
-            <span
-              v-else
-              class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
-              :class="editing && !followAllOrder ? 'cursor-text ring-1 ring-inset ring-white/20' : ''"
-              :style="{ backgroundColor: colorOf(lvl), color: textOn(colorOf(lvl)) }"
-              :title="editing && !followAllOrder ? 'Click to type a rank' : undefined"
-              @click.prevent.stop="editing && !followAllOrder && startRankEdit(lvl)"
-            >{{ lvl.rank }}</span>
-
-            <span class="relative flex-1 min-w-0">
-              <!-- `title` regardless of mode: even wrapped, a long enough name
-                   can still be cut, and hovering is the cheapest way to be sure
-                   which level a row is. -->
+            <!-- The rank: a badge, or an input while it is being typed. -->
+            <template #rank>
+              <input
+                v-if="editing && lvl.id in rankDraft"
+                v-model="rankDraft[lvl.id]"
+                type="number"
+                min="1"
+                :max="items.length"
+                class="rank-pill border border-accent bg-zinc-900 text-zinc-100 focus:outline-none"
+                @click.prevent.stop
+                @keydown.enter.prevent="commitRank(lvl)"
+                @keydown.esc.prevent="delete rankDraft[lvl.id]"
+                @blur="commitRank(lvl)"
+              />
               <span
-                class="block font-medium drop-shadow-sm"
-                :class="nameClass"
-                :title="lvl.name"
-              >{{ lvl.name }}</span>
-              <span
-                v-if="lvl.creator && !compact"
-                class="block truncate text-[10px] text-zinc-500"
-              >{{ lvl.creator }}</span>
-            </span>
+                v-else
+                class="rank-pill"
+                :class="editing && !followAllOrder ? 'cursor-text ring-1 ring-inset ring-white/20' : ''"
+                :style="{ backgroundColor: colorOf(lvl), color: textOn(colorOf(lvl)) }"
+                :title="editing && !followAllOrder ? 'Click to type a rank' : undefined"
+                @click.prevent.stop="editing && !followAllOrder && startRankEdit(lvl)"
+              >#{{ lvl.rank }}</span>
+            </template>
 
-            <!-- Marked a challenge by this list. A dot rather than the word in
-                 compact mode: the row is one line there and a five-letter chip
-                 would cost the level's name five letters. -->
-            <span
-              v-if="lvl.is_challenge"
-              class="relative shrink-0 text-amber-400/90"
-              :class="compact ? 'text-[10px] leading-none' : 'text-xs px-1 py-0.5 rounded border border-amber-900/60 bg-amber-950/40'"
-              title="Challenge"
-            >{{ compact ? '⚑' : 'CH' }}</span>
+            <template v-if="lvl.creator && !compact" #sub>{{ lvl.creator }}</template>
 
-            <span
-              v-if="showPoints !== false || (showRecords !== false && lvl.records.length)"
-              class="relative shrink-0 text-right"
-            >
+            <template v-if="lvl.is_challenge || showPoints !== false || (showRecords !== false && lvl.records.length) || editing" #trailing>
+              <!-- Marked a challenge by this list. A flag rather than the word in
+                   compact mode, where the name needs the room. -->
               <span
-                v-if="showPoints !== false"
-                class="block text-[11px] tabular-nums text-amber-300/90 font-medium"
-              >{{ lvl.points }}</span>
-              <span
-                v-if="showRecords !== false && lvl.records.length"
-                class="block text-[9px] tabular-nums text-zinc-600"
-              >{{ lvl.records.length }} rec</span>
-            </span>
-
-            <button
-              v-if="editing"
-              type="button"
-              class="relative shrink-0 text-zinc-600 hover:text-red-400 transition-colors leading-none px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-              aria-label="Remove from list"
-              title="Remove from list"
-              @click.prevent.stop="remove(lvl)"
-            >✕</button>
-          </NuxtLink>
+                v-if="lvl.is_challenge"
+                class="shrink-0 text-amber-400/90"
+                :class="compact ? 'text-[10px] leading-none' : 'text-xs px-1 py-0.5 rounded border border-amber-900/60 bg-amber-950/40'"
+                title="Challenge"
+              >{{ compact ? '⚑' : 'CH' }}</span>
+              <span v-if="showPoints !== false || (showRecords !== false && lvl.records.length)" class="text-right">
+                <span v-if="showPoints !== false" class="block text-[11px] tabular-nums text-amber-300/90 font-medium">{{ lvl.points }}</span>
+                <span v-if="showRecords !== false && lvl.records.length" class="block text-[9px] tabular-nums text-zinc-500">{{ lvl.records.length }} rec</span>
+              </span>
+              <button
+                v-if="editing"
+                type="button"
+                class="text-zinc-500 hover:text-red-400 transition-colors leading-none px-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+                aria-label="Remove from list"
+                title="Remove from list"
+                @click.prevent.stop="remove(lvl)"
+              >✕</button>
+            </template>
+          </LevelRow>
         </li>
         </template>
         <li v-if="!filtered.length" class="px-3 py-8 text-xs text-zinc-500 text-center">

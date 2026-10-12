@@ -3,6 +3,7 @@ import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { escapeMarkdown } from '~/server/utils/discord'
 
 /**
  * Approve or reject a record on a custom list. Restricted to the list's owner
@@ -29,12 +30,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const record = db.prepare(
-    `SELECT r.id, r.submitted_by, r.player_name, r.percent, i.name AS level_name
+    `SELECT r.id, r.submitted_by, r.player_name, r.percent, i.name AS level_name, i.gd_id
        FROM custom_list_records r
        JOIN custom_list_items i ON i.id = r.item_id
       WHERE r.id = ? AND r.list_id = ?`,
   ).get(recordId, list.id) as
-    { id: number; submitted_by: number | null; player_name: string; percent: number; level_name: string } | undefined
+    { id: number; submitted_by: number | null; player_name: string; percent: number; level_name: string; gd_id: number | null } | undefined
   if (!record) throw createError({ statusCode: 404, statusMessage: 'Record not found' })
 
   const reason = String(body?.reason ?? '').trim().slice(0, 500) || null
@@ -61,8 +62,9 @@ export default defineEventHandler(async (event) => {
 
   if (action === 'approve') {
     notifyListWebhooks(db, list.id, 'records', {
-      title: `Record accepted on ${list.title}`,
-      description: `**${record.player_name}** — ${record.level_name} at ${record.percent}%`,
+      title: `Record accepted: ${record.level_name}`,
+      description: `**${escapeMarkdown(record.player_name)}** at ${record.percent}%`,
+      gdId: record.gd_id,
     }).catch(() => {})
   }
 

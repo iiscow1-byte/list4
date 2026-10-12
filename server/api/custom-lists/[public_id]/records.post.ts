@@ -2,6 +2,7 @@ import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
 import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { escapeMarkdown } from '~/server/utils/discord'
 import { assertClean } from '~/server/utils/profanity-guard'
 
 /**
@@ -44,9 +45,9 @@ export default defineEventHandler(async (event) => {
 
   const itemId = Number(body?.item_id)
   const item = db.prepare(
-    `SELECT id, COALESCE(ov_name, name) AS name, percent_to_qualify
+    `SELECT id, COALESCE(ov_name, name) AS name, percent_to_qualify, gd_id
        FROM custom_list_items WHERE id = ? AND list_id = ?`,
-  ).get(itemId, list.id) as { id: number; name: string; percent_to_qualify: number } | undefined
+  ).get(itemId, list.id) as { id: number; name: string; percent_to_qualify: number; gd_id: number | null } | undefined
   if (!item) throw createError({ statusCode: 400, statusMessage: 'That level is not on this list.' })
 
   const percent = Math.round(Number(body?.percent))
@@ -109,8 +110,9 @@ export default defineEventHandler(async (event) => {
       related_id: list.id,
     })
     notifyListWebhooks(db, list.id, 'records', {
-      title: `New record on ${list.title}`,
-      description: `**${playerName}** — ${item.name} at ${percent}%`,
+      title: `New record: ${item.name}`,
+      description: `**${escapeMarkdown(playerName)}** at ${percent}%`,
+      gdId: item.gd_id,
     }).catch(() => {})
   }
 

@@ -27,6 +27,7 @@ export default defineEventHandler((event) => {
     level_position: c.level_position,
     level_name: c.level_name,
     level_gddl_tier: c.level_gddl_tier,
+    level_gd_id: c.level_gd_id,
     level_rated: c.level_rated,
     challenge_rank: c.challenge_rank,
     from_challenge_rank: c.from_challenge_rank,

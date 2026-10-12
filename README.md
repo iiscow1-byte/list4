@@ -108,6 +108,26 @@ every level below it "mismatch" by the same amount — 53,000 rows all saying on
 thing. Collapsing equal offsets into runs turns that into the handful of levels
 where the numbering actually moved. `?full=1` returns the per-level list anyway.
 
+## Level rows
+
+Every list of levels on the site draws its rows with `components/LevelRow.vue`:
+the main list, the void, awaiting and open verification lists, custom lists, the
+builder, the changelog, profiles, clans and the comparison drawer. A row is the
+rank badge in the level's tier colour, the name, and the level's thumbnail
+behind them. Whatever a list adds (a time, points, a challenge flag, buttons)
+goes in the row's slots, so a change to the row reaches every list at once.
+
+Thumbnails can be turned off from the palette menu in the header, or the list's
+display options (`composables/useShowThumbnails.ts`). That turns off the row
+pictures and the level-page hero everywhere. It is kept in the `als_thumbs`
+cookie rather than localStorage, so the server renders the visitor's choice and
+nothing flips after the page loads. A custom list's own "Level art on each row"
+setting still applies on top.
+
+In a row, the picture is at most 22rem wide at the right end and fades out to
+the left with a CSS mask: it fills a sidebar row, stays sharp in a wide list,
+and blends into whatever background the row is on.
+
 ## Level thumbnails
 
 Level rows and the level-page hero use community thumbnails from the
@@ -526,7 +546,28 @@ that was off for a while catches up at most two days, and a new webhook starts
 from the moment it is added.
 
 Leaderboard announcements are deduplicated per event in `discord_event_log` for a
-day, so approving the same record twice in a row doesn't announce it twice. Every post sends
+day, so approving the same record twice in a row doesn't announce it twice.
+
+What a post looks like (all built in `server/utils/discord.ts`):
+
+- **Daily changes**: a header embed with the site's name and icon, the day, the
+  counts, and the thumbnail of the highest level added (or moved). Then one
+  embed per section, each in its own colour: moved up, moved down, added,
+  removed. A move says how far it went (`#1,195 kowareta · up 5 from #1,200`).
+  Each section shows its first 12 lines and links to the changelog for the rest,
+  unless the webhook is set to send everything, in which case the sections are
+  split across as many messages as Discord's limits need (10 embeds and 6,000
+  characters a message).
+- **Records**: the player's name and their profile picture from their account
+  here (claimed, or the same username) at the top, "Beat Tidal Wave" as the
+  title, the video link, and the placement, tier, points and total as fields.
+- **Awaiting placement / void**: the level, its tier, difficulty and submitter,
+  with its thumbnail.
+- **Test**: the "Send a test" button posts a sample saying what the channel will
+  receive.
+
+Custom list webhooks (`server/utils/custom-list-webhooks.ts`) carry the list's
+own name, icon and colour, and the level's thumbnail. Every post sends
 `allowed_mentions: { parse: [] }`, so a level or player name can't ping anyone.
 
 Development servers don't post at all unless `LIST_DAILY_DISCORD=1` is set, so
@@ -1436,10 +1477,16 @@ itself constantly when nobody had moved anything. Those rows are deleted at boot
 (`initSchema`), `loadChanges` excludes the source outright, and the importer no
 longer writes them. A level on this list moves when someone moves it here.
 
-The comparison is still available where it belongs: the level page graph draws
-AREDL's ranks and the ALL's placements as two series **on separate axes** —
-AREDL runs 1…150ish and the ALL 1…54,000, so one shared axis rendered both
-useless. `aredl_position_history.all_position` keeps AREDL ranks converted to
+The comparison is still available where it belongs: the level page's
+**Placement history** (`components/PlacementHistory.vue`) shows this list or
+AREDL, one at a time, each on its own scale. AREDL runs 1…150ish and the ALL
+1…54,000, so one shared axis rendered both useless. It shows where the level is
+now, its highest and lowest, a chart you can read a rank off at any date, and a
+timeline of its moves. AREDL's `Other*` events (a shift because another level
+was placed or moved) are counted but hidden until asked for, since a level can
+have hundreds of them and only a handful of moves of its own. The chart is drawn
+in the browser only: it runs up to "now", which the server and the browser
+would disagree on. `aredl_position_history.all_position` keeps AREDL ranks converted to
 their ALL equivalent for reference, but nothing plots or places by it: the
 conversion uses *today's* anchor mapping, so an old AREDL rank would be drawn at
 a placement that list never had.
@@ -1568,7 +1615,8 @@ pages/about.vue                         intro, FAQ, stats, demonlists used
 components/SiteHeader.vue · SiteFooter.vue
 components/ListBuilder.vue              drag-and-drop custom list builder
 components/LevelThumbBg.vue             thumbnail backdrop for rows / heroes
-components/PositionHistoryChart.vue     placement-over-time step chart (inverted Y)
+components/LevelRow.vue                 one level in any list: badge, name, thumbnail
+components/PlacementHistory.vue         a level's placement history: summary, chart, timeline
 components/LevelListNav.vue             left 1/5: searchable scrollable list nav
 components/LevelDetail.vue              center 3/5: title, video link, tags, stats grid, metadata
 components/LevelRecords.vue             right 1/5: records

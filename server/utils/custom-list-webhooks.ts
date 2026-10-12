@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
+import { SITE_URL, levelThumbnail, siteFooter } from '~/server/utils/discord'
 
 /**
  * Per-list Discord webhooks. Distinct from the site-wide ones in
@@ -20,9 +21,17 @@ const COLUMN: Record<ListWebhookEvent, string> = {
 export type ListEmbed = {
   title: string
   description: string
-  /** Discord colour int; defaults to the site accent. */
+  /** Discord colour int; defaults to the list's own colour. */
   color?: number
   url?: string
+  /** The level the post is about, for its thumbnail. */
+  gdId?: number | null
+}
+
+/** "#22d3ee" as the integer Discord wants, or null. */
+function colorInt(hex: string | null | undefined): number | null {
+  const m = (hex ?? '').trim().match(/^#?([0-9a-f]{6})$/i)
+  return m ? parseInt(m[1]!, 16) : null
 }
 
 export async function notifyListWebhooks(
@@ -37,14 +46,26 @@ export async function notifyListWebhooks(
   ).all(listId) as { id: number; url: string }[]
   if (!hooks.length) return
 
+  // The list's own name, icon and colour head its posts.
+  const list = db.prepare(`SELECT title, public_id, icon_url, accent_color FROM custom_lists WHERE id = ?`).get(listId) as
+    { title: string; public_id: string; icon_url: string | null; accent_color: string | null } | undefined
+  const listUrl = list && SITE_URL ? `${SITE_URL}/lists/${list.public_id}` : undefined
+
   const payload = {
     // List names, level names and player names are user text; never ping.
     allowed_mentions: { parse: [] },
     embeds: [{
+      author: list ? {
+        name: list.title.slice(0, 256),
+        url: listUrl,
+        icon_url: list.icon_url && /^https:\/\//.test(list.icon_url) ? list.icon_url : undefined,
+      } : undefined,
       title: embed.title.slice(0, 256),
       description: embed.description.slice(0, 4000),
-      color: embed.color ?? 0xf4c430,
-      url: embed.url,
+      color: embed.color ?? colorInt(list?.accent_color) ?? 0xf4c430,
+      url: embed.url ?? listUrl,
+      thumbnail: levelThumbnail(embed.gdId),
+      footer: siteFooter('All Levels List · custom lists'),
       timestamp: new Date().toISOString(),
     }],
   }

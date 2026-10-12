@@ -42,6 +42,8 @@ const props = defineProps<{
   showDifficulty?: boolean
   showLevelLinks?: boolean
 }>()
+
+const showThumbs = useShowThumbnails()
 const emit = defineEmits<{ (e: 'changed'): void }>()
 
 /**
@@ -269,7 +271,7 @@ const label = 'text-xs text-zinc-500 font-medium'
        nested in the real one. -->
   <section v-if="item" class="relative min-h-0">
     <!-- Hero backdrop -->
-    <div class="absolute inset-x-0 top-0 h-[22rem] overflow-hidden pointer-events-none" aria-hidden="true">
+    <div v-if="showThumbs" class="absolute inset-x-0 top-0 h-[22rem] overflow-hidden pointer-events-none" aria-hidden="true">
       <LevelThumbBg
         :gd-id="item.gd_id"
         :video-url="item.verification_url"

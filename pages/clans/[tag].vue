@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
 import { hexToRgbTriplet } from '~/utils/custom-list-colors'
 import { listPercent } from '~/utils/list-progress'
 import { clanIconUrl, clanBannerUrl } from '~/utils/clan-images'
@@ -257,6 +256,7 @@ async function invite(person: Invitable) {
 }
 
 /** Only the levels list is long enough to want filtering. */
+const showThumbs = useShowThumbnails()
 const search = ref('')
 const shownCompletions = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -551,8 +551,9 @@ const shownCompletions = computed(() => {
             v-if="data.completions.length > 10"
             v-model="search"
             type="search"
-            placeholder="Level or member…"
-            class="w-44 rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1 text-xs placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            placeholder="Level or member"
+            aria-label="Find a level or member"
+            class="field field-sm w-44"
           />
         </div>
 
@@ -562,26 +563,23 @@ const shownCompletions = computed(() => {
         <p v-else-if="!shownCompletions.length" class="card px-6 py-8 text-center text-sm text-zinc-500">
           Nothing matches “{{ search.trim() }}”.
         </p>
-        <ul v-else class="card divide-y divide-zinc-900/70 overflow-hidden">
-          <li v-for="c in shownCompletions" :key="c.position" class="px-3 py-2 hover:bg-zinc-900/40 transition-colors">
-            <div class="flex items-center gap-3">
-              <span
-                class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded"
-                :style="{ backgroundColor: tierColor(c.gddl_tier), color: textOn(tierColor(c.gddl_tier)) }"
-                :title="c.gddl_tier ?? undefined"
-              >#{{ c.sheet_placement ?? c.position }}</span>
-              <NuxtLink :to="`/levels/${c.position}`" class="min-w-0 flex-1 group">
-                <span class="block truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">
-                  {{ c.name }}
-                  <span v-if="c.is_challenge" class="ml-1 text-xs text-amber-500/80">challenge</span>
-                </span>
-                <span class="block truncate text-[10px] text-zinc-600">{{ c.members.split(',').join(', ') }}</span>
-              </NuxtLink>
-              <span v-if="c.beaten_by > 1" class="shrink-0 text-[10px] tabular-nums text-zinc-500" :title="`${c.beaten_by} members have this`">
-                ×{{ c.beaten_by }}
-              </span>
-              <span class="shrink-0 tabular-nums text-xs text-amber-300 w-12 text-right">{{ c.points ?? '—' }}</span>
-            </div>
+        <ul v-else class="card p-1.5 space-y-1">
+          <li v-for="c in shownCompletions" :key="c.position" class="list-item">
+            <LevelRow
+              :to="`/levels/${c.position}`"
+              :rank="`#${c.position}`"
+              :name="c.name"
+              :tier="c.gddl_tier"
+              :gd-id="c.gd_id"
+              :thumbs="showThumbs"
+            >
+              <template #sub>{{ c.members.split(',').join(', ') }}</template>
+              <template #trailing>
+                <span v-if="c.is_challenge" class="text-xs text-amber-400">challenge</span>
+                <span v-if="c.beaten_by > 1" class="text-[11px] tabular-nums text-zinc-400" :title="`${c.beaten_by} members have this`">×{{ c.beaten_by }}</span>
+                <span class="tabular-nums text-xs text-amber-300 w-12 text-right">{{ c.points ?? '—' }}</span>
+              </template>
+            </LevelRow>
           </li>
         </ul>
       </main>

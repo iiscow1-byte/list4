@@ -101,6 +101,10 @@
   .rank-badge {
     @apply inline-flex items-center justify-center min-w-[2.5rem] h-8 px-2 rounded-md font-display text-sm font-semibold tabular-nums;
   }
+  /* The rank badge on a list row (LevelRow), coloured by tier. */
+  .rank-pill {
+    @apply relative w-14 shrink-0 rounded-md py-1 text-center text-[11px] font-semibold tabular-nums shadow-sm;
+  }
 
   /* A panel of content. */
   .card {
@@ -156,19 +160,10 @@
     @apply px-3 py-2;
   }
 
-  /* Rows in the list sidebars: a coloured strip, the rank, the name. */
+  /* A list row (LevelRow) can skip layout while it is off screen. */
   .list-item {
     content-visibility: auto;
-    contain-intrinsic-size: auto 36px;
-  }
-  .list-row {
-    @apply w-full h-9 flex items-center pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:bg-zinc-800;
-  }
-  .list-row-strip {
-    @apply w-[3px] self-stretch my-1.5 rounded-r-full shrink-0;
-  }
-  .list-row-rank {
-    @apply font-display font-semibold tabular-nums w-[4.25rem] shrink-0 pr-3 text-right text-[13px];
+    contain-intrinsic-size: auto 40px;
   }
 
   /* A joined row of buttons; see SegmentedControl. Scrolls sideways when a
