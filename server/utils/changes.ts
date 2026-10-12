@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { isChallengeSql } from './challenge-expr'
+import { isChallengeSql } from './challenge-expr.ts'
+import { getChallengeRankMap } from './challenge-rank.ts'
 
 /**
  * Record a level being added to the main list at `position`. Stored in
@@ -117,8 +118,6 @@ export type DayGroup = {
 //   3. GD API reports unrated (score 0) + Tiny/Short length + Tier 1+ on this list
 // Uses table aliases `l` (levels) and `c` (gd_info_cache).
 const IS_CHALLENGE_L = isChallengeSql('l', 'c')
-// Same expression for the correlated rank-counting subquery (aliases l2/c2).
-const IS_CHALLENGE_L2 = isChallengeSql('l2', 'c2')
 
 export function loadChanges(
   db: DatabaseSync,
@@ -135,15 +134,12 @@ export function loadChanges(
   const where = `WHERE ${conds.join(' AND ')}`
   const limit = Math.max(1, Math.min(opts.limit ?? 500, 2000))
 
-  // from/to are internal positions; the UI speaks the sheet's placements, so
-  // map each through whichever level currently sits at that position. Levels
-  // are ordered identically under both numberings, so this lands on the right
-  // neighbourhood even for historical rows.
+  // Positions are the printed placements, as they stood when the change was made.
   const rows = db.prepare(
     `SELECT h.level_id, h.from_position, h.to_position, h.changed_at, h.source,
-            (SELECT sheet_placement FROM levels WHERE position = h.from_position) AS from_placement,
-            (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
-            l.sheet_placement AS level_sheet_placement,
+            h.from_position AS from_placement,
+            h.to_position   AS to_placement,
+            l.position AS level_sheet_placement,
             l.position AS level_position, l.name AS level_name, l.gddl_tier AS level_gddl_tier,
             l.gd_id AS level_gd_id,
             CASE WHEN ${IS_CHALLENGE_L} THEN 'Challenge'
@@ -152,14 +148,7 @@ export function loadChanges(
                  WHEN l.rated IS NOT NULL AND l.rated NOT IN ('', 'Challenge') THEN l.rated
                  ELSE NULL
             END AS level_rated,
-            CASE WHEN ${IS_CHALLENGE_L}
-              THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= h.to_position)
-              ELSE NULL
-            END AS challenge_rank,
-            CASE WHEN ${IS_CHALLENGE_L} AND h.from_position IS NOT NULL
-              THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= h.from_position)
-              ELSE NULL
-            END AS from_challenge_rank,
+            CASE WHEN ${IS_CHALLENGE_L} THEN 1 ELSE 0 END AS is_challenge,
             a.username AS changed_by
        FROM position_history h
        JOIN levels   l ON l.id = h.level_id
@@ -182,10 +171,29 @@ export function loadChanges(
     level_gddl_tier: string | null
     level_gd_id: number | null
     level_rated: string | null
-    challenge_rank: number | null
-    from_challenge_rank: number | null
+    is_challenge: number
+    challenge_rank?: number | null
+    from_challenge_rank?: number | null
     changed_by: string | null
   }>
+
+  // A challenge's rank at a position is how many challenges sit at or above it.
+  // Answered from the cached ranking rather than by counting the list per row.
+  const challengePositions = [...getChallengeRankMap(db).keys()].sort((a, b) => a - b)
+  const challengesAtOrAbove = (pos: number) => {
+    let lo = 0
+    let hi = challengePositions.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (challengePositions[mid]! <= pos) lo = mid + 1
+      else hi = mid
+    }
+    return lo
+  }
+  for (const r of rows) {
+    r.challenge_rank = r.is_challenge ? challengesAtOrAbove(r.to_position) : null
+    r.from_challenge_rank = r.is_challenge && r.from_position != null ? challengesAtOrAbove(r.from_position) : null
+  }
 
   // Condense multiple same-day entries for the same level into one.
   // Groups are ordered: if a level was moved A→B then B→C on the same UTC day,
@@ -238,8 +246,8 @@ export function loadChanges(
       level_gddl_tier: r.level_gddl_tier,
       level_gd_id: r.level_gd_id ?? null,
       level_rated: r.level_rated,
-      challenge_rank: r.challenge_rank,
-      from_challenge_rank: r.from_challenge_rank,
+      challenge_rank: r.challenge_rank ?? null,
+      from_challenge_rank: r.from_challenge_rank ?? null,
       from_position: r.from_position,
       to_position: r.to_position,
       from_placement: r.from_placement ?? r.from_position,
@@ -298,9 +306,9 @@ export function loadChanges(
     // a removal is not a move, and drawing it as one would put an arrow on it.
     from_position: r.position,
     to_position: r.position,
-    from_placement: r.sheet_placement ?? r.position,
-    to_placement: r.sheet_placement ?? r.position,
-    level_sheet_placement: r.sheet_placement,
+    from_placement: r.position,
+    to_placement: r.position,
+    level_sheet_placement: r.position,
     changed_at: r.removed_at,
     changed_by: r.removed_by,
   }))
@@ -312,8 +320,8 @@ export function loadChanges(
 }
 
 /** Group an already-sorted (newest-first) change list by UTC date. */
-export function groupByDay(changes: Change[]): DayGroup[] {
-  const map = new Map<string, Change[]>()
+export function groupByDay<T extends { changed_at: string } = Change>(changes: T[]): { date: string; changes: T[] }[] {
+  const map = new Map<string, T[]>()
   for (const c of changes) {
     const date = c.changed_at.slice(0, 10) // YYYY-MM-DD
     let bucket = map.get(date)

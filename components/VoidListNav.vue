@@ -78,54 +78,33 @@ watch(
 
 <template>
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
-    <div class="p-3 border-b border-zinc-800 shrink-0">
-      <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="text-xs uppercase tracking-widest text-fuchsia-300 font-semibold">Void</span>
-        <span class="text-[10px] text-zinc-500 normal-case tracking-normal">— no difficulty opinion</span>
+    <div class="px-3 pt-3 pb-2.5 border-b border-zinc-800 shrink-0 space-y-2">
+      <div class="flex items-baseline gap-2">
+        <h2 class="font-display font-semibold text-zinc-50">Void list</h2>
+        <span class="ml-auto text-xs text-zinc-500 tabular-nums">{{ total.toLocaleString() }} levels</span>
       </div>
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Search…"
-        class="field field-sm text-xs"
-      />
+      <input v-model="search" type="search" placeholder="Find a level" aria-label="Find a level" class="field field-sm" />
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="p-1.5 space-y-1">
-        <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
+      <ul class="py-1">
+        <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position" class="list-item">
           <NuxtLink
             :to="{ path: `/void/${lvl.position}`, query: search ? { q: search } : {} }"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all"
-            :class="lvl.position === activePosition
-              ? 'ring-2 ring-inset ring-fuchsia-400 text-zinc-50 bg-zinc-900'
-              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
+            class="list-row group"
+            :class="lvl.position === activePosition ? 'bg-zinc-800/80 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
+            :aria-current="lvl.position === activePosition ? 'page' : undefined"
           >
-            <LevelThumbBg
-              :gd-id="lvl.gd_id"
-              :video-url="lvl.verification_url"
-              res="small"
-              :img-class="lvl.position === activePosition ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
-            />
-            <span class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm bg-zinc-900 text-fuchsia-300">
-              #{{ lvl.position }}
-            </span>
-            <span class="relative truncate flex-1 min-w-0 font-medium drop-shadow-sm">{{ lvl.name }}</span>
-            <span v-if="lvl.days != null" class="relative shrink-0 text-[10px] tabular-nums text-zinc-500">
-              {{ lvl.days.toLocaleString() }}d
-            </span>
+            <span class="list-row-strip bg-fuchsia-500/70" />
+            <span class="list-row-rank" :class="lvl.position === activePosition ? 'text-fuchsia-300' : 'text-zinc-500'">#{{ lvl.position }}</span>
+            <span class="truncate flex-1">{{ lvl.name }}</span>
+            <span v-if="lvl.days != null" class="ml-2 shrink-0 text-xs tabular-nums text-zinc-500" :title="`${lvl.days} days in the void`">{{ lvl.days.toLocaleString() }}d</span>
           </NuxtLink>
         </li>
-        <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">
-          No matches.
-        </li>
+        <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">No levels match.</li>
       </ul>
-
-      <div ref="sentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
-        <span v-if="loading">loading…</span>
-        <span v-else-if="done && items.length > 0">{{ total.toLocaleString() }} levels</span>
-        <span v-else>↓ scroll for more</span>
+      <div ref="sentinel" class="px-3 py-3 text-xs text-zinc-600 text-center">
+        <span v-if="loading">Loading…</span>
       </div>
     </div>
   </aside>

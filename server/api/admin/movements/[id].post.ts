@@ -1,10 +1,8 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
-import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
+import { afterListChange, moveLevel } from '~/server/utils/list-ops'
 
-const STASH = -1_000_000_000
-
+/** Approve or reject a suggested move. */
 export default defineEventHandler(async (event) => {
   const account = requireMod(event)
   const id = Number(getRouterParam(event, 'id'))
@@ -17,87 +15,34 @@ export default defineEventHandler(async (event) => {
   }
 
   const db = getDb()
-  const movement = db.prepare(
-    `SELECT * FROM pending_movements WHERE id = ? AND status = 'pending'`,
-  ).get(id) as {
-    id: number; level_name: string; level_gd_id: number | null
-    from_position: number; to_position: number
+  const movement = db.prepare(`SELECT * FROM pending_movements WHERE id = ? AND status = 'pending'`).get(id) as {
+    id: number; level_name: string; level_gd_id: number | null; from_position: number; to_position: number
   } | undefined
   if (!movement) throw createError({ statusCode: 404, statusMessage: 'Movement not found or already decided.' })
 
+  const decide = (status: string) => db.prepare(
+    `UPDATE pending_movements SET status = ?, decided_by = ?, decided_at = datetime('now') WHERE id = ?`,
+  ).run(status, account.id, id)
+
   if (body.action === 'reject') {
-    db.prepare(
-      `UPDATE pending_movements SET status = 'rejected', decided_by = ?, decided_at = datetime('now') WHERE id = ?`,
-    ).run(account.id, id)
+    decide('rejected')
     return { ok: true }
   }
 
-  // Resolve the actual current position of the level (gd_id is the stable key).
-  let fromPos = movement.from_position
+  // The level may have moved since the suggestion was made; find where it is now.
+  let fromPos: number | null = null
   if (movement.level_gd_id) {
-    const row = db.prepare(`SELECT position FROM levels WHERE gd_id = ?`).get(movement.level_gd_id) as { position: number } | undefined
-    if (row) fromPos = row.position
-  } else {
-    const row = db.prepare(`SELECT id FROM levels WHERE position = ?`).get(fromPos) as { id: number } | undefined
-    if (!row) throw createError({ statusCode: 404, statusMessage: 'Level no longer exists at the recorded position.' })
+    const rows = db.prepare(`SELECT position FROM levels WHERE gd_id = ?`).all(movement.level_gd_id) as { position: number }[]
+    if (rows.length === 1) fromPos = rows[0]!.position
   }
-
-  const levelRow = db.prepare(`SELECT id FROM levels WHERE position = ?`).get(fromPos) as { id: number } | undefined
-  if (!levelRow) throw createError({ statusCode: 404, statusMessage: 'Level not found at current position.' })
-
-  const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
-  const toPos = Math.min(movement.to_position, maxPos)
-  if (fromPos === toPos) {
-    db.prepare(
-      `UPDATE pending_movements SET status = 'approved', decided_by = ?, decided_at = datetime('now') WHERE id = ?`,
-    ).run(account.id, id)
-    return { ok: true, from: fromPos, to: toPos }
+  if (fromPos == null) {
+    const at = db.prepare(`SELECT position, name FROM levels WHERE position = ?`).get(movement.from_position) as { position: number; name: string } | undefined
+    if (at && at.name.toLowerCase() === movement.level_name.toLowerCase()) fromPos = at.position
   }
+  if (fromPos == null) throw createError({ statusCode: 404, statusMessage: 'That level is no longer where the suggestion says.' })
 
-  db.exec('BEGIN')
-  try {
-    db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(STASH, fromPos)
-    if (toPos < fromPos) {
-      db.prepare(
-        `UPDATE levels SET position = -(position + 1) WHERE position >= ? AND position < ?`,
-      ).run(toPos, fromPos)
-    } else {
-      db.prepare(
-        `UPDATE levels SET position = -(position - 1) WHERE position > ? AND position <= ?`,
-      ).run(fromPos, toPos)
-    }
-    db.prepare(`UPDATE levels SET position = -position WHERE position < 0 AND position != ?`).run(STASH)
-    db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(toPos, STASH)
-
-    // Placement numbers belong to slots, not to levels — without this an
-    // approved movement leaves the level printing its old number.
-    resyncPlacementsForMove(db, fromPos, toPos)
-
-    const existingToday = db.prepare(
-      `SELECT id FROM position_history
-       WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now')
-       ORDER BY changed_at ASC, id ASC LIMIT 1`,
-    ).get(levelRow.id) as { id: number } | undefined
-    if (existingToday) {
-      db.prepare(`UPDATE position_history SET to_position = ?, changed_at = datetime('now'), changed_by = ? WHERE id = ?`)
-        .run(toPos, account.id, existingToday.id)
-      db.prepare(`DELETE FROM position_history WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now') AND id != ?`)
-        .run(levelRow.id, existingToday.id)
-    } else {
-      db.prepare(
-        `INSERT INTO position_history (level_id, from_position, to_position, changed_by) VALUES (?, ?, ?, ?)`,
-      ).run(levelRow.id, fromPos, toPos, account.id)
-    }
-
-    db.prepare(
-      `UPDATE pending_movements SET status = 'approved', decided_by = ?, decided_at = datetime('now') WHERE id = ?`,
-    ).run(account.id, id)
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-
-  recomputePoints(db)
-  return { ok: true, from: fromPos, to: toPos }
+  const res = moveLevel(db, fromPos, movement.to_position, account.id)
+  decide('approved')
+  if (res.moved) afterListChange(db)
+  return { ok: true, from: res.from, to: res.to }
 })

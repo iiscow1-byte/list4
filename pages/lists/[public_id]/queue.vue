@@ -54,7 +54,7 @@ useHead(() => ({ title: list.value ? `Queue — ${list.value.title}` : 'Queue' }
   <CustomListShell :public-id="publicId">
     <template #default>
       <div class="flex items-baseline justify-between gap-3 mb-3">
-        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Pending records</h2>
+        <h2 class="section-title">Pending records</h2>
         <span v-if="notice" class="text-[11px] text-emerald-400">{{ notice }}</span>
       </div>
 

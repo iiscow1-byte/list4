@@ -35,7 +35,7 @@ async function removeRecord(id: number) {
 <template>
   <aside class="flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800/80 shrink-0 flex items-center gap-2">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+      <h2 class="text-sm font-semibold text-zinc-200">
         Records
         <span class="ml-1 tabular-nums text-zinc-600">{{ item?.records?.length ?? 0 }}</span>
       </h2>

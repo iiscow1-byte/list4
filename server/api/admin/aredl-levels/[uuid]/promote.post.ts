@@ -1,7 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
-import { recordPlacement } from '~/server/utils/changes'
+import { afterListChange, insertLevelAt, tx } from '~/server/utils/list-ops'
 
 /**
  * Promote an Aredl-only level (one whose gd_id isn't yet on the ALL list)
@@ -39,55 +38,28 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  let insertedId: number
-  let actualPlacement: number
-  db.exec('BEGIN')
-  try {
-    const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
-    actualPlacement = Math.min(placement, maxPos + 1)
-    db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(actualPlacement)
-    db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
+  const placed = tx(db, () => {
+    const res = insertLevelAt(db, placement, {
+      name: src.name,
+      gd_id: src.gd_id,
+      gddl_tier: src.gddl_tier ?? null,
+      source_tab: 'AREDL',
+      creator: src.creators_json ? safeCreatorString(src.creators_json) : null,
+      verifier: src.verifier_name ?? null,
+      publisher: src.publisher_name ?? null,
+      edel_enjoyment: src.edel_enjoyment ?? null,
+      placement_source: 'AREDL',
+      verification_url: src.verification_url ?? null,
+      aredl_position: src.position,
+      aredl_tags: src.tags ?? null,
+    }, account.id)
+    db.prepare(`UPDATE levels SET pov_placement = ? WHERE id = ?`).run(res.position, res.id)
+    db.prepare(`UPDATE aredl_levels SET promoted_to_position = ? WHERE uuid = ?`).run(res.position, uuid)
+    return res
+  })
+  afterListChange(db)
 
-    // Pull the verification URL from the Aredl record (recorded at import
-    // time as the first verification's video_url) and use it as our verif URL.
-    const verUrl = src.verification_url ?? null
-    const verifyYear = null // Aredl doesn't expose a verification date
-
-    const result = db.prepare(
-      `INSERT INTO levels
-        (position, name, gd_id, gddl_tier, category, source_tab, creator, verifier,
-         publisher, permanent, enjoyment, edel_enjoyment, pov_placement,
-         placement_source, verification_url, year_verified,
-         aredl_position, aredl_tags, site_only)
-       VALUES (?, ?, ?, ?, 'classic', 'AREDL', ?, ?, ?, 1, NULL, ?, ?, 'AREDL', ?, ?, ?, ?, 1)`,
-    ).run(
-      actualPlacement,
-      src.name,
-      src.gd_id,
-      src.gddl_tier ?? null,
-      src.creators_json ? safeCreatorString(src.creators_json) : null,
-      src.verifier_name ?? null,
-      src.publisher_name ?? null,
-      src.edel_enjoyment ?? null,
-      actualPlacement,
-      verUrl,
-      verifyYear,
-      src.position,
-      src.tags ?? null,
-    )
-    insertedId = Number(result.lastInsertRowid)
-    recordPlacement(db, insertedId, actualPlacement, account.id)
-
-    db.prepare(`UPDATE aredl_levels SET promoted_to_position = ? WHERE uuid = ?`).run(actualPlacement, uuid)
-
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-
-  recomputePoints(db)
-  return { ok: true, placement: actualPlacement, level_id: insertedId }
+  return { ok: true, placement: placed.position, level_id: placed.id }
 })
 
 function safeCreatorString(json: string): string | null {

@@ -341,7 +341,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
                 <span class="relative truncate flex-1">{{ r.name }}</span>
                 <span
                   v-if="r.position === position"
-                  class="relative shrink-0 text-[10px] uppercase tracking-widest text-accent"
+                  class="relative shrink-0 text-xs text-accent"
                 >dragging</span>
               </li>
             </template>

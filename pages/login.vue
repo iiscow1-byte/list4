@@ -110,7 +110,7 @@ async function submit() {
 
 <template>
   <div class="container-tight py-12 max-w-sm">
-    <h1 class="text-3xl font-semibold tracking-tight mb-1">Log in</h1>
+    <h1 class="page-title mb-1">Log in</h1>
     <p class="text-sm text-zinc-400 mb-6">Sign in to your All Levels List account.</p>
 
     <p
@@ -145,14 +145,14 @@ async function submit() {
       </p>
       <div class="flex items-center gap-3 my-5">
         <span class="h-px flex-1 bg-zinc-800" />
-        <span class="text-[10px] uppercase tracking-widest text-zinc-600">or</span>
+        <span class="text-xs text-zinc-600">or</span>
         <span class="h-px flex-1 bg-zinc-800" />
       </div>
     </template>
 
     <form class="space-y-4" @submit.prevent="submit">
       <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Username <span class="text-red-400">*</span></span>
+        <span class="text-xs text-zinc-500">Username <span class="text-red-400">*</span></span>
         <input
           v-model="username"
           autocomplete="username"
@@ -161,7 +161,7 @@ async function submit() {
         />
       </label>
       <label class="block">
-        <span class="text-xs uppercase tracking-widest text-zinc-500">Password <span class="text-red-400">*</span></span>
+        <span class="text-xs text-zinc-500">Password <span class="text-red-400">*</span></span>
         <input
           v-model="password"
           type="password"

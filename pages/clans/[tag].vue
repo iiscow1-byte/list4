@@ -319,7 +319,7 @@ const shownCompletions = computed(() => {
                 :link="false"
                 class="self-center"
               />
-              <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">{{ data.clan.name }}</h1>
+              <h1 class="page-title">{{ data.clan.name }}</h1>
               <Badge v-if="data.clan.invite_only" tone="quiet" title="The owner adds people">Invite only</Badge>
             </div>
             <p v-if="data.clan.description" class="mt-1.5 text-sm text-zinc-400 max-w-2xl whitespace-pre-wrap">{{ data.clan.description }}</p>
@@ -420,27 +420,27 @@ const shownCompletions = computed(() => {
           @submit.prevent="saveEdit"
         >
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+            <span class="text-xs text-zinc-500 font-medium">
               Tag <span class="text-zinc-600 normal-case">2–6 letters or digits</span>
             </span>
             <input
               v-model="edit.tag"
               maxlength="6"
-              class="mt-1 w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-accent"
+              class="mt-1 w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-accent"
               :class="editTagOk ? 'border-zinc-800 focus:border-accent' : 'border-red-800'"
             />
             <span class="text-[10px] text-zinc-600">Changing this changes the clan's address.</span>
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name</span>
+            <span class="text-xs text-zinc-500 font-medium">Name</span>
             <input v-model="edit.name" maxlength="60" class="field field-md mt-1" />
           </label>
           <label class="block sm:col-span-2">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Description</span>
+            <span class="text-xs text-zinc-500 font-medium">Description</span>
             <textarea v-model="edit.description" rows="2" maxlength="500" class="field field-md mt-1" />
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Discord invite</span>
+            <span class="text-xs text-zinc-500 font-medium">Discord invite</span>
             <input v-model="edit.discord_url" placeholder="https://discord.gg/…" class="field field-md mt-1" />
           </label>
           <div class="flex items-end gap-4 flex-wrap">
@@ -464,7 +464,7 @@ const shownCompletions = computed(() => {
                 <span v-else class="text-[10px] font-black uppercase text-accent">{{ data.clan.tag.slice(0, 3) }}</span>
               </span>
               <label class="min-w-0">
-                <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Clan picture</span>
+                <span class="block text-xs text-zinc-500 font-medium">Clan picture</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/gif,image/webp"
@@ -481,7 +481,7 @@ const shownCompletions = computed(() => {
                 <span v-else class="text-[9px] text-zinc-700">none</span>
               </span>
               <label class="min-w-0">
-                <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Background</span>
+                <span class="block text-xs text-zinc-500 font-medium">Background</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/gif,image/webp"
@@ -512,25 +512,25 @@ const shownCompletions = computed(() => {
 
         <dl class="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-px rounded-xl overflow-hidden bg-zinc-800/70 border border-zinc-800">
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">Points</dt>
+            <dt class="text-xs text-zinc-500">Points</dt>
             <dd class="tabular-nums text-lg font-semibold text-amber-300">{{ fmt(data.totals.points) }}</dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">Levels</dt>
+            <dt class="text-xs text-zinc-500">Levels</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ fmt(data.totals.levels) }}</dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5" :title="`${fmt(data.totals.levels)} of ${fmt(statsRes?.totalLevels ?? 0)} levels`">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">Of the list</dt>
+            <dt class="text-xs text-zinc-500">Of the list</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">
               {{ listPercent(data.totals.levels, statsRes?.totalLevels ?? 0) }}
             </dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">Challenges</dt>
+            <dt class="text-xs text-zinc-500">Challenges</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ fmt(data.totals.challenges) }}</dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">Members</dt>
+            <dt class="text-xs text-zinc-500">Members</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ fmt(data.totals.members) }}</dd>
           </div>
         </dl>
@@ -541,7 +541,7 @@ const shownCompletions = computed(() => {
       <!-- What the clan has beaten -->
       <main class="min-w-0 space-y-3">
         <div class="flex items-baseline justify-between gap-3 flex-wrap">
-          <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+          <h2 class="section-title">
             Completions
             <span class="ml-1.5 normal-case tracking-normal text-zinc-600 tabular-nums">
               {{ fmt(data.completions.length) }} level{{ data.completions.length === 1 ? '' : 's' }}, hardest first
@@ -573,7 +573,7 @@ const shownCompletions = computed(() => {
               <NuxtLink :to="`/levels/${c.position}`" class="min-w-0 flex-1 group">
                 <span class="block truncate text-sm text-zinc-200 group-hover:text-accent transition-colors">
                   {{ c.name }}
-                  <span v-if="c.is_challenge" class="ml-1 text-[9px] uppercase tracking-widest text-amber-500/80">challenge</span>
+                  <span v-if="c.is_challenge" class="ml-1 text-xs text-amber-500/80">challenge</span>
                 </span>
                 <span class="block truncate text-[10px] text-zinc-600">{{ c.members.split(',').join(', ') }}</span>
               </NuxtLink>
@@ -589,7 +589,7 @@ const shownCompletions = computed(() => {
       <!-- Who is in it -->
       <aside class="space-y-4">
         <section class="card overflow-hidden">
-          <h2 class="px-3 py-2.5 text-[10px] uppercase tracking-widest text-zinc-500 font-semibold border-b border-zinc-900 flex items-baseline gap-2">
+          <h2 class="px-3 py-2.5 text-xs text-zinc-500 font-semibold border-b border-zinc-900 flex items-baseline gap-2">
             Members
             <span class="ml-auto tabular-nums text-zinc-600">{{ data.members.length }}</span>
           </h2>
@@ -627,7 +627,7 @@ const shownCompletions = computed(() => {
 
         <!-- Requests, owner only -->
         <section v-if="data.viewer.isOwner && data.requests.length" class="card overflow-hidden">
-          <h2 class="px-3 py-2.5 text-[10px] uppercase tracking-widest text-accent font-semibold border-b border-zinc-900">
+          <h2 class="px-3 py-2.5 text-xs text-accent font-semibold border-b border-zinc-900">
             Asking to join
             <span class="ml-1 tabular-nums text-zinc-600">{{ data.requests.length }}</span>
           </h2>
@@ -655,7 +655,7 @@ const shownCompletions = computed(() => {
         <section v-if="data.viewer.isOwner" class="card overflow-hidden">
           <button
             type="button"
-            class="w-full px-3 py-2.5 flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500 font-semibold hover:text-zinc-300 transition-colors"
+            class="w-full px-3 py-2.5 flex items-center gap-2 text-xs text-zinc-500 font-semibold hover:text-zinc-300 transition-colors"
             @click="inviteOpen = !inviteOpen"
           >
             Invite someone
@@ -672,7 +672,7 @@ const shownCompletions = computed(() => {
                  People already in this clan are absent; people in another are
                  shown and labelled, since they can take it up after leaving. -->
             <div v-if="inviteFriends.length && !inviteQuery.trim()">
-              <p class="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-1.5">
+              <p class="text-xs text-zinc-600 font-semibold mb-1.5">
                 Your friends
                 <span class="normal-case tracking-normal tabular-nums">{{ inviteFriends.length }}</span>
               </p>
@@ -701,10 +701,10 @@ const shownCompletions = computed(() => {
                     class="shrink-0 rounded border border-accent/50 text-accent px-2 py-0.5 text-[11px] hover:bg-accent/10 disabled:opacity-50 transition-colors"
                     @click="invite(person)"
                   >Invite</button>
-                  <span v-else class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-600">Invited</span>
+                  <span v-else class="shrink-0 text-xs text-zinc-600">Invited</span>
                 </li>
               </ul>
-              <p class="mt-2 mb-1 text-[10px] uppercase tracking-widest text-zinc-600 font-semibold border-t border-zinc-900 pt-2">
+              <p class="mt-2 mb-1 text-xs text-zinc-600 font-semibold border-t border-zinc-900 pt-2">
                 Or find anybody
               </p>
             </div>
@@ -759,13 +759,13 @@ const shownCompletions = computed(() => {
                   class="shrink-0 rounded border border-accent/50 text-accent px-2 py-0.5 text-[11px] hover:bg-accent/10 disabled:opacity-50 transition-colors"
                   @click="invite(person)"
                 >Invite</button>
-                <span v-else class="shrink-0 text-[10px] uppercase tracking-widest text-zinc-600">Invited</span>
+                <span v-else class="shrink-0 text-xs text-zinc-600">Invited</span>
               </li>
             </ul>
 
             <!-- Outstanding invites, so the same person isn't asked twice. -->
             <div v-if="data.invites.length" class="pt-2 border-t border-zinc-900">
-              <p class="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-1.5">Waiting on a reply</p>
+              <p class="text-xs text-zinc-600 font-semibold mb-1.5">Waiting on a reply</p>
               <ul class="space-y-1">
                 <li v-for="i in data.invites" :key="i.account_id" class="flex items-center gap-2 text-xs">
                   <NuxtLink
@@ -788,7 +788,7 @@ const shownCompletions = computed(() => {
 
         <!-- Handing it over -->
         <section v-if="data.viewer.isOwner && data.members.length > 1" class="card p-3">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Hand over the clan</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Hand over the clan</h2>
           <p class="mt-1 text-[11px] text-zinc-600">
             You have to do this before you can leave a clan that still has members.
           </p>

@@ -31,8 +31,9 @@ withDefaults(defineProps<{
 
 const model = defineModel<string>({ required: true })
 
+// `sm` is the height of a `field-sm` beside it in a filter row.
 const SIZES = {
-  sm: 'px-2.5 py-1 text-[11px]',
+  sm: 'px-2.5 py-1.5 text-xs leading-5',
   md: 'px-3 py-1.5 text-sm',
 } as const
 </script>
@@ -52,7 +53,7 @@ const SIZES = {
         SIZES[size],
         model === opt.value
           ? 'bg-zinc-800 text-zinc-100'
-          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900',
+          : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900',
       ]"
       :aria-pressed="model === opt.value"
       :title="opt.title"

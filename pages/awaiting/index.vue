@@ -16,7 +16,7 @@ useHead(() => ({ title: 'Awaiting Placement' }))
     </template>
 
     <div class="px-4 py-10 sm:p-12 max-w-2xl mx-auto text-center">
-      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight mb-2">Awaiting placement</h1>
+      <h1 class="page-title mb-2">Awaiting placement</h1>
       <p class="text-sm text-zinc-400 mb-6">
         Approved levels that don't have a placement on the list yet.
       </p>

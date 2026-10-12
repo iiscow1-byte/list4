@@ -70,7 +70,7 @@ const cards = computed(() => {
         overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
       />
       <div class="relative p-4">
-        <h2 class="text-[10px] uppercase tracking-widest font-semibold" :class="c.tone">{{ c.title }}</h2>
+        <h2 class="text-xs font-semibold" :class="c.tone">{{ c.title }}</h2>
         <NuxtLink :to="`/levels/${c.level.position}`" class="mt-1.5 block group/link">
           <span class="text-lg font-bold text-zinc-50 group-hover/link:text-accent transition-colors">{{ c.level.name }}</span>
           <span v-if="c.level.creator" class="block text-[11px] text-zinc-500 truncate">by {{ c.level.creator }}</span>

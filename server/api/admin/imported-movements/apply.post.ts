@@ -1,7 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
-import { moveLevel } from '~/server/utils/move-level'
+import { afterListChange, moveLevel } from '~/server/utils/list-ops'
 import { computeImportedMovements, invalidateImportedMovementSummary } from '~/server/utils/imported-movements'
 
 /**
@@ -64,7 +63,7 @@ export default defineEventHandler(async (event) => {
   // Tier midpoints shift when levels cross tier boundaries; one recompute for
   // the whole batch rather than one per move.
   if (moved) {
-    recomputePoints(db)
+    afterListChange(db)
     invalidateImportedMovementSummary()
   }
 

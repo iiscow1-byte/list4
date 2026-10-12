@@ -132,7 +132,7 @@ async function submit() {
 
 <template>
   <div class="container-tight py-8 max-w-xl">
-    <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit an opinion</h1>
+    <h1 class="page-title mb-1">Submit an opinion</h1>
     <p class="text-sm text-zinc-400 mb-5">
       Opinions are only accepted from people who completed the level in at most two runs. Your proof
       will be reviewed by a moderator before the opinion counts toward the community tier.
@@ -141,7 +141,7 @@ async function submit() {
     <!-- Which level this is about. Chosen here rather than only inherited from
          the page you came from, so the form is reachable on its own. -->
     <div class="mb-5">
-      <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
+      <span class="text-xs text-zinc-500">Level <span class="text-red-400">*</span></span>
       <button
         v-if="levelInfo"
         type="button"
@@ -174,7 +174,7 @@ async function submit() {
 
     <form v-if="levelInfo" class="space-y-4" @submit.prevent="submit">
       <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Proof of progress URL <span class="text-red-400">*</span></span>
+        <span class="text-xs text-zinc-500">Proof of progress URL <span class="text-red-400">*</span></span>
         <input
           v-model="proofUrl"
           type="url"
@@ -188,10 +188,10 @@ async function submit() {
       </label>
 
       <fieldset class="card p-4 space-y-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Your ratings</legend>
+        <legend class="px-2 text-xs text-zinc-500 font-medium">Your ratings</legend>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+            <span class="text-xs text-zinc-500">GDDL Tier</span>
             <select
               v-model="gddlTier"
               class="field field-md mt-1"
@@ -200,7 +200,7 @@ async function submit() {
             </select>
           </label>
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+            <span class="text-xs text-zinc-500">Difficulty</span>
             <select
               v-model="difficulty"
               class="field field-md mt-1"
@@ -210,7 +210,7 @@ async function submit() {
           </label>
         </div>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+          <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
           <input
             v-model="enjoyment"
             type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -220,7 +220,7 @@ async function submit() {
       </fieldset>
 
       <fieldset v-if="kind === 'main'" class="card p-4 space-y-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement</legend>
+        <legend class="px-2 text-xs text-zinc-500 font-medium">Placement</legend>
         <label class="flex items-start gap-2 cursor-pointer select-none">
           <input v-model="requestRelocation" type="checkbox" class="mt-0.5 accent-accent" />
           <span class="text-sm text-zinc-200">
@@ -253,7 +253,7 @@ async function submit() {
           </div>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Suggested new placement</span>
+            <span class="text-xs text-zinc-500">Suggested new placement</span>
             <input
               v-model="requestedPosition"
               type="number" inputmode="numeric" min="1"
@@ -265,7 +265,7 @@ async function submit() {
       </fieldset>
 
       <label class="block">
-        <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
+        <span class="text-xs text-zinc-500">Note for the mods</span>
         <textarea
           v-model="notes"
           rows="3"

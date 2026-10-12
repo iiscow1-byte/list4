@@ -199,14 +199,14 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
       ref="navPanel"
       class="pane-side pane-nav"
       :class="{ 'is-open': navOpen }"
-      :inert="navInert"
+      :inert="navInert || undefined"
     >
       <!-- A strip rather than a close button floated over the panel: every nav
            panel on this site already puts something in its own top-right corner
            — a match count, a "Reset all" — and an overlay would sit on top of
            it. -->
       <div v-if="navDrawer" class="pane-head">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(navLabel) }}</span>
+        <span class="text-xs text-zinc-500 font-semibold truncate">{{ t(navLabel) }}</span>
         <button type="button" data-pane-close class="pane-close focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" :aria-label="t('Close')" :title="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
@@ -249,10 +249,10 @@ const asideInert = computed(() => (asideDrawer.value && !asideOpen.value ? true 
       ref="asidePanel"
       class="pane-side pane-aside"
       :class="{ 'is-open': asideOpen }"
-      :inert="asideInert"
+      :inert="asideInert || undefined"
     >
       <div v-if="asideDrawer" class="pane-head">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold truncate">{{ t(asideLabel) }}</span>
+        <span class="text-xs text-zinc-500 font-semibold truncate">{{ t(asideLabel) }}</span>
         <button type="button" data-pane-close class="pane-close focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" :aria-label="t('Close')" :title="t('Close')" @click="closeAll">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="w-4 h-4" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />

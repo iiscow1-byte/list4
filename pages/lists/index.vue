@@ -150,13 +150,13 @@ useHead({ title: 'Custom lists — All Levels List' })
   <div class="container-wide py-8 space-y-5">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Custom lists</h1>
-        <p class="text-sm text-zinc-500 mt-1">Rankings built and shared by the community.</p>
+        <h1 class="page-title">Custom lists</h1>
+        <p class="page-lead">Rankings built and shared by the community.</p>
       </div>
       <NuxtLink
         to="/builder"
         class="btn btn-md btn-primary"
-      >Build your own →</NuxtLink>
+      >Build a list</NuxtLink>
     </header>
 
     <div class="flex flex-wrap items-center gap-2">
@@ -186,7 +186,7 @@ useHead({ title: 'Custom lists — All Levels List' })
         v-model="search"
         type="search"
         :placeholder="view === 'mine' ? 'Search your lists…' : 'Search lists…'"
-        class="field field-sm ml-auto text-xs"
+        class="field field-sm w-full sm:w-64 sm:ml-auto"
       />
     </div>
 
@@ -234,7 +234,7 @@ useHead({ title: 'Custom lists — All Levels List' })
           <span class="absolute top-2 right-2 flex items-center gap-1">
             <span
               v-if="l.is_public === 0"
-              class="rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-[9px] uppercase tracking-widest text-zinc-400"
+              class="rounded-full border border-zinc-700 bg-zinc-950/80 px-2 py-0.5 text-xs text-zinc-400"
             >Private</span>
           </span>
           <h2 class="absolute bottom-2 left-3 right-3 flex items-center gap-1.5 font-semibold text-zinc-50 drop-shadow">

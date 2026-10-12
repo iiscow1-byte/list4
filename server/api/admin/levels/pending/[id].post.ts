@@ -1,15 +1,13 @@
 import { getDb } from '~/server/db'
 import { requireListStaff } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
-import { recomputePoints } from '~/server/utils/points'
-import { recordPlacement } from '~/server/utils/changes'
+import { afterListChange, tx } from '~/server/utils/list-ops'
+import { placeSubmission } from '~/server/utils/place-submission'
 import { postLevelStatusUpdate } from '~/server/utils/leaderboard-discord'
 
 /**
- * Approve or reject a pending level submission.
- * On approve, the level is inserted into `levels` at `placement` (other rows
- * at-and-below shift down by 1). The new row is marked permanent so future
- * sheet imports won't overwrite it.
+ * Approve or reject a pending level submission. On approve the level goes on
+ * the list at `placement`, or onto the void list when it has no difficulty.
  */
 export default defineEventHandler(async (event) => {
   const account = requireListStaff(event)
@@ -183,6 +181,7 @@ export default defineEventHandler(async (event) => {
     postLevelStatusUpdate(db, {
       destination: 'awaiting',
       levelName: sub.name ?? `Level ${sub.gd_id}`,
+      gdId: sub.gd_id ?? null,
       gddlTier: sub.gddl_tier ?? null,
       difficulty: sub.difficulty ?? null,
       submitter: submitter ?? null,
@@ -201,15 +200,10 @@ export default defineEventHandler(async (event) => {
 
   // Decide which list to insert into: void list (no difficulty opinion) vs main.
   const goesToVoid = !sub.gddl_tier && !sub.difficulty
-  const isPermanent = !goesToVoid // void rows live in their own table; the permanent flag is for the main list
   let voidInsertPos: number | null = null
 
-  db.exec('BEGIN')
-  try {
+  tx(db, () => {
     if (goesToVoid) {
-      // Shift later positions down by one to make room. Done in two steps via
-      // negative placeholders to avoid the UNIQUE-constraint collisions SQLite
-      // would otherwise hit while the UPDATE walks the rows.
       const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM void_levels`).get() as { m: number | null }).m ?? 0
       const insertPos = Math.min(placement, maxPos + 1)
       voidInsertPos = insertPos
@@ -231,68 +225,24 @@ export default defineEventHandler(async (event) => {
         sub.submitted_at ?? null,
       )
     } else {
-      // Shift main list positions down by one. Same negate-then-flip pattern.
-      const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
-      const insertPos = Math.min(placement, maxPos + 1)
-      db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
-      db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
-      // pov_placement is a snapshot of where the level was *first* placed —
-      // recorded once on acceptance, never updated by later position moves.
-      const result = db.prepare(
-        `INSERT INTO levels
-          (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
-           verification, verification_url, year_verified, category, source_tab,
-           creator, permanent, enjoyment, pov_placement, placement_source, submitted_by,
-           same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated, tentative_placement,
-           site_only)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                 1)`,
-      ).run(
-        insertPos,
-        sub.name ?? `Level ${sub.gd_id}`,
-        sub.gd_id,
-        (typeof body.gddl_tier === 'string' && body.gddl_tier.trim()) ? body.gddl_tier.trim() : sub.gddl_tier,
-        (typeof body.difficulty === 'string' && body.difficulty.trim()) ? body.difficulty.trim() : sub.difficulty,
-        sub.main_skillset,
-        sub.verify_date,
-        sub.verification,
-        sub.verification_url,
-        sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
-        sub.enjoyment,
-        insertPos,
-        sub.placement_source ?? 'All Levels List',
-        sub.submitted_by,
-        sub.same_as_above ? 1 : 0,
-        sub.duplicate_of_id ?? null,
-        sub.is_alternate ? 1 : 0,
-        sub.alternate_of_id ?? null,
-        sub.rated ?? null,
-        typeof body.tentative_placement === 'boolean' ? (body.tentative_placement ? 1 : 0) : (sub.tentative_placement ?? 0),
-      )
-      // Record the addition so it shows up on the recent-changes feed.
-      recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
+      placeSubmission(db, sub, placement, {
+        actorId: account.id,
+        submittedBy: sub.submitted_by ?? null,
+        flags: body,
+      })
     }
 
     db.prepare(`UPDATE pending_levels SET status='approved', decided_by=?, decided_at=datetime('now'), placement=? WHERE id = ?`)
       .run(account.id, placement, id)
-    // Promoting a verification submission removes the level from the open-
-    // verifications list — it now lives on the main (or void) list with a
-    // verifier credited.
     if (sub.from_open_verification_id) {
       db.prepare(`DELETE FROM open_verifications WHERE id = ?`).run(sub.from_open_verification_id)
     }
     if (sub.from_void_level_id) {
       db.prepare(`DELETE FROM void_levels WHERE id = ?`).run(sub.from_void_level_id)
     }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
+  })
 
-  // Inserting at `insertPos` shifts every level below it; tier midpoints
-  // change too, so refresh the auto-computed points for the whole list.
-  if (!goesToVoid) recomputePoints(db)
+  if (!goesToVoid) afterListChange(db)
 
   // Fire-and-forget level-status Discord notification for void approvals.
   if (goesToVoid) {
@@ -302,6 +252,7 @@ export default defineEventHandler(async (event) => {
     postLevelStatusUpdate(db, {
       destination: 'void',
       levelName: sub.name ?? `Level ${sub.gd_id}`,
+      gdId: sub.gd_id ?? null,
       gddlTier: sub.gddl_tier ?? null,
       difficulty: sub.difficulty ?? null,
       submitter: submitterName,
@@ -310,5 +261,5 @@ export default defineEventHandler(async (event) => {
     }).catch(() => {})
   }
 
-  return { ok: true, voided: goesToVoid, permanent: isPermanent }
+  return { ok: true, voided: goesToVoid }
 })

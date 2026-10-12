@@ -322,7 +322,7 @@ const coveragePct = computed(() => {
     <!-- Hero -->
     <header class="relative overflow-hidden border-b border-zinc-800/80">
       <div
-        class="absolute inset-0 bg-[radial-gradient(75%_130%_at_50%_0%,theme(colors.zinc.800),theme(colors.zinc.950))]"
+        class="absolute inset-0 bg-gradient-to-b from-zinc-900 to-zinc-950"
         aria-hidden="true"
       />
       <div class="container-tight relative py-10 space-y-4">
@@ -334,17 +334,10 @@ const coveragePct = computed(() => {
           <div class="min-w-0 space-y-2">
             <div class="flex flex-wrap items-center gap-2.5">
               <AllLogo :size="34" class="sm:hidden" />
-              <h1 class="text-3xl sm:text-4xl font-bold tracking-tight">The All Levels List</h1>
-              <!-- Beta, matching how every release is labelled on /updates.
-                   This said Alpha while the version beside it read "Beta 1.20.0",
-                   which is one line of the page disagreeing with itself. -->
-              <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-                Beta
-              </span>
+              <h1 class="page-title sm:text-4xl">The All Levels List</h1>
               <NuxtLink
                 to="/updates"
-                class="rounded-full border border-zinc-700 px-2 py-0.5 text-[11px] tabular-nums text-zinc-400 hover:border-accent/50 hover:text-accent transition-colors"
+                class="text-xs tabular-nums text-zinc-500 hover:text-accent transition-colors"
               >{{ versionLabel(SITE_VERSION) }}</NuxtLink>
             </div>
           </div>
@@ -355,28 +348,10 @@ const coveragePct = computed(() => {
         </div>
 
         <div class="flex flex-wrap gap-2 pt-1">
-          <NuxtLink
-            to="/levels/1"
-            class="btn btn-md btn-primary gap-1.5"
-          >Browse the list →</NuxtLink>
-          <NuxtLink
-            to="/levels/submit"
-            class="btn btn-md border border-accent/40 text-accent bg-accent/5 hover:bg-accent/15"
-          >Submit a level +</NuxtLink>
-          <NuxtLink
-            to="/records/submit"
-            class="btn btn-md btn-ghost gap-1.5"
-          >Submit a record +</NuxtLink>
-          <NuxtLink
-            to="/changelog"
-            class="btn btn-md btn-ghost gap-1.5"
-          >Changelog</NuxtLink>
-          <a
-            :href="ALL_SHEET_URL"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn btn-md btn-ghost gap-1.5"
-          >Legacy ALL ↗</a>
+          <NuxtLink to="/levels/1" class="btn btn-md btn-primary">Browse the list</NuxtLink>
+          <NuxtLink to="/records/submit" class="btn btn-md btn-ghost">Submit a record</NuxtLink>
+          <NuxtLink to="/levels/submit" class="btn btn-md btn-ghost">Submit a level</NuxtLink>
+          <a :href="ALL_SHEET_URL" target="_blank" rel="noopener noreferrer" class="btn btn-md btn-ghost">The ALL sheet</a>
         </div>
       </div>
 
@@ -412,7 +387,7 @@ const coveragePct = computed(() => {
       >
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <div v-for="g in glance" :key="g.label" class="bg-zinc-950 px-4 py-3 group-hover:bg-zinc-900/70 transition-colors">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ g.label }}</dt>
+            <dt class="text-xs text-zinc-500">{{ g.label }}</dt>
             <dd class="tabular-nums text-xl font-bold text-zinc-50 mt-0.5">{{ g.value }}</dd>
           </div>
         </dl>
@@ -422,7 +397,7 @@ const coveragePct = computed(() => {
       </button>
 
       <section v-if="ABOUT_FAQ.length" class="space-y-3">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">How the list works</h2>
+        <h2 class="section-title">How the list works</h2>
         <!-- One question per row, with the question as the heading. It was a
              stack of identical grey blocks with the questions buried inside
              them, which is the one shape a FAQ must not have: it is read by
@@ -437,7 +412,7 @@ const coveragePct = computed(() => {
       </section>
 
       <section v-if="landing?.statsViewerFaq?.length" class="space-y-3">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Stats Viewer</h2>
+        <h2 class="section-title">Stats Viewer</h2>
         <div class="card divide-y divide-zinc-900">
           <div v-for="(p, i) in landing.statsViewerFaq" :key="`s-${i}`" class="px-4 py-3.5">
             <template v-for="(qa, k) in [faqParts(p)]" :key="k">
@@ -452,7 +427,7 @@ const coveragePct = computed(() => {
            this is the bottom of the page somebody reaches having decided they
            want in. -->
       <section class="space-y-3">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Taking part</h2>
+        <h2 class="section-title">Taking part</h2>
         <div class="grid gap-px sm:grid-cols-3 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <NuxtLink to="/levels/submit" class="bg-zinc-950 px-4 py-3.5 hover:bg-zinc-900/70 transition-colors group">
             <span class="block text-sm font-semibold text-zinc-100 group-hover:text-accent transition-colors">Submit a level</span>
@@ -470,18 +445,18 @@ const coveragePct = computed(() => {
       </section>
 
       <section class="space-y-3">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-semibold">Credits</h2>
+        <h2 class="section-title">Credits</h2>
         <dl class="grid gap-px sm:grid-cols-2 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <div class="bg-zinc-950 px-4 py-3">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">List data</dt>
+            <dt class="text-xs text-zinc-500">List data</dt>
             <dd class="text-sm text-zinc-100 mt-0.5">Cinder</dd>
           </div>
           <div class="bg-zinc-950 px-4 py-3">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Website</dt>
+            <dt class="text-xs text-zinc-500">Website</dt>
             <dd class="text-sm text-zinc-100 mt-0.5">GERG, cinnamings, Silk, Farm</dd>
           </div>
           <div class="bg-zinc-950 px-4 py-3">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Built with</dt>
+            <dt class="text-xs text-zinc-500">Built with</dt>
             <dd class="text-sm text-zinc-100 mt-0.5">
               <a
                 href="https://claude.ai"
@@ -495,7 +470,7 @@ const coveragePct = computed(() => {
             <!-- The list this site's layout was modelled on. Credited by name
                  rather than folded into the API list below: nothing is fetched
                  from it, the debt is to the design. -->
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Template</dt>
+            <dt class="text-xs text-zinc-500">Template</dt>
             <dd class="text-sm text-zinc-100 mt-0.5">
               <a
                 href="https://theshittylist.net"
@@ -525,7 +500,7 @@ const coveragePct = computed(() => {
              is first because it is the largest single contributor — placements,
              records, players and level metadata all come through it. -->
         <div class="pt-2">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">APIs and data sources</h3>
+          <h3 class="text-sm font-semibold text-zinc-200 mb-2">APIs and data sources</h3>
           <ul class="grid gap-px sm:grid-cols-2 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
             <li v-for="c in API_CREDITS" :key="c.name" class="bg-zinc-950 px-4 py-3">
               <a
@@ -561,7 +536,7 @@ const coveragePct = computed(() => {
              splits 2/3/6 rather than leaving a stray on a line of its own. -->
         <dl class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800/70">
           <div v-for="h in headline" :key="h.label" class="bg-zinc-950 px-4 py-3.5">
-            <dt class="text-[10px] uppercase tracking-widest text-zinc-500">{{ h.label }}</dt>
+            <dt class="text-xs text-zinc-500">{{ h.label }}</dt>
             <dd class="tabular-nums text-2xl font-bold text-zinc-50 mt-0.5">{{ h.value }}</dd>
             <p class="text-[10px] text-zinc-600 mt-0.5">{{ h.hint }}</p>
           </div>
@@ -578,7 +553,7 @@ const coveragePct = computed(() => {
               overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
             />
             <div class="relative p-4">
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Hardest on the list</h2>
+              <h2 class="section-title">Hardest on the list</h2>
               <NuxtLink :to="`/levels/${stats.hardest.position}`" class="mt-1.5 block">
                 <span class="text-lg font-bold text-zinc-50 hover:text-accent transition-colors">{{ stats.hardest.name }}</span>
               </NuxtLink>
@@ -595,7 +570,7 @@ const coveragePct = computed(() => {
           </article>
 
           <article class="card p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Record coverage</h2>
+            <h2 class="text-sm font-semibold text-zinc-200">Record coverage</h2>
             <p class="mt-1.5 text-2xl font-bold tabular-nums text-zinc-50">{{ coveragePct.toFixed(1) }}%</p>
             <div class="mt-2 h-2 rounded-full bg-zinc-900 overflow-hidden">
               <div class="h-full rounded-full bg-accent" :style="{ width: `${coveragePct}%` }" />
@@ -611,7 +586,7 @@ const coveragePct = computed(() => {
         <!-- Tier histogram: 45 ordinal buckets, so vertical bars -->
         <section v-if="tierBuckets.length" class="card p-4">
           <div class="flex items-baseline justify-between gap-3 flex-wrap">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Levels per tier</h2>
+            <h2 class="text-sm font-semibold text-zinc-200">Levels per tier</h2>
             <span class="text-[10px] text-zinc-600 tabular-nums">peak {{ fmt(tierMax) }}</span>
           </div>
           <div class="mt-3 overflow-x-auto">
@@ -641,7 +616,7 @@ const coveragePct = computed(() => {
 
         <!-- Verification year: also ordinal -->
         <section v-if="stats.years.length" class="card p-4">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Verified per year</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Verified per year</h2>
           <div class="mt-3 overflow-x-auto">
             <div class="flex items-end gap-1.5 h-32 min-w-[24rem]">
               <div
@@ -666,7 +641,7 @@ const coveragePct = computed(() => {
         <!-- Nominal breakdowns: few buckets, so horizontal bars with names -->
         <div class="grid gap-4 lg:grid-cols-2">
           <section v-if="stats.difficulties.length" class="card p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Difficulty</h2>
+            <h2 class="text-sm font-semibold text-zinc-200 mb-3">Difficulty</h2>
             <ul class="space-y-1.5">
               <li v-for="d in stats.difficulties" :key="d.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
                 <span class="text-[11px] text-zinc-400 truncate">{{ d.name }}</span>
@@ -682,7 +657,7 @@ const coveragePct = computed(() => {
           </section>
 
           <section v-if="stats.ratings.length" class="card p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Rating</h2>
+            <h2 class="text-sm font-semibold text-zinc-200 mb-3">Rating</h2>
             <ul class="space-y-1.5">
               <li v-for="r in stats.ratings" :key="r.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
                 <span class="text-[11px] text-zinc-400 truncate">{{ r.name }}</span>
@@ -699,7 +674,7 @@ const coveragePct = computed(() => {
         </div>
 
         <section v-if="stats.skillsets.length" class="card p-4">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-3">Main skillset</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 mb-3">Main skillset</h2>
           <ul class="grid gap-1.5 sm:grid-cols-2">
             <li v-for="s in stats.skillsets" :key="s.name" class="grid grid-cols-[7.5rem_minmax(0,1fr)_4rem] items-center gap-2">
               <span class="text-[11px] text-zinc-400 truncate" :title="s.name">{{ s.name }}</span>
@@ -737,15 +712,15 @@ const coveragePct = computed(() => {
              list the ALL already carries. -->
         <dl class="grid grid-cols-3 gap-px bg-zinc-800 rounded-xl overflow-hidden border border-zinc-800">
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Lists</dt>
+            <dt class="text-xs text-zinc-500">Lists</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ totalLists }}</dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Mirrored here</dt>
+            <dt class="text-xs text-zinc-500">Mirrored here</dt>
             <dd class="tabular-nums text-lg font-semibold text-accent">{{ importedSources.length }}</dd>
           </div>
           <div class="bg-zinc-950 px-3 py-2.5">
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Levels indexed</dt>
+            <dt class="text-xs text-zinc-500">Levels indexed</dt>
             <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ indexedLevels.toLocaleString() }}</dd>
           </div>
         </dl>
@@ -755,7 +730,7 @@ const coveragePct = computed(() => {
            complete by construction rather than by anyone remembering. -->
       <section v-if="shownImported.length" class="space-y-2">
         <div class="flex items-baseline gap-2 flex-wrap">
-          <h3 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Imported by this site</h3>
+          <h3 class="section-title">Imported by this site</h3>
           <span class="text-[10px] text-zinc-600">kept in sync automatically</span>
           <!-- Catalogue order means nothing to a reader; these three questions
                are the ones the numbers on each row answer. -->
@@ -784,7 +759,7 @@ const coveragePct = computed(() => {
               <!-- The short name, as a fixed-width tag, so the column of names
                    lines up instead of every row starting at a different place. -->
               <span
-                class="shrink-0 w-14 text-center px-1.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border transition-colors"
+                class="shrink-0 w-14 text-center px-1.5 py-1 rounded text-xs font-semibold border transition-colors"
                 :class="s.key === 'all'
                   ? 'border-accent/40 bg-accent/10 text-accent'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-400 group-hover:text-zinc-200'"
@@ -835,7 +810,7 @@ const coveragePct = computed(() => {
       <!-- Named on the sheet, not mirrored here. -->
       <section v-if="shownOther.length" class="space-y-2">
         <div class="flex items-baseline gap-2">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Also credited on the sheet</h3>
+          <h3 class="text-sm font-semibold text-zinc-200">Also credited on the sheet</h3>
           <span class="text-[10px] text-zinc-700">not mirrored here</span>
           <span class="ml-auto text-[10px] tabular-nums text-zinc-700">{{ shownOther.length }}</span>
         </div>

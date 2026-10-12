@@ -94,7 +94,7 @@ async function submit() {
 }
 
 const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'
-const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
+const label = 'text-xs text-zinc-500 font-medium'
 
 useHead(() => ({ title: list.value ? `Submit a level — ${list.value.title}` : 'Submit a level' }))
 </script>
@@ -103,7 +103,7 @@ useHead(() => ({ title: list.value ? `Submit a level — ${list.value.title}` : 
   <CustomListShell :public-id="publicId">
     <template #default="{ list: l }">
       <div class="flex items-baseline justify-between gap-3 mb-3">
-        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+        <h2 class="section-title">
           {{ canModerate ? 'Submitted levels' : 'Submit a level' }}
         </h2>
         <span v-if="notice" class="text-[11px] text-emerald-400">{{ notice }}</span>
@@ -152,7 +152,7 @@ useHead(() => ({ title: list.value ? `Submit a level — ${list.value.title}` : 
               @click="decide(p, 'reject')"
             >Decline</button>
           </div>
-          <span v-else class="shrink-0 text-[10px] uppercase tracking-wider text-zinc-600">{{ p.status }}</span>
+          <span v-else class="shrink-0 text-xs text-zinc-600">{{ p.status }}</span>
         </li>
       </ul>
       <p v-else-if="canModerate" class="card px-6 py-10 text-center text-sm text-zinc-400 mb-5">

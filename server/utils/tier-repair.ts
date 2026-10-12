@@ -26,8 +26,8 @@ export type TierFix = {
 
 export function findSandwichedTiers(db: DatabaseSync): TierFix[] {
   const rows = db.prepare(
-    `SELECT id, position, name, gddl_tier FROM levels ORDER BY position ASC`,
-  ).all() as { id: number; position: number; name: string; gddl_tier: string | null }[]
+    `SELECT id, position, name, gddl_tier, site_fields FROM levels ORDER BY position ASC`,
+  ).all() as { id: number; position: number; name: string; gddl_tier: string | null; site_fields: string | null }[]
 
   const fixes: TierFix[] = []
   for (let i = 1; i < rows.length - 1; i++) {
@@ -39,6 +39,8 @@ export function findSandwichedTiers(db: DatabaseSync): TierFix[] {
     if (!prev.gddl_tier || !next.gddl_tier) continue
     if (prev.gddl_tier !== next.gddl_tier) continue
     if (cur.gddl_tier === prev.gddl_tier) continue
+    // A tier staff set by hand is a decision, not a typo.
+    if (cur.site_fields?.includes('"gddl_tier"')) continue
 
     fixes.push({
       id: cur.id,

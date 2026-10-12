@@ -1,33 +1,32 @@
 import { postDailyChangesIfDue } from '~/server/utils/daily-discord'
 
 /**
- * Polls every ~10 minutes and triggers the daily Discord changes summary
- * when a UTC day rolls over. The "is it due?" guard lives inside
- * postDailyChangesIfDue so manual triggers and the cron use identical logic.
+ * Sends the daily changelog digest shortly after each UTC midnight.
  *
- * Skipped when LIST_SKIP_DAILY_DISCORD=1 (handy for local dev / tests).
+ * Off in `nuxt dev` unless `LIST_DAILY_DISCORD=1`: a local server running on a
+ * copy of the production database would otherwise post to the real channels.
+ * `LIST_SKIP_DAILY_DISCORD=1` turns it off anywhere.
  */
 export default defineNitroPlugin(() => {
   if (process.env.LIST_SKIP_DAILY_DISCORD === '1') return
+  if (import.meta.dev && process.env.LIST_DAILY_DISCORD !== '1') {
+    console.log('[daily-discord] not running in dev (set LIST_DAILY_DISCORD=1 to enable)')
+    return
+  }
 
-  const POLL_MS = 10 * 60 * 1000
   const tick = async () => {
     try {
-      const result = await postDailyChangesIfDue()
-      if (result.posted.length) {
-        console.log(
-          `[daily-discord] posted ${result.posted.length} entr${result.posted.length === 1 ? 'y' : 'ies'}: `
-          + result.posted.map((p) => `wh${p.webhookId}/${p.date}=${p.status}`).join(' '),
-        )
+      const { posted } = await postDailyChangesIfDue({ mode: 'scheduled' })
+      if (posted.length) {
+        console.log(`[daily-discord] ${posted.map((p) => `webhook ${p.webhookId}: ${p.window}: ${p.status}`).join('; ')}`)
       }
     } catch (e: any) {
       console.error('[daily-discord] tick failed:', e?.message ?? e)
     }
   }
 
-  // Defer the first tick a bit so the DB / migrations finish first.
-  const initial = setTimeout(tick, 60_000)
-  if ('unref' in initial) initial.unref()
-  const interval = setInterval(tick, POLL_MS)
-  if ('unref' in interval) interval.unref()
+  const first = setTimeout(tick, 60_000)
+  first.unref?.()
+  const timer = setInterval(tick, 10 * 60_000)
+  timer.unref?.()
 })

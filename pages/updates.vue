@@ -87,15 +87,10 @@ function isRelease(version: string): boolean {
 <template>
   <div class="container-tight max-w-3xl py-8">
     <header class="mb-8">
-      <div class="flex items-center gap-2 flex-wrap">
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">List updates</h1>
-        <span class="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent tabular-nums">
-          {{ versionLabel(latestVisible) }}
-        </span>
-      </div>
-      <p class="text-sm text-zinc-500 mt-1">
-        Site changes, newest first. Level placements are in the
-        <NuxtLink to="/changelog" class="text-accent hover:underline">list changelog</NuxtLink>.
+      <h1 class="page-title">List updates</h1>
+      <p class="page-lead">
+        Changes to the website, newest first. Level placements are in the
+        <NuxtLink to="/changelog" class="link">changelog</NuxtLink>.
       </p>
       <!-- Said plainly rather than left to be noticed: staff are reading a
            longer page than everybody else, and it should be obvious which one
@@ -117,23 +112,14 @@ function isRelease(version: string): boolean {
 
         <div class="flex items-baseline gap-2 flex-wrap">
           <h2 class="text-lg font-semibold tracking-tight text-zinc-100">{{ u.title }}</h2>
-          <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-zinc-900 border border-zinc-800 text-zinc-300">
-            {{ versionLabel(u.version) }}
-          </span>
+          <span class="text-xs font-medium tabular-nums text-zinc-500">{{ versionLabel(u.version) }}</span>
           <span
             v-if="isNew(u.version)"
-            class="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest bg-accent/15 text-accent border border-accent/30"
+            class="rounded px-1.5 py-0.5 text-xs font-semibold bg-accent/15 text-accent border border-accent/30"
           >New</span>
-          <span class="text-[11px] text-zinc-600 ml-auto">{{ formatDate(u.date) }}</span>
+          <span class="text-xs text-zinc-500 ml-auto">{{ formatDate(u.date) }}</span>
         </div>
 
-        <div v-if="u.tags?.length" class="mt-1.5 flex flex-wrap gap-1">
-          <span
-            v-for="t in u.tags"
-            :key="t"
-            class="rounded-full border border-zinc-800 px-2 py-0.5 text-[10px] text-zinc-500"
-          >{{ t }}</span>
-        </div>
 
         <!-- Staff-only lines are marked rather than merely present. Somebody
              writing release notes for the community needs to know at a glance
@@ -155,7 +141,7 @@ function isRelease(version: string): boolean {
             <span>
               <span
                 v-if="isAdminChange(c)"
-                class="mr-1.5 align-[0.09em] rounded border border-amber-900/60 bg-amber-950/40 px-1 py-px text-[9px] uppercase tracking-widest text-amber-400/90"
+                class="mr-1.5 align-[0.09em] rounded border border-amber-900/60 bg-amber-950/40 px-1 py-px text-xs text-amber-400/90"
               >Staff</span>{{ changeText(c) }}
             </span>
           </li>
@@ -163,7 +149,7 @@ function isRelease(version: string): boolean {
       </li>
     </ol>
 
-    <p class="mt-10 text-[11px] text-zinc-600">
+    <p class="mt-10 text-sm text-zinc-500">
       Spotted something broken, or want something added? Say so in the
       <a href="https://discord.gg/KfZvUpS3PB" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-accent transition-colors">Discord ↗</a>.
     </p>

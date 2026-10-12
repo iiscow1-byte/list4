@@ -1,4 +1,4 @@
-import { challengeSourceSqlExpr } from '~/utils/challenge-sources'
+import { challengeSourceSqlExpr } from '../../utils/challenge-sources.ts'
 
 /**
  * "Is this level a challenge?", as one SQL expression.

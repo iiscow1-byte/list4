@@ -55,7 +55,7 @@ useHead(() => ({ title: list.value ? `Packs — ${list.value.title}` : 'Packs' }
                 </span>
                 <span
                   v-if="itemById(id)!.unverified"
-                  class="relative shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-950/60 text-amber-300/90 border border-amber-800/50"
+                  class="relative shrink-0 text-xs px-1.5 py-px rounded bg-amber-950/60 text-amber-300/90 border border-amber-800/50"
                   title="Nobody has verified this level yet — it can't be cleared"
                 >Unverified</span>
                 <span

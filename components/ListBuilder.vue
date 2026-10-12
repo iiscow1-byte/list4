@@ -337,39 +337,33 @@ function copyShare() {
     <!-- ── Palette ────────────────────────────────────────────────── -->
     <aside class="card overflow-hidden lg:sticky lg:top-20">
       <div class="px-4 py-3 border-b border-zinc-800/80">
-        <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Drag from the ALL list</h2>
+        <h2 class="section-title mb-2">Levels on the ALL</h2>
         <input
           v-model="search"
           type="search"
-          placeholder="Search levels…"
+          placeholder="Find a level"
+          aria-label="Find a level"
           class="field field-md"
         />
       </div>
-      <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto p-1.5 space-y-1">
+      <p class="px-4 pt-2 text-xs text-zinc-500">Drag a level into your list, or press +.</p>
+      <ul ref="paletteScroller" class="max-h-[28rem] overflow-y-auto py-1">
         <li v-for="l in palette" :key="l.id">
           <div
             draggable="true"
-            class="relative overflow-hidden flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing group ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 transition-all"
+            class="list-row cursor-grab active:cursor-grabbing text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50"
             :class="alreadyAdded.has(l.id) ? 'opacity-45' : ''"
             @dragstart="onPaletteDragStart($event, l)"
             @dragend="endDrag"
           >
-            <LevelThumbBg
-              :gd-id="l.gd_id"
-              :video-url="l.verification_url"
-              res="small"
-              img-class="opacity-25 group-hover:opacity-50"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/60 to-zinc-950/20"
-            />
-            <span
-              class="relative text-[10px] tabular-nums px-1 py-0.5 w-12 shrink-0 text-center font-semibold rounded"
-              :style="{ backgroundColor: tierColor(l.gddl_tier), color: textOn(tierColor(l.gddl_tier)) }"
-            >#{{ l.sheet_placement ?? l.position }}</span>
-            <span class="relative truncate flex-1 text-sm text-zinc-200 font-medium">{{ l.name }}</span>
+            <span class="list-row-strip" :style="{ backgroundColor: tierColor(l.gddl_tier) }" />
+            <span class="list-row-rank text-zinc-500">#{{ l.position }}</span>
+            <span class="truncate flex-1">{{ l.name }}</span>
             <button
               type="button"
-              class="relative shrink-0 w-5 h-5 rounded flex items-center justify-center text-zinc-500 hover:text-accent hover:bg-zinc-800 transition-colors"
-              title="Add to list"
+              class="shrink-0 w-6 h-6 rounded flex items-center justify-center text-zinc-500 hover:text-accent hover:bg-zinc-800 transition-colors"
+              :aria-label="`Add ${l.name} to your list`"
+              title="Add to your list"
               @click="addLevel(l)"
             >+</button>
           </div>
@@ -445,15 +439,15 @@ function copyShare() {
           Accept record submissions (players can submit clears to this list's leaderboard)
         </label>
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at #1</span>
+          <span class="text-xs text-zinc-500 font-medium">Points at #1</span>
           <input v-model.number="draft.maxPoints" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Points at the bottom</span>
+          <span class="text-xs text-zinc-500 font-medium">Points at the bottom</span>
           <input v-model.number="draft.minPoints" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Scored levels</span>
+          <span class="text-xs text-zinc-500 font-medium">Scored levels</span>
           <input v-model.number="draft.scoredCount" inputmode="numeric" placeholder="0 = all" class="field field-md mt-1" />
         </label>
         <p class="text-[10px] text-zinc-600 self-end pb-1.5">
@@ -510,11 +504,11 @@ function copyShare() {
                  hovering is a flag you cannot scan a list for. -->
             <span
               v-if="item.is_challenge"
-              class="relative shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
+              class="relative shrink-0 text-xs px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
               title="This list counts this level as a challenge"
             >challenge</span>
             <span v-if="item.position" class="relative shrink-0 text-[10px] text-zinc-600 tabular-nums">ALL #{{ item.sheet_placement ?? item.position }}</span>
-            <span v-else class="relative shrink-0 text-[10px] text-zinc-600 uppercase tracking-wider">custom</span>
+            <span v-else class="relative shrink-0 text-xs text-zinc-600">custom</span>
             <div class="relative shrink-0 flex items-center gap-0.5 transition-opacity" :class="metaOpen === i ? '' : 'opacity-0 group-hover:opacity-100'">
               <!-- One click, on the row, because marking challenges is
                    something you do to a run of levels at a time — burying it in
@@ -544,27 +538,27 @@ function copyShare() {
           <!-- Per-level list metadata -->
           <li v-if="metaOpen === i" class="rounded-lg border border-zinc-800/70 bg-zinc-900/40 p-3 grid gap-2 sm:grid-cols-4">
             <label class="block sm:col-span-2">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verifier</span>
+              <span class="text-xs text-zinc-500 font-medium">Verifier</span>
               <input v-model="item.verifier" type="text" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">% to qualify</span>
+              <span class="text-xs text-zinc-500 font-medium">% to qualify</span>
               <input v-model.number="item.percent_to_qualify" inputmode="numeric" placeholder="100" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">FPS</span>
+              <span class="text-xs text-zinc-500 font-medium">FPS</span>
               <input v-model="item.fps" type="text" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block sm:col-span-2">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification video</span>
+              <span class="text-xs text-zinc-500 font-medium">Verification video</span>
               <input v-model="item.verification_url" type="url" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Game version</span>
+              <span class="text-xs text-zinc-500 font-medium">Game version</span>
               <input v-model="item.game_version" type="text" placeholder="2.2" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
+              <span class="text-xs text-zinc-500 font-medium">Note</span>
               <input v-model="item.notes" type="text" maxlength="500" class="field field-sm mt-1 text-xs" />
             </label>
             <label class="flex items-start gap-2 cursor-pointer select-none sm:col-span-2 pt-1">
@@ -611,31 +605,31 @@ function copyShare() {
         </button>
         <div v-if="manualOpen" class="px-4 pb-4 grid gap-2 sm:grid-cols-2">
           <label class="block sm:col-span-2">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Level name *</span>
+            <span class="text-xs text-zinc-500 font-medium">Level name *</span>
             <input v-model="manual.name" type="text" class="field field-md mt-1" @keydown.enter.prevent="addManual" />
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Level ID</span>
+            <span class="text-xs text-zinc-500 font-medium">Level ID</span>
             <input v-model="manual.gd_id" inputmode="numeric" class="field field-md mt-1" />
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Creator</span>
+            <span class="text-xs text-zinc-500 font-medium">Creator</span>
             <input v-model="manual.creator" type="text" class="field field-md mt-1" />
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+            <span class="text-xs text-zinc-500 font-medium">Difficulty</span>
             <input v-model="manual.difficulty" type="text" placeholder="Extreme Demon" class="field field-md mt-1" />
           </label>
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Tier</span>
+            <span class="text-xs text-zinc-500 font-medium">Tier</span>
             <input v-model="manual.gddl_tier" type="text" placeholder="Tier 20" class="field field-md mt-1" />
           </label>
           <label class="block sm:col-span-2">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification URL</span>
+            <span class="text-xs text-zinc-500 font-medium">Verification URL</span>
             <input v-model="manual.verification_url" type="url" class="field field-md mt-1" />
           </label>
           <label class="block sm:col-span-2">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Note</span>
+            <span class="text-xs text-zinc-500 font-medium">Note</span>
             <input v-model="manual.notes" type="text" maxlength="500" class="field field-md mt-1" />
           </label>
           <div class="sm:col-span-2">
@@ -651,7 +645,7 @@ function copyShare() {
 
       <!-- Saved lists -->
       <div v-if="me" class="border-t border-zinc-800/80 px-4 py-3">
-        <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold mb-2">Your saved lists</h3>
+        <h3 class="text-sm font-semibold text-zinc-200 mb-2">Your saved lists</h3>
         <p v-if="myLists.length === 0" class="text-xs text-zinc-600">Nothing saved yet.</p>
         <ul v-else class="space-y-1">
           <li v-for="l in myLists" :key="l.public_id" class="flex items-center gap-2 text-sm">

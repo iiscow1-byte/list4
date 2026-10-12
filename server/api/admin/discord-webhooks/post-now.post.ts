@@ -1,13 +1,12 @@
 import { requireAdmin } from '~/server/utils/auth'
-import { postDailyChangesIfDue, ymdUtc } from '~/server/utils/daily-discord'
+import { postDailyChangesIfDue } from '~/server/utils/daily-discord'
 
 /**
- * Manually run the daily-changes posting routine. Extends the window to
- * today (UTC) so changes made earlier today are included — the scheduler
- * only runs up to yesterday to avoid posting a partial day automatically.
+ * Send everything not yet sent, including today so far. Tonight's digest then
+ * only carries what happens after this.
  */
 export default defineEventHandler(async (event) => {
   requireAdmin(event)
-  const result = await postDailyChangesIfDue({ upToDate: ymdUtc(new Date()), forceCurrent: true, allWebhooks: true })
-  return result
+  const body = await readBody<{ id?: number }>(event).catch(() => null)
+  return postDailyChangesIfDue({ mode: 'now', includePaused: true, webhookId: body?.id ? Number(body.id) : undefined })
 })

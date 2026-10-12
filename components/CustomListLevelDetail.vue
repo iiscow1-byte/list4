@@ -259,7 +259,7 @@ const submitToAllHref = computed(() => {
 })
 
 const field = 'field field-sm mt-1 disabled:opacity-50'
-const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
+const label = 'text-xs text-zinc-500 font-medium'
 </script>
 
 <template>
@@ -292,7 +292,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
           >{{ item.gddl_tier }}</span>
           <span
             v-if="item.is_challenge"
-            class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
+            class="text-xs px-1.5 py-0.5 rounded border border-amber-900/60 bg-amber-950/40 text-amber-400/90"
             :title="`${listTitle} counts this level as a challenge`"
           >Challenge</span>
           <!-- A level the ALL list doesn't have yet is the interesting case:
@@ -544,19 +544,19 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       <!-- Stats -->
       <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-xl overflow-hidden">
         <div class="bg-zinc-950 px-3 py-2.5">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Points</dt>
+          <dt class="text-xs text-zinc-500">Points</dt>
           <dd class="tabular-nums text-lg font-semibold text-amber-300">{{ item.points }}</dd>
         </div>
         <div class="bg-zinc-950 px-3 py-2.5">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">To qualify</dt>
+          <dt class="text-xs text-zinc-500">To qualify</dt>
           <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ item.percent_to_qualify }}%</dd>
         </div>
         <div class="bg-zinc-950 px-3 py-2.5">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Records</dt>
+          <dt class="text-xs text-zinc-500">Records</dt>
           <dd class="tabular-nums text-lg font-semibold text-zinc-100">{{ item.records.length }}</dd>
         </div>
         <div class="bg-zinc-950 px-3 py-2.5">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Level ID</dt>
+          <dt class="text-xs text-zinc-500">Level ID</dt>
           <dd class="tabular-nums text-sm text-zinc-300 truncate">
             <!-- The ID stays whatever happens: it is the level's identity, and
                  the setting is about links off this list, not about facts. -->
@@ -576,15 +576,15 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
       <!-- Metadata -->
       <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
         <div v-if="item.difficulty && showDifficulty !== false">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Difficulty</dt>
+          <dt class="text-xs text-zinc-500">Difficulty</dt>
           <dd class="text-zinc-200">{{ item.difficulty }}</dd>
         </div>
         <div v-if="item.fps">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">FPS</dt>
+          <dt class="text-xs text-zinc-500">FPS</dt>
           <dd class="text-zinc-200">{{ item.fps }}</dd>
         </div>
         <div v-if="item.game_version">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Game version</dt>
+          <dt class="text-xs text-zinc-500">Game version</dt>
           <dd class="text-zinc-200">{{ item.game_version }}</dd>
         </div>
         <!-- Hidden when the list has turned off marking levels against the ALL,
@@ -593,7 +593,7 @@ const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
              inside the editor, where it's about which level this row *is*
              rather than about presenting the list. -->
         <div v-if="item.position && markOffAll !== false && showLevelLinks !== false">
-          <dt class="text-[10px] uppercase tracking-wider text-zinc-500">On the ALL list</dt>
+          <dt class="text-xs text-zinc-500">On the ALL list</dt>
           <dd>
             <NuxtLink :to="`/levels/${item.position}`" class="text-accent hover:underline tabular-nums">
               #{{ item.sheet_placement ?? item.position }}

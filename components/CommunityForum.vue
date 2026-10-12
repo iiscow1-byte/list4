@@ -201,11 +201,11 @@ async function toggleLike(t: Thread) {
     <form v-if="composeOpen && me" class="card p-4 space-y-3" @submit.prevent="submit">
       <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem]">
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Title</span>
+          <span class="text-xs text-zinc-500 font-medium">Title</span>
           <input v-model="draft.title" maxlength="140" placeholder="What's this about?" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Category</span>
+          <span class="text-xs text-zinc-500 font-medium">Category</span>
           <select v-model="draft.category" class="field field-md mt-1">
             <option v-for="c in CATEGORIES" :key="c" :value="c">{{ CATEGORY_LABELS[c] }}</option>
           </select>
@@ -213,7 +213,7 @@ async function toggleLike(t: Thread) {
       </div>
 
       <label class="block">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Post</span>
+        <span class="text-xs text-zinc-500 font-medium">Post</span>
         <textarea
           v-model="draft.body"
           rows="5"
@@ -225,7 +225,7 @@ async function toggleLike(t: Thread) {
 
       <!-- Attach a level, by name. Nobody knows level ids. -->
       <div class="block relative">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+        <span class="text-xs text-zinc-500 font-medium">
           About a level <span class="text-zinc-600 normal-case">optional</span>
         </span>
         <div v-if="levelPicked" class="mt-1 flex items-center gap-2">
@@ -284,41 +284,24 @@ async function toggleLike(t: Thread) {
       >Show the whole forum</button>
     </div>
 
-    <!-- Filters -->
-    <div class="card px-3 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
-      <div class="flex flex-wrap items-center gap-1.5">
-        <label
-          class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-          :class="category === ''
-            ? 'border-accent/60 text-accent bg-accent/10'
-            : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-        >
-          <input v-model="category" type="radio" value="" class="sr-only" />
-          All
-        </label>
-        <label
-          v-for="c in CATEGORIES"
-          :key="c"
-          class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-          :class="category === c
-            ? 'border-accent/60 text-accent bg-accent/10'
-            : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-        >
-          <input v-model="category" type="radio" :value="c" class="sr-only" />
-          {{ CATEGORY_LABELS[c] }}
-          <span v-if="data?.counts?.[c]" class="text-zinc-600 tabular-nums">{{ data.counts[c] }}</span>
-        </label>
-      </div>
+    <div class="flex flex-wrap items-center gap-2">
       <input
         v-model="search"
         type="search"
-        placeholder="Search threads…"
-        class="field field-sm flex-1 min-w-[10rem] text-xs"
+        placeholder="Find a thread"
+        aria-label="Find a thread"
+        class="field field-sm w-full sm:w-64"
       />
+      <select v-model="category" class="field field-sm w-auto" aria-label="Topic">
+        <option value="">All topics</option>
+        <option v-for="c in CATEGORIES" :key="c" :value="c">
+          {{ CATEGORY_LABELS[c] }}{{ data?.counts?.[c] ? ` (${data.counts[c]})` : '' }}
+        </option>
+      </select>
       <SegmentedControl
         v-model="sort"
-        size="sm"
         aria-label="Sort threads"
+        class="sm:ml-auto"
         :options="[
           { value: 'active', label: 'Active' },
           { value: 'new', label: 'New' },
@@ -337,27 +320,19 @@ async function toggleLike(t: Thread) {
       <template v-else>No threads yet. Start the first one.</template>
     </p>
 
-    <ul v-else class="card divide-y divide-zinc-900/70 overflow-hidden">
+    <ul v-else class="card divide-y divide-zinc-800/70 overflow-hidden">
       <li
         v-for="t in threads"
         :key="t.id"
-        class="relative overflow-hidden group/row"
         :class="t.pinned ? 'bg-accent/[0.04]' : ''"
       >
-        <LevelThumbBg
-          v-if="t.level?.gd_id"
-          :gd-id="t.level.gd_id"
-          res="small"
-          img-class="opacity-[0.10] group-hover/row:opacity-20"
-          overlay-class="bg-gradient-to-r from-zinc-950/96 via-zinc-950/88 to-zinc-950/60"
-        />
-        <div class="relative px-4 py-3 flex items-start gap-3">
+        <div class="px-4 py-3 flex items-start gap-3">
           <NuxtLink
             v-if="t.author"
             :to="`/users/${encodeURIComponent(t.author.username)}`"
             class="shrink-0 mt-0.5"
           >
-            <span class="w-9 h-9 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/60 flex items-center justify-center">
+            <span class="w-9 h-9 rounded-full overflow-hidden bg-zinc-800 flex items-center justify-center">
               <img
                 v-if="t.author.has_avatar"
                 :src="`/api/users/${encodeURIComponent(t.author.username)}/avatar`"
@@ -370,18 +345,16 @@ async function toggleLike(t: Thread) {
 
           <div class="min-w-0 flex-1">
             <div class="flex items-baseline gap-2 flex-wrap">
-              <span v-if="t.pinned" class="text-[9px] uppercase tracking-widest text-accent shrink-0" title="Pinned">📌</span>
+              <span v-if="t.pinned" class="text-xs font-medium text-accent shrink-0">Pinned</span>
               <NuxtLink
                 :to="`/community/thread/${t.id}`"
                 class="font-semibold text-zinc-100 hover:text-accent transition-colors truncate max-w-full"
               >{{ t.title }}</NuxtLink>
-              <span v-if="t.locked" class="text-[9px] uppercase tracking-widest text-zinc-600 shrink-0">locked</span>
-              <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-500 shrink-0">
-                {{ CATEGORY_LABELS[t.category] ?? t.category }}
-              </span>
+              <span v-if="t.locked" class="text-xs text-zinc-600 shrink-0">locked</span>
+              <span class="text-xs text-zinc-500 shrink-0">{{ CATEGORY_LABELS[t.category] ?? t.category }}</span>
             </div>
 
-            <p class="mt-1 text-[11px] text-zinc-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <p class="mt-1 text-xs text-zinc-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <template v-if="t.author">
                 <NuxtLink
                   :to="`/users/${encodeURIComponent(t.author.username)}`"
@@ -401,12 +374,12 @@ async function toggleLike(t: Thread) {
                 <NuxtLink
                   :to="`/levels/${t.level.position}`"
                   class="text-zinc-400 hover:text-accent transition-colors truncate"
-                >#{{ t.level.sheet_placement ?? t.level.position }} {{ t.level.name }}</NuxtLink>
+                >#{{ t.level.position }} {{ t.level.name }}</NuxtLink>
               </template>
             </p>
           </div>
 
-          <div class="shrink-0 flex items-center gap-3 text-[11px]">
+          <div class="shrink-0 flex items-center gap-3 text-xs">
             <button
               type="button"
               :disabled="!me"
@@ -423,7 +396,7 @@ async function toggleLike(t: Thread) {
               :title="`${t.reply_count} repl${t.reply_count === 1 ? 'y' : 'ies'}`"
             >
               <span class="block text-sm font-semibold tabular-nums text-zinc-300">{{ t.reply_count }}</span>
-              <span class="block text-[9px] uppercase tracking-widest text-zinc-600">repl{{ t.reply_count === 1 ? 'y' : 'ies' }}</span>
+              <span class="block text-xs text-zinc-600">repl{{ t.reply_count === 1 ? 'y' : 'ies' }}</span>
             </NuxtLink>
           </div>
         </div>

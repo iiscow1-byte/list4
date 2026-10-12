@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { isValidDiscordWebhook } from '~/server/utils/discord'
+import { startCursorNow } from '~/server/utils/daily-discord'
 
 const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status', 'challenge_changes'])
 
@@ -33,5 +34,8 @@ export default defineEventHandler(async (event) => {
     )
     .run(url, label, kind, account.id)
 
-  return { ok: true, id: Number(result.lastInsertRowid) }
+  const id = Number(result.lastInsertRowid)
+  // A new webhook gets what happens from now on, not the backlog.
+  startCursorNow(db, id)
+  return { ok: true, id }
 })

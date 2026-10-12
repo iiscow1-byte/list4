@@ -56,26 +56,15 @@ export const BADGE_TONE: Record<BadgeTone, string> = {
   pink: 'bg-pink-500/15 text-pink-200 border-pink-500/40',
 }
 
-/**
- * Two sizes, because there are two places a badge goes: beside a heading, or
- * inside a dense row. Anything between them is somebody eyeballing it.
- *
- * The right padding is larger than the left, and deliberately so. `letter-spacing`
- * is applied *after* every glyph including the last, so uppercase tracked text
- * in a symmetric box carries a phantom 0.1em on its right and sits visibly left
- * of centre. Adding the same 0.1em back as padding is what makes a badge look
- * centred rather than nearly centred — the sort of thing nobody can name but
- * everybody sees when a row of them lines up.
- */
+/** Two sizes: beside a heading, or inside a dense row. */
 export const BADGE_SIZE = {
-  sm: 'text-[9px] pl-1.5 pr-[calc(0.375rem_+_0.1em)] py-[3px] gap-1',
-  md: 'text-[10px] pl-2 pr-[calc(0.5rem_+_0.1em)] py-1 gap-1.5',
+  sm: 'text-[11px] px-1.5 py-[2px] gap-1',
+  md: 'text-xs px-2 py-0.5 gap-1.5',
 } as const
 export type BadgeSize = keyof typeof BADGE_SIZE
 
 export const BADGE_BASE =
-  'shrink-0 inline-flex items-center rounded-[5px] border font-semibold uppercase '
-  + 'tracking-widest leading-none whitespace-nowrap align-middle'
+  'shrink-0 inline-flex items-center rounded-md border font-medium leading-tight whitespace-nowrap align-middle'
 
 /** The dot before a label, when a badge asks for one. */
 export const BADGE_DOT = {

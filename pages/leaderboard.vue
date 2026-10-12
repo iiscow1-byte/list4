@@ -229,42 +229,7 @@ watch([tab, me], () => {
   if (tab.value === 'followed') loadFeed()
 })
 
-/**
- * Whether the top three get their own cards above the table.
- *
- * A reading preference, remembered between visits. The podium is three large
- * cards' worth of vertical space for three rows that are also in the list — a
- * fine trade when you came to see who is winning, and pure scrolling when you
- * came to find your own rank.
- */
-const showPodium = useState('leaderboard_podium', () => true)
-onMounted(() => {
-  try {
-    const raw = localStorage.getItem('als:leaderboard-podium')
-    if (raw !== null) showPodium.value = raw === '1'
-  } catch { /* private mode — the default stands */ }
-  watch(showPodium, (v) => {
-    try { localStorage.setItem('als:leaderboard-podium', v ? '1' : '0') } catch { /* ignore quota */ }
-  })
-})
-
-/**
- * The podium only makes sense on the unfiltered first page, and only when there
- * are actually three people to stand on it.
- *
- * A search is excluded because the rows it leaves are the ones matching a name,
- * not the ones at the top. The count check catches the case a search filter
- * doesn't: "Followed" narrows the board without any search text, so following
- * one player used to render a one-person podium — a gold card, and two gaps.
- */
-const podium = computed(() =>
-  showPodium.value && page.value === 1 && !debounced.value && items.value.length >= 3
-    ? items.value.slice(0, 3)
-    : [],
-)
-const listItems = computed(() =>
-  podium.value.length ? items.value.slice(3) : items.value,
-)
+const listItems = computed(() => items.value)
 /**
  * The per-row points bar is gone.
  *
@@ -281,12 +246,6 @@ function rankClass(rank: number) {
   if (rank === 3) return 'bg-orange-400/80 text-orange-950'
   if (rank <= 10) return 'bg-zinc-300/15 text-zinc-200'
   return 'bg-zinc-800 text-zinc-400'
-}
-/** Medal ring around the podium avatars. */
-function podiumRing(rank: number) {
-  if (rank === 1) return 'ring-amber-400/80'
-  if (rank === 2) return 'ring-zinc-300/70'
-  return 'ring-orange-400/70'
 }
 function fmt(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -324,13 +283,12 @@ function rowKey(p: Row, i: number): string {
   if (p.source === 'aredl' || p.source === 'pointercrate' || p.source === 'gdl') return `${p.source}-${p.id}`
   return `all-${p.player}-${i}`
 }
+const SOURCE_NAMES: Record<string, string> = { aredl: 'AREDL', pointercrate: 'Pointercrate', gdl: 'GDL' }
+/** Which other lists a player comes from; null for players only on this one. */
 function sourceLabel(p: Row): string | null {
   if (!p.source) return null
-  // External sources (AREDL/PC/GDL) all collapse to a single "(External)" tag.
-  // Players whose only source is the ALL list don't get a tag.
-  const sources = (p as GlobalRow).sources ?? [p.source]
-  const onlyAll = sources.length === 1 && sources[0] === 'alllist'
-  return onlyAll ? null : '(External)'
+  const sources = ((p as GlobalRow).sources ?? [p.source]).filter((x) => x !== 'alllist')
+  return sources.length ? sources.map((x) => SOURCE_NAMES[x] ?? x).join(' · ') : null
 }
 /**
  * The picture behind a row, whichever tab it came from.
@@ -371,28 +329,13 @@ useHead({ title: 'Leaderboard — All Levels List' })
 <template>
   <div class="container-tight py-8">
     <header class="mb-5">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Leaderboard</h1>
-      <p class="text-zinc-500 mt-1 text-sm">
-        <template v-if="tab === 'global'">
-          Players from AREDL, Pointercrate, GDL, and the ALL list, ranked by their ALL list points.
-        </template>
-        <template v-else-if="tab === 'records' && recordsMode === 'challenges'">
-          Challenge records from this site, AREDL, Pointercrate and GDL, scored with ALL list
-          points. A clear reported by several sources counts once.
-        </template>
-        <template v-else-if="tab === 'records'">
-          Records from this site, AREDL, Pointercrate and GDL, scored with ALL list points.
-          A clear reported by several sources counts once.
-        </template>
-        <template v-else-if="tab === 'challenges'">
-          Players ranked by the challenges they've beaten.
-        </template>
-        <template v-else-if="tab === 'members'">
-          ALL list members ranked by total points.
-        </template>
-        <template v-else>
-          The players you follow, ranked by total points.
-        </template>
+      <h1 class="page-title">Leaderboard</h1>
+      <p class="page-lead">
+        <template v-if="tab === 'global'">Everyone from AREDL, Pointercrate, GDL and this list, ranked by points here.</template>
+        <template v-else-if="tab === 'records'">Players ranked by the records they have on this list's levels.</template>
+        <template v-else-if="tab === 'challenges'">Players ranked by the challenges they've beaten.</template>
+        <template v-else-if="tab === 'members'">Players with an account here.</template>
+        <template v-else>The players you follow.</template>
       </p>
     </header>
 
@@ -403,7 +346,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
         aria-label="Leaderboard source"
         :options="[
           { value: 'global', label: 'Global' },
-          { value: 'records', label: 'All Records' },
+          { value: 'records', label: 'Records' },
           { value: 'members', label: 'Members' },
           { value: 'challenges', label: 'Challenges' },
           { value: 'followed', label: 'Followed' },
@@ -425,30 +368,11 @@ useHead({ title: 'Leaderboard — All Levels List' })
         <input
           v-model="search"
           type="search"
-          placeholder="Search players or accounts…"
+          placeholder="Find a player"
           class="field field-sm"
         />
       </div>
-      <!-- Only offered where it would change anything: the podium is already
-           suppressed on a search or past page one, and a switch that visibly
-           does nothing is worse than no switch. -->
-      <button
-        v-if="page === 1 && !debounced"
-        type="button"
-        class="shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
-        :class="showPodium
-          ? 'border-accent/60 bg-accent/10 text-accent'
-          : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
-        :aria-pressed="showPodium"
-        :title="showPodium ? 'Hide the top three cards' : 'Show the top three as cards'"
-        @click="showPodium = !showPodium"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
-          <path d="M4 20h4v-7H4zM10 20h4V4h-4zM16 20h4v-10h-4z" />
-        </svg>
-        Podium
-      </button>
-      <span v-if="total" class="text-[11px] text-zinc-600 tabular-nums ml-auto">
+      <span v-if="total" class="text-xs text-zinc-500 tabular-nums ml-auto">
         {{ total.toLocaleString() }} player{{ total === 1 ? '' : 's' }}
       </span>
     </div>
@@ -458,54 +382,10 @@ useHead({ title: 'Leaderboard — All Levels List' })
     </div>
 
     <div v-else class="grid gap-6" :class="tab === 'followed' ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''">
-      <div>
-        <div v-if="pending && items.length === 0" class="text-sm text-zinc-500 py-12 text-center">loading…</div>
+      <div class="min-w-0">
+        <div v-if="pending && items.length === 0" class="text-sm text-zinc-500 py-12 text-center">Loading…</div>
 
         <template v-else>
-          <!-- Podium: the top three, given room to breathe -->
-          <ol v-if="podium.length === 3" class="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
-            <li
-              v-for="p in [podium[1], podium[0], podium[2]]"
-              :key="rowKey(p!, p!.rank)"
-              :class="p!.rank === 1 ? 'sm:-mt-3' : ''"
-            >
-              <NuxtLink
-                :to="rowLink(p!)"
-                class="h-full flex flex-col items-center text-center gap-2 rounded-xl border bg-zinc-950 px-2 py-4 transition-colors group"
-                :class="p!.rank === 1 ? 'border-amber-500/40 hover:border-amber-400/70' : 'border-zinc-800 hover:border-zinc-600'"
-              >
-                <span
-                  class="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-zinc-800 ring-2 flex items-center justify-center shrink-0"
-                  :class="podiumRing(p!.rank)"
-                >
-                  <!-- `no-referrer`: some of these are Discord's CDN now, and
-                       an external host has no business being told which page a
-                       reader is on. -->
-                  <img
-                    v-if="avatarFor(p!)"
-                    :src="avatarFor(p!)!"
-                    class="w-full h-full object-cover"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    referrerpolicy="no-referrer"
-                  />
-                  <span v-else class="text-lg font-black uppercase text-zinc-500">{{ p!.player.charAt(0) }}</span>
-                </span>
-                <span class="rank-badge shrink-0" :class="rankClass(p!.rank)">#{{ p!.rank }}</span>
-                <span class="flex items-center justify-center gap-1.5 w-full min-w-0">
-                  <!-- `link` is off inside the podium card, which is already a
-                       link — an anchor inside an anchor is invalid markup and
-                       swallows the card's own click. -->
-                  <ClanTag v-if="p!.clan" :tag="p!.clan.tag" :name="p!.clan.name" :color="p!.clan.color" size="sm" :link="false" />
-                  <span class="text-sm font-semibold text-zinc-100 truncate group-hover:text-accent transition-colors">{{ p!.player }}</span>
-                </span>
-                <span class="text-xs tabular-nums text-amber-300">{{ fmt(p!.points) }} pts</span>
-                <span v-if="p!.hardest" class="text-[10px] text-zinc-600 truncate w-full">{{ p!.hardest }}</span>
-              </NuxtLink>
-            </li>
-          </ol>
-
           <ol
             class="divide-y divide-zinc-900 card overflow-hidden transition-opacity"
             :class="{ 'opacity-50': pending }"
@@ -531,7 +411,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
                 <div class="flex-1 min-w-0">
                   <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
                     <ClanTag v-if="p.clan" :tag="p.clan.tag" :name="p.clan.name" :color="p.clan.color" size="sm" :link="false" />
-                    <span class="truncate">{{ p.player }}</span>
+                    <span class="truncate min-w-0">{{ p.player }}</span>
                     <!-- Role badge intentionally excluded from external-list rows
                          (Aredl, Pointercrate): they are list mirrors, not site
                          identities, so the site-role chip would be misleading. -->
@@ -539,23 +419,22 @@ useHead({ title: 'Leaderboard — All Levels List' })
                       <RoleBadge :role="(p as AllRow).badge" size="sm" />
                     </template>
                     <template v-else>
-                      <Badge tone="quiet" size="sm" title="Imported from another list">{{ sourceLabel(p) }}</Badge>
-                      <Badge
+                      <span class="text-xs font-normal text-zinc-500 shrink-0">{{ sourceLabel(p) }}</span>
+                      <span
                         v-if="(p as GlobalRow).claimed_account"
-                        tone="emerald"
-                        size="sm"
+                        class="text-xs font-normal text-emerald-400 shrink-0"
                         :title="`Claimed by @${(p as GlobalRow).claimed_account!.username}`"
-                      >Claimed</Badge>
+                      >has an account</span>
                     </template>
                   </div>
-                  <div class="text-[11px] text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5 min-w-0">
                     <!-- The challenge tab's numbers are its own: how many, and
                          the best one by *challenge* rank rather than by list
                          placement, which is the number the challenge list
                          itself prints. -->
                     <template v-if="tab === 'challenges'">
                       <span class="tabular-nums">{{ fmt((p as ChallengeRow).challenges) }} challenges</span>
-                      <span v-if="(p as ChallengeRow).hardest" class="truncate">
+                      <span v-if="(p as ChallengeRow).hardest" class="truncate max-w-full">
                         Hardest: {{ (p as ChallengeRow).hardest }}
                         <span v-if="(p as ChallengeRow).hardest_rank" class="text-zinc-600 tabular-nums">
                           (#{{ (p as ChallengeRow).hardest_rank }})
@@ -566,10 +445,10 @@ useHead({ title: 'Leaderboard — All Levels List' })
                          disagree: many easy clears against a few hard ones. -->
                     <template v-else-if="tab === 'records'">
                       <span class="tabular-nums">{{ fmt((p as RecordsRow).records) }} records</span>
-                      <span v-if="(p as RecordsRow).sources?.length" class="uppercase text-[10px] tracking-wide text-zinc-600">
+                      <span v-if="(p as RecordsRow).sources?.length" class="text-xs text-zinc-600">
                         {{ (p as RecordsRow).sources.join(' · ') }}
                       </span>
-                      <span v-if="p.hardest" class="truncate">
+                      <span v-if="p.hardest" class="truncate max-w-full">
                         Hardest: {{ p.hardest }}
                         <span v-if="(p as RecordsRow).hardest_position" class="text-zinc-600 tabular-nums">
                           (#{{ (p as RecordsRow).hardest_position }})
@@ -579,19 +458,20 @@ useHead({ title: 'Leaderboard — All Levels List' })
                     <template v-else-if="!sourceLabel(p)">
                       <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill {{ fmt((p as AllRow).skill_points) }}</span>
                       <span v-if="(p as AllRow).extremes" class="tabular-nums">{{ (p as AllRow).extremes }} extremes</span>
-                      <span v-if="p.hardest" class="truncate">Hardest: {{ p.hardest }}</span>
+                      <span v-if="p.hardest" class="truncate max-w-full">Hardest: {{ p.hardest }}</span>
                     </template>
                     <template v-else>
                       <span v-if="p.country" class="uppercase tabular-nums">{{ p.country }}</span>
                       <span v-if="(p as GlobalRow).extras?.extremes" class="tabular-nums">{{ (p as GlobalRow).extras.extremes }} extremes</span>
-                      <span v-if="p.hardest" class="truncate">Hardest: {{ p.hardest }}</span>
+                      <span v-if="p.hardest" class="truncate max-w-full">Hardest: {{ p.hardest }}</span>
                     </template>
                   </div>
                 </div>
                 <span
-                  class="tabular-nums text-sm shrink-0 font-semibold"
-                  :class="p.points > 0 ? 'text-amber-300' : 'text-zinc-600'"
-                >{{ fmt(p.points) }}<span class="text-[10px] font-normal text-zinc-600 ml-1">pts</span></span>
+                  v-if="p.points > 0"
+                  class="tabular-nums text-sm shrink-0 font-semibold text-amber-300"
+                >{{ fmt(p.points) }}<span class="text-xs font-normal text-zinc-500 ml-1">pts</span></span>
+                <span v-else class="text-sm shrink-0 text-zinc-600" title="No records on this list yet">—</span>
               </NuxtLink>
             </li>
             <li v-if="!pending && items.length === 0" class="px-4 py-16 text-center text-sm text-zinc-500">
@@ -623,7 +503,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
                 No players or accounts match "{{ debounced }}".
               </template>
               <template v-else>
-                No players imported yet. Run <code class="text-amber-300 tabular-nums">npm run import</code>.
+                No players yet.
               </template>
             </li>
           </ol>
@@ -675,7 +555,7 @@ useHead({ title: 'Leaderboard — All Levels List' })
       </div>
 
       <aside v-if="tab === 'followed'" class="space-y-3">
-        <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold px-1">Recent activity</h2>
+        <h2 class="text-sm font-semibold text-zinc-200 px-1">Recent activity</h2>
         <div v-if="feedLoading" class="text-xs text-zinc-600 px-1">loading…</div>
         <ol v-else-if="feed.length" class="divide-y divide-zinc-900 card overflow-hidden">
           <li v-for="(item, idx) in feed" :key="`${item.kind}-${idx}-${item.at}`" class="px-3 py-2.5 text-xs">

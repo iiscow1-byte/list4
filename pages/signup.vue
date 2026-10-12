@@ -47,11 +47,11 @@ const discordError = computed(() => {
 
 <template>
   <div v-if="!signupsOpen" class="container-tight py-20 max-w-md text-center">
-    <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+    <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
       <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
       In development
     </div>
-    <h1 class="mt-4 text-2xl font-bold tracking-tight">Sign-ups are closed</h1>
+    <h1 class="mt-4 page-title">Sign-ups are closed</h1>
     <p
       v-for="(line, i) in LOCKDOWN_LINES"
       :key="line"
@@ -65,7 +65,7 @@ const discordError = computed(() => {
   </div>
 
   <div v-else class="container-tight py-12 max-w-sm">
-    <h1 class="text-3xl font-semibold tracking-tight mb-1">Create an account</h1>
+    <h1 class="page-title mb-1">Create an account</h1>
     <p class="text-sm text-zinc-400 mb-6">
       Sign up, then claim your leaderboard player from your account page.
     </p>

@@ -212,7 +212,7 @@ function onMove(e: MouseEvent) {
     @toggle="onToggle"
   >
     <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between gap-3 list-none hover:bg-zinc-900/40 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60">
-      <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Placement over time</h3>
+      <h3 class="text-sm font-semibold text-zinc-200">Placement over time</h3>
       <div class="flex items-center gap-3 text-[10px]">
         <!-- The legend doubles as the series toggles, so clicks inside it must
              not collapse the chart. -->

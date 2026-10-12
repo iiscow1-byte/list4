@@ -71,9 +71,9 @@ useHead({ title: 'Find a level — All Levels List' })
 
 <template>
   <div class="container-tight py-8 space-y-5">
-    <header class="space-y-2">
-      <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Find a level</h1>
-      <p class="text-sm text-zinc-500">
+    <header>
+      <h1 class="page-title">Find a level</h1>
+      <p class="page-lead">
         Search Geometry Dash, then submit the level to the list or submit a record for it.
       </p>
     </header>
@@ -116,11 +116,11 @@ useHead({ title: 'Find a level — All Levels List' })
               <h2 class="font-semibold text-zinc-50 truncate">{{ r.name }}</h2>
               <span
                 v-if="r.difficulty"
-                class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
+                class="text-xs px-1.5 py-0.5 rounded font-semibold"
                 :style="{ backgroundColor: difficultyColor(r.difficulty), color: '#0a0a0a' }"
               >{{ r.difficulty }}</span>
               <span
-                class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold"
+                class="text-xs px-1.5 py-0.5 rounded font-semibold"
                 :style="{ backgroundColor: ratingColor(r.rating), color: '#0a0a0a' }"
               >{{ r.rating }}</span>
             </div>
@@ -141,7 +141,7 @@ useHead({ title: 'Find a level — All Levels List' })
               <NuxtLink
                 :to="`/levels/${r.on_list.position}`"
                 class="btn btn-sm btn-primary text-center"
-              >On the list · #{{ r.on_list.sheet_placement ?? r.on_list.position }}</NuxtLink>
+              >On the list · #{{ r.on_list.position }}</NuxtLink>
               <NuxtLink
                 :to="`/records/submit?position=${r.on_list.position}`"
                 class="btn btn-sm btn-ghost text-center"

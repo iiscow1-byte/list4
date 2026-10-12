@@ -1,5 +1,6 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
+import { startCursorNow } from '~/server/utils/daily-discord'
 
 const VALID_KINDS = new Set(['changes', 'leaderboard', 'level_status', 'challenge_changes'])
 
@@ -38,10 +39,13 @@ export default defineEventHandler(async (event) => {
   if (!sets.length) return { ok: true, updated: 0 }
 
   const db = getDb()
-  const existing = db.prepare(`SELECT id FROM discord_webhooks WHERE id = ?`).get(id) as { id: number } | undefined
+  const existing = db.prepare(`SELECT id, active, kind FROM discord_webhooks WHERE id = ?`).get(id) as { id: number; active: number; kind: string } | undefined
   if (!existing) throw createError({ statusCode: 404, statusMessage: 'Webhook not found.' })
 
   values.push(id)
   db.prepare(`UPDATE discord_webhooks SET ${sets.join(', ')} WHERE id = ?`).run(...values)
+  // Switched back on, or switched to a different feed: start from now rather
+  // than catching up on what it missed while off.
+  if ((body.active === true && !existing.active) || (body.kind && body.kind !== existing.kind)) startCursorNow(db, id)
   return { ok: true, updated: sets.length }
 })

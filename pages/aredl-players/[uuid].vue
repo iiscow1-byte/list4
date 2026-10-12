@@ -51,8 +51,8 @@ function fmt(n: number | null | undefined) {
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="text-3xl font-semibold tracking-tight">{{ data.player.name }}</h1>
-              <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">AREDL</span>
+              <h1 class="page-title">{{ data.player.name }}</h1>
+              <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">AREDL</span>
             </div>
             <p v-if="data.player.country" class="text-xs text-zinc-500 mt-1 uppercase">{{ data.player.country }}</p>
             <p v-if="data.description" class="mt-3 text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed max-w-prose">
@@ -71,22 +71,22 @@ function fmt(n: number | null | undefined) {
         </div>
 
         <section class="card p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+              <dt class="text-xs text-zinc-500">Total points</dt>
               <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dt class="text-xs text-zinc-500">Skill points</dt>
               <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+              <dt class="text-xs text-zinc-500">Hardest</dt>
               <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Extremes</dt>
+              <dt class="text-xs text-zinc-500">Extremes</dt>
               <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.extremes) }}</dd>
             </div>
           </dl>
@@ -101,14 +101,14 @@ function fmt(n: number | null | undefined) {
           v-if="data.aredlOnlyCompleted.length || data.aredlOnlyCreated.length"
           class="card"
         >
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2">
+          <h2 class="text-sm font-semibold text-zinc-200 px-4 pt-3 pb-2">
             AREDL-only levels
             <span class="text-[11px] text-zinc-600 normal-case tracking-normal ml-1">
               not on the ALL list
             </span>
           </h2>
           <div v-if="data.aredlOnlyCompleted.length" class="px-4 pt-1 pb-2">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Completed</div>
+            <div class="text-xs text-zinc-500 mb-1">Completed</div>
             <ul class="divide-y divide-zinc-900">
               <li v-for="(l, i) in data.aredlOnlyCompleted" :key="`aoc-${i}`" class="py-1.5 flex items-center gap-3 text-sm">
                 <span class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded bg-zinc-800 text-zinc-400">
@@ -120,7 +120,7 @@ function fmt(n: number | null | undefined) {
             </ul>
           </div>
           <div v-if="data.aredlOnlyCreated.length" class="px-4 pt-1 pb-3">
-            <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Created</div>
+            <div class="text-xs text-zinc-500 mb-1">Created</div>
             <ul class="divide-y divide-zinc-900">
               <li v-for="(l, i) in data.aredlOnlyCreated" :key="`aoc2-${i}`" class="py-1.5 flex items-center gap-3 text-sm">
                 <span class="text-[11px] tabular-nums px-2 py-0.5 w-14 shrink-0 text-center font-medium rounded bg-zinc-800 text-zinc-400">

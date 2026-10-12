@@ -1,7 +1,8 @@
 import { getDb } from '~/server/db'
 import { requireAccount } from '~/server/utils/auth'
 import { canEditList } from '~/server/utils/custom-list-perms'
-import { isValidDiscordWebhook, notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
+import { isValidDiscordWebhook } from '~/server/utils/discord'
+import { notifyListWebhooks } from '~/server/utils/custom-list-webhooks'
 
 const MAX_WEBHOOKS = 5
 

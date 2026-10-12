@@ -436,25 +436,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onEsc))
             <div class="relative w-16 h-16 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
               <img :src="src!" alt="" :style="previewStyle(64)" draggable="false" />
             </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Feed</span>
+            <span class="text-xs text-zinc-600">Feed</span>
           </div>
           <div class="flex flex-col items-center gap-1">
             <div class="relative w-16 h-16 rounded-xl overflow-hidden bg-black ring-1 ring-zinc-700">
               <img :src="src!" alt="" :style="previewStyle(64)" draggable="false" />
             </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Profile</span>
+            <span class="text-xs text-zinc-600">Profile</span>
           </div>
           <div class="flex flex-col items-center gap-1">
             <div class="relative w-7 h-7 rounded-full overflow-hidden bg-black ring-1 ring-zinc-700">
               <img :src="src!" alt="" :style="previewStyle(28)" draggable="false" />
             </div>
-            <span class="text-[9px] uppercase tracking-widest text-zinc-600">Header</span>
+            <span class="text-xs text-zinc-600">Header</span>
           </div>
         </div>
 
         <div class="flex items-end gap-3">
           <label class="flex-1 min-w-0">
-            <span class="flex items-baseline justify-between text-[11px] uppercase tracking-widest text-zinc-500">
+            <span class="flex items-baseline justify-between text-xs text-zinc-500">
               Zoom
               <span class="tabular-nums normal-case tracking-normal text-zinc-600">{{ zoom.toFixed(1) }}×</span>
             </span>

@@ -13,12 +13,12 @@ export default defineEventHandler(async (event) => {
   const wh = db.prepare(`SELECT url FROM discord_webhooks WHERE id = ?`).get(id) as { url: string } | undefined
   if (!wh) throw createError({ statusCode: 404, statusMessage: 'Webhook not found.' })
 
-  const status = await postToDiscordWebhook(wh.url, {
-    content: 'Test message from The All Levels List.',
+  const res = await postToDiscordWebhook(wh.url, {
+    content: 'Test message from the All Levels List.',
   })
-  db.prepare(`UPDATE discord_webhooks SET last_post_status = ? WHERE id = ?`).run(`test: ${status}`, id)
-  if (status !== 'ok') {
-    throw createError({ statusCode: 502, statusMessage: status })
+  db.prepare(`UPDATE discord_webhooks SET last_post_status = ? WHERE id = ?`).run(`test: ${res.status}`, id)
+  if (!res.ok) {
+    throw createError({ statusCode: 502, statusMessage: res.status })
   }
   return { ok: true }
 })

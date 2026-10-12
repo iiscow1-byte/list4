@@ -39,15 +39,11 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6">
-      <div class="flex items-baseline gap-3 flex-wrap">
-        <h1 class="min-w-0 break-words text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-        <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-sky-900/40 text-sky-300 border border-sky-800/60">
-          Awaiting placement
-        </span>
-      </div>
-      <p class="text-xs text-zinc-500 mt-1.5">
+      <p class="text-sm font-medium text-sky-300">Awaiting placement</p>
+      <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
+      <p class="text-sm text-zinc-400 mt-2">
         Approved on {{ level.approved_at }}<span v-if="level.submitter">
           · submitted by
           <NuxtLink :to="`/users/${level.submitter}`" class="hover:text-accent">{{ level.submitter }}</NuxtLink>
@@ -77,7 +73,7 @@ const tagList = computed(() => {
             </svg>
           </div>
           <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">{{ level.verification ?? 'Watch verification' }}</p>
-          <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">Open verification ↗</p>
+          <p class="text-xs text-zinc-500 mt-2">Open verification ↗</p>
         </div>
       </div>
     </a>
@@ -96,7 +92,7 @@ const tagList = computed(() => {
     <!-- Stats grid -->
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
+        <div class="text-xs text-zinc-500 mb-1">Level ID</div>
         <a
           v-if="levelUrl"
           :href="levelUrl"
@@ -107,30 +103,30 @@ const tagList = computed(() => {
         <div v-else class="tabular-nums text-base text-zinc-600">—</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
+        <div class="text-xs text-zinc-500 mb-1">Verify date</div>
         <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
+        <div class="text-xs text-zinc-500 mb-1">GDDL Tier</div>
         <div class="text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
+        <div class="text-xs text-zinc-500 mb-1">Difficulty</div>
         <div class="text-base text-zinc-100">{{ level.difficulty ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
+        <div class="text-xs text-zinc-500 mb-1">Skillset</div>
         <div class="text-base text-zinc-100">{{ level.main_skillset ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
+        <div class="text-xs text-zinc-500 mb-1">Enjoyment</div>
         <div class="tabular-nums text-base text-zinc-100">{{ level.enjoyment != null ? Number(level.enjoyment).toFixed(1) : '—' }}</div>
       </div>
     </div>
 
     <!-- Verification metadata -->
     <section class="card mb-6">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Verification</h2>
+      <h2 class="text-xs text-zinc-500 px-4 pt-3 font-medium">Verification</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Verifier</dt><dd class="text-zinc-200">{{ level.verifier ?? '—' }}</dd>
         <dt class="text-zinc-500">Title</dt><dd class="text-zinc-200">{{ level.verification ?? '—' }}</dd>
@@ -143,12 +139,12 @@ const tagList = computed(() => {
     </section>
 
     <section v-if="level.admin_notes" class="rounded-md border border-accent/20 bg-accent/5 px-4 py-3 mb-6">
-      <h3 class="text-[10px] uppercase tracking-widest text-accent font-medium mb-1.5">Notes</h3>
+      <h3 class="section-title mb-1.5">Notes</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.admin_notes }}</p>
     </section>
 
     <section v-if="level.notes" class="card px-4 py-3">
-      <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
+      <h3 class="text-sm font-semibold text-zinc-200 mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>
   </div>

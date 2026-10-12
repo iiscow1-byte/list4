@@ -64,15 +64,15 @@ function badgeLabel(b: string | null): string | null {
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <h1 class="text-3xl font-semibold tracking-tight">{{ data.player.name }}</h1>
-              <span class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">GDL</span>
+              <h1 class="page-title">{{ data.player.name }}</h1>
+              <span class="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">GDL</span>
               <span
                 v-if="badgeLabel(data.player.badge)"
-                class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400"
+                class="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400"
               >{{ badgeLabel(data.player.badge) }}</span>
               <span
                 v-if="data.player.banned"
-                class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-red-900/40 text-red-300"
+                class="text-xs px-1.5 py-0.5 rounded bg-red-900/40 text-red-300"
               >Banned</span>
             </div>
             <p v-if="data.player.country" class="text-xs text-zinc-500 mt-1">{{ data.player.country }}</p>
@@ -89,22 +89,22 @@ function badgeLabel(b: string | null): string | null {
         </div>
 
         <section class="card p-4">
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 mb-3">Player stats</h2>
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+              <dt class="text-xs text-zinc-500">Total points</dt>
               <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dt class="text-xs text-zinc-500">Skill points</dt>
               <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+              <dt class="text-xs text-zinc-500">Hardest</dt>
               <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Country</dt>
+              <dt class="text-xs text-zinc-500">Country</dt>
               <dd class="text-zinc-100 text-base">{{ data.player.country ?? '—' }}</dd>
             </div>
           </dl>
@@ -116,7 +116,7 @@ function badgeLabel(b: string | null): string | null {
           v-if="data.offListCompleted.length"
           class="card"
         >
-          <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium px-4 pt-3 pb-2">
+          <h2 class="text-sm font-semibold text-zinc-200 px-4 pt-3 pb-2">
             Other GDL completions
             <span class="text-[11px] text-zinc-600 normal-case tracking-normal ml-1">
               demons not on the ALL list
@@ -132,7 +132,7 @@ function badgeLabel(b: string | null): string | null {
                 G#{{ l.gdl_position }}
               </span>
               <span class="truncate flex-1 min-w-0 text-zinc-300">{{ l.name }}</span>
-              <span v-if="l.is_verification" class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">Verifier</span>
+              <span v-if="l.is_verification" class="text-xs px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-300">Verifier</span>
               <a v-if="l.video_url" :href="l.video_url" target="_blank" rel="noopener" class="text-accent hover:underline text-xs">video ↗</a>
             </li>
           </ul>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
+import { tierColor } from '~/utils/tier-colors'
 import { TIER_MAX_ORD, ordToTier } from '~/utils/tier-ordinal'
 
 type OpenVerRow = {
@@ -166,17 +166,18 @@ watch(
 <template>
   <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800 shrink-0">
-      <div class="flex items-center gap-2 mb-3 px-1">
-        <span class="text-xs uppercase tracking-widest text-violet-300 font-semibold">Open verifications</span>
-        <span class="text-[10px] text-zinc-500 normal-case tracking-normal">— unverified</span>
+      <div class="flex items-baseline gap-2 mb-2">
+        <h2 class="font-display font-semibold text-zinc-50">Open verifications</h2>
+        <span class="ml-auto text-xs text-zinc-500 tabular-nums">{{ total.toLocaleString() }}</span>
       </div>
 
       <div class="flex items-stretch gap-1.5">
         <input
           v-model="search"
           type="search"
-          placeholder="Search…"
-          class="field field-sm flex-1 min-w-0 text-xs"
+          placeholder="Find a level"
+          aria-label="Find a level"
+          class="field field-sm flex-1 min-w-0"
         />
         <button
           type="button"
@@ -199,7 +200,7 @@ watch(
       <div v-if="filtersOpen" class="mt-3 space-y-3 text-xs">
         <div>
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+            <span class="text-xs text-zinc-500 font-medium">Difficulty</span>
             <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
           </div>
           <div class="relative h-6">
@@ -225,7 +226,7 @@ watch(
         </div>
 
         <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tags</div>
+          <div class="text-xs text-zinc-500 font-medium mb-1.5">Tags</div>
           <div class="flex flex-wrap gap-1.5">
             <label
               v-for="t in TAGS" :key="t"
@@ -241,7 +242,7 @@ watch(
         </div>
 
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verifier</span>
+          <span class="text-xs text-zinc-500 font-medium">Verifier</span>
           <input
             v-model="verifier"
             type="text" placeholder="Verifier name"
@@ -250,7 +251,7 @@ watch(
         </label>
 
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Main skillset</span>
+          <span class="text-xs text-zinc-500 font-medium">Main skillset</span>
           <input
             v-model="skillset"
             type="text" placeholder="e.g. memory, timing"
@@ -259,7 +260,7 @@ watch(
         </label>
 
         <div>
-          <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Enjoyment</div>
+          <div class="text-xs text-zinc-500 font-medium mb-1">Enjoyment</div>
           <div class="flex items-center gap-1.5">
             <input
               v-model="enjoyMin" type="number" inputmode="decimal" min="0" max="10" step="0.1" placeholder="min"
@@ -274,7 +275,7 @@ watch(
         </div>
 
         <label class="block">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
+          <span class="text-xs text-zinc-500 font-medium">Sort by</span>
           <select
             v-model="sort"
             class="field field-sm mt-1 text-xs"
@@ -294,40 +295,23 @@ watch(
     </div>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="p-1.5 space-y-1">
-        <li v-for="lvl in items" :key="lvl.id" :data-id="lvl.id">
+      <ul class="py-1">
+        <li v-for="lvl in items" :key="lvl.id" :data-id="lvl.id" class="list-item">
           <NuxtLink
             :to="{ path: `/open-verifications/${lvl.id}`, query: search ? { q: search } : {} }"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-            :class="lvl.id === activeId
-              ? 'ring-2 ring-inset ring-violet-400 text-zinc-50 bg-zinc-900'
-              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
+            class="list-row group"
+            :class="lvl.id === activeId ? 'bg-zinc-800/80 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
+            :aria-current="lvl.id === activeId ? 'page' : undefined"
           >
-            <LevelThumbBg
-              :gd-id="lvl.gd_id"
-              :video-url="lvl.showcase_url ?? lvl.verification_url"
-              res="small"
-              img-class="opacity-30 group-hover:opacity-55"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
-            />
-            <span
-              class="relative text-[10px] tabular-nums px-1 py-1 w-20 shrink-0 text-center font-semibold whitespace-nowrap rounded-md shadow-sm"
-              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >
-              {{ lvl.gddl_tier ?? lvl.difficulty ?? '—' }}
-            </span>
-            <span class="relative truncate flex-1 min-w-0 font-medium drop-shadow-sm">{{ lvl.name }}</span>
+            <span class="list-row-strip mr-3" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
+            <span class="truncate flex-1">{{ lvl.name }}</span>
+            <span class="ml-2 shrink-0 text-xs text-zinc-500 tabular-nums">{{ lvl.gddl_tier ?? lvl.difficulty ?? '' }}</span>
           </NuxtLink>
         </li>
-        <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">
-          No matches.
-        </li>
+        <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">{{ search ? 'No levels match.' : 'Nothing here right now.' }}</li>
       </ul>
-
-      <div ref="sentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
-        <span v-if="loading">loading…</span>
-        <span v-else-if="done && items.length > 0">{{ total.toLocaleString() }} levels</span>
-        <span v-else>↓ scroll for more</span>
+      <div ref="sentinel" class="px-3 py-3 text-xs text-zinc-600 text-center">
+        <span v-if="loading">Loading…</span>
       </div>
     </div>
   </aside>

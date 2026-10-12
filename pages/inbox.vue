@@ -76,6 +76,10 @@ const notices = computed(() => items.value.filter((m) => !m.actionable))
 
 /** Narrow the notices. `''` is everything; `unread` is the common case. */
 const filter = ref<'' | 'unread' | 'submissions' | 'social'>('')
+const filterModel = computed({
+  get: () => filter.value as string,
+  set: (v: string) => { filter.value = v as typeof filter.value },
+})
 const SUBMISSION_KINDS = new Set([
   'level_rejected', 'record_rejected', 'awaiting_removed',
   'open_verification_approved', 'open_verification_rejected',
@@ -328,7 +332,7 @@ function linkFor(m: InboxItem): string | null {
   <div class="container-tight py-8 max-w-3xl space-y-5">
     <header class="flex items-start justify-between gap-3 flex-wrap">
       <div class="min-w-0">
-        <h1 class="text-3xl font-semibold tracking-tight">Inbox</h1>
+        <h1 class="page-title">Inbox</h1>
         <p class="text-sm text-zinc-400">
           Decisions on your submissions, replies, invites and friend requests.
           <span v-if="unread > 0" class="text-accent">{{ unread }} unread</span>
@@ -361,7 +365,7 @@ function linkFor(m: InboxItem): string | null {
       <!-- Waiting on you. Its own section, above everything: an invite buried
            under a week of notices is an invite nobody answers. -->
       <section v-if="pending.length" class="space-y-2">
-        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+        <h2 class="section-title">
           Waiting on you
           <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ pending.length }}</span>
         </h2>
@@ -423,26 +427,13 @@ function linkFor(m: InboxItem): string | null {
       <!-- Everything else -->
       <section class="space-y-2">
         <div class="flex items-center justify-between gap-3 flex-wrap">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Messages</h2>
-          <div class="flex flex-wrap items-center gap-1.5">
-            <label
-              v-for="opt in FILTERS"
-              :key="opt.value"
-              class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-              :class="[
-                filter === opt.value
-                  ? 'border-accent/60 text-accent bg-accent/10'
-                  : 'border-zinc-800 text-zinc-400 hover:text-zinc-200',
-                // Still selectable when empty — turning a filter off is done by
-                // picking another one, so a disabled chip would be a trap.
-                filterCounts[opt.value] ? '' : 'opacity-50',
-              ]"
-            >
-              <input v-model="filter" type="radio" :value="opt.value" class="sr-only" />
-              {{ opt.label }}
-              <span class="tabular-nums text-zinc-600 ml-0.5">{{ filterCounts[opt.value] }}</span>
-            </label>
-          </div>
+          <h2 class="section-title">Messages</h2>
+          <SegmentedControl
+            v-if="notices.length"
+            v-model="filterModel"
+            aria-label="Which messages"
+            :options="FILTERS.map((o) => ({ value: o.value, label: o.label, count: filterCounts[o.value] || null }))"
+          />
         </div>
 
         <div v-if="!notices.length" class="card p-6 text-center text-sm text-zinc-500">
@@ -460,7 +451,7 @@ function linkFor(m: InboxItem): string | null {
           >
             <div class="flex items-baseline gap-2 flex-wrap">
               <span
-                class="text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border shrink-0"
+                class="text-xs px-1.5 py-0.5 rounded border shrink-0"
                 :class="m.read_at ? 'border-zinc-800 text-zinc-500' : kindTone(m.kind)"
               >{{ kindLabel(m.kind) }}</span>
               <component

@@ -3,6 +3,7 @@ import { listDerivedPlayers } from '~/server/utils/leaderboard'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
 import { aredlAvatarsForPlayers } from '~/server/utils/aredl-avatars'
+import { compareNames } from '~/utils/collate'
 
 type Row = {
   player: string
@@ -129,7 +130,7 @@ export default defineEventHandler((event) => {
   all.sort((a, b) => {
     const dp = (b.points ?? 0) - (a.points ?? 0)
     if (dp !== 0) return dp
-    return a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
+    return compareNames(a.player, b.player)
   })
 
   // Standing is fixed here, on the full set, before any caller's filter runs.

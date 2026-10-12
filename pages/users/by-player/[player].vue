@@ -42,7 +42,7 @@ function fmt(n: number | null | undefined) {
           {{ data.player.name.charAt(0).toUpperCase() }}
         </div>
         <div class="flex-1 min-w-0">
-          <h1 class="text-3xl font-semibold tracking-tight">{{ data.player.name }}</h1>
+          <h1 class="page-title">{{ data.player.name }}</h1>
           <p v-if="data.player.country" class="text-xs text-zinc-500 mt-1 uppercase">{{ data.player.country }}</p>
           <div class="mt-2">
             <FollowButton
@@ -61,7 +61,7 @@ function fmt(n: number | null | undefined) {
            itself has never heard of, so the page has to answer "who is this"
            for them — and the answer is the lists that do know them. -->
       <section v-if="data.external?.length" class="card p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Also ranked on</h2>
+        <h2 class="text-sm font-semibold text-zinc-200 mb-3">Also ranked on</h2>
         <ul class="grid gap-px bg-zinc-800 rounded-lg overflow-hidden border border-zinc-800 sm:grid-cols-3">
           <li v-for="e in data.external" :key="e.source" class="bg-zinc-950">
             <NuxtLink :to="e.to" class="flex items-center gap-3 px-3 py-2.5 hover:bg-zinc-900/70 transition-colors group">
@@ -88,22 +88,22 @@ function fmt(n: number | null | undefined) {
       </div>
 
       <section class="card p-4">
-        <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium mb-3">Player stats</h2>
+        <h2 class="text-sm font-semibold text-zinc-200 mb-3">Player stats</h2>
         <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+            <dt class="text-xs text-zinc-500">Total points</dt>
             <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
           </div>
           <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+            <dt class="text-xs text-zinc-500">Skill points</dt>
             <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
           </div>
           <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+            <dt class="text-xs text-zinc-500">Hardest</dt>
             <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
           </div>
           <div>
-            <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
+            <dt class="text-xs text-zinc-500">Tier of hardest</dt>
             <dd class="text-zinc-100 text-base">{{ data.player.tier ?? '—' }}</dd>
           </div>
         </dl>

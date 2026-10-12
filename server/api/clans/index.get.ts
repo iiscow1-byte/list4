@@ -1,6 +1,7 @@
 import { getDb } from '~/server/db'
 import { getCurrentAccount } from '~/server/utils/auth'
 import { clanForAccount, clanLeaderboard, invitesForAccount, type ClanSummary } from '~/server/utils/clans'
+import { compareNames } from '~/utils/collate'
 
 /**
  * Every clan, ranked — and browsable.
@@ -35,7 +36,7 @@ const SORTS: Record<ClanSort, (a: ClanSummary, b: ClanSummary) => number> = {
   members: (a, b) => b.members - a.members || b.points - a.points || a.name.localeCompare(b.name),
   // `created_at` is an ISO-ish string from SQLite, so it sorts lexically.
   newest:  (a, b) => String(b.created_at).localeCompare(String(a.created_at)) || a.name.localeCompare(b.name),
-  name:    (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  name:    (a, b) => compareNames(a.name, b.name),
 }
 
 export default defineEventHandler((event) => {

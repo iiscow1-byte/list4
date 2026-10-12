@@ -234,7 +234,7 @@ async function send() {
           </div>
 
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+            <span class="text-xs text-zinc-500 font-medium">
               What happened
               <span v-if="needsDetails" class="text-amber-400/90 normal-case tracking-normal">required</span>
               <span v-else class="text-zinc-600 normal-case tracking-normal">optional</span>

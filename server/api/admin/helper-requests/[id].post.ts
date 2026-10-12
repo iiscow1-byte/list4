@@ -1,7 +1,7 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
 import { decideHelperRequest } from '~/server/utils/helper-requests'
-import { moveLevel } from '~/server/utils/move-level'
+import { afterListChange, moveLevel } from '~/server/utils/list-ops'
 import { invalidateChallengeRanks } from '~/server/utils/challenge-rank'
 import { invalidateChallengeLeaderboard } from '~/server/api/leaderboard/challenges.get'
 import { sendInboxMessage } from '~/server/utils/inbox'
@@ -63,7 +63,8 @@ export default defineEventHandler(async (event) => {
       if (!row.to_position) {
         throw createError({ statusCode: 400, statusMessage: 'That request has no target placement.' })
       }
-      moveLevel(db, level.position, row.to_position, admin.id)
+      const res = moveLevel(db, level.position, row.to_position, admin.id)
+      if (res.moved) afterListChange(db)
     } else if (row.kind === 'challenge' || row.kind === 'unchallenge') {
       const on = row.kind === 'challenge'
       db.prepare(`UPDATE levels SET force_challenge = ?, not_challenge = ? WHERE id = ?`)

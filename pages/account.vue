@@ -2,12 +2,17 @@
 import { gdUserUrl, isGdUsername } from '~/utils/gd-links'
 import { profileChipClass } from '~/utils/profile-chips'
 import { TIER_MAX_NUMBER } from '~/utils/tier-ordinal'
-import { allCountries, normalizeCountry } from '~/utils/countries'
+import { allCountries, countryName, normalizeCountry } from '~/utils/countries'
 import { SOCIAL_LINKS, isValidSocialUrl } from '~/utils/social-links'
 import { listPercent } from '~/utils/list-progress'
 
-/** Every country, by name. Built once — see `utils/countries.ts`. */
-const countryOptions = allCountries()
+/**
+ * Every country, by name — filled in after mount. The names come from the
+ * runtime's ICU data, which spells some regions differently in Node and in the
+ * browser, so rendering the full list on the server made hydration disagree.
+ */
+const countryOptions = ref<{ code: string; name: string }[]>([])
+onMounted(() => { countryOptions.value = allCountries() })
 
 /**
  * The link fields, driven by one table rather than one block of markup each.
@@ -921,7 +926,7 @@ function fmt(n: number | null | undefined) {
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <span class="text-[9px] uppercase tracking-widest text-white/80">Change</span>
+            <span class="text-xs text-white/80">Change</span>
           </div>
           <input ref="avatarHoverFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" class="hidden" @change="onHoverAvatarChange" />
         </label>
@@ -1044,7 +1049,7 @@ function fmt(n: number | null | undefined) {
              the full form below. -->
         <section class="card p-4 space-y-3">
           <div class="flex items-baseline justify-between gap-3">
-            <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Bio</h2>
+            <h2 class="text-sm font-semibold text-zinc-200">Bio</h2>
             <div class="flex items-center gap-3 shrink-0">
               <span v-if="bioSaved" class="text-[11px] text-emerald-400">Saved.</span>
               <button
@@ -1116,7 +1121,7 @@ function fmt(n: number | null | undefined) {
               class="cursor-pointer select-none list-none flex items-center justify-between gap-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
               @click.prevent="editing ? cancelEdit() : startEdit()"
             >
-              <span class="uppercase tracking-widest font-medium">
+              <span class="font-medium">
                 {{ editing ? 'Editing profile…' : 'Profile details' }}
                 <span v-if="!editing" class="normal-case tracking-normal text-zinc-600">
                   — country, pronouns, links, showcase
@@ -1132,46 +1137,47 @@ function fmt(n: number | null | undefined) {
                  sat next to a Discord handle next to a banner picker. -->
             <form class="pt-4 space-y-4" @submit.prevent="saveProfile">
               <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
-                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">You</legend>
+                <legend class="px-1.5 text-xs text-zinc-500 font-medium">You</legend>
                 <!-- The bio is not here. It has its own card above, which saves
                      on its own — two editors bound to the same field would let
                      an old draft in this form overwrite a bio saved from there
                      the next time somebody pressed Save. -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label class="block">
-                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">Pronouns</span>
+                    <span class="text-xs text-zinc-500">Pronouns</span>
                     <input v-model="profile.pronouns" maxlength="64" placeholder="e.g. they/them" class="field field-md mt-1" />
                   </label>
                   <!-- A list rather than a text box: the value draws a flag and
                        is meant to be comparable between profiles. -->
                   <label class="block">
-                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">Country</span>
+                    <span class="text-xs text-zinc-500">Country</span>
                     <div class="mt-1 flex items-center gap-2">
                       <CountryFlag v-if="profile.country" :country="profile.country" class="shrink-0" />
                       <select v-model="profile.country" class="field field-md flex-1 min-w-0">
-                        <option value="">— none —</option>
+                        <option value="">None</option>
+                        <option v-if="!countryOptions.length && profile.country" :value="profile.country">{{ countryName(profile.country) }}</option>
                         <option v-for="c in countryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
                       </select>
                     </div>
                   </label>
                   <label class="block sm:col-span-2">
-                    <span class="text-[11px] uppercase tracking-widest text-zinc-500">State / region</span>
+                    <span class="text-xs text-zinc-500">State / region</span>
                     <input v-model="profile.subdivision" maxlength="64" placeholder="e.g. California" class="field field-md mt-1" />
                   </label>
                 </div>
               </fieldset>
 
               <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
-                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Where else to find you</legend>
+                <legend class="px-1.5 text-xs text-zinc-500 font-medium">Where else to find you</legend>
                 <p class="text-[11px] text-zinc-600 -mt-1">
                   These show as chips on your profile.
                 </p>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Discord <span class="text-zinc-600 normal-case">— a handle, not a link</span></span>
+                  <span class="text-xs text-zinc-500">Discord <span class="text-zinc-600 normal-case">— a handle, not a link</span></span>
                   <input v-model="profile.discord_handle" maxlength="64" placeholder="e.g. username" class="field field-md mt-1" />
                 </label>
                 <label v-for="link in SOCIAL_LINKS" :key="link.key" class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">{{ link.label }}</span>
+                  <span class="text-xs text-zinc-500">{{ link.label }}</span>
                   <input
                     v-model="profile[link.key]"
                     type="url"
@@ -1185,7 +1191,7 @@ function fmt(n: number | null | undefined) {
                   </span>
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                  <span class="text-xs text-zinc-500">
                     Geometry Dash username
                     <span class="text-zinc-600 normal-case">— links to your gdbrowser profile</span>
                   </span>
@@ -1206,12 +1212,12 @@ function fmt(n: number | null | undefined) {
               </fieldset>
 
               <fieldset class="rounded-xl border border-zinc-800/80 p-3.5 space-y-3">
-                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
+                <legend class="px-1.5 text-xs text-zinc-500 font-medium">Showcase</legend>
                 <p class="text-[11px] text-zinc-600 -mt-1">
                   The two levels and the header art at the top of your profile.
                 </p>
                 <div class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Favorite level</span>
+                  <span class="text-xs text-zinc-500">Favorite level</span>
                   <div class="mt-1 flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
@@ -1228,7 +1234,7 @@ function fmt(n: number | null | undefined) {
                   </div>
                 </div>
                 <label v-if="favoriteLevelId" class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note about your favorite level</span>
+                  <span class="text-xs text-zinc-500">Note about your favorite level</span>
                   <textarea
                     v-model="favoriteLevelNote"
                     rows="2"
@@ -1239,7 +1245,7 @@ function fmt(n: number | null | undefined) {
                 </label>
 
                 <div class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Hardest completion</span>
+                  <span class="text-xs text-zinc-500">Hardest completion</span>
                   <p class="text-[11px] text-zinc-600 mt-0.5">
                     Pick one of your approved records to headline your profile.
                   </p>
@@ -1262,7 +1268,7 @@ function fmt(n: number | null | undefined) {
                 </div>
 
                 <div class="block sm:col-span-2">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Profile banner</span>
+                  <span class="text-xs text-zinc-500">Profile banner</span>
                   <p class="text-[11px] text-zinc-600 mt-0.5">
                     Which level's art sits behind your name. The header above updates as you choose.
                   </p>
@@ -1326,14 +1332,14 @@ function fmt(n: number | null | undefined) {
 
               <!-- Name decorations, staff only -->
               <fieldset v-if="isStaffAccount" class="rounded-xl border border-zinc-800/80 p-3.5">
-                <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name decorations</legend>
+                <legend class="px-1.5 text-xs text-zinc-500 font-medium">Name decorations</legend>
                 <div class="block">
                   <p class="text-[11px] text-zinc-600">
                     Shown beside your name wherever it appears. Staff only.
                   </p>
                   <div class="mt-1.5 grid gap-2 sm:grid-cols-[7rem_minmax(0,1fr)_auto]">
                     <label class="block">
-                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Emoji</span>
+                      <span class="text-xs text-zinc-600">Emoji</span>
                       <input
                         v-model="nameEmoji"
                         maxlength="16"
@@ -1342,7 +1348,7 @@ function fmt(n: number | null | undefined) {
                       />
                     </label>
                     <label class="block">
-                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Badge</span>
+                      <span class="text-xs text-zinc-600">Badge</span>
                       <input
                         v-model="nameBadge"
                         maxlength="24"
@@ -1351,7 +1357,7 @@ function fmt(n: number | null | undefined) {
                       />
                     </label>
                     <label class="block">
-                      <span class="text-[10px] uppercase tracking-widest text-zinc-600">Colour</span>
+                      <span class="text-xs text-zinc-600">Colour</span>
                       <input
                         :value="nameBadgeColor || '#f4c430'"
                         type="color"
@@ -1402,19 +1408,19 @@ function fmt(n: number | null | undefined) {
         <ProfilePanel v-if="profileData?.player" title="Player stats">
           <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+              <dt class="text-xs text-zinc-500">Total points</dt>
               <dd class="tabular-nums text-amber-300 text-base">{{ fmt(profileData.player.total_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+              <dt class="text-xs text-zinc-500">Skill points</dt>
               <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(profileData.player.skill_points) }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+              <dt class="text-xs text-zinc-500">Hardest</dt>
               <dd class="text-zinc-100 text-base truncate">{{ profileData.player.hardest ?? '—' }}</dd>
             </div>
             <div>
-              <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
+              <dt class="text-xs text-zinc-500">Tier of hardest</dt>
               <dd class="text-zinc-100 text-base">{{ profileData.player.tier ?? '—' }}</dd>
             </div>
           </dl>
@@ -1437,7 +1443,7 @@ function fmt(n: number | null | undefined) {
         <section class="card p-4">
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
-              <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Submit open verification</h2>
+              <h2 class="text-sm font-semibold text-zinc-200">Submit open verification</h2>
               <p class="text-[11px] text-zinc-600 mt-0.5">
                 Submit an unverified level. A moderator reviews each submission before it appears on the open verifications list.
               </p>
@@ -1453,7 +1459,7 @@ function fmt(n: number | null | undefined) {
             <!-- Level ID + name -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label class="block sm:col-span-1">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID <span class="text-red-400">*</span></span>
+                <span class="text-xs text-zinc-500">Level ID <span class="text-red-400">*</span></span>
                 <input
                   v-model="ovGdId"
                   inputmode="numeric"
@@ -1463,7 +1469,7 @@ function fmt(n: number | null | undefined) {
                 />
               </label>
               <label class="block sm:col-span-2">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name <span class="text-red-400">*</span></span>
+                <span class="text-xs text-zinc-500">Name <span class="text-red-400">*</span></span>
                 <input
                   v-model="ovName"
                   required
@@ -1476,7 +1482,7 @@ function fmt(n: number | null | undefined) {
             <!-- FPS + Version -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
+                <span class="text-xs text-zinc-500">FPS</span>
                 <input
                   v-model="ovFps"
                   placeholder="any"
@@ -1484,7 +1490,7 @@ function fmt(n: number | null | undefined) {
                 />
               </label>
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
+                <span class="text-xs text-zinc-500">Game version</span>
                 <input
                   v-model="ovGameVersion"
                   placeholder="any"
@@ -1495,10 +1501,10 @@ function fmt(n: number | null | undefined) {
 
             <!-- Showcase (replaces verification) -->
             <fieldset class="card p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Showcase</legend>
+              <legend class="px-2 text-xs text-zinc-500 font-medium">Showcase</legend>
 
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">
+                <span class="text-xs text-zinc-500">
                   Showcase link <span class="text-zinc-600 normal-case">a layout or preview clip</span>
                 </span>
                 <input
@@ -1522,7 +1528,7 @@ function fmt(n: number | null | undefined) {
               </div>
 
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Intended verifier</span>
+                <span class="text-xs text-zinc-500">Intended verifier</span>
                 <input
                   v-model="ovVerifier"
                   placeholder="Player name"
@@ -1533,10 +1539,10 @@ function fmt(n: number | null | undefined) {
 
             <!-- Difficulty opinion -->
             <fieldset class="card p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty opinion</legend>
+              <legend class="px-2 text-xs text-zinc-500 font-medium">Difficulty opinion</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+                  <span class="text-xs text-zinc-500">GDDL Tier</span>
                   <select
                     v-model="ovGddlTier"
                     class="field field-md mt-1"
@@ -1545,7 +1551,7 @@ function fmt(n: number | null | undefined) {
                   </select>
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+                  <span class="text-xs text-zinc-500">Difficulty</span>
                   <select
                     v-model="ovDifficulty"
                     class="field field-md mt-1"
@@ -1558,10 +1564,10 @@ function fmt(n: number | null | undefined) {
 
             <!-- Optional metadata -->
             <fieldset class="card p-4 space-y-3">
-              <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</legend>
+              <legend class="px-2 text-xs text-zinc-500 font-medium">Extra info</legend>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
+                  <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
                   <input
                     v-model="ovEnjoyment"
                     type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -1569,7 +1575,7 @@ function fmt(n: number | null | undefined) {
                   />
                 </label>
                 <label class="block">
-                  <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+                  <span class="text-xs text-zinc-500">Main skillset</span>
                   <select
                     v-model="ovSkillset"
                     class="field field-md mt-1"
@@ -1579,7 +1585,7 @@ function fmt(n: number | null | undefined) {
                 </label>
               </div>
               <div>
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags</span>
+                <span class="text-xs text-zinc-500">Tags</span>
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   <label
                     v-for="t in OV_TAGS" :key="t"
@@ -1596,7 +1602,7 @@ function fmt(n: number | null | undefined) {
             </fieldset>
 
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes for the mods</span>
+              <span class="text-xs text-zinc-500">Notes for the mods</span>
               <textarea
                 v-model="ovNotes"
                 rows="3"
@@ -1639,7 +1645,7 @@ function fmt(n: number | null | undefined) {
       <!-- Right panel: actions -->
       <aside class="space-y-3 lg:sticky lg:top-20 lg:self-start">
         <div class="card p-3">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Actions</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 px-1 pb-2">Actions</h2>
           <div class="flex flex-col gap-1.5">
             <button
               type="button"
@@ -1817,7 +1823,7 @@ function fmt(n: number | null | undefined) {
         </div>
 
         <div class="card p-3">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Profile picture</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 px-1 pb-2">Profile picture</h2>
           <div class="flex items-center gap-2 flex-wrap">
             <label class="rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium px-2.5 py-1 cursor-pointer transition-colors">
               <!-- Choosing a file opens the cropper; the upload happens from
@@ -1849,7 +1855,7 @@ function fmt(n: number | null | undefined) {
         </div>
 
         <div class="card p-3">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium px-1 pb-2">Preferences</h2>
+          <h2 class="text-sm font-semibold text-zinc-200 px-1 pb-2">Preferences</h2>
           <label class="flex items-center gap-2 cursor-pointer select-none px-1">
             <input
               type="checkbox"

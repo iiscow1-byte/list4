@@ -1,20 +1,19 @@
 import { getDb } from '~/server/db'
 import { requireAdmin } from '~/server/utils/auth'
+import { SHEET_FIELDS, addSiteFields } from '~/server/utils/list-ops'
 
 /**
- * Promote a sheet-imported temporary level to a permanent (website-owned) one.
- * Future re-imports skip its gd_id so admin edits aren't overwritten.
+ * Keep every sheet column of this level as it is now, ignoring the sheet's
+ * values from here on. (This used to be required before a level could be
+ * edited; it no longer is, and placement is never frozen by it.)
  */
 export default defineEventHandler((event) => {
   requireAdmin(event)
   const position = Number(getRouterParam(event, 'position'))
   if (!Number.isFinite(position)) throw createError({ statusCode: 400, statusMessage: 'Bad position' })
-
   const db = getDb()
-  const level = db.prepare(`SELECT permanent FROM levels WHERE position = ?`).get(position) as { permanent: number } | undefined
+  const level = db.prepare(`SELECT id FROM levels WHERE position = ?`).get(position) as { id: number } | undefined
   if (!level) throw createError({ statusCode: 404, statusMessage: 'No such level.' })
-  if (level.permanent) throw createError({ statusCode: 409, statusMessage: 'Level is already permanent.' })
-
-  db.prepare(`UPDATE levels SET permanent = 1 WHERE position = ?`).run(position)
+  addSiteFields(db, level.id, [...SHEET_FIELDS])
   return { ok: true }
 })

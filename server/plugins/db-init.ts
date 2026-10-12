@@ -1,5 +1,4 @@
 import { getDb } from '~/server/db'
-import { countPlacementBreaks, resyncPlacements } from '~/server/utils/placement-sync'
 import { runImport } from '~/server/db/import'
 import { importAredl } from '~/server/db/import-aredl'
 import { importPointercrate } from '~/server/db/import-pointercrate'
@@ -22,20 +21,6 @@ import { importSfl } from '~/server/db/import-sfl'
  */
 export default defineNitroPlugin(() => {
   const db = getDb()
-
-  // One-time repair for lists damaged before moves knew to carry placement
-  // numbers with them. Every position-mutating endpoint now resyncs as it goes,
-  // so this finds nothing on a healthy database and costs one ordered scan.
-  // Runs regardless of LIST_SKIP_AUTO_IMPORT — it's a data fix, not an import.
-  try {
-    const broken = countPlacementBreaks(db)
-    if (broken > 0) {
-      const fixed = resyncPlacements(db)
-      console.log(`[db-init] repaired ${fixed} level placement(s) that disagreed with list order (${broken} inversion(s))`)
-    }
-  } catch (err) {
-    console.error('[db-init] placement repair failed:', err)
-  }
 
   if (process.env.LIST_SKIP_AUTO_IMPORT === '1') return
   const { n } = db.prepare('SELECT COUNT(*) AS n FROM levels').get() as { n: number }

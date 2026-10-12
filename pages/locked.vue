@@ -30,12 +30,12 @@ async function logout() {
 
 <template>
   <div class="container-tight py-20 max-w-md text-center">
-    <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-300">
+    <div class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
       <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
       In development
     </div>
 
-    <h1 class="mt-4 text-2xl font-bold tracking-tight">The All Levels List is closed</h1>
+    <h1 class="mt-4 page-title">The All Levels List is closed</h1>
     <!-- One line each: the three sentences answer three different questions,
          and running them together buried the last one. -->
     <p

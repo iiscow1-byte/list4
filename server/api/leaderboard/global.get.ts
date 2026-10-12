@@ -4,6 +4,8 @@ import { listDerivedPlayers } from '~/server/utils/leaderboard'
 import { clanTagsForPlayers, type ClanBadge } from '~/server/utils/clans'
 import { aredlAvatarsForPlayers } from '~/server/utils/aredl-avatars'
 import { discordAvatarUrl } from '~/utils/discord-avatar'
+import { onListChange } from '~/server/utils/list-ops'
+import { compareNames } from '~/utils/collate'
 
 /**
  * Global leaderboard — players from AREDL, Pointercrate, and the ALL list.
@@ -108,14 +110,47 @@ function attachAccountBits(db: ReturnType<typeof getDb>, rows: Row[]): Row[] {
   return rows
 }
 
+/**
+ * The full ranking for one view, cached briefly: building it reads every
+ * player from four sources and sorts tens of thousands of rows, and it is the
+ * page the leaderboard opens on. Any change to the list drops it early.
+ */
+const CACHE_MS = 120_000
+const cache = new Map<string, { at: number; rows: Row[] }>()
+export function invalidateGlobalLeaderboard(): void {
+  cache.clear()
+}
+onListChange(invalidateGlobalLeaderboard)
+
 export default defineEventHandler((event) => {
   const q = getQuery(event)
   const limit = Math.max(1, Math.min(2000, Number(q.limit) || 200))
   const offset = Math.max(0, Number(q.offset) || 0)
   const search = String(q.q ?? '').trim()
   const source = String(q.source ?? 'all').toLowerCase()
-
   const db = getDb()
+
+  // The combined view and the ALL-only view rank everyone before searching,
+  // so their full ranking is the same for every request and can be reused.
+  const full = source === 'all' || source === 'alllist'
+  let rows: Row[]
+  if (full) {
+    const hit = cache.get(source)
+    if (hit && Date.now() - hit.at < CACHE_MS) rows = hit.rows
+    else {
+      rows = buildRows(db, source, '', limit)
+      cache.set(source, { at: Date.now(), rows })
+    }
+    const needle = search.toLowerCase()
+    const visible = needle ? rows.filter((r) => r.player.toLowerCase().includes(needle)) : rows
+    // Copies, so per-request decoration never leaks into the cached rows.
+    return { total: visible.length, items: attachAccountBits(db, visible.slice(offset, offset + limit).map((r) => ({ ...r }))) }
+  }
+  rows = buildRows(db, source, search, limit)
+  return { total: rows.length, items: attachAccountBits(db, rows.slice(offset, offset + limit)) }
+})
+
+function buildRows(db: ReturnType<typeof getDb>, source: string, search: string, limit: number): Row[] {
   const rows: Row[] = []
 
   // For the combined 'all' view, skip per-source search/limit so we can build
@@ -272,18 +307,21 @@ export default defineEventHandler((event) => {
 
     const seenAll = new Set<string>(allEntries.map((e) => e.player.toLowerCase()))
 
+    const claimedBy = new Map(
+      (db.prepare(
+        `SELECT username, LOWER(claimed_player) AS player FROM accounts
+          WHERE claimed_player IS NOT NULL AND banned_at IS NULL`,
+      ).all() as { username: string; player: string }[]).map((a) => [a.player, a.username]),
+    )
     for (const d of listDerivedPlayers(db)) {
       if (seenAll.has(d.name.toLowerCase())) continue
       seenAll.add(d.name.toLowerCase())
-      const acc = db.prepare(
-        `SELECT username FROM accounts WHERE LOWER(claimed_player) = LOWER(?) AND banned_at IS NULL LIMIT 1`,
-      ).get(d.name) as { username: string } | undefined
       allEntries.push({
         player: d.name,
         country: null,
         points: d.total_points,
         hardest: d.hardest,
-        claimed_username: acc?.username ?? null,
+        claimed_username: claimedBy.get(d.name.toLowerCase()) ?? null,
         extremes: extremesMap.get(d.name.toLowerCase()) ?? 0,
       })
     }
@@ -299,7 +337,9 @@ export default defineEventHandler((event) => {
 
     allEntries.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
-      return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
+      if (dp !== 0) return dp
+      const de = (b.extremes ?? 0) - (a.extremes ?? 0)
+      return de !== 0 ? de : compareNames(a.player, b.player)
     })
 
     // For single-source view: assign per-source ranks, then filter by search.
@@ -370,10 +410,8 @@ export default defineEventHandler((event) => {
       }
     }
     // Order sources for stable display: aredl first, pc, gdl, then alllist.
-    // Points: prefer the player's ALL-list standing when known, but fall back
-    // to whatever the primary source contributed when the player isn't on the
-    // ALL list. The earlier behaviour zero'd these out unconditionally, which
-    // made the column read "0" for every external-only player.
+    // Points are the player's ALL-list points and nothing else (see above), so
+    // a player known only from another list has 0 here.
     for (const row of merged.values()) {
       row.sources.sort((a, b) => SOURCE_RANK[a] - SOURCE_RANK[b])
       row.points = allPointsMap.get(row.player.toLowerCase()) ?? 0
@@ -381,19 +419,19 @@ export default defineEventHandler((event) => {
     const mergedRows = Array.from(merged.values())
 
     // Sort merged set by ALL points and assign unified ranks across all lists.
+    // Everyone without ALL points ties at 0, and ordering that tail by name put
+    // names starting with symbols at the top; extremes beaten orders it by
+    // skill instead.
     mergedRows.sort((a, b) => {
       const dp = (b.points ?? 0) - (a.points ?? 0)
-      return dp !== 0 ? dp : a.player.localeCompare(b.player, undefined, { sensitivity: 'base' })
+      if (dp !== 0) return dp
+      const de = (b.extras.extremes ?? 0) - (a.extras.extremes ?? 0)
+      return de !== 0 ? de : compareNames(a.player, b.player)
     })
     mergedRows.forEach((r, i) => { r.rank = i + 1 })
 
-    // Apply search AFTER ranking so the displayed rank always reflects true
-    // global standing, not position within the filtered result set.
-    const visible = search
-      ? mergedRows.filter((r) => r.player.toLowerCase().includes(search.toLowerCase()))
-      : mergedRows
-    return { total: visible.length, items: attachAccountBits(db, visible.slice(offset, offset + limit)) }
+    return mergedRows
   }
 
-  return { total: rows.length, items: attachAccountBits(db, rows.slice(offset, offset + limit)) }
-})
+  return rows
+}

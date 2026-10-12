@@ -250,7 +250,7 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
   <CustomListShell :public-id="publicId" width="wide">
     <template #default>
       <header class="mb-4">
-        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Submit to the ALL</h2>
+        <h2 class="section-title">Submit to the ALL</h2>
         <p class="text-sm text-zinc-400 mt-1 max-w-2xl">
           Levels on this list that the ALL doesn't carry yet. Tiers and placements are estimated
           from the neighbours on this list that <em>are</em> on the ALL — check them before
@@ -287,7 +287,7 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
           </div>
 
           <label class="block">
-            <span class="text-[10px] uppercase tracking-widest text-zinc-500">Verify date for all selected</span>
+            <span class="text-xs text-zinc-500">Verify date for all selected</span>
             <div class="mt-1 flex items-center gap-1.5">
               <input v-model="bulkDate" type="date" :class="field" class="!w-auto" />
               <button
@@ -332,7 +332,7 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
 
         <!-- Outcome report -->
         <div v-if="outcomes" class="card p-3 mb-3 space-y-1">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Result</h3>
+          <h3 class="text-sm font-semibold text-zinc-200">Result</h3>
           <p v-if="autoDated" class="text-[11px] text-zinc-500">
             {{ autoDated }} verification date{{ autoDated === 1 ? '' : 's' }} read from the videos.
           </p>
@@ -377,19 +377,19 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
 
                 <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
                   <label class="block">
-                    <span class="text-[9px] uppercase tracking-widest text-zinc-600">Level ID</span>
+                    <span class="text-xs text-zinc-600">Level ID</span>
                     <input v-model="d.gd_id" inputmode="numeric" :class="field" />
                   </label>
                   <label class="block">
-                    <span class="text-[9px] uppercase tracking-widest text-zinc-600">Verifier</span>
+                    <span class="text-xs text-zinc-600">Verifier</span>
                     <input v-model="d.verifier" :class="field" />
                   </label>
                   <label class="block">
-                    <span class="text-[9px] uppercase tracking-widest text-zinc-600">Verified on</span>
+                    <span class="text-xs text-zinc-600">Verified on</span>
                     <input v-model="d.verify_date" type="date" :class="field" />
                   </label>
                   <label class="block lg:col-span-2">
-                    <span class="text-[9px] uppercase tracking-widest text-zinc-600">Verification video</span>
+                    <span class="text-xs text-zinc-600">Verification video</span>
                     <input
                       v-model="d.verification_url"
                       placeholder="https://youtube.com/…"
@@ -399,11 +399,11 @@ useHead(() => ({ title: list.value ? `Submit to the ALL — ${list.value.title}`
                   </label>
                   <div class="grid grid-cols-2 gap-2">
                     <label class="block">
-                      <span class="text-[9px] uppercase tracking-widest text-zinc-600">Tier</span>
+                      <span class="text-xs text-zinc-600">Tier</span>
                       <input v-model="d.gddl_tier" placeholder="Tier 12" :class="field" />
                     </label>
                     <label class="block">
-                      <span class="text-[9px] uppercase tracking-widest text-zinc-600">At #</span>
+                      <span class="text-xs text-zinc-600">At #</span>
                       <input v-model="d.placement_estimate" inputmode="numeric" :class="field" />
                     </label>
                   </div>

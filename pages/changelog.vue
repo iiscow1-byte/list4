@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { tierColor, textOn } from '~/utils/tier-colors'
+import { tierColor } from '~/utils/tier-colors'
 
 type Change = {
   kind: 'add' | 'move' | 'remove'
@@ -9,15 +9,11 @@ type Change = {
   level_name: string
   level_gddl_tier: string | null
   level_rated: string | null
-  level_gd_id?: number | null
   challenge_rank: number | null
   from_challenge_rank: number | null
   from_position: number | null
   to_position: number
-  from_placement: number | null
-  to_placement: number | null
   changed_at: string
-  changed_by: string | null
 }
 type ChangesDay = { date: string; changes: Change[] }
 type Changes = { days: ChangesDay[] }
@@ -53,7 +49,6 @@ const changelogOrder = ref<'placement' | 'recent'>('recent')
 /** Only additions, only movements, or both. */
 const kindFilter = ref<'' | 'add' | 'move' | 'remove'>('')
 const search = ref('')
-const dense = ref(false)
 
 function filteredChanges(list: Change[]) {
   let base = changelogView.value === 'challenge'
@@ -94,7 +89,7 @@ function delta(c: Change): number | null {
   if (c.kind !== 'move') return null
   const [from, to] = changelogView.value === 'challenge'
     ? [c.from_challenge_rank, c.challenge_rank]
-    : [c.from_placement ?? c.from_position, c.to_placement ?? c.to_position]
+    : [c.from_position, c.to_position]
   if (from == null || to == null) return null
   return from - to
 }
@@ -122,6 +117,50 @@ const days = computed(() =>
 
 const totalShown = computed(() => days.value.reduce((n, d) => n + d.changes.length, 0))
 
+/**
+ * Rows drawn so far. A busy month is a couple of thousand changes, and drawing
+ * every one up front made this the heaviest page on the site. The rest are
+ * drawn as the reader scrolls toward them.
+ */
+const STEP = 200
+const drawn = ref(STEP)
+watch([range, changelogView, changelogOrder, kindFilter, search], () => { drawn.value = STEP })
+
+const visibleDays = computed(() => {
+  let left = drawn.value
+  const out: ((typeof days.value)[number] & { rows: Change[] })[] = []
+  for (const d of days.value) {
+    if (left <= 0) break
+    const rows = d.changes.length > left ? d.changes.slice(0, left) : d.changes
+    out.push({ ...d, rows })
+    left -= rows.length
+  }
+  return out
+})
+const hasMore = computed(() => drawn.value < totalShown.value)
+
+const moreEl = ref<HTMLElement | null>(null)
+let moreObserver: IntersectionObserver | null = null
+function drawMore() {
+  if (!hasMore.value) return
+  drawn.value += STEP
+  // An observer only reports changes, and on a tall screen the marker can
+  // still be in range after the new rows draw. Observing it again re-checks.
+  nextTick(() => {
+    if (!moreEl.value || !moreObserver) return
+    moreObserver.unobserve(moreEl.value)
+    moreObserver.observe(moreEl.value)
+  })
+}
+onMounted(() => {
+  moreObserver = new IntersectionObserver(
+    (entries) => { if (entries.some((e) => e.isIntersecting)) drawMore() },
+    { rootMargin: '1200px 0px' },
+  )
+  if (moreEl.value) moreObserver.observe(moreEl.value)
+})
+onBeforeUnmount(() => moreObserver?.disconnect())
+
 async function deleteChange(c: Change) {
   const date = c.changed_at.slice(0, 10)
   if (!confirm(`Remove changelog entry for "${c.level_name}" on ${date}?`)) return
@@ -133,13 +172,27 @@ async function deleteChange(c: Change) {
   }
 }
 
-function shortTier(tier: string | null): string | null {
-  if (!tier) return null
-  const t = tier.match(/^Tier (\d{1,2})$/)
-  if (t) return t[1]!
-  const s = tier.match(/^Subtier (\d{1,2})$/)
-  if (s) return `S${s[1]}`
-  return tier
+/** Where the level is now, in the list being read. Nothing for a removal. */
+function rankLabel(c: Change): string {
+  if (c.kind === 'remove') return ''
+  const n = changelogView.value === 'challenge' ? c.challenge_rank : c.to_position
+  return n != null ? `#${n}` : ''
+}
+
+function detailLabel(c: Change): string {
+  const challenge = changelogView.value === 'challenge'
+  if (c.kind === 'add') return 'added'
+  if (c.kind === 'remove') return `was #${challenge ? c.challenge_rank : c.to_position}`
+  return `from #${challenge ? c.from_challenge_rank : c.from_position}`
+}
+
+function daySummary(d: { added: number; up: number; down: number; removed: number }): string {
+  const parts: string[] = []
+  if (d.added) parts.push(`${d.added.toLocaleString()} added`)
+  if (d.up) parts.push(`${d.up.toLocaleString()} up`)
+  if (d.down) parts.push(`${d.down.toLocaleString()} down`)
+  if (d.removed) parts.push(`${d.removed.toLocaleString()} removed`)
+  return parts.join(' · ')
 }
 
 function formatDay(ymd: string): string {
@@ -184,205 +237,104 @@ useHead({ title: 'Changelog — All Levels List' })
 
 <template>
   <div class="container-wide py-8">
-    <header class="flex flex-wrap items-end justify-between gap-3 mb-4">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Changelog</h1>
-        <p class="text-sm text-zinc-500 mt-1 max-w-2xl">
-          Every placement and move on the ALL list. Website changes live on
-          <NuxtLink to="/updates" class="text-accent hover:underline">List updates</NuxtLink>.
-        </p>
-      </div>
-      <span class="text-[11px] text-zinc-600 tabular-nums">
-        {{ totalShown.toLocaleString() }} entr{{ totalShown === 1 ? 'y' : 'ies' }}
-        <template v-if="pending"> · loading…</template>
-      </span>
+    <header class="mb-5">
+      <h1 class="page-title">Changelog</h1>
+      <p class="page-lead">Every level added, moved or removed. Site changes are on <NuxtLink to="/updates" class="link">List updates</NuxtLink>.</p>
     </header>
 
-    <!-- Controls: sticky so filtering stays reachable while reading a long log -->
-    <div class="sticky top-14 z-20 -mx-2 px-2 py-2 mb-4 bg-zinc-950/85 backdrop-blur-md border-b border-zinc-800/70">
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="relative min-w-[10rem] flex-1 max-w-xs">
-          <input
-            v-model="search"
-            type="search"
-            placeholder="Filter by level name…"
-            class="field field-sm text-[12px]"
-          />
-        </div>
-
-        <SegmentedControl
-          v-model="kindModel"
-          aria-label="Kind of change"
-          :options="[
-            { value: '', label: 'Everything' },
-            { value: 'add', label: 'Added' },
-            { value: 'move', label: 'Moved' },
-            { value: 'remove', label: 'Removed' },
-          ]"
-        />
-
-        <SegmentedControl
-          v-model="rangeModel"
-          aria-label="How far back"
-          :options="RANGES.map((r) => ({ value: String(r.value), label: r.label }))"
-        />
-
-        <SegmentedControl
-          v-model="viewModel"
-          aria-label="Which levels"
-          :options="[
-            { value: 'all', label: 'All levels' },
-            { value: 'challenge', label: 'Challenges' },
-          ]"
-        />
-
-        <SegmentedControl
-          v-model="orderModel"
-          aria-label="Order"
-          class="ml-auto"
-          :options="[
-            { value: 'recent', label: 'Recent' },
-            { value: 'placement', label: 'Placement' },
-          ]"
-        />
-
-        <button
-          type="button"
-          class="rounded-lg border border-zinc-800 px-2.5 py-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-          :class="dense ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'"
-          :aria-pressed="dense"
-          title="Tighter rows, no level art"
-          @click="dense = !dense"
-        >Compact</button>
-      </div>
+    <div class="sticky top-14 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-2.5 mb-5 bg-zinc-950/90 backdrop-blur border-b border-zinc-800 flex flex-wrap items-center gap-2">
+      <input v-model="search" type="search" placeholder="Find a level" aria-label="Find a level" class="field field-sm w-full sm:w-56" />
+      <SegmentedControl
+        v-model="kindModel"
+        aria-label="Kind of change"
+        :options="[
+          { value: '', label: 'All' },
+          { value: 'add', label: 'Added' },
+          { value: 'move', label: 'Moved' },
+          { value: 'remove', label: 'Removed' },
+        ]"
+      />
+      <select v-model="rangeModel" class="field field-sm w-auto text-xs" aria-label="How far back">
+        <option v-for="r in RANGES" :key="r.value" :value="String(r.value)">{{ r.value >= 3650 ? 'All time' : `Last ${r.label}` }}</option>
+      </select>
+      <SegmentedControl
+        v-model="viewModel"
+        aria-label="Which levels"
+        :options="[
+          { value: 'all', label: 'All levels' },
+          { value: 'challenge', label: 'Challenges' },
+        ]"
+      />
+      <select v-model="orderModel" class="field field-sm w-auto text-xs sm:ml-auto" aria-label="Order">
+        <option value="recent">Newest first</option>
+        <option value="placement">By placement</option>
+      </select>
+      <span class="text-xs text-zinc-500 tabular-nums">{{ pending ? 'Loading…' : `${totalShown.toLocaleString()} changes` }}</span>
     </div>
 
-    <!-- Days -->
-    <div class="space-y-4">
-      <section v-for="day in days" :key="day.date" class="card overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-zinc-800/80 flex items-center justify-between gap-3 flex-wrap">
-          <h2 class="text-sm font-semibold text-zinc-100">{{ formatDay(day.date) }}</h2>
-          <div class="flex items-center gap-1.5 text-[10px] tabular-nums">
-            <span
-              v-if="day.added"
-              class="rounded px-1.5 py-0.5 bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
-            >+{{ day.added }} added</span>
-            <span
-              v-if="day.up"
-              class="rounded px-1.5 py-0.5 bg-sky-950/60 text-sky-300 border border-sky-900/60"
-            >▲ {{ day.up }}</span>
-            <span
-              v-if="day.down"
-              class="rounded px-1.5 py-0.5 bg-amber-950/60 text-amber-300 border border-amber-900/60"
-            >▼ {{ day.down }}</span>
-            <span
-              v-if="day.removed"
-              class="rounded px-1.5 py-0.5 bg-red-950/60 text-red-300 border border-red-900/60"
-            >−{{ day.removed }} removed</span>
-          </div>
+    <div class="space-y-8">
+      <section v-for="day in visibleDays" :key="day.date">
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+          <h2 class="section-title">{{ formatDay(day.date) }}</h2>
+          <span class="text-xs text-zinc-500">{{ daySummary(day) }}</span>
         </div>
-
-        <ul class="divide-y divide-zinc-900/60">
+        <ul class="rounded-lg border border-zinc-800 divide-y divide-zinc-800/70 overflow-hidden">
           <li
-            v-for="(c, i) in day.changes"
+            v-for="(c, i) in day.rows"
             :key="`${day.date}-${i}`"
-            class="relative overflow-hidden group/row hover:bg-zinc-900/40 transition-colors"
+            class="group flex items-center gap-3 px-3 sm:px-4 py-2 text-sm hover:bg-zinc-900/60 transition-colors"
           >
-            <LevelThumbBg
-              v-if="!dense"
-              :gd-id="c.level_gd_id ?? null"
-              res="small"
-              img-class="opacity-[0.13] group-hover/row:opacity-25"
-              overlay-class="bg-gradient-to-r from-zinc-950/95 via-zinc-950/80 to-zinc-950/40"
-            />
-            <div
-              class="relative px-4 flex items-center gap-2.5 text-sm"
-              :class="dense ? 'py-1' : 'py-2'"
-            >
-              <span
-                v-if="c.kind === 'add'"
-                class="shrink-0 w-[4.6rem] text-center text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
-                title="Added to the list"
-              >Added</span>
-              <span
-                v-else-if="c.kind === 'remove'"
-                class="shrink-0 w-[4.6rem] text-center text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-red-950/60 text-red-300 border border-red-900/60"
-                title="Removed from the list"
-              >Removed</span>
-              <span
-                v-else-if="(delta(c) ?? 0) > 0"
-                class="shrink-0 w-[4.6rem] text-center text-[10px] tabular-nums px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
-                title="Moved up the list"
-              >▲ {{ delta(c) }}</span>
-              <span
-                v-else
-                class="shrink-0 w-[4.6rem] text-center text-[10px] tabular-nums px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
-                title="Moved down the list"
-              >▼ {{ Math.abs(delta(c) ?? 0) }}</span>
+            <span class="w-10 sm:w-12 shrink-0 text-xs font-semibold tabular-nums">
+              <span v-if="c.kind === 'add'" class="text-emerald-400">New</span>
+              <span v-else-if="c.kind === 'remove'" class="text-rose-400">Out</span>
+              <span v-else-if="(delta(c) ?? 0) > 0" class="text-emerald-400">▲ {{ delta(c) }}</span>
+              <span v-else class="text-rose-400">▼ {{ Math.abs(delta(c) ?? 0) }}</span>
+            </span>
 
-              <!-- A removed level has no page. Plain text rather than a link
-                   to `/levels/null`, and struck through so the row reads as
-                   what it is at a glance. -->
+            <span class="hidden sm:block rank w-16 shrink-0 text-right text-zinc-300">{{ rankLabel(c) }}</span>
+
+            <span
+              class="hidden sm:block w-2 h-2 rounded-sm shrink-0"
+              :style="c.level_gddl_tier ? { backgroundColor: tierColor(c.level_gddl_tier) } : undefined"
+              :title="c.level_gddl_tier ?? undefined"
+            />
+            <!-- On a phone the numbers go under the name, which would otherwise
+                 get a few letters between them. -->
+            <div class="min-w-0 flex-1">
               <NuxtLink
                 v-if="c.level_position != null"
                 :to="`/levels/${c.level_position}`"
-                class="truncate font-medium text-zinc-200 hover:text-accent transition-colors"
+                class="block truncate font-medium text-zinc-100 hover:text-accent transition-colors"
               >{{ c.level_name }}</NuxtLink>
-              <span v-else class="truncate font-medium text-zinc-500 line-through decoration-red-900/70">{{ c.level_name }}</span>
-
-              <span
-                v-if="c.level_gddl_tier && changelogView !== 'challenge'"
-                class="shrink-0 text-[10px] tabular-nums px-1.5 py-0.5 rounded font-semibold leading-none"
-                :style="{ backgroundColor: tierColor(c.level_gddl_tier), color: textOn(tierColor(c.level_gddl_tier)) }"
-                :title="c.level_gddl_tier"
-              >{{ shortTier(c.level_gddl_tier) }}</span>
-
-              <span class="shrink-0 font-semibold tabular-nums text-zinc-300 ml-auto" :class="dense ? 'text-sm' : 'text-base'">
-                <!-- A removal has one placement, not two: the one it was
-                     standing on when it went. Drawing it as `#12 → #12` would
-                     claim a move that didn't happen. -->
-                <template v-if="changelogView === 'challenge'">
-                  <template v-if="c.kind === 'add'">
-                    <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
-                  </template>
-                  <template v-else-if="c.kind === 'remove'">
-                    <span class="text-zinc-600 line-through">Ch. #{{ c.challenge_rank }}</span>
-                  </template>
-                  <template v-else>
-                    <span class="text-zinc-600">Ch. #{{ c.from_challenge_rank }}</span>
-                    <span class="text-zinc-700 mx-1">→</span>
-                    <span class="text-amber-300">Ch. #{{ c.challenge_rank }}</span>
-                  </template>
-                </template>
-                <template v-else>
-                  <template v-if="c.kind === 'add'">#{{ c.to_placement }}</template>
-                  <template v-else-if="c.kind === 'remove'">
-                    <span class="text-zinc-600 line-through">#{{ c.to_placement }}</span>
-                  </template>
-                  <template v-else>
-                    <span class="text-zinc-600">#{{ c.from_placement }}</span>
-                    <span class="text-zinc-700 mx-1">→</span>
-                    <span class="text-accent">#{{ c.to_placement }}</span>
-                  </template>
-                </template>
+              <span v-else class="block truncate font-medium text-zinc-500 line-through decoration-zinc-600">{{ c.level_name }}</span>
+              <span class="sm:hidden block text-xs text-zinc-500 tabular-nums">
+                <template v-if="rankLabel(c)">{{ rankLabel(c) }} · </template>{{ detailLabel(c) }}
               </span>
-
-              <button
-                v-if="isMod"
-                type="button"
-                class="shrink-0 text-zinc-700 hover:text-red-400 transition-colors opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 leading-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-                title="Remove changelog entry"
-                aria-label="Remove changelog entry"
-                @click="deleteChange(c)"
-              >✕</button>
             </div>
+
+            <span class="hidden sm:block shrink-0 text-xs text-zinc-500 tabular-nums">{{ detailLabel(c) }}</span>
+
+            <button
+              v-if="isMod"
+              type="button"
+              class="shrink-0 w-6 h-6 rounded text-zinc-600 hover:text-red-300 hover:bg-zinc-800 sm:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              title="Remove this entry"
+              aria-label="Remove this entry"
+              @click="deleteChange(c)"
+            >×</button>
           </li>
         </ul>
       </section>
 
-      <p v-if="!pending && totalShown === 0" class="text-sm text-zinc-500 py-16 text-center">
-        No changes match these filters.
+      <p v-if="!pending && totalShown === 0" class="py-16 text-center text-sm text-zinc-500">
+        Nothing matches.
       </p>
+    </div>
+
+    <div ref="moreEl" class="py-6 text-center">
+      <button v-if="hasMore" type="button" class="btn btn-sm btn-ghost" @click="drawMore">
+        Show more
+      </button>
     </div>
   </div>
 </template>

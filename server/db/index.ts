@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { mkdirSync, existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
+import { recomputePoints } from '../utils/points.ts'
 
 const DB_PATH = process.env.LIST_DB_PATH || resolve(process.cwd(), 'data', 'list.db')
 
@@ -22,6 +23,10 @@ export function getDb(): DatabaseSync {
   const db = new DatabaseSync(DB_PATH)
   db.exec('PRAGMA journal_mode = WAL;')
   db.exec('PRAGMA foreign_keys = ON;')
+  // A CLI import (`npm run import`) holds the write lock for a while. Without a
+  // timeout every write here fails instantly with SQLITE_BUSY instead of waiting
+  // its turn.
+  db.exec('PRAGMA busy_timeout = 8000;')
   initSchema(db)
   _db = db
   return db
@@ -701,6 +706,27 @@ function initSchema(db: DatabaseSync) {
   if (!dwCols.some((c) => c.name === 'kind')) {
     db.exec(`ALTER TABLE discord_webhooks ADD COLUMN kind TEXT NOT NULL DEFAULT 'changes'`)
   }
+  // `posted_through`: every change at or before this UTC timestamp has been
+  // sent to this webhook. It replaces `last_posted_date` as the thing the
+  // scheduler reads, so a manual "post now" and the nightly digest can never
+  // send the same change twice. Seeded from the old column.
+  if (!dwCols.some((c) => c.name === 'posted_through')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN posted_through TEXT`)
+    db.exec(`UPDATE discord_webhooks SET posted_through = last_posted_date || ' 23:59:59' WHERE last_posted_date IS NOT NULL`)
+  }
+  if (!dwCols.some((c) => c.name === 'fail_count')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0`)
+  }
+  // One row per one-off announcement (a record approved, a level sent to
+  // awaiting), so the same event is never posted twice to the same channel.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS discord_event_log (
+      kind       TEXT NOT NULL,
+      event_key  TEXT NOT NULL,
+      posted_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (kind, event_key)
+    );
+  `)
 
   // Opinions: per-user difficulty / enjoyment ratings on a level. Approved
   // opinions feed the "community tier" tile + bar chart on the level page.
@@ -1473,6 +1499,58 @@ function initSchema(db: DatabaseSync) {
     db.exec(`UPDATE levels SET site_only = 1 WHERE sheet_placement IS NULL`)
   }
   db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_site_only ON levels(site_only)`)
+
+  // Site edits that survive a sheet refresh.
+  //
+  // `pinned`: staff moved this level here. The importer keeps it after the level
+  // it currently follows until the sheet itself moves the level, then the sheet
+  // wins again. `site_fields`: JSON array of columns edited on the site, which
+  // the importer leaves alone. `sheet_missing_since`: first import that couldn't
+  // find this level on the sheet; it is only deleted if the next one can't either.
+  if (!has('pinned')) db.exec(`ALTER TABLE levels ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0`)
+  if (!has('pinned_at')) db.exec(`ALTER TABLE levels ADD COLUMN pinned_at TEXT`)
+  if (!has('site_fields')) db.exec(`ALTER TABLE levels ADD COLUMN site_fields TEXT`)
+  if (!has('sheet_missing_since')) db.exec(`ALTER TABLE levels ADD COLUMN sheet_missing_since TEXT`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_tier_pos ON levels(gddl_tier, position)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_levels_gd_id ON levels(gd_id)`)
+
+  // Levels staff removed from the list. The sheet still lists them until a
+  // curator catches up, so without this the next refresh would add them back
+  // (and announce them as new). Cleared once the sheet drops the row.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS level_tombstones (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      gd_id       INTEGER,
+      name        TEXT    NOT NULL,
+      removed_by  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+      removed_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_level_tombstones_gd ON level_tombstones(gd_id);
+  `)
+
+  // `same_as_above` used to be set by the importer on any level whose rounded
+  // points happened to equal the level above's, which marked most of the list
+  // as duplicates and froze their points to the level above. A duplicate is a
+  // curator's call: keep flags on site-added levels and ones linked to an
+  // original, clear the rest once.
+  const dupMigrated = db.prepare(`SELECT 1 FROM site_settings WHERE key = 'migration:auto-duplicates'`).get()
+  if (!dupMigrated) {
+    const res = db.prepare(
+      `UPDATE levels SET same_as_above = 0
+        WHERE same_as_above = 1 AND COALESCE(permanent, 0) = 0 AND duplicate_of_id IS NULL`,
+    ).run()
+    db.prepare(`INSERT INTO site_settings (key, value) VALUES ('migration:auto-duplicates', ?)`).run(String(res.changes))
+    if (Number(res.changes)) {
+      recomputePoints(db)
+      console.log(`[db] cleared ${res.changes} automatic "same as above" flags`)
+    }
+  }
+
+  // The number the site prints is the level's rank in the list, which is its
+  // position. `sheet_placement` is kept equal to it so older queries that read
+  // that column keep printing the right thing; the sheet's own number is
+  // `sheet_rank`.
+  db.exec(`UPDATE levels SET sheet_placement = position WHERE sheet_placement IS NOT position`)
 
   // Level comments reuse the existing `comments` table via a new target_kind.
   // SQLite can't widen a CHECK in place, so rebuild when 'level' is missing.

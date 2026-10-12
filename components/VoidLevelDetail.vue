@@ -197,24 +197,19 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6 flex items-start gap-4">
       <div class="flex-1 min-w-0">
-        <div class="flex items-baseline gap-3 flex-wrap">
-          <span class="tabular-nums text-fuchsia-300 text-sm">#{{ level.position }}</span>
-          <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-          <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-fuchsia-900/40 text-fuchsia-300 border border-fuchsia-800/60">
-            Void
-          </span>
-        </div>
-        <p class="text-sm text-zinc-400 mt-2 leading-relaxed">
-          Levels submitted without a difficulty opinion end up here. Beat one and send it to pending!
+        <p class="rank text-fuchsia-300 text-xl leading-none">#{{ level.position }} <span class="ml-1 text-sm font-medium text-zinc-400">on the void list</span></p>
+        <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
+        <p class="mt-2 text-sm text-zinc-400">
+          No one has given this level a difficulty opinion yet. Beaten it? Submit an opinion and it moves to pending.
         </p>
       </div>
       <button
         v-if="canEdit && !editing"
         type="button"
-        class="shrink-0 rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+        class="shrink-0 btn btn-sm btn-ghost"
         @click="startEdit"
       >Edit</button>
     </header>
@@ -222,45 +217,45 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
     <!-- Edit form -->
     <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
       <div class="flex items-baseline justify-between">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-medium">Editing void level</h2>
+        <h2 class="section-title">Editing void level</h2>
         <span class="text-[11px] text-zinc-500">Currently at #{{ level.position }}</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
+          <span class="text-xs text-zinc-500">Name</span>
           <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbours</span></span>
+          <span class="text-xs text-zinc-500">Position <span class="text-zinc-600 normal-case">— moves the level, shifts neighbours</span></span>
           <input v-model="draftPosition" type="number" inputmode="numeric" min="1" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
+          <span class="text-xs text-zinc-500">Level ID</span>
           <input v-model="draft.gd_id" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
+          <span class="text-xs text-zinc-500">Verify date</span>
           <input v-model="draft.verify_date" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Days</span>
+          <span class="text-xs text-zinc-500">Days</span>
           <input v-model="draft.days" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Demon ranking</span>
+          <span class="text-xs text-zinc-500">Demon ranking</span>
           <input v-model="draft.demon_ranking" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
+          <span class="text-xs text-zinc-500">Source</span>
           <input v-model="draft.placement_source" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification (text)</span>
+          <span class="text-xs text-zinc-500">Verification (text)</span>
           <input v-model="draft.verification" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification URL</span>
+          <span class="text-xs text-zinc-500">Verification URL</span>
           <input v-model="draft.verification_url" class="field field-md mt-1" />
         </label>
       </div>
@@ -290,17 +285,12 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
     </section>
 
     <!-- Verification -->
-    <div v-if="ytId" class="aspect-video rounded-xl border border-zinc-800 bg-black mb-6 overflow-hidden">
-      <iframe
-        :src="`https://www.youtube.com/embed/${ytId}`"
-        class="w-full h-full"
-        :title="level.verification ?? 'Verification'"
-        frameborder="0"
-        allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowfullscreen
-        referrerpolicy="strict-origin-when-cross-origin"
-      />
-    </div>
+    <VideoEmbed
+      v-if="ytId"
+      :url="level.verification_url"
+      :title="level.verification ?? `${level.name} verification`"
+      frame-class="aspect-video rounded-lg bg-black overflow-hidden mb-6 ring-1 ring-white/5"
+    />
     <a
       v-else-if="level.verification_url"
       :href="level.verification_url"
@@ -316,7 +306,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
             </svg>
           </div>
           <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">{{ level.verification ?? 'Watch verification' }}</p>
-          <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">Open verification ↗</p>
+          <p class="text-xs text-zinc-500 mt-2">Open verification ↗</p>
         </div>
       </div>
     </a>
@@ -351,7 +341,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
         <template v-else>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier <span class="text-red-400">*</span></span>
+              <span class="text-xs text-zinc-500">GDDL Tier <span class="text-red-400">*</span></span>
               <select
                 v-model="pendingTier"
                 class="field field-md mt-1"
@@ -361,7 +351,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               </select>
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty <span class="text-red-400">*</span></span>
+              <span class="text-xs text-zinc-500">Difficulty <span class="text-red-400">*</span></span>
               <select
                 v-model="pendingDifficulty"
                 class="field field-md mt-1"
@@ -374,7 +364,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+              <span class="text-xs text-zinc-500">Verifier</span>
               <input
                 v-model="pendingVerifier"
                 placeholder="Player name"
@@ -382,7 +372,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
+              <span class="text-xs text-zinc-500">Verify date</span>
               <input
                 v-model="pendingVerifyDate"
                 type="date"
@@ -392,7 +382,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           </div>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification video</span>
+            <span class="text-xs text-zinc-500">Verification video</span>
             <input
               v-model="pendingVideoUrl"
               type="url"
@@ -402,7 +392,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
+            <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">0–10</span></span>
             <input
               v-model="pendingEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -411,7 +401,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for mods</span>
+            <span class="text-xs text-zinc-500">Note for mods</span>
             <textarea
               v-model="pendingNote"
               rows="2"
@@ -447,7 +437,7 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
     <!-- Stats grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
+        <div class="text-xs text-zinc-500 mb-1">Level ID</div>
         <a
           v-if="levelUrl"
           :href="levelUrl"
@@ -458,22 +448,22 @@ const levelUrl = computed(() => gdLevelUrl(props.level.gd_id))
         <div v-else class="tabular-nums text-base text-zinc-600">—</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Days</div>
+        <div class="text-xs text-zinc-500 mb-1">Days</div>
         <div class="tabular-nums text-base text-zinc-100">{{ level.days != null ? level.days.toLocaleString() : '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verify date</div>
+        <div class="text-xs text-zinc-500 mb-1">Verify date</div>
         <div class="tabular-nums text-sm text-zinc-100">{{ level.verify_date ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Added to pending</div>
+        <div class="text-xs text-zinc-500 mb-1">Added to pending</div>
         <div class="tabular-nums text-sm text-zinc-100">{{ level.added_on ?? '—' }}</div>
       </div>
     </div>
 
     <!-- Source / verification metadata -->
     <section class="card">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 px-4 pt-3 font-medium">Information</h2>
+      <h2 class="text-xs text-zinc-500 px-4 pt-3 font-medium">Information</h2>
       <dl class="px-4 py-3 grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 text-sm">
         <dt class="text-zinc-500">Source</dt><dd class="text-zinc-200">{{ level.placement_source ?? '—' }}</dd>
         <dt class="text-zinc-500">Demon ranking</dt><dd class="text-zinc-200">{{ level.demon_ranking ?? '—' }}</dd>

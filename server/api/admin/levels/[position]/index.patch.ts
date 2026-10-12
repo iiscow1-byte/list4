@@ -1,9 +1,10 @@
 import { getDb } from '~/server/db'
 import { requireMod, isAdminRole } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
+import { SHEET_FIELDS, addSiteFields, afterListChange, parseSiteFields, tx } from '~/server/utils/list-ops'
+import { logActivity } from '~/server/utils/activity-log'
+import { isValidTier } from '~/utils/tier-ordinal'
 
-// `points` is no longer editable — it's derived from gddl_tier + position,
-// with `same_as_above` as the only manual override.
+// `points` is derived from tier + position and isn't editable.
 const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   name: 'text',
   gd_id: 'int',
@@ -26,16 +27,12 @@ const FIELDS: Record<string, 'text' | 'int' | 'real' | 'bool'> = {
   is_alternate: 'bool',
   alternate_of_id: 'int',
   tentative_placement: 'bool',
-  // `not_challenge` and `force_challenge` are deliberately absent: they are
-  // editorial overrides no importer writes, and this endpoint refuses
-  // non-permanent levels. They have their own route — `challenge.post.ts`.
 }
 
+const ADMIN_ONLY_FIELDS = new Set(['description_override'])
+
 function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string | number | null {
-  if (type === 'bool') {
-    if (value === true || value === 1 || value === '1' || value === 'true') return 1
-    return 0
-  }
+  if (type === 'bool') return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0
   if (value === undefined || value === null || value === '') return null
   if (type === 'text') {
     const s = String(value).trim()
@@ -46,13 +43,21 @@ function coerce(value: unknown, type: 'text' | 'int' | 'real' | 'bool'): string 
   return type === 'int' ? Math.trunc(n) : n
 }
 
-/**
- * Edit a permanent level's metadata. Mods or admins; level must be permanent.
- */
-// Fields only an admin can write — mods edit metadata but description override
-// is editorial, so admin-only.
-const ADMIN_ONLY_FIELDS = new Set(['description_override'])
+/** `tier 25`, `T25`, `25` → `Tier 25`; `s4` → `Subtier 4`. */
+function normaliseTier(raw: string): string | null {
+  if (isValidTier(raw)) return raw
+  const t = raw.trim()
+  const sub = t.match(/^s(?:ub)?\s*-?\s*(?:tier)?\s*(\d)$/i)
+  if (sub && Number(sub[1]) <= 5) return `Subtier ${Number(sub[1])}`
+  const tier = t.match(/^t(?:ier)?\s*(\d{1,2})$/i) ?? t.match(/^(\d{1,2})$/)
+  if (tier && isValidTier(`Tier ${Number(tier[1])}`)) return `Tier ${Number(tier[1])}`
+  return null
+}
 
+/**
+ * Edit a level's details. Any level can be edited; a change to a column the
+ * sheet also supplies is remembered, so the next refresh leaves it alone.
+ */
 export default defineEventHandler(async (event) => {
   const account = requireMod(event)
   const position = Number(getRouterParam(event, 'position'))
@@ -60,35 +65,51 @@ export default defineEventHandler(async (event) => {
 
   const body = (await readBody(event)) ?? {}
   const db = getDb()
-  const existing = db.prepare(`SELECT permanent FROM levels WHERE position = ?`).get(position) as { permanent: number } | undefined
+  const existing = db.prepare(`SELECT * FROM levels WHERE position = ?`).get(position) as Record<string, any> | undefined
   if (!existing) throw createError({ statusCode: 404, statusMessage: 'No such level.' })
-  if (!existing.permanent) {
-    throw createError({ statusCode: 400, statusMessage: 'Promote the level to permanent before editing.' })
-  }
 
   const sets: string[] = []
   const values: (string | number | null)[] = []
+  const changed: string[] = []
   for (const [key, type] of Object.entries(FIELDS)) {
     if (!(key in body)) continue
     if (ADMIN_ONLY_FIELDS.has(key) && !isAdminRole(account.role)) continue
-    const coerced = coerce(body[key], type)
-    if (key === 'name' && typeof coerced === 'string' && coerced.includes(',')) {
-      throw createError({ statusCode: 400, statusMessage: 'Level names cannot contain commas.' })
+    let value = coerce(body[key], type)
+    if (key === 'name') {
+      if (!value) throw createError({ statusCode: 400, statusMessage: 'A level needs a name.' })
+      if (String(value).includes(',')) throw createError({ statusCode: 400, statusMessage: 'Level names cannot contain commas.' })
     }
+    if (key === 'gddl_tier' && value != null) {
+      const tier = normaliseTier(String(value))
+      if (!tier) throw createError({ statusCode: 400, statusMessage: `"${value}" isn't a tier. Use "Tier 1"–"Tier 45" or "Subtier 0"–"Subtier 5".` })
+      value = tier
+    }
+    if (key === 'enjoyment' && value != null && (Number(value) < 0 || Number(value) > 10)) {
+      throw createError({ statusCode: 400, statusMessage: 'Enjoyment is 0 to 10.' })
+    }
+    if ((existing[key] ?? null) === value) continue
     sets.push(`${key} = ?`)
-    values.push(coerced)
+    values.push(value)
+    changed.push(key)
   }
-  if (sets.length === 0) return { ok: true, updated: 0 }
+  if (!sets.length) return { ok: true, updated: 0, site_fields: [...parseSiteFields(existing.site_fields)] }
 
-  values.push(position)
-  db.prepare(`UPDATE levels SET ${sets.join(', ')} WHERE position = ?`).run(...values)
+  tx(db, () => {
+    db.prepare(`UPDATE levels SET ${sets.join(', ')} WHERE id = ?`).run(...values, existing.id)
+    addSiteFields(db, existing.id, changed.filter((k) => (SHEET_FIELDS as readonly string[]).includes(k)))
+  })
+  afterListChange(db, { points: changed.includes('gddl_tier') || changed.includes('same_as_above') })
 
-  // Tier or same_as_above edits change the auto-computed point value (for
-  // this level and potentially neighbors that share its tier midpoint), so
-  // recompute the whole list any time either of those is touched.
-  if ('gddl_tier' in body || 'same_as_above' in body) {
-    recomputePoints(db)
-  }
+  logActivity({
+    kind: 'level.edit',
+    area: 'levels',
+    severity: 'info',
+    actor: account,
+    subject: { kind: 'level', id: existing.id, label: existing.name },
+    summary: `Edited ${existing.name}: ${changed.join(', ')}`,
+    detail: Object.fromEntries(changed.map((k) => [k, { from: existing[k] ?? null, to: values[changed.indexOf(k)] }])),
+  }, db)
 
-  return { ok: true, updated: sets.length }
+  const after = db.prepare(`SELECT site_fields FROM levels WHERE id = ?`).get(existing.id) as { site_fields: string | null }
+  return { ok: true, updated: changed.length, site_fields: [...parseSiteFields(after.site_fields)] }
 })

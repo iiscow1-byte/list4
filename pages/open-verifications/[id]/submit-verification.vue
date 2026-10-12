@@ -151,7 +151,7 @@ async function submit() {
 
     <div v-else>
       <div class="mb-6">
-        <h1 class="text-3xl font-semibold tracking-tight mb-1">Submit a verification</h1>
+        <h1 class="page-title mb-1">Submit a verification</h1>
         <p class="text-sm text-zinc-400">
           A moderator will review your submission before this level moves to the pending list.
         </p>
@@ -159,7 +159,7 @@ async function submit() {
 
       <!-- Level info card -->
       <div class="rounded-md border border-violet-800/50 bg-violet-950/20 px-4 py-3 mb-5">
-        <div class="text-[10px] uppercase tracking-widest text-violet-400 font-medium mb-1">Level</div>
+        <div class="text-xs text-violet-400 font-medium mb-1">Level</div>
         <div class="flex items-baseline gap-3 flex-wrap">
           <span class="text-base text-zinc-100 font-medium">{{ level.name }}</span>
           <span v-if="level.gd_id" class="text-xs text-zinc-500 tabular-nums">#{{ level.gd_id }}</span>
@@ -179,7 +179,7 @@ async function submit() {
       <form v-else class="space-y-5" @submit.prevent="submit">
         <!-- Verification video -->
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification video <span class="text-red-400">*</span></span>
+          <span class="text-xs text-zinc-500">Verification video <span class="text-red-400">*</span></span>
           <input
             v-model="video"
             type="url"
@@ -203,7 +203,7 @@ async function submit() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier <span class="text-red-400">*</span></span>
+            <span class="text-xs text-zinc-500">Verifier <span class="text-red-400">*</span></span>
             <input
               v-model="verifierName"
               placeholder="Player name"
@@ -214,7 +214,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verification title</span>
+            <span class="text-xs text-zinc-500">Verification title</span>
             <input
               v-model="verificationTitle"
               placeholder="Video title"
@@ -223,7 +223,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verify date</span>
+            <span class="text-xs text-zinc-500">Verify date</span>
             <input
               v-model="verifyDate"
               type="date"
@@ -232,7 +232,7 @@ async function submit() {
           </label>
 
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Placement estimate</span>
+            <span class="text-xs text-zinc-500">Placement estimate</span>
             <input
               v-model="placementEstimate"
               type="number"
@@ -246,13 +246,13 @@ async function submit() {
 
         <!-- Difficulty opinion -->
         <fieldset class="card p-3">
-          <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
+          <legend class="px-2 text-xs text-zinc-500 font-medium">
             Difficulty opinion <span class="text-zinc-600 normal-case tracking-normal">— pre-filled from open verification, editable</span>
           </legend>
           <div class="space-y-3 pt-2">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+                <span class="text-xs text-zinc-500">GDDL Tier</span>
                 <select
                   v-model="opinionTier"
                   class="field field-md mt-1"
@@ -261,7 +261,7 @@ async function submit() {
                 </select>
               </label>
               <label class="block">
-                <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+                <span class="text-xs text-zinc-500">Difficulty</span>
                 <select
                   v-model="opinionDifficulty"
                   class="field field-md mt-1"
@@ -271,7 +271,7 @@ async function submit() {
               </label>
             </div>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+              <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
               <input
                 v-model="opinionEnjoyment"
                 type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -285,7 +285,7 @@ async function submit() {
         <div class="card">
           <button
             type="button"
-            class="w-full px-3 py-2 flex items-center justify-between text-[11px] uppercase tracking-widest text-zinc-400 hover:text-accent transition-colors"
+            class="w-full px-3 py-2 flex items-center justify-between text-xs text-zinc-400 hover:text-accent transition-colors"
             :aria-expanded="detailsOpen"
             @click="detailsOpen = !detailsOpen"
           >
@@ -296,7 +296,7 @@ async function submit() {
           </button>
           <div v-if="detailsOpen" class="px-3 pb-3 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
+              <span class="text-xs text-zinc-500">FPS</span>
               <input
                 v-model="fpsOverride"
                 placeholder="e.g. 60"
@@ -304,7 +304,7 @@ async function submit() {
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
+              <span class="text-xs text-zinc-500">Game version</span>
               <input
                 v-model="gameVersionOverride"
                 placeholder="e.g. 2.2"
@@ -312,7 +312,7 @@ async function submit() {
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+              <span class="text-xs text-zinc-500">Main skillset</span>
               <input
                 v-model="mainSkillsetOverride"
                 placeholder="e.g. Timing"
@@ -320,7 +320,7 @@ async function submit() {
               />
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
+              <span class="text-xs text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
               <input
                 v-model="tagsOverride"
                 placeholder="e.g. old,buffed"
@@ -331,7 +331,7 @@ async function submit() {
         </div>
 
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods</span>
+          <span class="text-xs text-zinc-500">Note for the mods</span>
           <textarea
             v-model="note"
             rows="3"

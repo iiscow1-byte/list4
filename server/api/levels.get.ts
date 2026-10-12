@@ -206,7 +206,13 @@ export default defineEventHandler((event) => {
   if (verifyFrom) { filterConds.push(`verify_date >= ?`); filterParams.push(verifyFrom) }
   if (verifyTo)   { filterConds.push(`verify_date <= ?`); filterParams.push(verifyTo) }
 
-  if (ratings.length) {
+  const db = getDb()
+  if (ratings.length === 1 && ratings[0] === 'Challenge') {
+    // Challenges only: answered from the cached challenge ranking rather than
+    // by evaluating the challenge rules on every row.
+    filterConds.push(`levels.position IN (SELECT value FROM json_each(?))`)
+    filterParams.push(JSON.stringify([...getChallengeRankMap(db).keys()]))
+  } else if (ratings.length) {
     // "Featured" means "Featured-or-better" — picking any tiered rating
     // expands upward through the ladder. Challenge / Unrated are buckets in
     // their own right and don't expand.
@@ -246,7 +252,6 @@ export default defineEventHandler((event) => {
     : orderBySort
   const orderParams = [...searchTerms]
 
-  const db = getDb()
   const filterWhere = filterConds.length ? `WHERE ${filterConds.join(' AND ')}` : ''
   const allWhere = [...filterConds, ...searchConds].length
     ? `WHERE ${[...filterConds, ...searchConds].join(' AND ')}`
@@ -329,7 +334,9 @@ export default defineEventHandler((event) => {
    * public: it is the same figure the level's own page shows, and it is the
    * only thing on a list row that reflects readers rather than curators.
    */
-  if (items.length) {
+  const navRows = q.fields === 'nav'
+
+  if (items.length && !navRows) {
     const ids = (items as any[]).map((i) => i.id)
     const viewRows = db.prepare(
       `SELECT level_id, views FROM level_views WHERE level_id IN (${ids.map(() => '?').join(',')})`,
@@ -354,6 +361,23 @@ export default defineEventHandler((event) => {
       const easier = positions.filter((p) => p > item.position).length
       item.gddl_tier_frac = easier / positions.length
     }
+  }
+
+  /**
+   * The list sidebar draws a strip, a number and a name, 500 rows at a time.
+   * `fields=nav` sends only that, plus the id staff tools need when a row is
+   * picked; external ranks are left out when there are none.
+   */
+  if (navRows) {
+    items = (items as any[]).map((i) => {
+      const r: Record<string, unknown> = { id: i.id, position: i.position, name: i.name, gddl_tier: i.gddl_tier }
+      if (i.displayRank != null) r.displayRank = i.displayRank
+      if (i.gddl_tier_frac != null) r.gddl_tier_frac = i.gddl_tier_frac
+      if (i.aredl_position != null) r.aredl_position = i.aredl_position
+      if (i.gdl_position != null) r.gdl_position = i.gdl_position
+      if (i.challenge_list_position != null) r.challenge_list_position = i.challenge_list_position
+      return r
+    })
   }
 
   return { total, page, pageSize, items, challengeMode: challengeOnly, rankByFilter: useFilterRank }

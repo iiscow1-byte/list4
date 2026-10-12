@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { resyncPlacements } from './placement-sync'
+import { syncDisplayNumbers } from './list-ops.ts'
 
 /**
  * Placements as a file you can put back.
@@ -381,9 +381,7 @@ export function restoreSnapshot(
     if (extra) finalOrder.push(...extra)
   }
 
-  // The placement numbers themselves are a multiset owned by the slots, not by
-  // the levels — hand them back out in the new order so the list still counts
-  // upwards. `resyncPlacements` does exactly this, so it runs after the write.
+  // The printed number is the position, so it is re-synced after the write.
   const moves: RestoreMove[] = []
   finalOrder.forEach((l, i) => {
     const to = i + 1
@@ -401,6 +399,9 @@ export function restoreSnapshot(
   if (opts.apply && (moves.length || tierFixes.length)) {
     const setPos = db.prepare(`UPDATE levels SET position = ? WHERE id = ?`)
     const setTier = db.prepare(`UPDATE levels SET gddl_tier = ? WHERE id = ?`)
+    // A restored placement is a placement staff chose, so it is pinned like a
+    // move and survives the next sheet refresh.
+    const pin = db.prepare(`UPDATE levels SET pinned = 1, pinned_at = datetime('now') WHERE id = ?`)
     db.exec('BEGIN')
     try {
       // Park everything at a unique negative position first: `position` is
@@ -409,6 +410,7 @@ export function restoreSnapshot(
       if (moves.length) {
         finalOrder.forEach((l, i) => setPos.run(-(i + 1), l.id))
         finalOrder.forEach((l, i) => setPos.run(i + 1, l.id))
+        for (const m of moves) pin.run(m.level_id)
       }
       for (const f of tierFixes) setTier.run(f.tier, f.id)
       db.exec('COMMIT')
@@ -416,7 +418,7 @@ export function restoreSnapshot(
       db.exec('ROLLBACK')
       throw e
     }
-    if (moves.length) resyncPlacements(db)
+    if (moves.length) syncDisplayNumbers(db)
   }
 
   const sample = [...moves]
@@ -486,18 +488,22 @@ export function resetToSheetOrder(
     }
   })
 
-  if (opts.apply && moves.length) {
+  if (opts.apply) {
     const setPos = db.prepare(`UPDATE levels SET position = ? WHERE id = ?`)
     db.exec('BEGIN')
     try {
-      movable.forEach((l, i) => setPos.run(-(i + 1), l.id))
-      movable.forEach((l, i) => setPos.run(targets[i]!, l.id))
+      if (moves.length) {
+        movable.forEach((l, i) => setPos.run(-(i + 1), l.id))
+        movable.forEach((l, i) => setPos.run(targets[i]!, l.id))
+      }
+      // Back to the sheet's order means no site placements are left standing.
+      db.exec(`UPDATE levels SET pinned = 0, pinned_at = NULL WHERE pinned = 1 AND sheet_rank IS NOT NULL`)
       db.exec('COMMIT')
     } catch (e) {
       db.exec('ROLLBACK')
       throw e
     }
-    resyncPlacements(db)
+    syncDisplayNumbers(db)
   }
 
   const sample = [...moves]

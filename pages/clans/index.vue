@@ -40,17 +40,21 @@ type Invite = {
 
 type Sort = 'tier' | 'points' | 'levels' | 'members' | 'newest' | 'name'
 const SORTS: { value: Sort; label: string }[] = [
-  { value: 'tier',    label: 'Tier' },
-  { value: 'points',  label: 'Points' },
-  { value: 'levels',  label: 'Levels' },
-  { value: 'members', label: 'Members' },
-  { value: 'newest',  label: 'Newest' },
-  { value: 'name',    label: 'Name' },
+  { value: 'tier',    label: 'By tier' },
+  { value: 'points',  label: 'By points' },
+  { value: 'levels',  label: 'By levels' },
+  { value: 'members', label: 'By members' },
+  { value: 'newest',  label: 'Newest first' },
+  { value: 'name',    label: 'By name' },
 ]
 
 const sort = ref<Sort>('tier')
 const search = ref('')
 const joinable = ref<'' | 'open' | 'invite'>('')
+const joinableModel = computed({
+  get: () => joinable.value as string,
+  set: (v: string) => { joinable.value = v as typeof joinable.value },
+})
 
 /**
  * Debounced, because the query is a server round trip now rather than a filter
@@ -157,9 +161,8 @@ async function create() {
   <div class="container-tight max-w-5xl py-8 space-y-6">
     <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
       <div class="min-w-0">
-        <p class="text-[10px] uppercase tracking-widest text-accent font-semibold">Community</p>
-        <h1 class="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-zinc-50">Clans</h1>
-        <p class="mt-1 text-sm text-zinc-500 max-w-2xl">
+        <h1 class="page-title">Clans</h1>
+        <p class="page-lead max-w-2xl">
           Groups of players ranked by their combined clears. Each level counts once per clan,
           no matter how many members have beaten it.
         </p>
@@ -197,7 +200,7 @@ async function create() {
     <!-- Invites waiting on you. Above everything, because it is the only thing
          on this page that is asking a question. -->
     <section v-if="data?.invites?.length" class="space-y-2">
-      <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+      <h2 class="section-title">
         You've been invited
         <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ data.invites.length }}</span>
       </h2>
@@ -243,21 +246,21 @@ async function create() {
     <!-- New clan -->
     <form v-if="creating" class="card p-4 grid gap-3 sm:grid-cols-2" @submit.prevent="create">
       <label class="block">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Tag <span class="text-zinc-600 normal-case">2–6 letters or digits</span></span>
+        <span class="text-xs text-zinc-500 font-medium">Tag <span class="text-zinc-600 normal-case">2–6 letters or digits</span></span>
         <input
           v-model="form.tag"
           maxlength="6"
           placeholder="TSK"
-          class="mt-1 w-full rounded-lg border bg-zinc-900 px-3 py-2 text-sm uppercase tracking-widest focus:outline-none focus:ring-1 focus:ring-accent"
-          :class="tagOk ? 'border-zinc-800 focus:border-accent' : 'border-red-800'"
+          class="field field-md mt-1"
+          :class="tagOk ? '' : 'border-red-800'"
         />
       </label>
       <label class="block">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Name</span>
+        <span class="text-xs text-zinc-500 font-medium">Name</span>
         <input v-model="form.name" maxlength="60" placeholder="The Skeleton Key" class="field field-md mt-1" />
       </label>
       <label class="block sm:col-span-2">
-        <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Description</span>
+        <span class="text-xs text-zinc-500 font-medium">Description</span>
         <textarea v-model="form.description" rows="2" maxlength="500" placeholder="What this clan is about." class="field field-md mt-1" />
       </label>
       <div class="flex items-center gap-4 sm:col-span-2 flex-wrap">
@@ -278,39 +281,27 @@ async function create() {
       <p v-if="error" class="sm:col-span-2 text-xs text-red-400">{{ error }}</p>
     </form>
 
-    <!-- Browse controls. One row: what to search for, what to order by, and
-         whether to hide the clans you'd have to ask to get into. -->
-    <div class="card px-3 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div class="flex flex-wrap items-center gap-2">
       <input
         v-model="search"
         type="search"
-        placeholder="Search clans by name or tag…"
-        class="field field-sm flex-1 min-w-[12rem] text-xs"
+        placeholder="Find a clan by name or tag"
+        aria-label="Find a clan"
+        class="field field-sm w-full sm:w-64"
       />
-      <label class="flex items-center gap-2 text-[11px] text-zinc-500">
-        Sort
-        <select v-model="sort" class="field field-sm text-xs w-28">
-          <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
-        </select>
-      </label>
-      <div class="flex items-center gap-1.5">
-        <label
-          v-for="opt in ([
-            { value: '', label: 'All' },
-            { value: 'open', label: 'Open to join' },
-            { value: 'invite', label: 'Invite only' },
-          ] as const)"
-          :key="opt.value"
-          class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors"
-          :class="joinable === opt.value
-            ? 'border-accent/60 text-accent bg-accent/10'
-            : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-        >
-          <input v-model="joinable" type="radio" :value="opt.value" class="sr-only" />
-          {{ opt.label }}
-        </label>
-      </div>
-      <span class="text-[11px] text-zinc-600 tabular-nums ml-auto">
+      <select v-model="sort" class="field field-sm w-auto" aria-label="Sort clans">
+        <option v-for="s in SORTS" :key="s.value" :value="s.value">{{ s.label }}</option>
+      </select>
+      <SegmentedControl
+        v-model="joinableModel"
+        aria-label="Which clans"
+        :options="[
+          { value: '', label: 'All' },
+          { value: 'open', label: 'Open to join' },
+          { value: 'invite', label: 'Invite only' },
+        ]"
+      />
+      <span class="text-xs text-zinc-500 tabular-nums sm:ml-auto">
         {{ shown.length }}<template v-if="shown.length !== total"> of {{ total }}</template>
         clan{{ total === 1 ? '' : 's' }}
       </span>
@@ -366,11 +357,11 @@ async function create() {
                    this row for somebody who hasn't got a clan yet. -->
               <span
                 v-if="!c.invite_only"
-                class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-emerald-900/60 bg-emerald-950/40 text-emerald-400/90"
+                class="shrink-0 text-xs px-1.5 py-0.5 rounded border border-emerald-900/60 bg-emerald-950/40 text-emerald-400/90"
               >Open</span>
               <span
                 v-else
-                class="shrink-0 text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600"
+                class="shrink-0 text-xs px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-600"
               >Invite only</span>
             </span>
             <span class="block truncate text-[11px] text-zinc-600">

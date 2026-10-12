@@ -1,12 +1,15 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
-import { moveLevel } from '~/server/utils/move-level'
+import { afterListChange, moveLevel, moveLevelBelow } from '~/server/utils/list-ops'
+import { logActivity } from '~/server/utils/activity-log'
 
 /**
- * Move a level from `position` to `body.to`. Other affected rows in the range
- * shift by one to fill / make room; `moveLevel` owns that part, shared with the
- * other endpoints that move levels.
+ * Move the level at `position`.
+ *
+ * Body: `{ to }` for a target rank, or `{ below_id }` to put it directly under
+ * another level (`below_id: null` for the top). `keep_tier` stops the level
+ * taking the tier of its new neighbours. `to_placement` is accepted as an
+ * older name for `to`.
  */
 export default defineEventHandler(async (event) => {
   const account = requireMod(event)
@@ -14,53 +17,46 @@ export default defineEventHandler(async (event) => {
   if (!Number.isInteger(fromPos) || fromPos <= 0) {
     throw createError({ statusCode: 400, statusMessage: 'Bad source position.' })
   }
-  const body = await readBody<{ to?: number; to_placement?: number; keep_tier?: boolean }>(event) ?? {}
+  const body = await readBody<{ to?: number; to_placement?: number; below_id?: number | null; keep_tier?: boolean }>(event) ?? {}
   const db = getDb()
 
-  // The UI shows the sheet's placement numbers, not internal positions — the
-  // two drift apart because levels appearing on several sheet tabs collapse
-  // into one row. `to_placement` is what an admin actually typed; resolve it
-  // to the position of whichever level currently sits at that placement, so
-  // "move to #4200" lands where #4200 is on screen rather than 10 rows away.
-  let toPos: number
-  const wantedPlacement = Number(body.to_placement)
-  if (Number.isInteger(wantedPlacement) && wantedPlacement > 0) {
-    const exact = db.prepare(
-      `SELECT position FROM levels WHERE sheet_placement = ? LIMIT 1`,
-    ).get(wantedPlacement) as { position: number } | undefined
-    const near = exact ?? db.prepare(
-      `SELECT position FROM levels
-        WHERE sheet_placement IS NOT NULL AND sheet_placement <= ?
-        ORDER BY sheet_placement DESC LIMIT 1`,
-    ).get(wantedPlacement) as { position: number } | undefined
-    if (!near) {
-      throw createError({ statusCode: 400, statusMessage: 'No level sits at that placement.' })
-    }
-    toPos = near.position
-  } else {
-    toPos = Number(body.to)
-  }
+  const level = db.prepare(`SELECT id, name FROM levels WHERE position = ?`).get(fromPos) as { id: number; name: string } | undefined
+  if (!level) throw createError({ statusCode: 404, statusMessage: `No level at #${fromPos}.` })
 
-  if (!Number.isInteger(toPos) || toPos <= 0) {
-    throw createError({ statusCode: 400, statusMessage: 'A target position is required.' })
-  }
-  if (fromPos === toPos) return { ok: true, moved: 0 }
-
+  const opts = { keepTier: body.keep_tier === true }
   let result
   try {
-    result = moveLevel(db, fromPos, toPos, account.id, { keepTier: body.keep_tier === true })
+    if ('below_id' in body) {
+      const below = body.below_id == null ? null : Number(body.below_id)
+      if (below !== null && !Number.isInteger(below)) throw new Error('Bad target level.')
+      result = moveLevelBelow(db, level.id, below, account.id, opts)
+    } else {
+      const to = Number(body.to ?? body.to_placement)
+      if (!Number.isInteger(to) || to <= 0) throw new Error('A target placement is required.')
+      result = moveLevel(db, fromPos, to, account.id, opts)
+    }
   } catch (e: any) {
-    throw createError({ statusCode: 404, statusMessage: e?.message ?? 'No such level.' })
+    throw createError({ statusCode: 400, statusMessage: e?.message ?? 'Move failed.' })
   }
 
-  // Tier midpoints shift whenever a level moves across tier boundaries, so
-  // recompute points across the whole list after the structural change.
-  if (result.moved) recomputePoints(db)
+  if (result.moved) {
+    afterListChange(db)
+    logActivity({
+      kind: 'level.move',
+      area: 'levels',
+      severity: 'notable',
+      actor: account,
+      subject: { kind: 'level', id: level.id, label: level.name },
+      summary: `Moved ${level.name} from #${result.from} to #${result.to}`,
+      detail: { from: result.from, to: result.to, tier_from: result.tier_from ?? null, tier_to: result.tier_to ?? null },
+    }, db)
+  }
 
   return {
     ok: true,
     from: result.from,
     to: result.to,
+    moved: result.moved,
     tier_from: result.tier_from ?? null,
     tier_to: result.tier_to ?? null,
   }

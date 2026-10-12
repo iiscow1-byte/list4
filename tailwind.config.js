@@ -4,6 +4,7 @@ export default {
     './components/**/*.{vue,js,ts}',
     './layouts/**/*.vue',
     './pages/**/*.vue',
+    './utils/**/*.ts',
     './app.vue',
     './error.vue',
   ],
@@ -11,14 +12,12 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-      },
-      letterSpacing: {
-        widest: '0.18em',
+        // Titles, rank numbers and the wordmark.
+        display: ['Lexend', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // Both `accent` and the full zinc ramp resolve through CSS variables so
-        // they can be re-themed at runtime via :root style overrides. Defaults
-        // (defined in assets/css/main.css) match the original amber + zinc look.
+        // `accent` and the zinc ramp resolve through CSS variables so the
+        // theme menu can re-colour the site at runtime (composables/useTheme.ts).
         accent: {
           DEFAULT: 'rgb(var(--c-accent) / <alpha-value>)',
           dim:     'rgb(var(--c-accent-dim) / <alpha-value>)',

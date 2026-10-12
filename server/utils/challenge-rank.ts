@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { isChallengeSql } from './challenge-expr'
+import { isChallengeSql } from './challenge-expr.ts'
 
 /**
  * Challenge rank for every challenge on the list, cached between requests.
@@ -21,13 +21,17 @@ import { isChallengeSql } from './challenge-expr'
  */
 const IS_CHALLENGE_SQL = isChallengeSql('', 'c')
 
-let cache: { stamp: number; map: Map<number, number> } | null = null
+let cache: { stamp: string; map: Map<number, number> } | null = null
 
-function listStamp(db: DatabaseSync): number {
+function listStamp(db: DatabaseSync): string {
   const row = db.prepare(
-    `SELECT COUNT(*) AS cnt, MAX(id) AS maxid, MAX(position) AS maxpos FROM levels`,
-  ).get() as { cnt: number; maxid: number | null; maxpos: number | null }
-  return (row.cnt ?? 0) * 1_000_000_000 + (row.maxid ?? 0) * 1_000 + (row.maxpos ?? 0)
+    `SELECT COUNT(*) AS cnt, MAX(id) AS maxid, MAX(position) AS maxpos,
+            (SELECT value FROM site_settings WHERE key = 'list_version') AS version
+       FROM levels`,
+  ).get() as { cnt: number; maxid: number | null; maxpos: number | null; version: string | null }
+  // `list_version` moves on every reorder, including one made by a CLI import
+  // in another process.
+  return `${row.cnt}:${row.maxid}:${row.maxpos}:${row.version ?? 0}`
 }
 
 export function getChallengeRankMap(db: DatabaseSync): Map<number, number> {

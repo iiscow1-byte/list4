@@ -205,7 +205,7 @@ function bar(p: ProgressPost) {
       <!-- Two ways to name a level, side by side, so it reads as a choice
            rather than as two things that both need filling in. -->
       <fieldset class="rounded-lg border border-zinc-800/80 p-3 space-y-2">
-        <legend class="px-1.5 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Which level</legend>
+        <legend class="px-1.5 text-xs text-zinc-500 font-medium">Which level</legend>
         <div class="relative">
           <input
             v-model="search"
@@ -236,7 +236,7 @@ function bar(p: ProgressPost) {
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <span class="text-[10px] uppercase tracking-widest text-zinc-600 shrink-0">or</span>
+          <span class="text-xs text-zinc-600 shrink-0">or</span>
           <input
             v-model="form.level_name"
             type="text"
@@ -248,7 +248,7 @@ function bar(p: ProgressPost) {
 
       <div class="grid grid-cols-2 sm:grid-cols-[1fr_1fr_2fr] gap-2">
         <label class="block">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">From %</span>
+          <span class="block text-xs text-zinc-500 mb-1">From %</span>
           <input
             v-model="form.start_percent"
             type="number" min="0" max="100" required
@@ -256,7 +256,7 @@ function bar(p: ProgressPost) {
           />
         </label>
         <label class="block">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">To %</span>
+          <span class="block text-xs text-zinc-500 mb-1">To %</span>
           <input
             v-model="form.end_percent"
             type="number" min="0" max="100" required
@@ -264,7 +264,7 @@ function bar(p: ProgressPost) {
           />
         </label>
         <label class="block col-span-2 sm:col-span-1">
-          <span class="block text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Video <span class="normal-case text-zinc-600">optional</span></span>
+          <span class="block text-xs text-zinc-500 mb-1">Video <span class="normal-case text-zinc-600">optional</span></span>
           <input
             v-model="form.video_url"
             type="url"

@@ -69,7 +69,7 @@ const canClaimVerification = computed(
         >
           <span class="tabular-nums text-accent text-xs w-12 shrink-0">#{{ l.position }}</span>
           <span class="truncate">{{ l.name }}</span>
-          <span v-if="picker.isExactMatch(l)" class="ml-auto text-[10px] uppercase tracking-widest text-accent shrink-0">Exact</span>
+          <span v-if="picker.isExactMatch(l)" class="ml-auto text-xs text-accent shrink-0">Exact</span>
         </button>
       </li>
       <li v-if="picker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>

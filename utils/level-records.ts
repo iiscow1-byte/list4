@@ -1,3 +1,5 @@
+import { compareNames } from './collate'
+
 /**
  * How a level's records are grouped and ordered.
  *
@@ -50,7 +52,7 @@ export function sortRecords<T extends RecordLike>(records: readonly T[]): T[] {
   return [...records].sort((a, b) =>
     (b.percent ?? 0) - (a.percent ?? 0)
     || SOURCE_RANK[recordSource(a)] - SOURCE_RANK[recordSource(b)]
-    || a.player.localeCompare(b.player, undefined, { sensitivity: 'base' }),
+    || compareNames(a.player, b.player),
   )
 }
 

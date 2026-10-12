@@ -1,5 +1,4 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { isValidDiscordWebhook } from './discord'
 
 /**
  * Per-list Discord webhooks. Distinct from the site-wide ones in
@@ -39,6 +38,8 @@ export async function notifyListWebhooks(
   if (!hooks.length) return
 
   const payload = {
+    // List names, level names and player names are user text; never ping.
+    allowed_mentions: { parse: [] },
     embeds: [{
       title: embed.title.slice(0, 256),
       description: embed.description.slice(0, 4000),
@@ -65,4 +66,3 @@ export async function notifyListWebhooks(
   }))
 }
 
-export { isValidDiscordWebhook }

@@ -5,7 +5,7 @@ Pubert
 An AREDL-style ranking site for the **All Levels List** — tens of thousands of levels pulled directly from the project's published Google Sheet. Inspired by [aredl.net](https://aredl.net) and the [All-Rated-Extreme-Demon-List](https://github.com/All-Rated-Extreme-Demon-List) project lineage.
 
 - **Stack:** Nuxt 3 (Vue 3, server routes) · SQLite via Node's built-in `node:sqlite` (requires Node ≥ 22.5) · Tailwind CSS
-- **Data source:** the published-to-the-web All Levels List Google Sheet, fetched as CSV per tab
+- **Data source:** the published-to-the-web All Levels List Google Sheet, read tab by tab from its published HTML
 - **Pages:**
   - `/` — the list (redirects to `/levels/1`)
   - `/levels/:position` — AREDL-style 3-panel layout (list nav · level details · records · discussion)
@@ -14,39 +14,58 @@ An AREDL-style ranking site for the **All Levels List** — tens of thousands of
   - `/lists` — gallery of published lists; `/lists/:public_id` — one list
   - `/community` — activity from people you follow, newly ranked levels, latest records, fresh lists
   - `/changelog` — this list's own placements and movements
-  - `/leaderboard` — players from the sheet's leaderboard tab
+  - `/leaderboard` — players from this list, AREDL, Pointercrate and GDL
   - `/about` — intro, FAQ, stats, and the demonlists used
 
-## Placements: sheet vs. position
+## Placements
 
-Two numbers describe where a level sits, and they are deliberately different:
+The number beside a level is its rank: `levels.position`, `1..N` with no gaps.
+It is the sort key, the URL key (`/levels/:position`), what the changelog and
+the Discord posts print, and what the move tools take.
 
-- **`levels.position`** — internal ordering, `1..N` with no gaps. It's the sort
-  key, the URL key (`/levels/:position`), and what the admin move endpoints
-  operate on. Never shown to readers.
-- **`levels.sheet_placement`** — the placement printed in the source sheet.
-  The sheet numbers levels continuously across its tabs (Main `1…13050`, then
-  Tier 4 picks up at `13051`, and so on), so it is a genuine global ranking —
-  but it drifts from `position` because levels appearing on several tabs
-  collapse into one row. **This is the number the UI shows as "#N"**, and what
-  the search box's `#N` shortcut resolves against, via
-  `/api/levels/by-placement/:n`.
+- **`levels.sheet_rank`** is the number the sheet itself gives the level. The
+  importer writes it and nothing else touches it, so "put the list back the way
+  the sheet has it" always has something to read.
+- **`levels.sheet_placement`** is kept equal to `position`
+  (`syncDisplayNumbers` in `server/utils/list-ops.ts`) for older code and
+  queries that still read it. It used to be the sheet's own numbering shown as
+  "#N", which drifted from the order of the list: gaps (#304, then #306),
+  repeats, and numbers out of order wherever the site had moved or added a
+  level.
 
-- **`levels.sheet_rank`** — the same number the sheet gave the level, but never
-  handed back out to another row.
+### Who owns a level's place
 
-  A placement number belongs to the **slot**, not to the level in it, so every
-  move redistributes `sheet_placement` across the range it touched
-  (`resyncPlacements`). That is right for display and it means `sheet_placement`
-  stops recording what the sheet said the moment anyone drags something —
-  nothing recorded the sheet's own ordering, so "put the list back the way the
-  sheet has it" had no source to read and was silently a no-op. `sheet_rank` is
-  written by the importer and left alone by everything else.
+The sheet orders the list. The site can overrule it per level:
 
-Keeping URLs on `position` means links survive a re-import even when the
-curators renumber the sheet. `server/utils/changes.ts` maps historical
-positions through to placements so the changelog speaks the same numbering as
-the rest of the site.
+- **Pinned** (`pinned`, `pinned_at`) is a staff move. The importer keeps the
+  level where staff put it until the curators move that level on the sheet
+  themselves, or the sheet comes to agree. "Moved" is decided the way the
+  changelog decides it (everything outside the longest run of levels both
+  orders agree on; see "One move is one changelog entry"), so a level that only
+  shifted because rows were added above it keeps its pin. **Follow the sheet**
+  on the level page drops the pin.
+- **Site-added** (`permanent = 1`) is a promoted submission or a hand-placed
+  level the sheet doesn't list. It has no absolute position to defend: on import
+  it stays directly after the level it currently follows. Once the sheet lists
+  it (same GD ID, or same name), the sheet takes it over. `permanent` is
+  cleared, and any field that differs from the sheet is kept as a site edit
+  (below). The tier is not kept, because placement goes back to the sheet and
+  the tier belongs to the placement.
+- **Site edits** (`site_fields`, a JSON array of column names) are fields staff
+  changed on the site. The importer refreshes every other field from the sheet
+  on every run, but never these, and never writes a blank over a value. The
+  level page lists them, and **Follow the sheet** clears one or all
+  (`POST /api/admin/levels/:position/follow-sheet`).
+- **Removed on the site** (`level_tombstones`): a staff removal holds while the
+  sheet still lists the level, and the tombstone is dropped once the sheet drops
+  the row.
+
+Everything that moves, adds or removes levels goes through
+`server/utils/list-ops.ts` (`moveLevel`, `moveLevelBelow`, `moveLevelsBelow`,
+`insertLevelAt`, `removeLevel`, `unpinLevel`) inside `tx()`, and then calls
+`afterListChange()`. That renumbers, recomputes points, bumps `list_version`
+(the stamp `/api/levels/version` serves, which open list pages poll) and drops
+every cache that depends on the order of the list.
 
 ### Placement backups
 
@@ -59,7 +78,7 @@ the rest of the site.
   a preview, from the same code path.
 - `POST /api/admin/placements/reset-to-sheet` — orders sheet-backed levels by
   `sheet_rank`, flowing around site-only and permanent rows, exactly as a full
-  sheet import leaves things. Same preview/apply split.
+  sheet import leaves things, and drops every pin. Same preview/apply split.
 
 A restore is **not** `SET position = whatever the file said`: positions are
 `UNIQUE`, the file may be stale, and the list may have gained levels. The file
@@ -255,20 +274,58 @@ original).
 `server/plugins/sheet-refresh.ts` re-runs the sheet importer every
 `LIST_SHEET_REFRESH_HOURS` hours (default 6), so placements follow the
 curators' edits without anyone running a command. Set
-`LIST_SKIP_SHEET_REFRESH=1` to disable it — worth doing in development, where a
-~90s import competing for the SQLite write lock is just noise.
+`LIST_SKIP_SHEET_REFRESH=1` to disable it in development. Every import, from the
+schedule, the admin panel or `npm run import`, takes the same lock
+(`runImport`), so two never overlap.
 
-Re-imports never duplicate levels: sheet rows are matched to existing levels on
-`(gd_id, lower(name))`, so a re-run repositions rows rather than inserting new
-ones, and `cleanupDuplicateLevels` sweeps up anything earlier imports left
-behind (it reports `0 duplicated` on a clean database).
+Sheet rows are matched to levels by GD ID, then by name, so a re-run updates
+rows rather than inserting new ones, and `cleanupDuplicateLevels` sweeps up
+anything older imports left behind. A level listed twice (at the seam between
+two tabs) is read once.
 
-Refreshes write to the changelog through `recordSheetMovements`. Every level's
-*absolute* position shifts whenever rows are inserted above it, so absolute
-position is useless as a "did this move?" signal — one new level at the top
-would otherwise generate 54,000 entries. What gets logged instead is a change
-to a level's rank **among the levels already on the list**, which insertions and
-removals leave untouched. A re-import of an unchanged sheet logs nothing.
+Refreshes write to the changelog through `recordSheetMovements`, which logs only
+the levels that moved relative to the others (see "One move is one changelog
+entry"). A re-import of an unchanged sheet logs nothing.
+
+### Reading the sheet
+
+`server/db/sheet-format.ts` reads the sheet without assuming its layout, so the
+curators can rename, move or add columns and tabs:
+
+- **Tabs** are found from the published sheet's tab list. A tab counts when it is
+  one of `KNOWN_LEVEL_TABS` or is named like one ("Top 70000"), and isn't a
+  known side tab (pending, void, FAQ and so on). If the tab list can't be read,
+  the known tabs are used. New and vanished tabs are logged.
+- **The header row** is whichever of the first 40 rows names the most known
+  fields, and it must name the level. A banner or title row above it doesn't
+  matter.
+- **Columns** are found by their titles, with several accepted spellings per
+  field (`LEVEL_FIELDS`), exact matches first. Merged cells can put a title a
+  column or two away from its data, so fields that allow it also try the
+  neighbouring columns and keep whichever one's values look right (GD IDs, tier
+  labels, dates, links). With no placement title at all, a column that counts up
+  by one is used. Each import logs which column it settled on for every field.
+- **Cells** are read leniently: `1,234`, `#1234` and `~1234` are numbers;
+  `Tier 31`, `T31` and `31` are Tier 31; `S4` and `Sub 4` are Subtier 4.
+
+Nothing is changed unless the sheet looks whole:
+
+- If the sheet yields fewer than 85% as many levels as the site holds from it,
+  the import stops before writing anything.
+- A level missing from the sheet is marked on the first run and removed on a
+  later run at least 3 hours on, if it is still missing. Imports never remove
+  levels with records, submitted levels, or levels the site added.
+- If one run would remove more than 2% of the list (at least 50 levels), it
+  stops.
+- Every import first saves the placements to `data/backups/`
+  (`placements-before-import-*.json`), and the last 12 are kept. They restore
+  through **Placement backups** above.
+
+| Variable | Effect |
+| --- | --- |
+| `LIST_IMPORT_ALLOW_SHRINK=1` | Lets one run past both size checks. |
+| `LIST_IMPORT_PRUNE_NOW=1` | Removes missing levels on the first run instead of waiting. |
+| `LIST_SHEET_FIXTURE_DIR` | Reads `index.html` and `gid-<gid>.html` from a folder instead of Google, for testing the importer offline. |
 
 ### Sandwiched tier repair
 
@@ -355,22 +412,24 @@ the ID and name.
 
 ## Moving levels
 
-Moderators get four ways to reposition a level, all landing on the same
-`POST /api/admin/levels/:position/move`:
+Staff move levels from the level's own page (`components/LevelStaffTools.vue`,
+loaded only for staff):
 
-- **Type a placement** in the edit form. The field speaks *sheet placements*,
-  the numbers the site displays, so `to_placement` is resolved server-side to
-  whichever level currently sits there.
-- **Nudge buttons** (±1 / ±5 / ±10) next to it, for the small moves that make
-  up most curation.
-- **Drag to place** (`components/PlacementEditor.vue`) loads a window of the
-  list around the level via `/api/levels?fromPosition=…`, reorders a local copy
-  as you drag, and only writes on Apply.
-- **Move below…** turns the left nav into a picker: click a level and this one
-  lands directly under it.
+- **Move**: type the rank it should have, or nudge it up or down, and see the
+  levels it would land between before applying.
+- **Place under**: turns the list sidebar into a picker; click a level and this
+  one goes directly under it.
+- **Group move**: pick several levels in the sidebar, then the level they go
+  under. They keep their order.
 
-**Move now** applies just the placement change and skips the metadata PATCH, so
-a reorder doesn't have to carry a whole form save with it.
+All of them end in `server/utils/list-ops.ts`:
+
+- `POST /api/admin/levels/:position/move` takes `{ to }` (a rank) or
+  `{ below_id }` (a level id, or null for the top), plus `keep_tier`.
+- `POST /api/admin/levels/group-move` takes `{ positions, below_position, keep_tier }`.
+
+A move pins the level (see **Placements**), so the next sheet refresh doesn't
+put it back.
 
 ### One move is one changelog entry
 
@@ -405,8 +464,8 @@ sheet importer, which sees a whole new ordering and has to work out what changed
 
 ### The tier goes with the slot
 
-`server/utils/move-level.ts` rewrites the moved level's `gddl_tier` to whatever
-its new neighbours are in. The list is ordered by difficulty, so the slot
+`moveLevel` (`server/utils/list-ops.ts`) rewrites the moved level's `gddl_tier`
+to whatever its new neighbours are in. The list is ordered by difficulty, so the slot
 already carries a tier — a level dragged from #40,000 to #1,500 has been judged
 that much harder, and keeping the label it had at #40,000 contradicts the
 position it was just given.
@@ -447,9 +506,32 @@ filters are disabled for mirrors, which carry no ALL tier data.
 
 `utils/site-updates.ts` is the site's own changelog — distinct from `/changelog`,
 which tracks level placements. Add an entry when you ship and everything else
-follows from it: `/updates` renders the timeline, the footer chip shows
-`SITE_VERSION` (the newest entry's version), and the header's Community menu
-grows a dot until the visitor opens the page. Nothing else needs updating.
+follows from it: `/updates` renders the timeline, the footer shows
+`SITE_VERSION` (the newest entry's version), and the header's About menu grows a
+dot until the visitor opens the page. Nothing else needs updating.
+
+## Discord posts
+
+**Admin → Discord** holds the webhooks that get the daily post of list changes
+(`server/utils/daily-discord.ts`, scheduled by
+`server/plugins/daily-changes-discord.ts`).
+
+Each webhook remembers exactly what it has posted: `posted_through`, a
+timestamp. A post covers the changes after it, and the cursor is moved forward
+*before* sending, with a compare-and-swap (`UPDATE … WHERE posted_through = <the
+value read>`), so the nightly run, **Post now** and a second server can't both
+send the same changes. If Discord fails before anything reached the channel, the
+cursor is handed back and the next tick retries, up to three attempts. A webhook
+that was off for a while catches up at most two days, and a new webhook starts
+from the moment it is added.
+
+Leaderboard announcements are deduplicated per event in `discord_event_log` for a
+day, so approving the same record twice in a row doesn't announce it twice. Every post sends
+`allowed_mentions: { parse: [] }`, so a level or player name can't ping anyone.
+
+Development servers don't post at all unless `LIST_DAILY_DISCORD=1` is set, so
+a copy of the production database on a laptop can't post into the real channels.
+`LIST_SKIP_DAILY_DISCORD=1` turns the schedule off anywhere.
 
 ## Access control (alpha lockdown)
 
@@ -1031,7 +1113,7 @@ npm run import   # fetches the Google Sheet, populates data/list.db (~70s, ~52k 
 npm run dev      # http://localhost:3000
 ```
 
-Re-running `npm run import` is idempotent — it upserts on `position`. Delete `data/list.db` to start completely fresh.
+Re-running `npm run import` is safe: it matches levels by GD ID and name and updates them in place (see **Reading the sheet**). Delete `data/list.db` to start completely fresh.
 
 ## Schema
 
@@ -1143,6 +1225,22 @@ tolerated `" ACS "` with stray spaces and the fast one didn't, so the fast path
 trims.
 
 Both numbers above are measured on the real list, not estimated.
+
+Later, measured the same way:
+
+- The sidebar asks `/api/levels?fields=nav`, which returns only what a row draws
+  (rank, name, tier, external ranks, id): 38 KB for 500 rows instead of 214 KB.
+  Its first page travels in the page payload (`useAsyncData`) rather than being
+  fetched a second time before the page can hydrate.
+- `server/plugins/compress.ts` brotli- or gzip-compresses HTML and JSON over 1 KB
+  in production. A level page goes from 386 KB to 31 KB.
+- The changelog reads challenge ranks from the cached map instead of evaluating
+  the challenge expression per row: 2 s to 16 ms. It draws 200 rows at a time.
+- `/api/leaderboard/global` is cached for two minutes and dropped whenever the
+  list changes: 3.2 s cold to 10 ms warm.
+- Tailwind is built once. The module's own default stylesheet used to be
+  injected beside `main.css`, so every page carried it twice
+  (`tailwindcss.cssPath` in `nuxt.config.ts`).
 
 ## Challenges, and marking one either way
 
@@ -1352,6 +1450,10 @@ so new history lands without duplicating old entries. Native admin moves
 
 ## Handing a level back to the sheet
 
+The importer now does this by itself when the sheet lists a level the site added
+(see **Placements**). The admin tool below is for the cases it can't match, like
+a level the sheet lists under a different GD ID.
+
 A level is here in one of two ways. Most are the sheet's — the importer owns the
 row and renumbers it on every run. Some are the site's: promoted submissions,
 AREDL promotions, hand-placed additions, carrying `permanent = 1` (the importer
@@ -1433,23 +1535,23 @@ The CSV export of a published Google Sheet strips hyperlink targets, but the int
 
 URLs are only recorded in the Main (Extreme Demons) tab; the lower-tier tabs don't track per-level verifications in the source sheet, so the level page falls back to a "Search YouTube" link card for those.
 
-## Position collisions
-
-Position numbers overlap across some tabs (e.g. Main has 1–11594, Tier 4 starts at 10001). The importer uses `INSERT OR IGNORE` so the first tab to claim a position wins — the tab order in `TABS` is set so the higher-tier ranking takes precedence on conflict (~1600 lower-tier rows are dropped this way).
-
 ## Tabs imported
 
-| gid | label |
-| --- | --- |
-| 0 | Main (Extreme Demons) |
-| 1036115495 | Tier 4 Demons |
-| 1989779679 | Subtier 5 Harder |
-| 516171001 | Subtier 4 Harder |
-| 1985672631 | Subtier 3 Hard |
-| 1875166663 | Subtier 1 Easy |
-| 280339977 | Player Leaderboard |
+The level tabs are found automatically (see **Reading the sheet**). Today they
+are:
 
-Tabs are configured in `server/db/import.ts`. Add or remove rows there to change what's imported.
+| gid | tab |
+| --- | --- |
+| 0 | Top 10000 |
+| 1036115495 | Top 20000 |
+| 1989779679 | Top 30000 |
+| 516171001 | Top 40000 |
+| 1985672631 | Top 50000 |
+| 1875166663 | Top 60000 |
+
+`KNOWN_LEVEL_TABS` in `server/db/sheet-format.ts` is the fallback list, and
+`NON_LEVEL_GIDS` names the side tabs that are never read as levels. The void and
+pending lists are separate importers in `server/db/import.ts`.
 
 ## Project layout
 

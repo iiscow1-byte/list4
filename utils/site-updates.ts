@@ -34,7 +34,7 @@ export type SiteUpdate = {
   title: string
   /** One line per change. Written for readers of the site, not the diff. */
   changes: SiteChange[]
-  /** Optional grouping chips shown next to the entry. */
+  /** Optional grouping. Not shown on the Updates page. */
   tags?: string[]
 }
 
@@ -42,6 +42,33 @@ export type SiteUpdate = {
 const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
+  {
+    version: '2.0.0',
+    date: '2026-10-12',
+    title: 'Release: a simpler site, and placements you can trust',
+    tags: ['List', 'UI', 'Discord', 'Fixes'],
+    changes: [
+      'A new look across the site: new fonts, calmer colours, shorter menus, and plain rows instead of thumbnails behind every list.',
+      'The number beside a level is its rank on the list. No more gaps, repeats or numbers out of order.',
+      'Levels added on the site keep their place when the sheet changes around them, and move over to the sheet once it lists them.',
+      'Changes to the sheet’s layout, like renamed or moved columns and new tabs, no longer break the import.',
+      'The daily Discord post of list changes goes out once a day and no longer repeats levels or days.',
+      'Faster pages. The list, changelog, leaderboard and stats load several times quicker, and every page is compressed.',
+      'Level videos load when you press play.',
+      'The changelog loads as you scroll and reads properly on phones.',
+      'Players with no points on this list are ordered on the leaderboard by extremes beaten instead of alphabetically.',
+      'The community page, forum, clans and profiles are simpler, and profiles hide sections with nothing in them.',
+      'The page for a broken link keeps the site menu.',
+      adm('Moving a level is one panel on its page: type a rank, or pick the level it should go under. The move holds through sheet refreshes until the sheet moves that level itself.'),
+      adm('Group moves keep the chosen levels in their order under the level you pick.'),
+      adm('Edits made on the site hold through sheet refreshes. The level page shows which fields were changed here, with a button to follow the sheet again.'),
+      adm('A level removed on the site stays removed until the sheet drops it too. A level missing from the sheet is only deleted after two imports in a row.'),
+      adm('Every import saves a placement backup first, and the last 12 are kept. An import that would remove a large part of the list stops instead.'),
+      adm('Discord webhooks remember what they have posted. Post now and the nightly post never overlap, a failed post retries up to three times, and a webhook that was off catches up at most two days.'),
+      adm('Development servers do not post to Discord unless LIST_DAILY_DISCORD=1 is set.'),
+      adm('Levels are no longer marked as duplicates automatically, and the automatic marks were cleared.'),
+    ],
+  },
   {
     version: '1.33.0',
     date: '2026-08-30',
@@ -667,7 +694,7 @@ export const SITE_VERSION_DATE: string = SITE_UPDATES[0]?.date ?? ''
  * to find when it changes.
  */
 export function versionLabel(version: string): string {
-  return `Beta ${version}`
+  return `v${version}`
 }
 
 /** The words of a change, whichever form it was written in. */

@@ -275,7 +275,7 @@ function confirm() {
       <aside class="relative flex flex-col w-full sm:w-[420px] h-full bg-zinc-950 border-r border-zinc-800 shadow-2xl">
         <header class="p-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
           <div class="flex flex-col">
-            <span class="text-xs uppercase tracking-widest text-accent font-semibold">{{ title ?? 'Level comparison' }}</span>
+            <span class="text-xs text-accent font-semibold">{{ title ?? 'Level comparison' }}</span>
             <span class="text-[11px] text-zinc-500">
               <template v-if="hint">{{ hint }}</template>
               <template v-else-if="confirmOnPick">Click a level to place this one right below it.</template>
@@ -327,7 +327,7 @@ function confirm() {
         <div v-if="filtersOpen" class="p-3 border-b border-zinc-800 shrink-0 space-y-3 text-xs">
           <div>
             <div class="flex items-center justify-between mb-1.5">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+              <span class="text-xs text-zinc-500 font-medium">Difficulty</span>
               <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
             </div>
             <div class="relative h-6">
@@ -352,7 +352,7 @@ function confirm() {
             </div>
           </div>
           <div>
-            <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rating</div>
+            <div class="text-xs text-zinc-500 font-medium mb-1.5">Rating</div>
             <div class="flex flex-wrap gap-1.5">
               <label
                 v-for="r in RATINGS" :key="r"

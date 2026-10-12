@@ -1,50 +1,18 @@
-const SHEET_BASE_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
-const LANDING_GID = '1565294080'
+import { getDb } from '~/server/db'
+import { SHEET_BASE_URL, extractLinkHref, normHeader, parseTable } from '~/server/db/sheet-format'
 
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&([a-z]+);/gi, (_m, e) => ENTITIES[(e as string).toLowerCase()] ?? _m)
-}
-function stripTags(html: string): string {
-  return decodeEntities(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim()
-}
-function unwrapGoogleRedirect(url: string): string {
-  const m = url.match(/^https?:\/\/www\.google\.com\/url\?q=([^&]+)/)
-  if (!m) return url
-  try { return decodeURIComponent(m[1]!) } catch { return url }
-}
-function extractLinkHref(cellHtml: string): string | null {
-  const m = cellHtml.match(/<a[^>]*\shref="([^"]+)"/i)
-  if (!m) return null
-  return unwrapGoogleRedirect(decodeEntities(m[1]!))
-}
-function splitRows(tbody: string): string[] {
-  const rows: string[] = []
-  let i = 0
-  while (i < tbody.length) {
-    const s = tbody.indexOf('<tr', i); if (s === -1) break
-    const e = tbody.indexOf('</tr>', s); if (e === -1) break
-    rows.push(tbody.slice(s, e + 5))
-    i = e + 5
-  }
-  return rows
-}
-function splitCells(tr: string): string[] {
-  const cells: string[] = []
-  let i = 0
-  while (i < tr.length) {
-    const s = tr.indexOf('<td', i); if (s === -1) break
-    const tagEnd = tr.indexOf('>', s); if (tagEnd === -1) break
-    const close = tr.indexOf('</td>', tagEnd); if (close === -1) break
-    cells.push(tr.slice(tagEnd + 1, close))
-    i = close + 5
-  }
-  return cells
-}
+/**
+ * The About page's intro, FAQ and list of sources, read from the sheet's
+ * landing tab — the curators' own words.
+ *
+ * Google answers this tab slowly (10 s+), so the page never waits on it: the
+ * last good copy is served straight away and refreshed in the background once
+ * it is an hour old. That copy is also kept in the database, so a restart
+ * doesn't put the next visitor back behind Google.
+ */
+const LANDING_GID = '1565294080'
+const MAX_AGE_MS = 60 * 60 * 1000
+const SETTINGS_KEY = 'landing_cache'
 
 type LandingPayload = {
   intro: string[]
@@ -53,86 +21,108 @@ type LandingPayload = {
   lists: { name: string; href: string | null }[]
 }
 
-let _cache: { at: number; data: LandingPayload } | null = null
-const TTL_MS = 60 * 60 * 1000
+const EMPTY: LandingPayload = { intro: [], faq: [], statsViewerFaq: [], lists: [] }
+
+/** Section headings, by normalised text. A renamed heading costs that one section, not the page. */
+const HEADINGS = {
+  faq: ['faq', 'frequentlyaskedquestions', 'questions'],
+  statsFaq: ['statsviewerfaq', 'statsfaq'],
+  addStats: ['additionalstats', 'morestats'],
+  lists: ['alldemonlistsused', 'demonlistsused', 'listsused', 'sources', 'listsources'],
+}
+
+let memory: { at: number; data: LandingPayload } | null = null
+let refreshing: Promise<void> | null = null
+
+function loadStored(): { at: number; data: LandingPayload } | null {
+  try {
+    const row = getDb().prepare(`SELECT value, updated_at FROM site_settings WHERE key = ?`).get(SETTINGS_KEY) as
+      { value: string; updated_at: string } | undefined
+    if (!row) return null
+    return { at: Date.parse(`${row.updated_at.replace(' ', 'T')}Z`) || 0, data: JSON.parse(row.value) }
+  } catch {
+    return null
+  }
+}
+
+function store(data: LandingPayload): void {
+  getDb().prepare(
+    `INSERT INTO site_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+  ).run(SETTINGS_KEY, JSON.stringify(data))
+}
 
 async function fetchLanding(): Promise<LandingPayload> {
-  const url = `${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${LANDING_GID}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'all-levels-list/1.0' } })
-  if (!res.ok) throw createError({ statusCode: 502, statusMessage: 'Sheet fetch failed' })
-  const html = await res.text()
-  const tbodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/)
-  if (!tbodyMatch) throw createError({ statusCode: 502, statusMessage: 'No tbody in landing sheet' })
-  const trs = splitRows(tbodyMatch[1]!)
-  const rows = trs.map(splitCells)
-  const text = rows.map((cells) => cells.map(stripTags))
+  const res = await fetch(`${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${LANDING_GID}`, {
+    headers: { 'User-Agent': 'all-levels-list/2.0' },
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const table = parseTable(await res.text())
+  if (!table) throw new Error('no table in the landing tab')
 
-  // Build rich rows with primary text + link extracted from any cell.
-  const richRows = rows.map((cells, i) => ({
-    text: text[i]!,
-    links: cells.map((c) => extractLinkHref(c)),
-  }))
+  const rows = table.text.map((text, i) => ({ text, links: table.html[i]!.map((c) => extractLinkHref(c)) }))
+  const findHeading = (names: string[]) => rows.findIndex((r) => r.text.some((t) => names.includes(normHeader(t))))
+  const iFaq = findHeading(HEADINGS.faq)
+  const iStatsFaq = findHeading(HEADINGS.statsFaq)
+  const iAddStats = findHeading(HEADINGS.addStats)
+  const iLists = findHeading(HEADINGS.lists)
+  const ends = [iFaq, iStatsFaq, iAddStats, iLists].filter((i) => i >= 0)
+  const nextAfter = (i: number) => Math.min(...ends.filter((e) => e > i), rows.length)
 
-  // Section boundaries by header text.
-  const indexOfHeader = (label: string) =>
-    richRows.findIndex((r) => r.text.some((t) => t.toLowerCase() === label.toLowerCase()))
-
-  const iFaq = indexOfHeader('FAQ')
-  const iStatsFaq = indexOfHeader('Stats Viewer FAQ')
-  const iAddStats = indexOfHeader('Additional Stats')
-  const iLists = indexOfHeader('All Demonlists Used')
-
-  const collectParas = (from: number, to: number): string[] => {
+  const paragraphs = (from: number, to: number): string[] => {
     const out: string[] = []
-    for (let i = from; i < to && i < richRows.length; i++) {
-      const r = richRows[i]!
+    for (let i = from; i < to && i < rows.length; i++) {
+      const r = rows[i]!
       const primary = r.text.find((t) => t) ?? ''
       if (!primary) continue
-      // Inline an attached link, if any (some cells store the link separately in column 3).
-      const link = r.links.find((l, idx) => l && r.text[idx] && r.text[idx]!.startsWith('http'))
+      const link = r.links.find((l, idx) => l && r.text[idx]?.startsWith('http'))
       out.push(link ? `${primary} ${link}` : primary)
     }
     return out
   }
 
-  const intro = collectParas(1, iFaq)
-  const faq = collectParas(iFaq + 1, iStatsFaq)
-  const statsViewerFaq = collectParas(iStatsFaq + 1, iAddStats)
-
-  // Lists section: each row has a friendly name in one column (often col 1) and
-  // a link in a later column (often col 3). The name column sometimes carries a
-  // stale/wrong href, so we prefer links from cells AFTER the name column.
-  const lists: { name: string; href: string | null }[] = []
-  for (let i = iLists + 1; i < richRows.length; i++) {
-    const r = richRows[i]!
-    let nameIdx = -1
-    let name = ''
-    for (let k = 0; k < r.text.length; k++) {
-      const t = r.text[k]!
-      if (t && !/^https?:\/\//i.test(t)) { name = t; nameIdx = k; break }
+  const lists: LandingPayload['lists'] = []
+  if (iLists >= 0) {
+    for (let i = iLists + 1; i < nextAfter(iLists); i++) {
+      const r = rows[i]!
+      let nameIdx = r.text.findIndex((t) => t && !/^https?:\/\//i.test(t))
+      if (nameIdx === -1) nameIdx = r.text.findIndex((t) => t)
+      if (nameIdx === -1) continue
+      const href = r.links.slice(nameIdx + 1).find((l) => l) ?? r.links.find((l) => l) ?? null
+      lists.push({ name: r.text[nameIdx]!, href })
     }
-    if (!name) {
-      for (let k = 0; k < r.text.length; k++) if (r.text[k]) { name = r.text[k]!; nameIdx = k; break }
-    }
-    if (!name) continue
-    let href: string | null = null
-    for (let k = nameIdx + 1; k < r.links.length; k++) {
-      if (r.links[k]) { href = r.links[k]; break }
-    }
-    if (!href) href = r.links.find((l) => l) ?? null
-    lists.push({ name, href })
   }
 
-  return { intro, faq, statsViewerFaq, lists }
+  return {
+    intro: paragraphs(1, ends.length ? Math.min(...ends) : 1),
+    faq: iFaq >= 0 ? paragraphs(iFaq + 1, nextAfter(iFaq)) : [],
+    statsViewerFaq: iStatsFaq >= 0 ? paragraphs(iStatsFaq + 1, nextAfter(iStatsFaq)) : [],
+    lists,
+  }
+}
+
+function refresh(): Promise<void> {
+  refreshing ??= fetchLanding()
+    .then((data) => {
+      // A read that found nothing is a bad read, not a sheet with no FAQ.
+      if (!data.intro.length && !data.faq.length && !data.lists.length) throw new Error('landing tab came back empty')
+      memory = { at: Date.now(), data }
+      store(data)
+    })
+    .catch((e) => console.warn('[landing] refresh failed, keeping the last copy:', (e as Error).message))
+    .finally(() => { refreshing = null })
+  return refreshing
 }
 
 export default defineEventHandler(async (event) => {
-  if (_cache && Date.now() - _cache.at < TTL_MS) {
-    setHeader(event, 'cache-control', 'public, max-age=300')
-    return _cache.data
+  memory ??= loadStored()
+  if (!memory) {
+    // Nothing yet at all: wait for the first read, but not forever.
+    await Promise.race([refresh(), new Promise((r) => setTimeout(r, 8000))])
+  } else if (Date.now() - memory.at > MAX_AGE_MS) {
+    void refresh()
   }
-  const data = await fetchLanding()
-  _cache = { at: Date.now(), data }
   setHeader(event, 'cache-control', 'public, max-age=300')
-  return data
+  return memory?.data ?? EMPTY
 })

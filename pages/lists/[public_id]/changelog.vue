@@ -38,7 +38,7 @@ useHead(() => ({ title: list.value ? `Changelog — ${list.value.title}` : 'Chan
   <CustomListShell :public-id="publicId">
     <template #default>
       <div class="flex items-baseline justify-between gap-3 mb-3">
-        <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Changelog</h2>
+        <h2 class="section-title">Changelog</h2>
         <span class="text-[11px] text-zinc-600 tabular-nums">{{ total.toLocaleString() }} entries</span>
       </div>
 
@@ -65,19 +65,19 @@ useHead(() => ({ title: list.value ? `Changelog — ${list.value.title}` : 'Chan
             >
               <span
                 v-if="c.kind === 'add'"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
+                class="shrink-0 text-xs px-1.5 py-px rounded bg-emerald-950/60 text-emerald-300 border border-emerald-900/60"
               >Added</span>
               <span
                 v-else-if="c.kind === 'remove'"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-red-950/60 text-red-300 border border-red-900/60"
+                class="shrink-0 text-xs px-1.5 py-px rounded bg-red-950/60 text-red-300 border border-red-900/60"
               >Removed</span>
               <span
                 v-else-if="c.from_rank != null && c.to_rank != null && c.to_rank < c.from_rank"
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
+                class="shrink-0 text-xs px-1.5 py-px rounded bg-sky-950/60 text-sky-300 border border-sky-900/60"
               >▲ Moved</span>
               <span
                 v-else
-                class="shrink-0 text-[10px] uppercase tracking-widest px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
+                class="shrink-0 text-xs px-1.5 py-px rounded bg-amber-950/60 text-amber-300 border border-amber-900/60"
               >▼ Moved</span>
 
               <NuxtLink

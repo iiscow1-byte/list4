@@ -73,109 +73,86 @@ const hasOverrides = computed(() => Object.keys(state.value.overrides).length > 
   <div ref="root" class="relative">
     <button
       type="button"
-      class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-      :class="{ 'bg-zinc-900 text-zinc-100': open }"
-      aria-label="Theme settings"
-      title="Theme settings"
+      class="p-2 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+      :class="open ? 'text-zinc-50' : 'text-zinc-400 hover:text-zinc-100'"
+      :aria-label="`${t('Theme')} / ${t('Language')}`"
+      :title="`${t('Theme')} / ${t('Language')}`"
+      :aria-expanded="open"
       @click="toggle"
     >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="w-5 h-5" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.764-4.648l3.876-5.814a1.151 1.151 0 00-1.597-1.597L14.146 6.32a15.996 15.996 0 00-4.649 4.763m3.42 3.42a6.776 6.776 0 00-3.42-3.42" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-[19px] h-[19px]" aria-hidden="true">
+        <circle cx="13.5" cy="6.5" r="1.2" /><circle cx="17.5" cy="10.5" r="1.2" /><circle cx="8.5" cy="7.5" r="1.2" /><circle cx="6.5" cy="12.5" r="1.2" />
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.17-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.56-2.5 5.56-5.55C21.97 6.01 17.46 2 12 2z" />
       </svg>
     </button>
 
-    <div
-      v-if="open"
-      class="absolute right-0 top-full mt-2 w-72 popover z-50"
-    >
-      <div class="px-4 py-3 border-b border-zinc-800">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">{{ t('Theme') }}</p>
-        <div class="grid grid-cols-2 gap-2">
+    <div v-if="open" class="absolute right-0 top-full mt-2 w-72 popover z-50 p-3 space-y-4">
+      <section>
+        <p class="label mb-2">{{ t('Theme') }}</p>
+        <div class="grid grid-cols-2 gap-1.5">
           <button
             v-for="(p, name) in PRESETS"
             :key="name"
             type="button"
-            class="flex items-center gap-2 rounded border px-2.5 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-            :class="state.preset === name
-              ? 'border-accent bg-accent/10 text-zinc-100'
-              : 'border-zinc-800 text-zinc-300 hover:border-zinc-700'"
+            class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            :class="state.preset === name ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-800/60'"
+            :aria-pressed="state.preset === name"
             @click="setPreset(name)"
           >
-            <span class="flex shrink-0 -space-x-1">
-              <span class="w-3 h-3 rounded-full border border-zinc-950" :style="{ backgroundColor: p.swatch.bg }" />
-              <span class="w-3 h-3 rounded-full border border-zinc-950" :style="{ backgroundColor: p.swatch.surface }" />
-              <span class="w-3 h-3 rounded-full border border-zinc-950" :style="{ backgroundColor: p.swatch.accent }" />
-            </span>
+            <span class="w-3.5 h-3.5 rounded-full shrink-0 ring-1 ring-black/40" :style="{ backgroundColor: p.swatch.accent }" />
             <span class="truncate">{{ p.label }}</span>
           </button>
         </div>
-      </div>
+      </section>
 
-      <!-- Each language is written in itself. A reader who wants Japanese is
-           looking for 日本語, not for the row labelled "Japanese" in a language
-           they are trying to get away from. -->
-      <div class="px-4 py-3 border-b border-zinc-800">
-        <p class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2">{{ t('Language') }}</p>
+      <section>
+        <p class="label mb-2">{{ t('Language') }}</p>
         <div class="grid grid-cols-2 gap-1">
           <button
             v-for="l in LOCALES"
             :key="l.code"
             type="button"
-            class="flex items-center gap-1.5 rounded border px-2 py-1.5 text-xs transition-colors text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-            :class="locale === l.code
-              ? 'border-accent bg-accent/10 text-zinc-100'
-              : 'border-zinc-800 text-zinc-300 hover:border-zinc-700'"
+            class="rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            :class="locale === l.code ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300 hover:bg-zinc-800/60'"
             :title="l.english"
+            :aria-pressed="locale === l.code"
             @click="pickLocale(l.code)"
-          >
-            <span class="truncate">{{ l.native }}</span>
-          </button>
+          >{{ l.native }}</button>
         </div>
-        <p class="mt-2 text-[10px] text-zinc-600 leading-snug">
-          The site's own wording only — level names, comments and lists stay as their authors wrote them.
-        </p>
-      </div>
+        <p class="mt-2 text-xs text-zinc-500">Level names, comments and lists stay as written.</p>
+      </section>
 
-      <div class="px-4 py-3">
+      <section>
         <button
           type="button"
-          class="w-full flex items-center justify-between text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 font-medium rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+          class="w-full flex items-center justify-between text-sm text-zinc-400 hover:text-zinc-100 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          :aria-expanded="advanced"
           @click="advanced = !advanced"
         >
-          <span>Advanced</span>
-          <span class="text-zinc-600">{{ advanced ? '▾' : '▸' }}</span>
+          <span>Custom colours</span>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 transition-transform" :class="{ 'rotate-180': advanced }" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" /></svg>
         </button>
-
-        <div v-if="advanced" class="mt-3 space-y-2">
-          <div
-            v-for="row in overrideRows"
-            :key="row.key"
-            class="flex items-center gap-3 text-xs"
-          >
+        <div v-if="advanced" class="mt-2 space-y-1.5">
+          <div v-for="row in overrideRows" :key="row.key" class="flex items-center gap-3 text-sm">
             <input
               type="color"
               :value="effectiveHex(row.key)"
-              class="w-7 h-7 rounded cursor-pointer border border-zinc-800 bg-zinc-900 p-0 shrink-0"
+              class="w-7 h-7 rounded cursor-pointer border border-zinc-700 bg-zinc-900 p-0 shrink-0"
+              :aria-label="row.label"
               @input="(e) => onPickerInput(row.key, e)"
             />
             <span class="flex-1 text-zinc-300">{{ row.label }}</span>
-            <button
-              v-if="state.overrides[row.key]"
-              type="button"
-              class="text-[10px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-              @click="clearOverride(row.key)"
-            >Clear</button>
+            <button v-if="state.overrides[row.key]" type="button" class="text-xs text-zinc-500 hover:text-zinc-200" @click="clearOverride(row.key)">Clear</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div v-if="hasOverrides || state.preset !== DEFAULT_PRESET" class="border-t border-zinc-800 px-4 py-2 flex justify-end">
-        <button
-          type="button"
-          class="text-[11px] text-zinc-500 hover:text-zinc-300 underline-offset-2 hover:underline rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-          @click="reset"
-        >Reset to default</button>
-      </div>
+      <button
+        v-if="hasOverrides || state.preset !== DEFAULT_PRESET"
+        type="button"
+        class="text-xs text-zinc-500 hover:text-zinc-200"
+        @click="reset"
+      >Reset to default</button>
     </div>
   </div>
 </template>

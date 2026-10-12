@@ -49,7 +49,7 @@ const accentStyle = computed(() => listAccentStyle(list.value))
         class="mx-auto px-4 sm:px-6 py-6"
         :class="width === 'wide' ? 'max-w-5xl' : 'max-w-3xl'"
       >
-        <h2 v-if="title" class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-3">{{ title }}</h2>
+        <h2 v-if="title" class="text-xs text-accent font-semibold mb-3">{{ title }}</h2>
         <slot :list="list" :can-edit="canEdit" />
       </div>
     </div>

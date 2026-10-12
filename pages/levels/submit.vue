@@ -652,7 +652,7 @@ async function submit() {
  * across a form of fourteen boxes.
  */
 const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'
-const label = 'text-[11px] uppercase tracking-widest text-zinc-500'
+const label = 'text-xs text-zinc-500'
 const hint = 'text-zinc-600 normal-case tracking-normal'
 /** Shared chrome for the form's sections, collapsible or not. */
 const card = 'card'
@@ -662,32 +662,9 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
 <template>
   <div class="container-tight py-8 max-w-2xl">
     <header class="mb-6">
-      <h1 class="text-3xl font-bold tracking-tight">Submit a level</h1>
-      <p class="text-sm text-zinc-400 mt-1 max-w-prose">
-        Anything the All Levels List doesn't have yet. A moderator reads every submission
-        and decides where it goes, so the more difficulty info the better.
-      </p>
+      <h1 class="page-title">Submit a level</h1>
+      <p class="page-lead max-w-prose">For levels the list doesn't have yet. A moderator places it; the more you tell us about its difficulty, the better.</p>
 
-      <!-- Live requirements, so "what's missing" is answerable without pressing
-           Submit and reading a single-line error. Each one jumps to its field,
-           opening the section around it on the way. -->
-      <ul class="mt-4 flex flex-wrap items-center gap-1.5">
-        <li class="text-[11px] text-zinc-600 mr-0.5">Required:</li>
-        <li v-for="r in requirements" :key="r.label">
-          <button
-            type="button"
-            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors"
-            :class="r.ok
-              ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
-              : 'border-zinc-800 bg-zinc-900/60 text-zinc-500 hover:border-amber-800/70 hover:text-amber-300'"
-            :title="r.ok ? `${r.label} — done` : `Go to ${r.label}`"
-            @click="focusField(r.field)"
-          >
-            <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
-            {{ r.label }}
-          </button>
-        </li>
-      </ul>
     </header>
 
     <form class="space-y-4" @submit.prevent="submit">
@@ -696,8 +673,8 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
            section that gets left closed. -->
       <section :class="card">
         <div :class="sectionHead">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">The level</h2>
-          <span class="ml-auto text-[10px] text-zinc-600">Both required</span>
+          <h2 class="text-sm font-semibold text-zinc-200">The level</h2>
+
         </div>
         <div class="px-4 pb-4 space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -759,7 +736,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
       <!-- Verification -->
       <details open class="group" :class="card">
         <summary :class="sectionHead" class="cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-xl">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Verification</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Verification</h2>
           <span
             class="ml-auto text-[10px]"
             :class="verificationDone ? 'text-emerald-400' : 'text-amber-300/90'"
@@ -854,7 +831,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
            where the submission would end up. -->
       <details open class="group" :class="card">
         <summary :class="sectionHead" class="cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-xl">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty &amp; placement</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Difficulty &amp; placement</h2>
           <span class="ml-auto flex items-center gap-1.5 text-[10px]">
             <span
               v-if="gddlTier"
@@ -950,7 +927,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
            first-time submitter meets is the five things it can't do without. -->
       <details class="group" :class="card">
         <summary :class="sectionHead" class="cursor-pointer select-none list-none hover:bg-zinc-900/40 transition-colors rounded-xl">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Extra info</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Extra info</h2>
           <span class="ml-auto text-[10px] text-zinc-600">All optional</span>
           <span class="text-zinc-600 text-[11px] group-open:rotate-180 transition-transform inline-block">▾</span>
         </summary>
@@ -1064,7 +1041,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
       <!-- Notes -->
       <section :class="card">
         <div :class="sectionHead">
-          <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Notes for the mods</h2>
+          <h2 class="text-sm font-semibold text-zinc-200">Notes for the mods</h2>
           <span class="ml-auto text-[10px] text-zinc-600">Optional</span>
         </div>
         <div class="px-4 pb-4">
@@ -1125,7 +1102,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
         <aside class="relative flex flex-col w-full sm:w-[420px] h-full bg-zinc-950 border-r border-zinc-800 shadow-2xl">
           <header class="p-3 border-b border-zinc-800 flex items-center gap-2 shrink-0">
             <div class="flex flex-col min-w-0">
-              <span class="text-xs uppercase tracking-widest text-accent font-semibold flex items-center gap-2">
+              <span class="text-xs text-accent font-semibold flex items-center gap-2">
                 {{ compareChallengeMode ? 'Challenge comparison' : 'Level comparison' }}
                 <Badge v-if="compareChallengeMode" tone="amber" size="sm" title="Following the Challenge checkbox">Challenges only</Badge>
               </span>
@@ -1163,7 +1140,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
             <!-- List filter + rating filter -->
             <div class="px-3 pb-2.5 flex items-center gap-3 flex-wrap">
               <div class="flex items-center gap-1">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-600 mr-1">List</span>
+                <span class="text-xs text-zinc-600 mr-1">List</span>
                 <button
                   v-for="[val, label] in [['', 'All'], ['aredl', 'AREDL'], ['gdl', 'Global']]"
                   :key="val"
@@ -1176,7 +1153,7 @@ const sectionHead = 'px-4 py-3 flex items-center gap-2'
                 >{{ label }}</button>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-600">Rating</span>
+                <span class="text-xs text-zinc-600">Rating</span>
                 <select
                   v-model="compareRatingFilter"
                   class="rounded border border-zinc-800 bg-zinc-900 px-1.5 py-0.5 text-[11px] text-zinc-300 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/60"

@@ -6,6 +6,8 @@ const props = defineProps<{
   canFollow: boolean
   isSelf: boolean
   followerCount: number
+  /** Off where the page shows the follower count itself. */
+  showCount?: boolean
 }>()
 
 const emit = defineEmits<{ (e: 'changed', followed: boolean, count: number): void }>()
@@ -76,9 +78,10 @@ async function openFollowers() {
         : 'bg-accent text-zinc-950 hover:bg-accent/90'"
       @click="toggle"
     >{{ followed ? 'Following' : 'Follow' }}</button>
-    <span v-else-if="isSelf" class="text-xs text-zinc-600">This is you.</span>
+    <span v-else-if="isSelf && showCount !== false" class="text-xs text-zinc-600">This is you.</span>
 
     <button
+      v-if="showCount !== false"
       type="button"
       class="text-xs text-zinc-400 hover:text-accent tabular-nums transition-colors"
       @click="openFollowers"

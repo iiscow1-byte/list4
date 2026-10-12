@@ -75,7 +75,7 @@ async function submit() {
 }
 
 const field = 'mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-900 px-2.5 py-1.5 text-sm placeholder:text-zinc-600 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent'
-const label = 'text-[10px] uppercase tracking-widest text-zinc-500 font-medium'
+const label = 'text-xs text-zinc-500 font-medium'
 
 useHead(() => ({ title: list.value ? `Submit a record — ${list.value.title}` : 'Submit' }))
 </script>
@@ -116,7 +116,7 @@ useHead(() => ({ title: list.value ? `Submit a record — ${list.value.title}` :
             <span class="tabular-nums text-accent font-bold shrink-0">#{{ picked.rank }}</span>
             <span class="truncate flex-1 text-sm text-zinc-100 font-medium">{{ picked.name }}</span>
             <span class="shrink-0 text-right">
-              <span class="block text-[10px] text-zinc-500 uppercase tracking-wider">Worth</span>
+              <span class="block text-xs text-zinc-500">Worth</span>
               <span class="block tabular-nums text-sm font-semibold text-amber-300">{{ previewPoints }}</span>
             </span>
           </div>

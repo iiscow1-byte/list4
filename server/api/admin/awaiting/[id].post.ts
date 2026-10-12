@@ -1,8 +1,8 @@
 import { getDb } from '~/server/db'
 import { requireListStaff } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
-import { recomputePoints } from '~/server/utils/points'
-import { recordPlacement } from '~/server/utils/changes'
+import { afterListChange, tx } from '~/server/utils/list-ops'
+import { placeSubmission } from '~/server/utils/place-submission'
 
 /**
  * Move an awaiting-placement level onto the main list at `placement`, or
@@ -126,67 +126,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'A valid placement (1-based position) is required.' })
   }
 
-  // Admin can override the submitter's flags when placing.
-  const sameAsAbove = typeof body.same_as_above === 'boolean'
-    ? (body.same_as_above ? 1 : 0)
-    : (sub.same_as_above ? 1 : 0)
-  const duplicateOfId = body.duplicate_of_id !== undefined ? (body.duplicate_of_id ?? null) : (sub.duplicate_of_id ?? null)
-  const isAlternate = typeof body.is_alternate === 'boolean'
-    ? (body.is_alternate ? 1 : 0)
-    : (sub.is_alternate ? 1 : 0)
-  const alternateOfId = body.alternate_of_id !== undefined ? (body.alternate_of_id ?? null) : (sub.alternate_of_id ?? null)
-  const tentativePlacement = typeof body.tentative_placement === 'boolean'
-    ? (body.tentative_placement ? 1 : 0)
-    : (sub.tentative_placement ? 1 : 0)
-
-  db.exec('BEGIN')
-  try {
-    const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
-    const insertPos = Math.min(placement, maxPos + 1)
-    db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ?`).run(insertPos)
-    db.prepare(`UPDATE levels SET position = -position WHERE position < 0`).run()
-    // pov_placement records the position assigned at acceptance time — it
-    // doesn't follow later admin moves.
-    const result = db.prepare(
-      `INSERT INTO levels
-        (position, name, gd_id, gddl_tier, difficulty, main_skillset, verify_date,
-         verification, verification_url, year_verified, category, source_tab,
-         creator, permanent, enjoyment, pov_placement, placement_source, submitted_by,
-         same_as_above, duplicate_of_id, is_alternate, alternate_of_id, rated, tentative_placement,
-         site_only)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', 'ALL Submission', NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-               1)`,
-    ).run(
-      insertPos,
-      sub.name,
-      sub.gd_id,
-      (typeof body.gddl_tier === 'string' && body.gddl_tier.trim()) ? body.gddl_tier.trim() : sub.gddl_tier,
-      (typeof body.difficulty === 'string' && body.difficulty.trim()) ? body.difficulty.trim() : sub.difficulty,
-      sub.main_skillset,
-      sub.verify_date,
-      sub.verification,
-      sub.verification_url,
-      sub.verify_date && /^\d{4}/.test(sub.verify_date) ? Number(sub.verify_date.slice(0, 4)) : null,
-      sub.enjoyment,
-      insertPos,
-      sub.placement_source ?? 'All Levels List',
-      submitterId,
-      sameAsAbove,
-      duplicateOfId,
-      isAlternate,
-      alternateOfId,
-      sub.rated ?? null,
-      tentativePlacement,
-    )
-    recordPlacement(db, Number(result.lastInsertRowid), insertPos, account.id)
+  const placed = tx(db, () => {
+    const res = placeSubmission(db, sub, placement, { actorId: account.id, submittedBy: submitterId, flags: body })
     db.prepare(`DELETE FROM awaiting_levels WHERE id = ?`).run(id)
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
+    return res
+  })
+  afterListChange(db)
 
-  recomputePoints(db)
-
-  return { ok: true, placement }
+  return { ok: true, placement: placed.position }
 })

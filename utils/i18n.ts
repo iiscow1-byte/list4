@@ -127,6 +127,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Cargando…',
     'Friends': 'Amigos',
     'Settings': 'Ajustes',
+    'About': 'Acerca de',
+    'Lists': 'Listas',
+    'Profile': 'Perfil',
   },
 
   'pt-BR': {
@@ -202,6 +205,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Carregando…',
     'Friends': 'Amigos',
     'Settings': 'Configurações',
+    'About': 'Sobre',
+    'Lists': 'Listas',
+    'Profile': 'Perfil',
   },
 
   fr: {
@@ -277,6 +283,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Chargement…',
     'Friends': 'Amis',
     'Settings': 'Paramètres',
+    'About': 'À propos',
+    'Lists': 'Listes',
+    'Profile': 'Profil',
   },
 
   de: {
@@ -352,6 +361,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Lädt…',
     'Friends': 'Freunde',
     'Settings': 'Einstellungen',
+    'About': 'Über',
+    'Lists': 'Listen',
+    'Profile': 'Profil',
   },
 
   ru: {
@@ -427,6 +439,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Загрузка…',
     'Friends': 'Друзья',
     'Settings': 'Настройки',
+    'About': 'О сайте',
+    'Lists': 'Списки',
+    'Profile': 'Профиль',
   },
 
   pl: {
@@ -502,6 +517,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': 'Ładowanie…',
     'Friends': 'Znajomi',
     'Settings': 'Ustawienia',
+    'About': 'O stronie',
+    'Lists': 'Listy',
+    'Profile': 'Profil',
   },
 
   'zh-CN': {
@@ -576,6 +594,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': '加载中…',
     'Friends': '好友',
     'Settings': '设置',
+    'About': '关于',
+    'Lists': '列表',
+    'Profile': '个人资料',
   },
 
   ja: {
@@ -650,6 +671,9 @@ export const MESSAGES: Partial<Record<LocaleCode, Record<string, string>>> = {
     'Loading…': '読み込み中…',
     'Friends': 'フレンド',
     'Settings': '設定',
+    'About': '概要',
+    'Lists': 'リスト',
+    'Profile': 'プロフィール',
   },
 }
 

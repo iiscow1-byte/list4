@@ -74,7 +74,7 @@ const emoji = computed(() => {
 
 <template>
   <header class="relative">
-    <div class="relative h-44 sm:h-56 overflow-hidden bg-zinc-900">
+    <div class="relative overflow-hidden bg-zinc-900" :class="bannerImage || bannerLevel ? 'h-44 sm:h-56' : 'h-24 sm:h-28'">
       <template v-if="bannerImage">
         <img
           :src="bannerImage"
@@ -99,7 +99,7 @@ const emoji = computed(() => {
       />
       <div
         v-else
-        class="absolute inset-0 bg-[radial-gradient(80%_140%_at_50%_0%,theme(colors.zinc.800),theme(colors.zinc.950))]"
+        class="absolute inset-0 bg-gradient-to-b from-zinc-900 to-zinc-950"
         aria-hidden="true"
       />
       <!-- Even over a thumbnail the bottom has to fade to the page colour, so
@@ -111,7 +111,7 @@ const emoji = computed(() => {
         :to="`/levels/${bannerLevel.position}`"
         class="absolute top-3 right-3 sm:top-4 sm:right-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/50 backdrop-blur px-2.5 py-1 text-[11px] text-zinc-200 hover:border-accent/50 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
       >
-        <span class="tabular-nums text-zinc-400">#{{ bannerLevel.sheet_placement ?? bannerLevel.position }}</span>
+        <span class="tabular-nums text-zinc-400">#{{ bannerLevel.position }}</span>
         <span class="truncate max-w-[10rem]">{{ bannerLevel.name }}</span>
       </NuxtLink>
     </div>
@@ -200,7 +200,7 @@ const emoji = computed(() => {
           v-for="s in stats"
           :key="s.label"
           :type="s.opens ? 'button' : undefined"
-          class="relative bg-zinc-950 px-3 py-2.5 text-left"
+          class="relative bg-zinc-950 px-3 py-2.5 text-left max-sm:last:odd:col-span-2"
           :class="s.opens
             ? 'hover:bg-zinc-900 focus-visible:bg-zinc-900 focus-visible:outline-none transition-colors cursor-pointer group'
             : ''"
@@ -208,7 +208,7 @@ const emoji = computed(() => {
           @click="s.opens && emit('openList', s.opens)"
         >
           <dt
-            class="text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1"
+            class="text-xs text-zinc-500 flex items-center gap-1"
             :class="s.opens ? 'group-hover:text-accent transition-colors' : ''"
           >
             {{ s.label }}

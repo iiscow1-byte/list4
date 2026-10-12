@@ -100,12 +100,10 @@ function avatarFor(a: Author): string | null {
 
     <header class="space-y-2">
       <div class="flex items-baseline gap-2 flex-wrap">
-        <span v-if="data.thread.pinned" class="text-accent" title="Pinned" aria-hidden="true">📌</span>
-        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-zinc-50">{{ data.thread.title }}</h1>
-        <span class="text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-500">
-          {{ CATEGORY_LABELS[data.thread.category] ?? data.thread.category }}
-        </span>
-        <span v-if="data.thread.locked" class="text-[9px] uppercase tracking-widest text-zinc-600">locked</span>
+        <span v-if="data.thread.pinned" class="text-xs font-medium text-accent">Pinned</span>
+        <h1 class="page-title text-xl sm:text-2xl">{{ data.thread.title }}</h1>
+        <span class="text-xs text-zinc-500">{{ CATEGORY_LABELS[data.thread.category] ?? data.thread.category }}</span>
+        <span v-if="data.thread.locked" class="text-xs text-zinc-600">locked</span>
       </div>
 
       <!-- The level this is about, when it is about one. A card rather than a
@@ -121,9 +119,9 @@ function avatarFor(a: Author): string | null {
           img-class="opacity-25 group-hover:opacity-40"
           overlay-class="bg-gradient-to-r from-zinc-950/94 via-zinc-950/80 to-zinc-950/45"
         />
-        <span class="relative text-[10px] uppercase tracking-widest text-zinc-500 shrink-0">About</span>
+        <span class="relative text-xs text-zinc-500 shrink-0">About</span>
         <span class="relative tabular-nums text-xs text-accent font-semibold shrink-0">
-          #{{ data.thread.level.sheet_placement ?? data.thread.level.position }}
+          #{{ data.thread.level.position }}
         </span>
         <span class="relative truncate text-sm font-medium text-zinc-100 group-hover:text-accent transition-colors">
           {{ data.thread.level.name }}

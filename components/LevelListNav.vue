@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
-import { tierColor, textOn } from '~/utils/tier-colors'
+import { tierColor } from '~/utils/tier-colors'
 import { parseTierShortcut } from '~/utils/tier-shortcut'
 import { TIER_MAX_ORD, ordToTier, tierToOrd } from '~/utils/tier-ordinal'
 
@@ -194,6 +194,16 @@ const EXTERNAL_VARIANTS: { id: ListVariant; hint: string }[] = [
   { id: 'CL', hint: 'Ranked by challengelist.gd' },
 ]
 
+/** What the panel's heading says for each list. */
+const VARIANT_TITLES: Record<ListVariant, string> = {
+  Classic: 'Main list',
+  Challenge: 'Challenges',
+  Rated: 'Rated levels',
+  AREDL: 'AREDL order',
+  GDL: 'GDL order',
+  CL: 'Challenge List order',
+}
+
 const variantOpen = ref(false)
 const variantRoot = ref<HTMLElement | null>(null)
 
@@ -253,7 +263,7 @@ function displayNum(lvl: LevelRow): string {
   // `displayRank` only exists when "rank by filter" is on, and is a rank
   // within the filtered set — it must win over the sheet's own numbering.
   if (lvl.displayRank != null) return `#${lvl.displayRank}`
-  return `#${lvl.sheet_placement ?? lvl.position}`
+  return `#${lvl.position}`
 }
 
 const activeFilterCount = computed(() => {
@@ -367,6 +377,7 @@ function buildQuery() {
   return {
     page: nextPage.value,
     pageSize: PAGE_SIZE,
+    fields: 'nav',
     search: search.value || undefined,
     tierMin: tierMin.value > 0 ? tierMin.value : undefined,
     tierMax: tierMax.value < TIER_MAX_ORD ? tierMax.value : undefined,
@@ -547,8 +558,21 @@ const rowQuery = computed(() => ({
   list: listVariant.value === 'Classic' ? undefined : listVariant.value.toLowerCase(),
 }))
 
-// Initial load
-await loadMore()
+// The first page goes through useAsyncData so the rows the server drew travel
+// with the page, rather than being fetched again before it can hydrate.
+type LevelsPage = { total: number; items: LevelRow[]; challengeMode: boolean }
+const { data: firstPage } = await useAsyncData('level-nav-first-page', () =>
+  $fetch<LevelsPage>('/api/levels', { query: { ...buildQuery(), page: 1 } }),
+)
+if (firstPage.value) {
+  total.value = firstPage.value.total
+  challengeMode.value = !!firstPage.value.challengeMode
+  items.value = firstPage.value.items.slice()
+  nextPage.value = 2
+  initialLoaded.value = true
+} else {
+  await loadMore()
+}
 
 let debounce: ReturnType<typeof setTimeout> | null = null
 let lastGdIdLookup = ''
@@ -794,123 +818,82 @@ watch(
 </script>
 
 <template>
-  <aside class="flex flex-col min-h-0 border-r border-zinc-800/80 bg-zinc-950">
-    <div v-if="pickMode" class="px-3 py-2 bg-accent/10 border-b border-accent/30 shrink-0 flex items-center gap-2">
-      <span class="text-[11px] text-accent leading-snug flex-1">{{ pickModeHint ?? '← Click a level to place current level below it' }}</span>
+  <aside class="flex flex-col min-h-0 border-r border-zinc-800 bg-zinc-950">
+    <div v-if="pickMode" class="px-3 py-2 bg-accent/10 border-b border-accent/30 shrink-0 text-sm text-accent">
+      {{ pickModeHint ?? 'Click the level it should go under' }}
     </div>
-    <div class="p-3 border-b border-zinc-800/80 shrink-0">
-      <div class="flex items-center gap-2 mb-2.5">
-        <!-- Which list this is, and how to read a different one -->
-        <div ref="variantRoot" class="relative">
+    <div class="px-3 pt-3 pb-2.5 border-b border-zinc-800 shrink-0 space-y-2">
+      <div class="flex items-center gap-2">
+        <div ref="variantRoot" class="relative min-w-0">
           <button
             type="button"
-            class="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[10px] uppercase tracking-widest font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-            :class="variantOpen
-              ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/30'
-              : 'text-accent hover:bg-accent/10'"
+            class="inline-flex items-center gap-1 rounded-md font-display font-semibold text-zinc-50 hover:text-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             :aria-expanded="variantOpen"
             aria-haspopup="menu"
             title="Switch list"
             @click.stop="variantOpen = !variantOpen"
           >
-            {{ listVariant }}
-            <svg
-              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-              stroke-linecap="round" stroke-linejoin="round"
-              class="w-2.5 h-2.5 transition-transform" :class="variantOpen ? 'rotate-180' : ''"
-              aria-hidden="true"
-            ><path d="m6 9 6 6 6-6" /></svg>
+            <span class="truncate">{{ VARIANT_TITLES[listVariant] }}</span>
+            <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 shrink-0 text-zinc-500 transition-transform" :class="{ 'rotate-180': variantOpen }" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" /></svg>
           </button>
-
-          <div
-            v-if="variantOpen"
-            role="menu"
-            class="absolute left-0 top-full mt-1.5 w-60 popover z-30 overflow-hidden py-1"
-          >
+          <div v-if="variantOpen" role="menu" class="absolute left-0 top-full mt-1.5 w-60 popover z-30 p-1">
             <button
               v-for="v in VARIANTS"
               :key="v.id"
               type="button"
               role="menuitemradio"
               :aria-checked="listVariant === v.id"
-              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-              :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
+              class="variant-row"
+              :class="listVariant === v.id ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300'"
               @click="pickVariant(v.id)"
             >
-              <span
-                class="mt-0.5 w-3 shrink-0 text-[10px] leading-none"
-                :class="listVariant === v.id ? 'text-accent' : 'text-transparent'"
-                aria-hidden="true"
-              >✓</span>
-              <span class="min-w-0">
-                <span class="block text-xs font-medium" :class="listVariant === v.id ? 'text-accent' : 'text-zinc-200'">{{ v.id }}</span>
-                <span class="block text-[10px] text-zinc-600 leading-snug">{{ v.hint }}</span>
-              </span>
+              <span>{{ VARIANT_TITLES[v.id] }}</span>
+              <span class="text-xs text-zinc-500">{{ v.hint }}</span>
             </button>
-
-            <p class="mt-1 px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest text-zinc-600 font-semibold border-t border-zinc-900">
-              Ranked by another list
-            </p>
+            <p class="mt-1 pt-2 px-2.5 pb-1 border-t border-zinc-800 text-xs text-zinc-500">Ordered by another list</p>
             <button
               v-for="v in EXTERNAL_VARIANTS"
               :key="v.id"
               type="button"
               role="menuitemradio"
               :aria-checked="listVariant === v.id"
-              class="w-full text-left px-3 py-1.5 flex items-start gap-2 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
-              :class="listVariant === v.id ? 'bg-accent/10' : 'hover:bg-zinc-900'"
+              class="variant-row"
+              :class="listVariant === v.id ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300'"
               @click="pickVariant(v.id)"
             >
-              <span
-                class="mt-0.5 w-3 shrink-0 text-[10px] leading-none"
-                :class="listVariant === v.id ? 'text-accent' : 'text-transparent'"
-                aria-hidden="true"
-              >✓</span>
-              <span class="min-w-0">
-                <span class="block text-xs font-medium" :class="listVariant === v.id ? 'text-accent' : 'text-zinc-200'">{{ v.id }}</span>
-                <span class="block text-[10px] text-zinc-600 leading-snug">{{ v.hint }}</span>
-              </span>
+              <span>{{ VARIANT_TITLES[v.id] }}</span>
+              <span class="text-xs text-zinc-500">{{ v.hint }}</span>
             </button>
           </div>
         </div>
-
-        <!-- The count says what it counts, and goes where the rest of the
-             numbers are. In pick mode it stays plain text: that panel is a
-             modal for choosing a level, and a link out of it loses the pick. -->
-        <NuxtLink
-          v-if="!pickMode"
-          to="/about?tab=stats"
-          class="ml-auto text-[10px] text-zinc-600 hover:text-accent transition-colors tabular-nums px-1"
-          title="Stats for the whole list"
-        >{{ total.toLocaleString() }} levels</NuxtLink>
-        <span v-else class="ml-auto text-[10px] text-zinc-600 tabular-nums px-1">{{ total.toLocaleString() }} levels</span>
+        <span class="ml-auto shrink-0 text-xs text-zinc-500 tabular-nums">{{ total.toLocaleString() }} levels</span>
       </div>
 
       <div class="flex items-stretch gap-1.5">
         <input
           v-model="search"
           type="search"
-          placeholder="Search… [Tier], #placement, ID"
-          class="field field-sm flex-1 min-w-0 text-xs"
+          placeholder="Name, #rank, ID or tier"
+          aria-label="Search the list"
+          class="field field-sm flex-1 min-w-0"
         />
         <button
           type="button"
-          class="shrink-0 px-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+          class="shrink-0 px-2.5 rounded-md border text-xs font-medium transition-colors flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           :class="filtersOpen || activeFilterCount
-            ? 'border-accent/60 text-accent bg-accent/10'
-            : 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'"
+            ? 'border-accent/50 text-accent bg-accent/10'
+            : 'border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:border-zinc-700'"
           :aria-expanded="filtersOpen"
-          aria-label="Advanced search"
-          title="Advanced search"
+          aria-label="Filters"
+          title="Filters"
           @click="filtersOpen = !filtersOpen"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5">
-            <path d="M3 4h18l-7 9v6l-4 2v-8z" />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5" aria-hidden="true">
+            <path d="M4 6h16M7 12h10M10 18h4" />
           </svg>
           <span v-if="activeFilterCount" class="tabular-nums">{{ activeFilterCount }}</span>
         </button>
       </div>
-
     </div>
 
     <!-- Advanced filter popup -->
@@ -934,7 +917,7 @@ watch(
           <div class="px-4 py-3 border-b border-zinc-800 shrink-0 space-y-2.5">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-baseline gap-2 min-w-0">
-                <h2 class="text-xs uppercase tracking-widest text-zinc-200 font-semibold">Advanced search</h2>
+                <h2 class="text-xs text-zinc-200 font-semibold">Advanced search</h2>
                 <!-- What the filters currently produce, live, in the dialog
                      that set them. It used to take closing the dialog to find
                      out whether the last change had narrowed the list to
@@ -1009,7 +992,7 @@ watch(
               <!-- Tier range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Difficulty</span>
+                  <span class="text-xs text-zinc-500 font-medium">Difficulty</span>
                   <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
                 </div>
                 <div class="relative h-6">
@@ -1036,7 +1019,7 @@ watch(
 
               <!-- Ratings -->
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rating</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Rating</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="r in RATINGS" :key="r"
@@ -1053,7 +1036,7 @@ watch(
 
               <!-- Creator -->
               <label class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Creator</span>
+                <span class="text-xs text-zinc-500 font-medium">Creator</span>
                 <input
                   v-model="creator"
                   type="text" placeholder="Creator name"
@@ -1063,7 +1046,7 @@ watch(
 
               <!-- Source -->
               <div class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Source</span>
+                <span class="text-xs text-zinc-500 font-medium">Source</span>
                 <SearchableSelect
                   v-model="sourceFilter"
                   :option-objects="sources.map(s => ({ label: `${s.source} (${s.count.toLocaleString()})`, value: s.source }))"
@@ -1075,7 +1058,7 @@ watch(
 
               <!-- Verify date range -->
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1">Verify date</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1">Verify date</div>
                 <div class="flex items-center gap-1.5">
                   <input
                     v-model="verifyFrom" type="date"
@@ -1092,7 +1075,7 @@ watch(
               <!-- Enjoyment range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Enjoyment</span>
+                  <span class="text-xs text-zinc-500 font-medium">Enjoyment</span>
                   <span class="text-[10px] text-zinc-400 tabular-nums">{{ enjoyMin }} → {{ enjoyMax }}</span>
                 </div>
                 <div class="relative h-6">
@@ -1119,7 +1102,7 @@ watch(
 
               <!-- Sort -->
               <div class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Sort by</span>
+                <span class="text-xs text-zinc-500 font-medium">Sort by</span>
                 <SearchableSelect
                   v-model="sort"
                   :option-objects="[...SORTS]"
@@ -1133,12 +1116,12 @@ watch(
             <!-- Right column: tags -->
             <div class="p-4 space-y-3 text-xs overflow-y-auto border-t md:border-t-0 border-zinc-800">
               <div class="flex items-center justify-between">
-                <h3 class="text-[10px] uppercase tracking-widest text-zinc-400 font-semibold">Tags</h3>
+                <h3 class="text-xs text-zinc-400 font-semibold">Tags</h3>
                 <span v-if="tagsDropdownActiveCount" class="text-[10px] text-accent">{{ tagsDropdownActiveCount }} selected</span>
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Skillset</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Skillset</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="s in SKILLSETS" :key="s"
@@ -1154,7 +1137,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Tentative placements</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Tentative placements</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -1172,7 +1155,7 @@ watch(
               </div>
 
               <div v-if="isStaff">
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5 flex items-center gap-1.5">
+                <div class="text-xs text-zinc-500 font-medium mb-1.5 flex items-center gap-1.5">
                   Site-only levels
                   <span class="text-[9px] tracking-widest px-1 py-px rounded border border-amber-900/60 bg-amber-950/40 text-amber-300/90">admin</span>
                 </div>
@@ -1195,7 +1178,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Duplicate levels</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Duplicate levels</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -1213,7 +1196,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Alternate versions</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Alternate versions</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="opt in (['show', 'hide', 'only'] as const)"
@@ -1231,7 +1214,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Rank by filter</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Rank by filter</div>
                 <label class="flex items-start gap-2 cursor-pointer select-none">
                   <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
                   <span class="text-[10px] text-zinc-500">
@@ -1241,7 +1224,7 @@ watch(
               </div>
 
               <div>
-                <div class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Display</div>
+                <div class="text-xs text-zinc-500 font-medium mb-1.5">Display</div>
                 <div class="space-y-1.5">
                   <label class="flex items-start gap-2 cursor-pointer select-none">
                     <input v-model="showTierDecimal" type="checkbox" class="mt-0.5 accent-accent" />
@@ -1274,78 +1257,70 @@ watch(
     </Teleport>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="p-1.5 space-y-1">
-        <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position">
-          <!-- Pick mode: clickable button, no navigation -->
+      <ul class="py-1">
+        <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position" class="nav-row">
           <button
             v-if="pickMode"
             type="button"
-            class="relative overflow-hidden w-full flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+            class="row group"
             :class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position)
-              ? 'ring-2 ring-inset ring-accent text-zinc-50'
-              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60'"
+              ? 'bg-accent/15 text-zinc-50'
+              : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
             @click="emit('pick', lvl)"
           >
-            <LevelThumbBg
-              :gd-id="lvl.gd_id"
-              :video-url="lvl.verification_url"
-              res="small"
-              :img-class="lvl.position === pickedPosition || props.pickedPositions?.includes(lvl.position) ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
-            />
-            <span
-              class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
-              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >{{ displayNum(lvl) }}</span>
-            <span class="relative truncate min-w-0 flex-1 text-left font-medium drop-shadow-sm">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
+            <span class="tier-strip" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
+            <span class="rank row-rank text-zinc-500">{{ displayNum(lvl) }}</span>
+            <span class="truncate flex-1 text-left">{{ lvl.name }}</span>
+            <span v-if="tierTextLabel(lvl)" class="ml-2 text-xs text-zinc-500 tabular-nums shrink-0">{{ tierTextLabel(lvl) }}</span>
           </button>
-          <!-- Normal mode: NuxtLink navigation -->
           <NuxtLink
             v-else
             :to="{ path: `/levels/${lvl.position}`, query: rowQuery }"
-            class="relative overflow-hidden flex items-center gap-2.5 pl-1.5 pr-2.5 py-1.5 text-sm rounded-lg group transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+            class="row group"
             :class="lvl.position === activePosition
-              ? 'ring-2 ring-inset ring-accent text-zinc-50 bg-zinc-900'
-              : 'text-zinc-300 hover:text-zinc-50 ring-1 ring-inset ring-transparent hover:ring-zinc-700/60 hover:bg-zinc-900/50'"
+              ? 'bg-zinc-800/80 text-zinc-50'
+              : 'text-zinc-300 hover:bg-zinc-900 hover:text-zinc-50'"
+            :aria-current="lvl.position === activePosition ? 'page' : undefined"
           >
-            <LevelThumbBg
-              :gd-id="lvl.gd_id"
-              :video-url="lvl.verification_url"
-              res="small"
-              :img-class="lvl.position === activePosition ? 'opacity-60' : 'opacity-30 group-hover:opacity-55'"
-              overlay-class="bg-gradient-to-r from-zinc-950/90 via-zinc-950/55 to-zinc-950/15"
-            />
+            <span class="tier-strip" :style="{ backgroundColor: tierColor(lvl.gddl_tier) }" />
             <span
-              class="relative text-[11px] tabular-nums px-1 py-1 w-14 shrink-0 text-center font-semibold rounded-md shadow-sm"
-              :style="{ backgroundColor: tierColor(lvl.gddl_tier), color: textOn(tierColor(lvl.gddl_tier)) }"
-            >
-              {{ displayNum(lvl) }}
-            </span>
-            <span class="relative truncate min-w-0 flex-1 font-medium drop-shadow-sm">{{ lvl.name }}</span>
-            <span v-if="tierTextLabel(lvl)" class="relative text-[10px] tabular-nums opacity-70 shrink-0">{{ tierTextLabel(lvl) }}</span>
-            <!-- The view count used to sit here. It is on the level's own page
-                 instead, beside "From": a list row is a rank, a name and a
-                 tier, and a fourth number competing with the name for the same
-                 few hundred pixels cost more than it told anybody. -->
+              class="rank row-rank"
+              :class="lvl.position === activePosition ? 'text-accent' : 'text-zinc-500 group-hover:text-zinc-300'"
+            >{{ displayNum(lvl) }}</span>
+            <span class="truncate flex-1">{{ lvl.name }}</span>
+            <span v-if="tierTextLabel(lvl)" class="ml-2 text-xs text-zinc-500 tabular-nums shrink-0">{{ tierTextLabel(lvl) }}</span>
           </NuxtLink>
         </li>
-        <li v-if="initialLoaded && items.length === 0" class="px-3 py-6 text-xs text-zinc-500 text-center">
-          No matches.
+        <li v-if="initialLoaded && items.length === 0" class="px-3 py-8 text-sm text-zinc-500 text-center">
+          No levels match.
         </li>
       </ul>
 
-      <div ref="sentinel" class="px-3 py-3 text-[11px] text-zinc-600 text-center">
-        <span v-if="loading">loading…</span>
-        <span v-else-if="done && items.length > 0">{{ total.toLocaleString() }} levels — end of list</span>
-        <span v-else-if="done && items.length === 0"></span>
-        <span v-else>↓ scroll for more</span>
+      <div ref="sentinel" class="px-3 py-3 text-xs text-zinc-600 text-center">
+        <span v-if="loading">Loading…</span>
+        <span v-else-if="done && items.length > 0">End of the list</span>
       </div>
     </div>
   </aside>
 </template>
 
 <style scoped>
+.nav-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
+}
+.row {
+  @apply w-full h-9 flex items-center pr-3 text-sm transition-colors focus-visible:outline-none focus-visible:bg-zinc-800;
+}
+.tier-strip {
+  @apply w-[3px] self-stretch my-1.5 rounded-r-full shrink-0 opacity-90;
+}
+.row-rank {
+  @apply w-[4.25rem] shrink-0 pr-3 text-right text-[13px];
+}
+.variant-row {
+  @apply w-full text-left px-2.5 py-1.5 rounded-md text-sm flex flex-col hover:bg-zinc-800/70 transition-colors;
+}
 /* Dual-handle range slider — both inputs share the same track and only their
    thumbs receive pointer events, so they can be dragged independently. */
 .range-thumb {

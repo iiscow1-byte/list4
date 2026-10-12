@@ -311,14 +311,12 @@ async function submit() {
     <header class="mb-6">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div class="min-w-0">
-          <h1 class="text-3xl font-bold tracking-tight">Submit a record</h1>
-          <p class="text-sm text-zinc-400 mt-1">
-            A moderator reviews every submission before it appears on the level page.
-          </p>
+          <h1 class="page-title">Submit a record</h1>
+          <p class="page-lead">A moderator checks it, then it shows on the level and counts toward your points.</p>
         </div>
         <div class="shrink-0 flex flex-col items-end gap-1">
           <label class="flex items-center gap-2 cursor-pointer select-none">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Multiple records</span>
+            <span class="text-sm text-zinc-400">Several at once</span>
             <button
               type="button"
               role="switch"
@@ -333,42 +331,9 @@ async function submit() {
               />
             </button>
           </label>
-          <span class="text-[10px] text-zinc-600">{{ multi ? 'One row per level' : 'One record at a time' }}</span>
         </div>
       </div>
 
-      <!-- What actually happens after you press Submit — this used to be a
-           single line above the form that read as decoration. -->
-      <ol class="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-zinc-600">
-        <li class="inline-flex items-center gap-1.5">
-          <span class="w-4 h-4 rounded-full bg-accent/15 text-accent text-[9px] font-bold flex items-center justify-center">1</span>
-          Pick the level and link your proof
-        </li>
-        <li aria-hidden="true" class="text-zinc-800">→</li>
-        <li class="inline-flex items-center gap-1.5">
-          <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-bold flex items-center justify-center">2</span>
-          A moderator reviews it
-        </li>
-        <li aria-hidden="true" class="text-zinc-800">→</li>
-        <li class="inline-flex items-center gap-1.5">
-          <span class="w-4 h-4 rounded-full bg-zinc-800 text-zinc-400 text-[9px] font-bold flex items-center justify-center">3</span>
-          It counts toward your points
-        </li>
-      </ol>
-
-      <ul class="mt-3 flex flex-wrap gap-1.5">
-        <li
-          v-for="r in recordRequirements"
-          :key="r.label"
-          class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]"
-          :class="r.ok
-            ? 'border-emerald-900/60 bg-emerald-950/25 text-emerald-300'
-            : 'border-zinc-800 bg-zinc-900/60 text-zinc-500'"
-        >
-          <span class="text-[10px]" aria-hidden="true">{{ r.ok ? '✓' : '○' }}</span>
-          {{ r.label }}
-        </li>
-      </ul>
     </header>
 
     <form class="space-y-4" @submit.prevent="submit">
@@ -381,7 +346,7 @@ async function submit() {
            fields carry their own placeholders, and the extra space above each
            odd cell is what keeps a level with its video. -->
       <div v-if="multi" class="card p-4">
-        <div class="hidden sm:grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-[11px] uppercase tracking-widest text-zinc-500 mb-1.5">
+        <div class="hidden sm:grid grid-cols-[1fr_1fr] gap-x-3 gap-y-2 text-xs text-zinc-500 mb-1.5">
           <span>Level <span class="text-red-400">*</span></span>
           <span>Video URL <span class="text-red-400">*</span></span>
         </div>
@@ -405,7 +370,7 @@ async function submit() {
       <div v-else class="card p-4 space-y-3">
         <div class="relative">
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level <span class="text-red-400">*</span></span>
+          <span class="text-xs text-zinc-500">Level <span class="text-red-400">*</span></span>
           <input
             v-model="levelSearch"
             placeholder="Search by name or position…"
@@ -430,7 +395,7 @@ async function submit() {
             >
               <span class="tabular-nums text-accent text-xs w-12 shrink-0">#{{ l.position }}</span>
               <span class="truncate">{{ l.name }}</span>
-              <span v-if="levelPicker.isExactMatch(l)" class="ml-auto text-[10px] uppercase tracking-widest text-accent shrink-0">Exact</span>
+              <span v-if="levelPicker.isExactMatch(l)" class="ml-auto text-xs text-accent shrink-0">Exact</span>
             </button>
           </li>
           <li v-if="levelPicker.loading.value" class="px-3 py-2 text-[11px] text-zinc-500 text-center">loading…</li>
@@ -470,7 +435,7 @@ async function submit() {
 
         <div>
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Video URL <span class="text-red-400">*</span></span>
+            <span class="text-xs text-zinc-500">Video URL <span class="text-red-400">*</span></span>
             <!-- `type="text"` rather than `type="url"`: an uploaded clip is a
                  site-relative path, which the browser's URL validation rejects
                  outright — it would have made the field it was just written
@@ -511,7 +476,7 @@ async function submit() {
       <div class="card p-4">
         <div class="relative">
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Record holder</span>
+            <span class="text-xs text-zinc-500">Record holder</span>
             <input
               v-model="holderName"
               placeholder="Player name"
@@ -533,24 +498,28 @@ async function submit() {
                 @mousedown.prevent="pickHolder(m)"
               >
                 <span class="truncate flex-1">{{ m.name }}</span>
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500">{{ m.source }}</span>
+                <span class="text-xs text-zinc-500">{{ m.source }}</span>
               </button>
             </li>
           </ul>
         </div>
       </div>
 
-      <fieldset v-if="!multi" class="card p-3">
-        <legend class="px-2 text-[10px] uppercase tracking-widest text-zinc-500 font-medium">
-          <button type="button" class="hover:text-zinc-300" @click="ratingOpen = !ratingOpen">
-            Rate this level <span class="text-zinc-600 normal-case">applied if the record is approved</span>
-            <span class="ml-1 text-[11px]">{{ ratingOpen ? '▾' : '▸' }}</span>
-          </button>
-        </legend>
-        <div v-if="ratingOpen" class="space-y-3 pt-2">
+      <div v-if="!multi" class="card">
+        <button
+          type="button"
+          class="w-full flex items-center gap-2 px-4 py-3 text-left text-sm font-medium text-zinc-200 hover:text-zinc-50"
+          :aria-expanded="ratingOpen"
+          @click="ratingOpen = !ratingOpen"
+        >
+          Rate this level
+          <span class="text-xs font-normal text-zinc-500">optional, counts once the record is approved</span>
+          <span class="ml-auto text-xs text-zinc-500" aria-hidden="true">{{ ratingOpen ? '▾' : '▸' }}</span>
+        </button>
+        <div v-if="ratingOpen" class="space-y-3 px-4 pb-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+              <span class="text-xs text-zinc-500">GDDL Tier</span>
               <select
                 v-model="opinionTier"
                 class="field field-md mt-1"
@@ -559,7 +528,7 @@ async function submit() {
               </select>
             </label>
             <label class="block">
-              <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+              <span class="text-xs text-zinc-500">Difficulty</span>
               <select
                 v-model="opinionDifficulty"
                 class="field field-md mt-1"
@@ -569,7 +538,7 @@ async function submit() {
             </label>
           </div>
           <label class="block">
-            <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+            <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600">0 to 10</span></span>
             <input
               v-model="opinionEnjoyment"
               type="number" min="0" max="10" step="0.1" inputmode="decimal"
@@ -577,11 +546,11 @@ async function submit() {
             />
           </label>
         </div>
-      </fieldset>
+      </div>
 
       <div class="card p-4">
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">optional</span></span>
+          <span class="text-xs text-zinc-500">Note for the mods <span class="text-zinc-600 normal-case">optional</span></span>
           <textarea
             v-model="note"
             rows="3"

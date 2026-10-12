@@ -136,7 +136,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           />
           <div v-if="showEditors" class="shrink-0 border-t border-zinc-800/80">
             <p class="px-4 pt-3 pb-1.5 flex items-baseline gap-2">
-              <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">List editors</span>
+              <span class="text-xs text-accent font-semibold">List editors</span>
               <span class="ml-auto text-[10px] tabular-nums text-zinc-600">{{ editors.length }}</span>
             </p>
             <div class="max-h-52 overflow-y-auto pb-1.5">

@@ -273,7 +273,7 @@ async function remove(item: CustomItem) {
   <aside class="flex flex-col min-h-0 border-r border-zinc-800/80 bg-zinc-950">
     <div class="p-3 border-b border-zinc-800/80 shrink-0">
       <div class="flex items-center gap-2 mb-2.5 px-1">
-        <span class="text-[10px] uppercase tracking-widest text-accent font-semibold">Levels</span>
+        <span class="text-xs text-accent font-semibold">Levels</span>
         <span class="text-[10px] text-zinc-600 tabular-nums ml-auto">{{ items.length }}</span>
       </div>
 
@@ -318,7 +318,7 @@ async function remove(item: CustomItem) {
         <li v-if="tierHeadingFor(lvl)" class="pt-2 first:pt-0">
           <div class="flex items-center gap-2 px-1.5 pb-1">
             <span
-              class="text-[10px] uppercase tracking-widest font-semibold truncate"
+              class="text-xs font-semibold truncate"
               :style="tierHeadingFor(lvl)!.color ? { color: tierHeadingFor(lvl)!.color! } : undefined"
               :class="tierHeadingFor(lvl)!.color ? '' : 'text-zinc-400'"
             >{{ tierHeadingFor(lvl)!.name }}</span>
@@ -405,7 +405,7 @@ async function remove(item: CustomItem) {
             <span
               v-if="lvl.is_challenge"
               class="relative shrink-0 text-amber-400/90"
-              :class="compact ? 'text-[10px] leading-none' : 'text-[9px] uppercase tracking-widest px-1 py-0.5 rounded border border-amber-900/60 bg-amber-950/40'"
+              :class="compact ? 'text-[10px] leading-none' : 'text-xs px-1 py-0.5 rounded border border-amber-900/60 bg-amber-950/40'"
               title="Challenge"
             >{{ compact ? '⚑' : 'CH' }}</span>
 

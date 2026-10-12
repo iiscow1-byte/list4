@@ -1,13 +1,11 @@
 import { getDb } from '~/server/db'
 import { communityStats } from '~/server/utils/opinions'
 import { countryNumericToAlpha2 } from '~/utils/country-codes'
-import { isChallengeSql } from '~/server/utils/challenge-expr'
+import { getChallengeRankMap } from '~/server/utils/challenge-rank'
+import { parseSiteFields } from '~/server/utils/list-ops'
 import { otherListsFor } from '~/server/utils/other-lists'
 import { looksAutomated, recordLevelView, viewerOf } from '~/server/utils/analytics'
 import { clanTagsForPlayers } from '~/server/utils/clans'
-
-const IS_CHALLENGE_L = isChallengeSql('l', 'c')
-const IS_CHALLENGE_L2 = isChallengeSql('l2', 'c2')
 
 export default defineEventHandler((event) => {
   const position = Number(getRouterParam(event, 'position'))
@@ -142,15 +140,12 @@ export default defineEventHandler((event) => {
   // sheet value for display purposes.
   const enjoyment = community.community_enjoyment ?? level.enjoyment
 
-  // This level's own movements. Imported AREDL history is excluded on purpose:
-  // it describes another site's ranking, and it has the graph below to itself.
-  // `*_placement` maps each internal position through whichever level sits
-  // there now, so the history speaks the numbers the site prints.
+  // This level's own movements (AREDL's history is drawn on the graph instead).
   const position_history = db
     .prepare(
       `SELECT h.id, h.from_position, h.to_position, h.changed_at,
-              (SELECT sheet_placement FROM levels WHERE position = h.from_position) AS from_placement,
-              (SELECT sheet_placement FROM levels WHERE position = h.to_position)   AS to_placement,
+              h.from_position AS from_placement,
+              h.to_position   AS to_placement,
               a.username AS changed_by
        FROM position_history h
        LEFT JOIN accounts a ON a.id = h.changed_by
@@ -213,15 +208,7 @@ export default defineEventHandler((event) => {
   // exist in `gdtpl_levels` and used to be missing from this page entirely.
   const other_lists = otherListsFor(db, level)
 
-  const challengeRow = db.prepare(
-    `SELECT CASE WHEN ${IS_CHALLENGE_L}
-       THEN (SELECT COUNT(*) FROM levels l2 LEFT JOIN gd_info_cache c2 ON c2.gd_id = l2.gd_id WHERE ${IS_CHALLENGE_L2} AND l2.position <= l.position)
-       ELSE NULL
-     END AS challenge_rank
-     FROM levels l LEFT JOIN gd_info_cache c ON c.gd_id = l.gd_id
-     WHERE l.position = ?`,
-  ).get(position) as { challenge_rank: number | null } | undefined
-  const challenge_rank = challengeRow?.challenge_rank ?? null
+  const challenge_rank = getChallengeRankMap(db).get(level.position) ?? null
 
   return {
     ...level,
@@ -240,5 +227,6 @@ export default defineEventHandler((event) => {
     gddl_tier_frac,
     challenge_rank,
     views,
+    site_fields: [...parseSiteFields(level.site_fields)],
   }
 })

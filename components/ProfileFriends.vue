@@ -141,7 +141,7 @@ function profileHref(p: { username: string }) {
       :aria-expanded="open"
       @click="open = !open"
     >
-      <h2 class="text-xs uppercase tracking-widest text-zinc-500 font-medium">Friends</h2>
+      <h2 class="text-sm font-semibold text-zinc-200">Friends</h2>
       <span class="text-[11px] text-zinc-600 tabular-nums">{{ friends.length }}</span>
       <!-- The one thing worth seeing without opening the panel. -->
       <span
@@ -162,7 +162,7 @@ function profileHref(p: { username: string }) {
       <template v-else>
         <!-- Waiting on you. First, because it is the only part that is asking. -->
         <div v-if="incoming.length" class="space-y-2">
-          <h3 class="text-[10px] uppercase tracking-widest text-accent font-semibold">
+          <h3 class="section-title">
             Wants to be your friend
             <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ incoming.length }}</span>
           </h3>
@@ -200,7 +200,7 @@ function profileHref(p: { username: string }) {
 
         <!-- Who you know -->
         <div class="space-y-2">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">
+          <h3 class="text-sm font-semibold text-zinc-200">
             Your friends
             <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ friends.length }}</span>
           </h3>
@@ -244,7 +244,7 @@ function profileHref(p: { username: string }) {
 
         <!-- Waiting on them -->
         <div v-if="outgoing.length" class="space-y-2">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">
+          <h3 class="text-sm font-semibold text-zinc-200">
             Waiting for a reply
             <span class="ml-1 normal-case tracking-normal text-zinc-600 tabular-nums">{{ outgoing.length }}</span>
           </h3>
@@ -266,7 +266,7 @@ function profileHref(p: { username: string }) {
 
         <!-- Find somebody -->
         <div class="space-y-2 border-t border-zinc-900 pt-4">
-          <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Add a friend</h3>
+          <h3 class="text-sm font-semibold text-zinc-200">Add a friend</h3>
           <div class="relative">
             <input
               v-model="query"

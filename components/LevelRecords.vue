@@ -100,19 +100,14 @@ async function deleteRecord(id: number) {
 </script>
 
 <template>
-  <aside class="flex flex-col min-h-0 border-l border-zinc-800/80 bg-zinc-950">
-    <div class="p-3 border-b border-zinc-800/80 shrink-0">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-2 flex items-baseline gap-1.5">
-        Records
-        <!-- The total was printed here while the list below was filtered, so
-             the heading disagreed with what was under it. It says what you are
-             looking at, and how many there are in all when those differ. -->
-        <span class="tabular-nums text-zinc-600">{{ filtered.length }}</span>
-        <span
-          v-if="filtered.length !== records.length"
-          class="tabular-nums text-zinc-700"
-        >of {{ records.length }}</span>
-      </h2>
+  <aside class="flex flex-col min-h-0 border-l border-zinc-800 bg-zinc-950">
+    <div class="px-3 pt-3 pb-2.5 border-b border-zinc-800 shrink-0 space-y-2">
+      <div class="flex items-baseline gap-2">
+        <h2 class="font-display font-semibold text-zinc-50">Records</h2>
+        <span class="text-xs text-zinc-500 tabular-nums">
+          {{ filtered.length }}<template v-if="filtered.length !== records.length"> of {{ records.length }}</template>
+        </span>
+      </div>
       <SegmentedControl
         v-if="showFilter"
         v-model="filterModel"
@@ -122,63 +117,55 @@ async function deleteRecord(id: number) {
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto">
-      <div v-if="records.length === 0" class="p-6 text-center text-sm text-zinc-600">
+      <p v-if="records.length === 0" class="px-4 py-8 text-center text-sm text-zinc-500">
         No records yet.
-      </div>
-      <div v-else-if="filtered.length === 0" class="p-6 text-center text-sm text-zinc-600">
-        Nothing from that list.
-        <button type="button" class="block mx-auto mt-1 text-xs text-accent hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60" @click="filter = 'all'">
-          Show all {{ records.length }}
-        </button>
+      </p>
+      <div v-else-if="filtered.length === 0" class="px-4 py-8 text-center text-sm text-zinc-500">
+        None from that list.
+        <button type="button" class="block mx-auto mt-1 link text-xs" @click="filter = 'all'">Show all {{ records.length }}</button>
       </div>
 
       <ul v-else class="divide-y divide-zinc-900">
         <li
           v-for="(r, idx) in filtered"
           :key="`${r.source ?? 'all'}-${r.player}-${r.percent}-${idx}`"
-          class="px-3 py-2 hover:bg-zinc-900/60 transition-colors group"
+          class="px-3 py-2 hover:bg-zinc-900/50 transition-colors group"
         >
-          <!-- Line 1: who, and how far they got -->
-          <div class="flex items-baseline gap-2">
-            <CountryFlag :country="typeof r.country === 'number' ? String(r.country) : r.country" size="sm" class="self-center" />
+          <div class="flex items-center gap-2 min-w-0">
+            <CountryFlag :country="typeof r.country === 'number' ? String(r.country) : r.country" size="sm" />
             <NuxtLink
               :to="`/users/by-player/${encodeURIComponent(r.player)}`"
-              class="text-sm font-medium truncate text-zinc-200 hover:text-accent transition-colors min-w-0"
+              class="text-sm font-medium truncate text-zinc-100 hover:text-accent transition-colors min-w-0"
               :title="r.player"
             >{{ r.player }}</NuxtLink>
-            <ClanTag v-if="r.clan" :tag="r.clan.tag" :name="r.clan.name" :color="r.clan.color" size="sm" class="self-center" />
+            <ClanTag v-if="r.clan" :tag="r.clan.tag" :name="r.clan.name" :color="r.clan.color" size="sm" />
             <span
-              class="ml-auto tabular-nums text-xs shrink-0"
-              :class="r.percent >= 100 ? 'text-amber-300' : 'text-zinc-400'"
+              class="ml-auto shrink-0 text-sm tabular-nums font-semibold"
+              :class="r.percent >= 100 ? 'text-zinc-50' : 'text-zinc-400'"
             >{{ r.percent }}%</span>
           </div>
-
-          <!-- Line 2: where it came from, and what else is known about it -->
-          <div class="flex flex-wrap items-center gap-1.5 mt-1 text-[11px] text-zinc-500">
-            <Badge tone="quiet" size="sm" :title="sourceBadge(r).title">{{ sourceBadge(r).label }}</Badge>
-            <Badge v-if="r.is_verification" tone="emerald" size="sm" title="This is the level's verification">Verifier</Badge>
-            <Badge v-if="r.mobile" tone="sky" size="sm" title="Beaten on mobile">Mobile</Badge>
-            <span v-if="r.hz" class="tabular-nums shrink-0">{{ r.hz }}hz</span>
+          <div class="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
+            <span :title="sourceBadge(r).title">{{ sourceBadge(r).label }}</span>
+            <span v-if="r.is_verification" class="text-emerald-400">Verification</span>
+            <span v-if="r.mobile">Mobile</span>
+            <span v-if="r.hz" class="tabular-nums">{{ r.hz }} Hz</span>
             <a
               v-if="r.video"
               :href="r.video"
               target="_blank"
               rel="noopener"
-              class="ml-auto shrink-0 text-zinc-500 hover:text-accent transition-colors"
-            >video ↗</a>
-            <!-- Hidden until the row is hovered or the button is focused: it is
-                 a destructive control on every row of a long list, and it has
-                 to stay reachable from the keyboard. -->
+              class="ml-auto shrink-0 hover:text-accent transition-colors"
+            >Video</a>
             <button
               v-if="isAdmin && r.id && bucket(r) === 'site'"
               type="button"
               :disabled="deletingId != null"
-              class="shrink-0 text-[10px] leading-none text-zinc-600 hover:text-red-400 disabled:opacity-30 transition-all sm:opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+              class="shrink-0 text-zinc-600 hover:text-red-300 disabled:opacity-30 sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
               :class="r.video ? '' : 'ml-auto'"
               aria-label="Remove this record"
               title="Remove this record"
               @click="deleteRecord(r.id!)"
-            >✕</button>
+            >Remove</button>
           </div>
         </li>
       </ul>

@@ -8,7 +8,7 @@ export default defineEventHandler((event) => {
   const items = db
     .prepare(
       `SELECT w.id, w.url, w.label, w.active, w.tier_emoji, w.split_long, w.kind,
-              w.created_at, w.last_posted_date, w.last_post_status,
+              w.created_at, w.last_posted_date, w.last_post_status, w.posted_through,
               a.username AS created_by
          FROM discord_webhooks w
          LEFT JOIN accounts a ON a.id = w.created_by

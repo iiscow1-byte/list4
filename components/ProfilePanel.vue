@@ -32,11 +32,11 @@ const emit = defineEmits<{ (e: 'titleClick'): void }>()
 <template>
   <section class="card overflow-hidden">
     <header class="flex items-baseline gap-2 px-4 pt-3.5 pb-2.5">
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold min-w-0 truncate">
+      <h2 class="text-sm font-semibold text-zinc-200 min-w-0 truncate">
         <button
           v-if="clickable"
           type="button"
-          class="uppercase tracking-widest hover:text-accent transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
+          class="hover:text-accent transition-colors rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/60"
           @click="emit('titleClick')"
         >{{ title }}</button>
         <template v-else>{{ title }}</template>

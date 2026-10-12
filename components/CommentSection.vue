@@ -167,7 +167,7 @@ function avatarOf(username: string) {
       v-if="alwaysOpen"
       class="px-4 py-3 flex items-baseline gap-2 border-b border-zinc-800/80"
     >
-      <h2 class="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">{{ title }}</h2>
+      <h2 class="text-sm font-semibold text-zinc-200">{{ title }}</h2>
       <span class="ml-auto text-[10px] tabular-nums text-zinc-600">{{ count }}</span>
     </header>
 

@@ -3,16 +3,20 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/main.css'],
+  // Without this the module can't find its default `assets/css/tailwind.css`,
+  // falls back to Tailwind's own stylesheet, and every page carries Tailwind
+  // twice: that one and main.css.
+  tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
     head: {
       title: 'All Levels List',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-        { name: 'description', content: 'The All Levels List — a community-ranked database of every level worth playing.' },
+        { name: 'description', content: 'The All Levels List: every Geometry Dash demon and hard level, ranked by difficulty.' },
         // Tints the browser chrome on mobile to match the site rather than
         // leaving a white bar above a black page.
-        { name: 'theme-color', content: '#0a0a0a' },
+        { name: 'theme-color', content: '#0d0f13' },
       ],
       link: [
         // The tab icon is the real logo, cut down to size.
@@ -42,7 +46,7 @@ export default defineNuxtConfig({
           // use — `font-synthesis-weight: none` in main.css means a missing
           // weight silently renders lighter instead of being faked.
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400..900&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Lexend:wght@500..800&display=swap',
         },
       ],
     },

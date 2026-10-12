@@ -77,6 +77,13 @@ const isOwnProfile = computed(() =>
   !!me.value && !!data.value && me.value.username.toLowerCase() === data.value.account.username.toLowerCase(),
 )
 
+/** Whether the side column has anything in it; without it the main column takes the width. */
+const hasAside = computed(() => {
+  const d = data.value
+  if (!d) return false
+  return !!(d.completedLevels?.length || d.publicLists?.length || d.follow.followerCount || d.follow.followingCount)
+})
+
 useHead(() => ({
   title: data.value ? `${data.value.account.username} — All Levels List` : 'User — All Levels List',
 }))
@@ -265,6 +272,7 @@ function onFriendshipChanged(state: string) {
             :can-follow="data.follow.canFollow"
             :is-self="data.follow.isSelf"
             :follower-count="data.follow.followerCount"
+            :show-count="false"
           />
           <!-- Beside Follow, not instead of it. Following is "show me what they
                do"; a friendship is mutual and is what the clan invites and the
@@ -296,33 +304,33 @@ function onFriendshipChanged(state: string) {
         :hardest="data.hardest_completion"
         :favorite="data.favorite_level"
         :favorite-note="data.favorite_level_note"
-        :is-self="isOwnProfile"
       />
 
-      <div class="grid lg:grid-cols-[minmax(0,1fr)_260px] gap-6 items-start">
+      <div class="grid gap-6 items-start" :class="hasAside ? 'lg:grid-cols-[minmax(0,1fr)_260px]' : ''">
         <main class="space-y-6 min-w-0">
           <ProfilePanel v-if="data.player" title="Player stats">
             <dl class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Total points</dt>
+                <dt class="text-xs text-zinc-500">Total points</dt>
                 <dd class="tabular-nums text-amber-300 text-base">{{ fmt(data.player.total_points) }}</dd>
               </div>
               <div>
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Skill points</dt>
+                <dt class="text-xs text-zinc-500">Skill points</dt>
                 <dd class="tabular-nums text-zinc-100 text-base">{{ fmt(data.player.skill_points) }}</dd>
               </div>
               <div>
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Hardest</dt>
+                <dt class="text-xs text-zinc-500">Hardest</dt>
                 <dd class="text-zinc-100 text-base truncate">{{ data.player.hardest ?? '—' }}</dd>
               </div>
               <div>
-                <dt class="text-[10px] uppercase tracking-wider text-zinc-500">Tier of hardest</dt>
+                <dt class="text-xs text-zinc-500">Tier of hardest</dt>
                 <dd class="text-zinc-100 text-base">{{ data.player.tier ?? '—' }}</dd>
               </div>
             </dl>
           </ProfilePanel>
 
           <ProgressPosts
+            v-if="isOwnProfile || data.progressPosts.length"
             :posts="data.progressPosts"
             :can-post="isOwnProfile"
             @changed="refresh()"
@@ -345,8 +353,8 @@ function onFriendshipChanged(state: string) {
           </section>
         </main>
 
-        <aside class="space-y-4 lg:sticky lg:top-20">
-          <RecordCharts :completed="data.completedLevels" />
+        <aside v-if="hasAside" class="space-y-4 lg:sticky lg:top-20">
+          <RecordCharts v-if="data.completedLevels?.length" :completed="data.completedLevels" />
 
           <ProfilePanel v-if="data.publicLists?.length" title="Lists" :count="data.publicLists.length">
             <ul class="space-y-1">
@@ -365,6 +373,7 @@ function onFriendshipChanged(state: string) {
           </ProfilePanel>
 
           <ProfilePanel
+            v-if="data.follow.followerCount"
             title="Followers"
             :count="data.follow.followerCount"
             clickable
@@ -394,6 +403,7 @@ function onFriendshipChanged(state: string) {
           </ProfilePanel>
 
           <ProfilePanel
+            v-if="data.follow.followingCount"
             title="Following"
             :count="data.follow.followingCount"
             clickable

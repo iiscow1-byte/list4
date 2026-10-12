@@ -1,67 +1,46 @@
 <script setup lang="ts">
 import { SITE_VERSION, versionLabel } from '~/utils/site-updates'
+import { SITE_SOCIALS } from '~/utils/site-nav'
+import { ALL_SHEET_URL } from '~/utils/sheet'
 
-const { data: meRes } = useCurrentUser()
-const me = computed(() => meRes.value?.account ?? null)
-
-/**
- * Kept as data, and deliberately the same names the Credits dialog in the
- * header shows — the footer line used to credit two of the four people who
- * built the site, so the two disagreed with each other.
- */
-const SITE_AUTHORS = ['GERG', 'cinnamings', 'Silk', 'Farm']
-const DATA_AUTHORS = ['Cinder']
-
-async function logout() {
-  await $fetch('/api/auth/logout', { method: 'POST' })
-  await refreshNuxtData('auth-me')
-  await navigateTo('/login')
-}
+const { t } = useLocale()
 </script>
 
 <template>
-  <footer class="border-t border-zinc-800/80 mt-16">
-    <div class="container-wide py-6 space-y-3">
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-500">
-        <span class="font-medium text-zinc-300">The All Levels List</span>
-        <span class="text-zinc-700" aria-hidden="true">·</span>
-        <span class="text-zinc-600">ALL</span>
-
-        <span
-          class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-amber-300"
-          title="The site is still in development. Things may break or change without warning."
-        >
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400" aria-hidden="true" />
-          In development
-        </span>
-
-        <NuxtLink
-          to="/updates"
-          class="rounded-full border border-zinc-800 px-2 py-0.5 text-[11px] tabular-nums text-zinc-500 hover:border-accent/40 hover:text-accent transition-colors"
-          :title="`Website version ${versionLabel(SITE_VERSION)} — see what changed`"
-        >{{ versionLabel(SITE_VERSION) }}</NuxtLink>
-
-        <nav class="flex items-center gap-3 ml-auto">
-          <NuxtLink to="/about" class="hover:text-zinc-300 transition-colors">About &amp; stats</NuxtLink>
-          <NuxtLink to="/changelog" class="hover:text-zinc-300 transition-colors">Changelog</NuxtLink>
-          <NuxtLink to="/leaderboard" class="hover:text-zinc-300 transition-colors">Leaderboard</NuxtLink>
-          <NuxtLink to="/updates" class="hover:text-zinc-300 transition-colors">Updates</NuxtLink>
-        </nav>
-
-        <button
-          v-if="me"
-          type="button"
-          class="px-3 py-1.5 rounded-lg border border-zinc-800 text-zinc-400 hover:border-red-900 hover:text-red-400 transition-colors"
-          @click="logout"
-        >Log out</button>
+  <footer class="mt-16 border-t border-zinc-800">
+    <div class="container-wide py-8 flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between text-sm">
+      <div class="space-y-1.5">
+        <AllLogo :size="24" wordmark />
+        <p class="text-zinc-500">
+          List data by <span class="text-zinc-300">Cinder</span>.
+          Website by <span class="text-zinc-300">GERG, cinnamings, Silk and Farm</span>.
+        </p>
+        <p class="text-zinc-600 text-xs">
+          Not affiliated with RobTop Games.
+          <NuxtLink to="/updates" class="hover:text-zinc-400" :title="t('List updates')">{{ versionLabel(SITE_VERSION) }}</NuxtLink>
+        </p>
       </div>
 
-      <p class="text-[11px] text-zinc-600 leading-relaxed">
-        List data by <span class="text-zinc-400">{{ DATA_AUTHORS.join(', ') }}</span>
-        <span class="text-zinc-700" aria-hidden="true"> · </span>
-        Website by <span class="text-zinc-400">{{ SITE_AUTHORS.join(', ') }}</span>
-        <span class="text-zinc-700">, and everyone who submits records and levels.</span>
-      </p>
+      <div class="flex flex-col gap-3 sm:items-end">
+        <nav class="flex flex-wrap gap-x-4 gap-y-1 text-zinc-400" aria-label="Footer">
+          <NuxtLink to="/about" class="hover:text-zinc-100">{{ t('About') }}</NuxtLink>
+          <NuxtLink to="/changelog" class="hover:text-zinc-100">{{ t('Changelog') }}</NuxtLink>
+          <NuxtLink to="/updates" class="hover:text-zinc-100">{{ t('List updates') }}</NuxtLink>
+          <a :href="ALL_SHEET_URL" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-100">{{ t('The ALL sheet') }}</a>
+        </nav>
+        <div class="flex items-center gap-3">
+          <a
+            v-for="s in SITE_SOCIALS"
+            :key="s.label"
+            :href="s.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-zinc-500 hover:text-zinc-200 transition-colors"
+            :aria-label="s.label"
+            :title="s.label"
+          ><SocialIcon :name="s.label" class="w-[18px] h-[18px]" /></a>
+        </div>
+      </div>
     </div>
   </footer>
 </template>

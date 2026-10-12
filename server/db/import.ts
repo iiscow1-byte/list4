@@ -1,1188 +1,628 @@
-import { getDb } from './index.ts'
+import { mkdirSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { getDb, dataDir } from './index.ts'
 import type { ProgressReporter } from '../utils/imports-state.ts'
-import { recomputePoints } from '../utils/points.ts'
 import { repairSandwichedTiers } from '../utils/tier-repair.ts'
+import { afterListChange, parseSiteFields, tx } from '../utils/list-ops.ts'
+import { recordRemoval } from '../utils/changes.ts'
+import { buildSnapshot } from '../utils/placement-snapshot.ts'
 // Relative, not `~`: this file also runs standalone under
 // `node --experimental-strip-types`, where Nuxt's alias doesn't exist.
 import { longestIncreasingRun } from '../../utils/lis.ts'
+import {
+  KNOWN_LEVEL_TABS, SHEET_BASE_URL, cell, cellHtml, discoverLevelTabs, extractLinkHref,
+  fetchTabHtml, findHeaderRow, int, normDate, normTier, num, parseTable, parseTierLabel,
+  resolveColumns, txt, type FieldSpec, type SheetTab,
+} from './sheet-format.ts'
 
-const SHEET_BASE_URL =
-  'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqB-B4XtOCo-tsy5TCCFljoOClmAmrrE4oxowHVhrCcQW5r-_f6xSXOezekRsrR55_QBHhrsVlxXLH'
+export { extractLinkHref, num, txt, parseTierLabel }
 
-export const TABS = [
-  { gid: '0',          label: 'Main (Extreme Demons)' },
-  { gid: '1036115495', label: 'Tier 4 Demons' },
-  { gid: '1989779679', label: 'Subtier 5 Harder' },
-  { gid: '516171001',  label: 'Subtier 4 Harder' },
-  { gid: '1985672631', label: 'Subtier 3 Hard' },
-  { gid: '1875166663', label: 'Subtier 1 Easy' },
-]
-const LEADERBOARD_GID = '280339977'
-const STATS_VIEWER_GID = '943829784'
+/**
+ * The ALL sheet import.
+ *
+ * The sheet is the list's source of truth, with three kinds of site edit
+ * layered on top that a refresh respects:
+ * - a level staff moved (`pinned`) stays next to the level above it until the
+ *   sheet moves that level itself;
+ * - a field staff edited (`site_fields`) is not overwritten;
+ * - a level staff removed (`level_tombstones`) is not added back.
+ *
+ * Levels the site added itself (`permanent`) keep their place relative to the
+ * level above them. If the sheet later lists one, the sheet takes it over.
+ *
+ * Nothing is deleted on the first run that can't find it: a level missing from
+ * the sheet is marked, and only removed if the next run can't find it either.
+ */
+
+/** Level tabs as `{ gid, label }`, for the maintenance scripts. */
+export const TABS = KNOWN_LEVEL_TABS.map((t) => ({ gid: t.gid, label: t.name }))
+
 const VOID_LIST_GID = '1630809094'
 const PENDING_LIST_GID = '139895069'
 
-// Sentinel pending_id for awaiting rows that originated from the sheet's
-// Pending List tab. Lets re-imports prune stale sheet entries without
-// touching real user-submitted approvals (which always have a positive
-// pending_levels.id). pending_id has no FK, so -1 is safe.
+// Sentinel pending_id for awaiting rows that came from the sheet's pending tab.
 const SHEET_PENDING_ID = -1
 
-// Fraction of a tab's current level count that its fetched row count must reach
-// before the run is allowed to proceed. Rows here are pre-filter (decoration
-// rows included), so a healthy tab always clears this comfortably and only a
-// failed or truncated read falls below it.
-const TAB_SHRINK_FLOOR = 0.5
-
-// Ceiling on how much of the list one import may delete, as a fraction of the
-// levels it started with. The per-tab guards above catch a tab that fails on its
-// own; this catches whatever they don't — several tabs degrading at once, a
-// reconciliation bug, a sheet restructured out from under the matcher. Sheet
-// churn removes levels in the dozens, so this only ever fires on a fault.
+/** The run is refused if the sheet yields fewer usable rows than this share of the sheet's levels here. */
+const MIN_SHEET_FRACTION = 0.85
+/** …or if it would delete more than this share of the list in one go. */
 const MAX_PRUNE_FRACTION = 0.02
+/** A level must be missing for at least this long (two refreshes) before it is removed. */
+const MISSING_GRACE_HOURS = 3
+/** Placement backups kept in `data/backups/`. */
+const KEEP_IMPORT_SNAPSHOTS = 12
 
-// Escape hatch for all three guards, for the run where a curator really did
-// remove a tab's worth of levels on purpose.
 const allowShrinkEnv = () => process.env.LIST_IMPORT_ALLOW_SHRINK === '1'
-
-// ---------- HTML helpers ----------
-const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
-function decodeEntities(s: string): string {
-  return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&([a-z]+);/gi, (m, e) => ENTITIES[e.toLowerCase()] ?? m)
-}
-function stripTags(html: string): string {
-  return decodeEntities(html.replace(/<[^>]+>/g, '')).trim()
-}
-
-/**
- * Splits a `<tbody>...</tbody>` blob into individual `<tr>...</tr>` strings.
- * Done by streaming-style scan to avoid catastrophic regex backtracking on 18MB inputs.
- */
-function splitRows(tbody: string): string[] {
-  const rows: string[] = []
-  let i = 0
-  while (i < tbody.length) {
-    const start = tbody.indexOf('<tr', i)
-    if (start === -1) break
-    const end = tbody.indexOf('</tr>', start)
-    if (end === -1) break
-    rows.push(tbody.slice(start, end + 5))
-    i = end + 5
-  }
-  return rows
-}
-
-/**
- * Splits a `<tr>...` blob into its `<td>` cell HTML strings (in order).
- * The leading `<th>` (row number) is dropped.
- */
-function splitCells(tr: string): string[] {
-  const cells: string[] = []
-  let i = 0
-  while (i < tr.length) {
-    const start = tr.indexOf('<td', i)
-    if (start === -1) break
-    const tagEnd = tr.indexOf('>', start)
-    if (tagEnd === -1) break
-    const close = tr.indexOf('</td>', tagEnd)
-    if (close === -1) break
-    cells.push(tr.slice(tagEnd + 1, close))
-    i = close + 5
-  }
-  return cells
-}
-
-/**
- * Extract the real destination URL from a Google `https://www.google.com/url?q=...&sa=D...`
- * redirect, or return the URL unchanged if it isn't one.
- */
-function unwrapGoogleRedirect(url: string): string {
-  const m = url.match(/^https?:\/\/www\.google\.com\/url\?q=([^&]+)/)
-  if (!m) return url
-  try {
-    return decodeURIComponent(m[1]!)
-  } catch {
-    return url
-  }
-}
-
-/**
- * Returns the first `<a href="...">` URL inside a cell HTML string, unwrapped from
- * Google's redirect. Returns null if there is no link.
- */
-export function extractLinkHref(cellHtml: string): string | null {
-  const m = cellHtml.match(/<a[^>]*\shref="([^"]+)"/i)
-  if (!m) return null
-  return unwrapGoogleRedirect(decodeEntities(m[1]!))
-}
-
-// ---------- header detection ----------
-/**
- * Each tab's first non-empty data row in `<tbody>` is the header row.
- * Returns a map of normalized header name -> column index.
- */
-export function findHeaderColumns(rows: string[][]): { headerIdx: number; cols: Record<string, number> } | null {
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i]!
-    if (r.some((c) => c.toLowerCase() === 'level name' || c.toLowerCase() === 'player name')) {
-      const cols: Record<string, number> = {}
-      r.forEach((c, idx) => { if (c) cols[c.toLowerCase()] = idx })
-      return { headerIdx: i, cols }
-    }
-  }
-  return null
-}
-
-export async function fetchTabRows(gid: string): Promise<{ text: string[][]; html: string[][] }> {
-  const url = `${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${gid}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'all-levels-list-importer/1.0' } })
-  if (!res.ok) throw new Error(`fetch gid=${gid} failed: ${res.status}`)
-  const html = await res.text()
-  const tbodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/)
-  if (!tbodyMatch) throw new Error(`gid=${gid}: no tbody found`)
-  const trs = splitRows(tbodyMatch[1]!)
-  const htmlRows = trs.map(splitCells)
-  const textRows = htmlRows.map((cells) => cells.map(stripTags))
-  return { text: textRows, html: htmlRows }
-}
-
-// ---------- numeric/text helpers ----------
-export function num(s: string | undefined): number | null {
-  if (!s) return null
-  const cleaned = s.replace(/,/g, '').trim()
-  if (cleaned === '' || cleaned === '-') return null
-  const n = Number(cleaned)
-  return Number.isFinite(n) ? n : null
-}
-export function txt(s: string | undefined): string | null {
-  const t = (s ?? '').trim()
-  return t === '' ? null : t
-}
-
-// Parses tier strings from the sheet, including loose forms.
-// "Tier 25" / "tier 25"   → { tier: "Tier 25",   frac: 0.5 }
-// "Tier 25.5"             → { tier: "Tier 25",   frac: 0.5 }   decimal = position within tier
-// "T25" / "tier25" / "25" → { tier: "Tier 25",   frac: 0.5 }   bare number / no space
-// "Subtier 4" / "S4"      → { tier: "Subtier 4", frac: 0.5 }
-// "Subtier 4.25"          → { tier: "Subtier 4", frac: 0.25 }
-// Anything else           → null (caller leaves the cell as-is so we don't break)
-export function parseTierLabel(raw: string | null): { tier: string; frac: number } | null {
-  if (!raw) return null
-  const t = raw.trim()
-  if (!t) return null
-  // Match Subtier first since "S5" would otherwise be eaten by the Tier regex
-  // if we made it tolerate stray letters.
-  const sub = t.match(/^(?:subtier|sub|s)\s*(\d{1,2})(?:\.(\d+))?$/i)
-  if (sub) {
-    const frac = sub[2] !== undefined ? Math.min(1, parseFloat(`0.${sub[2]}`)) : 0.5
-    return { tier: `Subtier ${Number(sub[1])}`, frac }
-  }
-  const m = t.match(/^(?:t(?:ier)?)?\s*(\d{1,2})(?:\.(\d+))?$/i)
-  if (m) {
-    const frac = m[2] !== undefined ? Math.min(1, parseFloat(`0.${m[2]}`)) : 0.5
-    return { tier: `Tier ${Number(m[1])}`, frac }
-  }
-  return null
-}
-
-// ---------- import driver ----------
-/**
- * Headers and data are sometimes off by one column in tabs that have extra
- * icon/spacer columns (notably the Main tab). For each named column, peek at
- * the next few data rows and shift right by 1 if the labelled column is empty
- * but the next column has content.
- */
-/**
- * Header titles the placement column has gone by. The tier tabs say "Placement";
- * the Main tab was renamed to "#". Matching is exact — the Main tab also carries
- * a "Peak #" column, which is a different number entirely.
- *
- * Add to this list rather than to any call site: a tab whose placement column
- * can't be resolved yields no levels at all, which reads to the importer as
- * "every level on this tab is gone".
- */
-export const PLACEMENT_HEADERS = ['placement', '#'] as const
-
-/**
- * Point `cols['placement']` at whichever title this tab uses. Returns undefined
- * when the tab has none, which callers must treat as a hard failure.
- */
-export function resolvePlacementColumn(cols: Record<string, number>): number | undefined {
-  for (const header of PLACEMENT_HEADERS) {
-    const idx = cols[header]
-    if (idx != null) { cols['placement'] = idx; return idx }
-  }
-  return undefined
-}
-
-export function refineColumns(textRows: string[][], cols: Record<string, number>, dataStart: number): Record<string, number> {
-  const sample = textRows.slice(dataStart, dataStart + 8).filter((r) => r.length > 5)
-  if (sample.length === 0) return cols
-  const refined = { ...cols }
-  for (const [name, idx] of Object.entries(cols)) {
-    const hasHere = sample.some((r) => (r[idx] ?? '').trim() !== '')
-    if (hasHere) continue
-    const hasNext = sample.some((r) => (r[idx + 1] ?? '').trim() !== '')
-    if (hasNext) refined[name] = idx + 1
-  }
-  return refined
-}
-
-/**
- * One-time cleanup for DBs populated before the (gd_id, name) dedupe was in
- * place. Earlier importLevels runs counted positions up from MAX(position)+1,
- * so every re-import created another full copy of every sheet level. Group by
- * (gd_id, lower(name)); per group, keep the permanent row if any, otherwise
- * the lowest id (oldest, most stable for FK references); re-point records,
- * opinions, and pending_levels to the survivor; delete the rest. Idempotent —
- * no-op once the DB is clean.
- *
- * Grouping is done in JS rather than via GROUP_CONCAT/window functions because
- * earlier SQL-based versions silently produced no diagnostic output when they
- * failed; this version always logs the group count and verifies afterward.
- */
-function cleanupDuplicateLevels(db: ReturnType<typeof getDb>): void {
-  type Row = { id: number; gd_id: number | null; name: string; permanent: number }
-  const rows = db.prepare(`SELECT id, gd_id, name, permanent FROM levels`).all() as Row[]
-
-  const groups = new Map<string, { id: number; perm: boolean }[]>()
-  for (const r of rows) {
-    const key = `${r.gd_id ?? ''}|${r.name.toLowerCase()}`
-    let g = groups.get(key)
-    if (!g) { g = []; groups.set(key, g) }
-    g.push({ id: r.id, perm: r.permanent === 1 })
-  }
-
-  const remap: { drop: number; keep: number }[] = []
-  let dupGroups = 0
-  for (const g of groups.values()) {
-    if (g.length < 2) continue
-    dupGroups++
-    // Prefer permanent rows; among ties, lowest id wins.
-    g.sort((a, b) => Number(b.perm) - Number(a.perm) || a.id - b.id)
-    const keep = g[0]!.id
-    for (let i = 1; i < g.length; i++) remap.push({ drop: g[i]!.id, keep })
-  }
-
-  console.log(`Dedupe scan: ${rows.length} rows, ${groups.size} unique (gd_id, name), ${dupGroups} duplicated, ${remap.length} rows to remove.`)
-  if (remap.length === 0) return
-
-  const updRecords  = db.prepare(`UPDATE records  SET level_id = ? WHERE level_id = ?`)
-  const updOpinions = db.prepare(`UPDATE opinions SET level_id = ? WHERE list_kind = 'main' AND level_id = ?`)
-  const updPending  = db.prepare(`UPDATE pending_levels SET comparison_level_id = ? WHERE comparison_level_id = ?`)
-  const delLevel    = db.prepare(`DELETE FROM levels WHERE id = ?`)
-
-  db.exec('BEGIN')
-  try {
-    for (const { drop, keep } of remap) {
-      updRecords.run(keep, drop)
-      updOpinions.run(keep, drop)
-      updPending.run(keep, drop)
-      delLevel.run(drop)
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    console.error('Cleanup failed, rolled back:', e)
-    throw e
-  }
-
-  // Sanity check — query the DB again and confirm zero duplicate groups remain.
-  const remaining = db.prepare(`
-    SELECT COUNT(*) AS n FROM (
-      SELECT 1 FROM levels GROUP BY COALESCE(gd_id, -1), LOWER(name) HAVING COUNT(*) > 1
-    )
-  `).get() as { n: number }
-  console.log(`Removed ${remap.length} duplicate level rows. ${remaining.n} duplicate groups remain.`)
-  if (remaining.n > 0) {
-    console.warn(`WARNING: cleanup completed but ${remaining.n} duplicate groups still present — please report.`)
-  }
-}
+const pruneNowEnv = () => process.env.LIST_IMPORT_PRUNE_NOW === '1'
 
 const dupKey = (gd: number | null, n: string) => `${gd ?? ''}|${n.toLowerCase()}`
 
-/** A sheet row the import read but never represented as a level on the site. */
-type SheetExclusiveRow = {
+type Db = ReturnType<typeof getDb>
+
+// ---------------------------------------------------------------- reading
+
+type SheetRow = {
+  tab: string
+  placement: number
+  name: string
+  gdId: number | null
+  tier: string | null
+  difficulty: string | null
+  challenge: boolean
+  source: string | null
+  skillset: string | null
+  verifyDate: string | null
+  verification: string | null
+  verificationUrl: string | null
+  /** Placement on verification. Only the top tab's is trusted. */
+  pov: number | null
+}
+
+/** The sheet's level rows in list order, plus a line of log per tab. */
+async function readSheet(db: Db, report?: ProgressReporter): Promise<SheetRow[]> {
+  const tabs = await discoverLevelTabs()
+  const knownGids = new Set(KNOWN_LEVEL_TABS.map((t) => t.gid))
+  const nameByGd = db.prepare(`SELECT name FROM levels WHERE gd_id = ?`)
+
+  report?.({ phase: 'Fetching the sheet', done: 0, total: tabs.length })
+  const chunks: { tab: SheetTab; rows: SheetRow[] }[] = []
+
+  for (const [tabIndex, tab] of tabs.entries()) {
+    const label = `"${tab.name}" (gid ${tab.gid})`
+    // A tab the site depends on must read cleanly; a newly discovered one is
+    // allowed to be empty or half-built.
+    const fail = (why: string) => {
+      if (knownGids.has(tab.gid)) {
+        throw new Error(`tab ${label}: ${why}. Nothing was changed. This is usually a transient Google response; run the import again.`)
+      }
+      console.warn(`[import] skipping tab ${label}: ${why}`)
+    }
+
+    const table = parseTable(await fetchTabHtml(tab.gid))
+    if (!table) { fail('no table in the page'); report?.({ done: chunks.length }); continue }
+    const headerIdx = findHeaderRow(table.text)
+    if (headerIdx == null) { fail('no header row'); report?.({ done: chunks.length }); continue }
+    const { cols, report: colReport } = resolveColumns(table, headerIdx)
+    console.log(`[import] ${label}: ${colReport.filter((l) => !l.endsWith('not found')).join('; ')}`)
+    if (cols.name == null) { fail('no level name column'); report?.({ done: chunks.length }); continue }
+    if (cols.placement == null) { fail('no placement column'); report?.({ done: chunks.length }); continue }
+
+    const rows: SheetRow[] = []
+    for (let i = headerIdx + 1; i < table.text.length; i++) {
+      const placement = int(cell(table, cols, i, 'placement'))
+      if (placement == null) continue
+      const gdId = int(cell(table, cols, i, 'gd_id'))
+      let name = cell(table, cols, i, 'name')
+      if (!name) {
+        // Geometry Dash allows nameless levels and the curators place them.
+        // Keep the row if it can be identified by its ID.
+        if (gdId == null) continue
+        const existing = nameByGd.all(gdId) as { name: string }[]
+        if (existing.length > 1) continue
+        name = existing[0]?.name ?? 'Unnamed'
+      }
+      const verHtml = cellHtml(table, cols, i, 'verification')
+      rows.push({
+        tab: tab.name,
+        placement,
+        name,
+        gdId,
+        tier: normTier(cell(table, cols, i, 'gddl_tier')),
+        difficulty: cell(table, cols, i, 'difficulty'),
+        challenge: (cell(table, cols, i, 'rated') ?? '').toLowerCase() === 'challenge',
+        source: cell(table, cols, i, 'source'),
+        skillset: cell(table, cols, i, 'main_skillset'),
+        verifyDate: normDate(cell(table, cols, i, 'verify_date')),
+        verification: cell(table, cols, i, 'verification'),
+        verificationUrl: extractLinkHref(verHtml),
+        pov: tabIndex === 0 ? int(cell(table, cols, i, 'pov')) : null,
+      })
+    }
+    console.log(`[import] ${label}: ${rows.length} level rows${rows.length ? ` (#${rows[0]!.placement}–#${rows[rows.length - 1]!.placement})` : ''}`)
+    if (!rows.length) fail('no level rows')
+    else chunks.push({ tab, rows })
+    report?.({ done: chunks.length })
+  }
+
+  // Tabs are read in the sheet's tab order; if the curators reorder the tabs,
+  // the placements still say which block comes first.
+  chunks.sort((a, b) => a.rows[0]!.placement - b.rows[0]!.placement)
+  return chunks.flatMap((c) => c.rows)
+}
+
+// ---------------------------------------------------------------- matching
+
+type LevelRow = {
+  id: number
   gd_id: number | null
   name: string
-  sheet_placement: number | null
+  position: number
+  permanent: number
+  site_only: number
+  pinned: number
+  site_fields: string | null
+  sheet_rank: number | null
+  submitted_by: number | null
+  source_tab: string | null
+  sheet_missing_since: string | null
   gddl_tier: string | null
   difficulty: string | null
-  verifier: string | null
-  verify_date: string | null
-  verification_url: string | null
-  source_tab: string | null
   placement_source: string | null
-  reason: string
+  main_skillset: string | null
+  verify_date: string | null
+  verification: string | null
+  verification_url: string | null
+  record_count: number
 }
 
-/**
- * Recompute `levels.site_only` from the sheet's full set of level IDs.
- *
- * A level is the site's own when the sheet lists nothing with its ID — that is
- * the whole rule. Levels with no ID at all fall back to a name match, since an
- * ID that doesn't exist can't fail to match one.
- *
- * Deliberately *not* derived from `sheet_placement`: that column answers "did a
- * sheet row claim this row on this run", which a rename or a shared Solo/2P ID
- * can answer "no" for a level the sheet very much still carries.
- */
-export function markSiteOnly(
-  db: ReturnType<typeof getDb>,
-  sheetGdIds: Set<number>,
-  sheetNames: Set<string>,
-): { siteOnly: number; changed: number } {
-  const rows = db
-    .prepare(`SELECT id, gd_id, name, site_only FROM levels`)
-    .all() as { id: number; gd_id: number | null; name: string; site_only: number }[]
-  const upd = db.prepare(`UPDATE levels SET site_only = ? WHERE id = ?`)
-  let siteOnly = 0
-  let changed = 0
+/** Sheet columns refreshed on existing levels, unless staff edited them here. */
+const REFRESHED: { col: keyof LevelRow & string; from: (r: SheetRow) => string | null }[] = [
+  { col: 'gddl_tier', from: (r) => r.tier },
+  { col: 'difficulty', from: (r) => r.difficulty },
+  { col: 'placement_source', from: (r) => r.source },
+  { col: 'main_skillset', from: (r) => r.skillset },
+  { col: 'verify_date', from: (r) => r.verifyDate },
+  { col: 'verification', from: (r) => r.verification },
+  { col: 'verification_url', from: (r) => r.verificationUrl },
+]
 
-  db.exec('BEGIN')
-  try {
-    for (const r of rows) {
-      const onSheet = r.gd_id != null
-        ? sheetGdIds.has(r.gd_id)
-        : sheetNames.has(r.name.toLowerCase())
-      const want = onSheet ? 0 : 1
-      if (want) siteOnly++
-      if (r.site_only !== want) { upd.run(want, r.id); changed++ }
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
+function makeMatcher(levels: LevelRow[], sheetGdCounts: Map<number, number>) {
+  const byKey = new Map<string, number>()
+  const nameCounts = new Map<string, number>()
+  const gdCounts = new Map<number, number>()
+  const byId = new Map<number, LevelRow>()
+  for (const l of levels) {
+    byId.set(l.id, l)
+    byKey.set(dupKey(l.gd_id, l.name), l.id)
+    const n = l.name.toLowerCase()
+    nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1)
+    if (l.gd_id != null) gdCounts.set(l.gd_id, (gdCounts.get(l.gd_id) ?? 0) + 1)
   }
-  return { siteOnly, changed }
-}
-
-/**
- * Replace the sheet-exclusive table with this run's findings. Wholesale rather
- * than incremental: the question is "what did the newest import leave behind",
- * and a row that has since been reconciled should stop being reported.
- */
-function recordSheetExclusives(db: ReturnType<typeof getDb>, rows: SheetExclusiveRow[]): void {
-  const ins = db.prepare(
-    `INSERT INTO sheet_exclusive_levels
-       (gd_id, name, sheet_placement, gddl_tier, difficulty, verifier, verify_date,
-        verification_url, source_tab, placement_source, reason)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  )
-  db.exec('BEGIN')
-  try {
-    db.exec(`DELETE FROM sheet_exclusive_levels`)
-    for (const r of rows) {
-      ins.run(
-        r.gd_id, r.name, r.sheet_placement, r.gddl_tier, r.difficulty, r.verifier,
-        r.verify_date, r.verification_url, r.source_tab, r.placement_source, r.reason,
-      )
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
+  const byName = new Map<string, number>()
+  const byGd = new Map<number, number>()
+  for (const l of levels) {
+    if (nameCounts.get(l.name.toLowerCase()) === 1) byName.set(l.name.toLowerCase(), l.id)
+    if (l.gd_id != null && gdCounts.get(l.gd_id) === 1) byGd.set(l.gd_id, l.id)
   }
+  const claimed = new Set<number>()
+
+  /**
+   * Exact (ID, name) first. Then a unique name, but never across two different
+   * IDs — names collide constantly and "Blight" ≠ "blight (ID 2)". Then a unique
+   * ID, but only when the sheet lists that ID once (Solo/2P pairs share one).
+   */
+  function match(gdId: number | null, name: string): number | undefined {
+    const take = (id: number | undefined) => {
+      if (id === undefined || claimed.has(id)) return undefined
+      claimed.add(id)
+      return id
+    }
+    const exact = take(byKey.get(dupKey(gdId, name)))
+    if (exact !== undefined) return exact
+    const n = byName.get(name.toLowerCase())
+    if (n !== undefined) {
+      const cand = byId.get(n)!
+      if (!(cand.gd_id != null && gdId != null && cand.gd_id !== gdId)) {
+        const got = take(n)
+        if (got !== undefined) return got
+      }
+    }
+    if (gdId != null && (sheetGdCounts.get(gdId) ?? 0) === 1) return take(byGd.get(gdId))
+    return undefined
+  }
+  return { match, claimed }
 }
 
-async function importLevels(report?: ProgressReporter) {
+// ---------------------------------------------------------------- the import
+
+async function importLevels(report?: ProgressReporter): Promise<void> {
   const db = getDb()
   const allowShrink = allowShrinkEnv()
 
   cleanupDuplicateLevels(db)
 
-  // `rated` is imported from the sheet only for the 'Challenge' value — every
-  // other rating is sourced from the GD API at query time. `points` is skipped
-  // entirely; values are derived from gddl_tier + position via recomputePoints().
-  // `sheet_rank` is written alongside `sheet_placement` and is the same number,
-  // but the two answer different questions from then on. `sheet_placement` is
-  // the number the list *prints*, and a placement number belongs to a slot: move
-  // a level and the numbers get handed back out in the new order, so after any
-  // move it no longer records what the sheet said. `sheet_rank` is never
-  // redistributed, so it stays the sheet's own opinion of where this level goes
-  // — which is what "put everything back the way the sheet has it" needs, and
-  // what nothing recorded before.
-  const insert = db.prepare(`
-    INSERT INTO levels
-      (position, name, gd_id, gddl_tier, difficulty, placement_source,
-       main_skillset, verify_date, verification, verification_url, pov_placement,
-       year_verified, category, source_tab, rated, sheet_placement, sheet_rank)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?, ?)
-  `)
-  // Refreshed on every run for rows that already exist, so a curator
-  // renumbering, renaming, or filling in the Level ID shows up without a wipe.
-  const updSheetRow = db.prepare(
-    `UPDATE levels SET sheet_placement = ?, sheet_rank = ?, name = ?, gd_id = COALESCE(?, gd_id) WHERE id = ?`,
-  )
-  // A level that has fallen off the sheet keeps its position but must not keep
-  // advertising a stale placement — that's what put a "#5" between #19 and #20.
-  const clearSheetPlacement = db.prepare(
-    `UPDATE levels SET sheet_placement = NULL, sheet_rank = NULL WHERE id = ?`,
-  )
+  const sheet = await readSheet(db, report)
 
-  // Levels that have a permanent counterpart are owned by the website, not the
-  // sheet — skip any incoming row matching one of these gd_ids.
-  const permGdIds = new Set(
-    (db.prepare(`SELECT gd_id FROM levels WHERE permanent = 1 AND gd_id IS NOT NULL`).all() as { gd_id: number }[])
-      .map((r) => r.gd_id),
-  )
+  const levels = db.prepare(
+    `SELECT l.id, l.gd_id, l.name, l.position, COALESCE(l.permanent, 0) AS permanent,
+            COALESCE(l.site_only, 0) AS site_only, COALESCE(l.pinned, 0) AS pinned, l.site_fields,
+            l.sheet_rank, l.submitted_by, l.source_tab, l.sheet_missing_since,
+            l.gddl_tier, l.difficulty, l.placement_source, l.main_skillset, l.verify_date,
+            l.verification, l.verification_url,
+            (SELECT COUNT(*) FROM records r WHERE r.level_id = l.id) AS record_count
+       FROM levels l ORDER BY l.position`,
+  ).all() as LevelRow[]
 
-  // Pre-load existing rows so we can decide insert vs. reuse-and-reposition.
-  // Lowercased name matches the COLLATE NOCASE index on levels.name.
-  //
-  // Matching on (gd_id, name) alone is too strict: a curator renaming a level,
-  // or filling in a Level ID that was previously blank, changes the key and the
-  // old row survives as a second copy of the same level. Two fallback indexes
-  // catch those, both restricted to values that are *unambiguous* so they can
-  // never merge genuinely distinct entries — Solo/2P variants share a gd_id and
-  // Old/Unnerfed re-releases share nothing but a similar name, so both stay
-  // separate rows.
-  const existingRows = db
-    .prepare(`SELECT id, gd_id, name FROM levels WHERE permanent = 0 OR permanent IS NULL`)
-    .all() as { id: number; gd_id: number | null; name: string }[]
-
-  const existingByKey = new Map<string, number>()   // "gd_id|name" -> id
-  const nameCounts = new Map<string, number>()
-  const gdCounts = new Map<number, number>()
-  for (const row of existingRows) {
-    existingByKey.set(dupKey(row.gd_id, row.name), row.id)
-    const n = row.name.toLowerCase()
-    nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1)
-    if (row.gd_id != null) gdCounts.set(row.gd_id, (gdCounts.get(row.gd_id) ?? 0) + 1)
-  }
-  const existingByName = new Map<string, number>()  // unique lowercase name -> id
-  const existingByGd = new Map<number, number>()    // unique gd_id -> id
-  for (const row of existingRows) {
-    const n = row.name.toLowerCase()
-    if (nameCounts.get(n) === 1) existingByName.set(n, row.id)
-    if (row.gd_id != null && gdCounts.get(row.gd_id) === 1) existingByGd.set(row.gd_id, row.id)
-  }
-  // The name fallback needs the candidate's Level ID to decide whether a name
-  // match is a rename or a collision, so keep the rows reachable by id.
-  const existingById = new Map<number, { id: number; gd_id: number | null; name: string }>(
-    existingRows.map((r) => [r.id, r]),
-  )
-
-  /**
-   * The name a sheet row means, including rows whose name cell is empty.
-   *
-   * Geometry Dash allows a level to have no name at all, and the curators
-   * place them — placement #319 is a nameless Insane by BiancaDiAngelo. The
-   * old rule read "no name" as "decoration row" and dropped it, which is
-   * worse than a missing level: everything below it sits one position away
-   * from its sheet placement, so by-placement lookups and the sheet layout
-   * disagree for the whole rest of the list.
-   *
-   * A row is only rescued when it is still identifiable — it has a placement
-   * and a Level ID. If a level with that ID is already on the site, its
-   * existing name wins (continuity if a curator merely blanked the cell);
-   * otherwise the level is called "Unnamed", the way the community writes it.
-   * The dupKey pairs the name with the ID, so several unnamed levels coexist.
-   * A row with neither name nor ID stays decoration — there is nothing to
-   * key it on.
-   */
-  const nameByGdStmt = db.prepare(`SELECT name FROM levels WHERE gd_id = ?`)
-  const rescuedRows = new Set<string>()
-  function nameForRow(rawName: string | null, gdId: number | null, placement: number | null): string | null {
-    if (rawName) return rawName
-    if (placement === null || gdId == null) return null
-    const existing = nameByGdStmt.all(gdId) as { name: string }[]
-    // Two site rows sharing the ID (Solo/2P variants) cannot be told apart
-    // from here — skip rather than guess.
-    if (existing.length > 1) return null
-    const name = existing.length === 1 ? existing[0]!.name : 'Unnamed'
-    const key = `${placement}:${gdId}`
-    if (!rescuedRows.has(key)) {
-      rescuedRows.add(key)
-      console.log(`[import]   sheet row #${placement} has no Level Name — using "${name}" (gd ${gdId})`)
-    }
-    return name
+  // The sheet's levels here, as opposed to the site's own additions.
+  const sheetBacked = levels.filter((l) => !l.permanent && !l.site_only).length
+  if (sheetBacked > 0 && sheet.length < sheetBacked * MIN_SHEET_FRACTION && !allowShrink) {
+    throw new Error(
+      `the sheet yielded ${sheet.length} level rows but ${sheetBacked} levels here come from it. ` +
+      `Refusing to import, nothing was changed. If the sheet really shrank that much, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
+    )
   }
 
-  /** Ids already claimed by a sheet row this run, so two rows can't share one. */
-  const claimed = new Set<number>()
+  snapshotBeforeImport(db)
 
-  /**
-   * Resolve a sheet row to an existing level. Exact key first, then the
-   * unambiguous fallbacks. `sheetGdCounts` guards the gd_id fallback: if the
-   * sheet itself lists that id twice (a Solo/2P pair), matching on it would
-   * collapse the pair into one row.
-   */
-  function findExistingLevel(
-    gdId: number | null,
-    name: string,
-    sheetGdCounts: Map<number, number>,
-  ): number | undefined {
-    const exact = existingByKey.get(dupKey(gdId, name))
-    if (exact !== undefined && !claimed.has(exact)) return exact
-
-    // The name fallback exists for one case: the sheet renamed a level, or filled
-    // in a Level ID that used to be blank, so the exact key no longer matches a
-    // row that is nonetheless the same level. It must never fire when the two
-    // sides carry *different* Level IDs — that is not one level under two names,
-    // it is two levels that happen to share one. Names collide constantly here
-    // and `dupKey` lowercases, so "Blight" and "blight" look identical: without
-    // this check a Main row claimed a Subtier level sitting at #40,179, replaced
-    // its name and ID with its own, and dragged it to #415 — while the real
-    // Subtier row, finding its level taken, was re-inserted as a duplicate.
-    const byName = existingByName.get(name.toLowerCase())
-    if (byName !== undefined && !claimed.has(byName)) {
-      const candidate = existingById.get(byName)
-      const idsContradict = candidate != null && candidate.gd_id != null && gdId != null
-        && candidate.gd_id !== gdId
-      if (!idsContradict) return byName
-    }
-
-    if (gdId != null && (sheetGdCounts.get(gdId) ?? 0) === 1) {
-      const byGd = existingByGd.get(gdId)
-      if (byGd !== undefined && !claimed.has(byGd)) return byGd
-    }
-    return undefined
-  }
-
-  // Sheet placement numbers are not authoritative — the row order *within* each
-  // tab is. Same level appearing on multiple tabs (e.g. main + tier-specific)
-  // collapses to a single row; the first tab to claim it wins, matching the
-  // TABS order (Main, then tiers). The placement column is still read, but only
-  // as a "is this a real level row" signal (decoration / section-header rows
-  // have no placement value).
-  //
-  // Newly-encountered rows are inserted with a temporary position above
-  // MAX(position); applySheetOrder below renumbers everything to match the
-  // sheet's current ordering.
-  let tempPos = (db.prepare(`SELECT COALESCE(MAX(position), 0) AS m FROM levels`).get() as { m: number }).m
-
-  // Ids inserted by this run, and whether the list existed beforehand. The
-  // first seed of an empty database isn't news — writing 54,000 "added"
-  // entries for it would bury every real change under the initial import.
-  const newIds = new Set<number>()
-  const hadLevelsBefore = tempPos > 0
-
-  const sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[] = []
-  const seenKeys = new Set<string>()
-  let total = 0
-  let skipped = 0
-  let permSkipped = 0
-
-  // --- Phase 1: fetch every tab, then count how often each Level ID appears
-  // across the whole sheet. The gd_id fallback in findExistingLevel is only
-  // safe for ids the sheet lists once; a Solo/2P pair shares an id, and
-  // matching on it would collapse the pair into a single row.
-  type FetchedTab = {
-    tab: (typeof TABS)[number]
-    text: string[][]
-    html: string[][]
-    cols: Record<string, number>
-    headerIdx: number
-  }
-  const fetched: FetchedTab[] = []
   const sheetGdCounts = new Map<number, number>()
-  // Every level ID and every level name the sheet lists anywhere. These decide
-  // `site_only` at the end of the run: a level here whose ID the sheet doesn't
-  // carry is the site's own, whatever happened to it during reconciliation.
   const sheetGdIds = new Set<number>()
   const sheetNames = new Set<string>()
-  // Sheet rows that never became a level on the site (see recordSheetExclusives).
+  for (const r of sheet) {
+    if (r.gdId != null) {
+      sheetGdCounts.set(r.gdId, (sheetGdCounts.get(r.gdId) ?? 0) + 1)
+      sheetGdIds.add(r.gdId)
+    }
+    sheetNames.add(r.name.toLowerCase())
+  }
+
+  const tombstones = db.prepare(`SELECT id, gd_id, name FROM level_tombstones`).all() as { id: number; gd_id: number | null; name: string }[]
+  const tombByGd = new Map(tombstones.filter((t) => t.gd_id != null).map((t) => [t.gd_id!, t.id]))
+  const tombByName = new Map(tombstones.filter((t) => t.gd_id == null).map((t) => [t.name.toLowerCase(), t.id]))
+  const tombstonesStillListed = new Set<number>()
+
+  const { match, claimed } = makeMatcher(levels, sheetGdCounts)
+  const byId = new Map(levels.map((l) => [l.id, l]))
+
+  // Where the sheet puts each level this run (its own number), and the order
+  // the sheet rows came in.
+  const sheetRankById = new Map<number, number>()
+  const sheetIndexById = new Map<number, number>()
   const sheetExclusives: SheetExclusiveRow[] = []
+  const seenKeys = new Set<string>()
+  const updates: { id: number; row: SheetRow }[] = []
+  const inserts: { row: SheetRow; index: number }[] = []
+  const challengeIds = new Set<number>()
 
-  // How many levels each tab currently owns. Read before anything is fetched so
-  // it describes the list as it stands, and used twice below: to reject a tab
-  // that comes back far smaller than the levels it is responsible for, and to
-  // explain the numbers if the run is refused.
-  //
-  // This matters because of what happens at the end of reconciliation: a level
-  // the sheet didn't claim this run is deleted if it was sheet-born and carries
-  // no records — and the records table is empty in production by design, so
-  // "carries no records" is every level. A tab that fails to parse therefore
-  // doesn't degrade the import, it deletes its entire contents.
-  const ownedByTab = new Map<string, number>(
-    (db.prepare(
-      `SELECT source_tab AS tab, COUNT(*) AS n
-         FROM levels
-        WHERE source_tab IS NOT NULL AND (permanent = 0 OR permanent IS NULL)
-        GROUP BY source_tab`,
-    ).all() as { tab: string; n: number }[]).map((r) => [r.tab, r.n]),
-  )
+  sheet.forEach((row, index) => {
+    const key = dupKey(row.gdId, row.name)
+    if (seenKeys.has(key)) return // listed twice, e.g. at the seam between two tabs
+    seenKeys.add(key)
 
-  report?.({ phase: 'Fetching the sheet', done: 0, total: TABS.length })
-  for (const tab of TABS) {
-    process.stdout.write(`Fetching tab "${tab.label}" (gid=${tab.gid})... `)
-    const { text, html } = await fetchTabRows(tab.gid)
-    const found = findHeaderColumns(text)
-    // A missing header row used to be a `continue`. It cannot be: skipping a tab
-    // hands every level it owns to the pruner. Google's published-HTML endpoint
-    // answers 200 with a consent page, an error page or an empty document often
-    // enough that this was a live hazard, not a theoretical one, and the failure
-    // is silent — the log line said "skipping" and the next run said nothing at
-    // all, because by then the levels were gone.
-    if (!found) {
-      throw new Error(
-        `tab "${tab.label}" (gid=${tab.gid}) returned no header row — aborting before ` +
-        `any level is deleted. The tab currently owns ` +
-        `${ownedByTab.get(tab.label) ?? 0} level(s); continuing would delete them. ` +
-        `This is usually a transient Google response — re-run the import.`,
-      )
-    }
-    const c = refineColumns(text, found.cols, found.headerIdx + 1)
-
-    resolvePlacementColumn(c)
-
-    // Without a placement column every row fails the `placement === null` test
-    // below and is counted as decoration, so the tab yields nothing while
-    // reporting a full set of rows — the quietest possible failure, and the one
-    // that emptied the Main tab when "Placement" became "#". A tab whose rows
-    // cannot be read is not a tab whose levels are gone.
-    if (c['placement'] == null) {
-      throw new Error(
-        `tab "${tab.label}" (gid=${tab.gid}) has no placement column — its header ` +
-        `row reads [${Object.keys(found.cols).join(', ')}]. Aborting before any level ` +
-        `is deleted; the tab owns ${ownedByTab.get(tab.label) ?? 0} level(s), and ` +
-        `without this column every row parses as decoration. If the sheet renamed ` +
-        `the column, add the new title to the alias above.`,
-      )
+    const tomb = row.gdId != null ? tombByGd.get(row.gdId) : tombByName.get(row.name.toLowerCase())
+    if (tomb !== undefined) {
+      tombstonesStillListed.add(tomb)
+      sheetExclusives.push(exclusiveFrom(row, 'removed on the site'))
+      return
     }
 
-    // The "Placement on Verification" column in the published sheet has a
-    // uniform "1" indicator cell at the labelled column; the actual placement
-    // value lives one column to the right. refineColumns can't detect this
-    // because it only shifts when the labelled cell is empty.
-    if (c['placement on verification'] != null) {
-      c['placement on verification'] = c['placement on verification'] + 1
+    const id = match(row.gdId, row.name)
+    if (id !== undefined) {
+      updates.push({ id, row })
+      sheetRankById.set(id, row.placement)
+      sheetIndexById.set(id, index)
+    } else {
+      inserts.push({ row, index })
     }
-    // Count the rows that will actually become levels, not the rows the tab
-    // contains. Those are very different numbers — the Main tab returned 14,978
-    // rows and zero levels — and only the first one is worth guarding on.
-    let usable = 0
-    for (let i = found.headerIdx + 1; i < text.length; i++) {
-      const r = text[i]!
-      const gd = num(r[c['level id']!])
-      const rowName = nameForRow(txt(r[c['level name']!]), gd, num(r[c['placement']!]))
-      if (!rowName || num(r[c['placement']!]) === null) continue
-      usable++
-      if (gd != null) {
-        sheetGdCounts.set(gd, (sheetGdCounts.get(gd) ?? 0) + 1)
-        sheetGdIds.add(gd)
-      }
-      sheetNames.add(rowName.toLowerCase())
-    }
-    console.log(`${text.length - found.headerIdx - 1} rows, ${usable} usable`)
-
-    // A tab that parses but yields a fraction of the levels it owns is the other
-    // way a read fails quietly: a truncated response, a partial render, a column
-    // the sheet renamed. Curators shrinking a tab on purpose can pass
-    // LIST_IMPORT_ALLOW_SHRINK=1 for one run.
-    const owned = ownedByTab.get(tab.label) ?? 0
-    if (owned > 0 && usable < owned * TAB_SHRINK_FLOOR && !allowShrink) {
-      throw new Error(
-        `tab "${tab.label}" (gid=${tab.gid}) yielded ${usable} usable row(s) but owns ` +
-        `${owned} level(s) — aborting before any level is deleted, because ` +
-        `reconciliation would delete the difference. Re-run to retry; if the tab really ` +
-        `did shrink, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
-      )
-    }
-
-    fetched.push({ tab, text, html, cols: c, headerIdx: found.headerIdx })
-    report?.({ done: fetched.length })
-  }
-
-  // --- Phase 2: reconcile the sheet against the database.
-  report?.({ phase: 'Reconciling rows', done: 0, total: fetched.length })
-  let tabsDone = 0
-  for (const { tab, text, html, cols: c, headerIdx } of fetched) {
-    const found = { headerIdx }
-    const sourceCol = c['source'] ?? c['primary source']
-    const verCol = c['verification link']
-    let imported = 0
-
-    db.exec('BEGIN')
-    try {
-      for (let i = found.headerIdx + 1; i < text.length; i++) {
-        const r = text[i]!
-        const rh = html[i]!
-        const gdId = num(r[c['level id']!])
-        const placement = num(r[c['placement']!])
-        const name = nameForRow(txt(r[c['level name']!]), gdId, placement)
-        // Filter, don't assign — placement === null means decoration row.
-        if (!name || placement === null) { skipped++; continue }
-        if (gdId !== null && permGdIds.has(gdId)) {
-          permSkipped++
-          // The sheet's version of this level never lands here — a permanent
-          // site row owns the ID and the importer leaves it alone. That makes
-          // the sheet's data for this row unrepresented on the site, which is
-          // exactly what the sheet-exclusive report is for.
-          sheetExclusives.push({
-            gd_id: gdId,
-            name,
-            sheet_placement: placement,
-            gddl_tier: txt(r[c['gddl tier']!]),
-            difficulty: txt(r[c['difficulty']!]),
-            verifier: null,
-            verify_date: txt(r[c['verify date']!]),
-            verification_url: verCol != null ? extractLinkHref(rh[verCol] ?? '') : null,
-            source_tab: tab.label,
-            placement_source: sourceCol != null ? txt(r[sourceCol]) : null,
-            reason: 'owned by a permanent level on the site',
-          })
-          continue
-        }
-        const key = dupKey(gdId, name)
-        // Already encountered earlier in the sheet — record nothing twice.
-        // A Set lookup, not a scan: the old `sheetOrder.some(...)` was O(n²)
-        // over 54k rows.
-        if (seenKeys.has(key)) continue
-        seenKeys.add(key)
-        const ratedRaw = txt(r[c['rated']!])
-        const sheetRated = ratedRaw?.toLowerCase() === 'challenge' ? 'Challenge' : null
-        sheetOrder.push({ key, gdId, name, rated: sheetRated })
-
-        const known = findExistingLevel(gdId, name, sheetGdCounts)
-        if (known !== undefined) {
-          claimed.add(known)
-          // The row may have been found by a fallback because the sheet
-          // renamed it or filled in its Level ID — write both back so the
-          // next run matches on the exact key again.
-          updSheetRow.run(placement, placement, name, gdId, known)
-          continue
-        }
-
-        tempPos++
-        const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
-        // Placement on verification is only trusted on the Main tab (gid=0);
-        // tier-specific tabs have stale / off-by-one values for these.
-        const povCol = c['placement on verification']
-        const pov = tab.gid === '0' && povCol != null ? num(r[povCol]!) : null
-        const result = insert.run(
-          tempPos,
-          name,
-          gdId,
-          txt(r[c['gddl tier']!]),
-          txt(r[c['difficulty']!]),
-          sourceCol != null ? txt(r[sourceCol]) : null,
-          txt(r[c['main skillset']!]),
-          txt(r[c['verify date']!]),
-          verCol != null ? txt(r[verCol]) : null,
-          verHref,
-          pov,
-          num(r[c['year verified']!]),
-          tab.label,
-          sheetRated,
-          placement,
-          placement,
-        )
-        newIds.add(Number(result.lastInsertRowid))
-        existingByKey.set(key, Number(result.lastInsertRowid))
-        imported++
-      }
-      db.exec('COMMIT')
-    } catch (e) {
-      db.exec('ROLLBACK')
-      throw e
-    }
-    console.log(`${imported} new`)
-    total += imported
-    report?.({ done: ++tabsDone })
-  }
-
-  // Levels on the site but not in the sheet: promoted submissions, hand-placed
-  // additions, levels the curators removed. Their placement is the site's, not
-  // the sheet's, so clear `sheet_placement` (the list must never show a number
-  // the sheet doesn't back) and pin them where they are. Previously they were
-  // swept to the bottom on every import, which is why a level added through
-  // the site kept ending up at the end of the list.
-  const unmatched = existingRows.filter((r) => !claimed.has(r.id) && !newIds.has(r.id))
-
-  // Split the unmatched rows. One that originally came from a sheet tab and
-  // was never touched through the site is a level the sheet has since renamed
-  // or removed — the leftover copy is the duplicate that kept piling up at the
-  // bottom of the list, so delete it. Anything a person put here (a site
-  // submission, or a row carrying records) is kept and pinned in place.
-  const detail = db.prepare(
-    `SELECT id, source_tab, submitted_by, permanent,
-            (SELECT COUNT(*) FROM records WHERE records.level_id = levels.id) AS record_count
-       FROM levels WHERE id = ?`,
-  )
-  const prunable: typeof unmatched = []
-  const strays: typeof unmatched = []
-  for (const r of unmatched) {
-    const d = detail.get(r.id) as
-      { source_tab: string | null; submitted_by: number | null; permanent: number; record_count: number }
-    const sheetBorn = !!d.source_tab && !d.submitted_by && !d.permanent && d.record_count === 0
-    ;(sheetBorn ? prunable : strays).push(r)
-  }
-
-  // Last line of defence before the deletes go through. The `record_count === 0`
-  // term in `sheetBorn` reads like a safety valve and isn't one: the records
-  // table is empty in production by design, so every level qualifies and nothing
-  // is ever spared by it. Bound the damage by volume instead, which holds
-  // whatever the reason — and report the tabs involved, because a prune
-  // concentrated in one tab is a failed read and a prune spread evenly is a real
-  // sheet edit.
-  if (prunable.length > Math.max(50, existingRows.length * MAX_PRUNE_FRACTION) && !allowShrink) {
-    const byTab = new Map<string, number>()
-    for (const r of prunable) {
-      const t = (detail.get(r.id) as { source_tab: string | null }).source_tab ?? '(none)'
-      byTab.set(t, (byTab.get(t) ?? 0) + 1)
-    }
-    const breakdown = [...byTab.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([t, n]) => `${t}: ${n}`)
-      .join(', ')
-    throw new Error(
-      `import would delete ${prunable.length} of ${existingRows.length} level(s) ` +
-      `(${breakdown}) — refusing, and nothing has been deleted. Re-run the import; ` +
-      `if this really is intended, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
-    )
-  }
-
-  if (prunable.length) {
-    const del = db.prepare(`DELETE FROM levels WHERE id = ?`)
-    db.exec('BEGIN')
-    try {
-      for (const r of prunable) del.run(r.id)
-      db.exec('COMMIT')
-    } catch (e) { db.exec('ROLLBACK'); throw e }
-    console.log(`${prunable.length} sheet level(s) no longer in the sheet — removed:`)
-    for (const r of prunable.slice(0, 20)) console.log(`  · ${r.name}${r.gd_id ? ` (${r.gd_id})` : ''}`)
-    if (prunable.length > 20) console.log(`  … and ${prunable.length - 20} more`)
-  }
-
-  if (strays.length) {
-    db.exec('BEGIN')
-    try {
-      for (const s of strays) clearSheetPlacement.run(s.id)
-      db.exec('COMMIT')
-    } catch (e) { db.exec('ROLLBACK'); throw e }
-    console.log(`${strays.length} site-only level(s) — placement held, sheet number cleared:`)
-    for (const s of strays.slice(0, 20)) console.log(`  · ${s.name}${s.gd_id ? ` (${s.gd_id})` : ''}`)
-    if (strays.length > 20) console.log(`  … and ${strays.length - 20} more`)
-  }
-
-  // Which levels here the sheet has no ID for, and which sheet rows never
-  // became a level here. Both are recomputed from scratch each run, so they
-  // always describe the sheet as it is now rather than as it once was.
-  const siteOnlyStats = markSiteOnly(db, sheetGdIds, sheetNames)
-  recordSheetExclusives(db, sheetExclusives)
-  console.log(
-    `${siteOnlyStats.siteOnly} level(s) have no matching ID on the sheet ` +
-    `(${siteOnlyStats.changed} reclassified). ${sheetExclusives.length} sheet row(s) not represented here.`,
-  )
-
-  report?.({ phase: 'Renumbering by sheet order', done: 0, total: null })
-  const orphans = applySheetOrder(db, sheetOrder, {
-    newIds,
-    recordHistory: hadLevelsBefore,
-    anchorIds: new Set(strays.map((s) => s.id)),
   })
-  applyRatedFromSheet(db, sheetOrder)
 
-  // A level whose tier disagrees with both neighbours (Tier 31, 30, 31) is a
-  // sheet typo — correct it before points are derived from those tiers.
-  const tierFixes = repairSandwichedTiers(db)
-  for (const f of tierFixes) {
-    console.log(`  tier fix: #${f.position} ${f.name}: ${f.from} → ${f.to}`)
+  // ---- write the sheet's data
+  report?.({ phase: 'Updating levels', done: 0, total: null })
+  const hadLevelsBefore = levels.length > 0
+  const newIds = new Set<number>()
+  let refreshed = 0
+  let handedOver = 0
+
+  tx(db, () => {
+    const insert = db.prepare(`
+      INSERT INTO levels
+        (position, name, gd_id, gddl_tier, difficulty, placement_source, main_skillset,
+         verify_date, verification, verification_url, pov_placement, category, source_tab,
+         rated, sheet_placement, sheet_rank)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'classic', ?, ?, ?, ?)`)
+    let tempPos = levels.reduce((m, l) => Math.max(m, l.position), 0)
+
+    for (const { id, row } of updates) {
+      const lvl = byId.get(id)!
+      const site = parseSiteFields(lvl.site_fields)
+      const sets: string[] = []
+      const vals: (string | number | null)[] = []
+      const set = (col: string, v: string | number | null) => { sets.push(`${col} = ?`); vals.push(v) }
+
+      if (lvl.permanent) {
+        // A level the site added, now on the sheet: the sheet takes it over.
+        // Whatever the site says differently is kept as a site edit.
+        // The tier is left out: placement goes back to the sheet, and the tier
+        // belongs to the placement.
+        for (const f of REFRESHED) {
+          if (f.col === 'gddl_tier') continue
+          const mine = lvl[f.col] as string | null
+          const theirs = f.from(row)
+          if (mine && theirs && mine !== theirs) site.add(f.col)
+        }
+        site.delete('gddl_tier')
+        if (row.name.toLowerCase() !== lvl.name.toLowerCase()) site.add('name')
+        set('permanent', 0)
+        set('site_fields', site.size ? JSON.stringify([...site].sort()) : null)
+        handedOver++
+      }
+
+      if (!site.has('name') && row.name !== lvl.name) set('name', row.name)
+      if (!site.has('gd_id') && row.gdId != null && row.gdId !== lvl.gd_id) set('gd_id', row.gdId)
+      let changedField = false
+      for (const f of REFRESHED) {
+        const v = f.from(row)
+        if (v == null || site.has(f.col) || lvl[f.col] === v) continue
+        set(f.col, v)
+        changedField = true
+      }
+      if (changedField) refreshed++
+      set('sheet_rank', row.placement)
+      set('source_tab', row.tab)
+      if (lvl.sheet_missing_since) set('sheet_missing_since', null)
+      vals.push(id)
+      db.prepare(`UPDATE levels SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+      if (row.challenge) challengeIds.add(id)
+    }
+
+    for (const { row, index } of inserts) {
+      tempPos++
+      const res = insert.run(
+        tempPos, row.name, row.gdId, row.tier, row.difficulty, row.source, row.skillset,
+        row.verifyDate, row.verification, row.verificationUrl, row.pov,
+        row.tab, row.challenge ? 'Challenge' : null, tempPos, row.placement,
+      )
+      const id = Number(res.lastInsertRowid)
+      newIds.add(id)
+      sheetRankById.set(id, row.placement)
+      sheetIndexById.set(id, index)
+      if (row.challenge) challengeIds.add(id)
+    }
+  })
+
+  // ---- levels the sheet no longer lists
+  const unmatched = levels.filter((l) => !claimed.has(l.id))
+  const now = Date.now()
+  const graceMs = pruneNowEnv() ? 0 : MISSING_GRACE_HOURS * 3600_000
+  const toPrune: LevelRow[] = []
+  const missingNow: LevelRow[] = []
+  const anchors = new Set<number>()
+  for (const l of unmatched) {
+    // Only a level the sheet put here can be taken away by the sheet. Anything
+    // a person added, or that carries records, stays.
+    const sheetBorn = !l.permanent && !l.submitted_by && l.source_tab !== 'ALL Submission' && l.record_count === 0
+    if (!sheetBorn) { anchors.add(l.id); continue }
+    const since = l.sheet_missing_since ? Date.parse(`${l.sheet_missing_since.replace(' ', 'T')}Z`) : NaN
+    if (Number.isFinite(since) && now - since >= graceMs) toPrune.push(l)
+    else { missingNow.push(l); anchors.add(l.id) }
   }
 
-  // Points are derived from tier + position; recompute against the freshly
-  // settled list ordering so every level (including imports just renumbered)
-  // ends up with a current value.
-  report?.({ phase: 'Recomputing points', done: 0, total: null })
-  recomputePoints(db)
+  if (toPrune.length > Math.max(50, levels.length * MAX_PRUNE_FRACTION) && !allowShrink) {
+    throw new Error(
+      `the import would remove ${toPrune.length} of ${levels.length} levels. Refusing; nothing was removed. ` +
+      `If that is really intended, set LIST_IMPORT_ALLOW_SHRINK=1 for one run.`,
+    )
+  }
 
-  // Detect natural ties (level has the same points as its position-neighbor
-  // above) and pre-flag them as `same_as_above`. Pure import-time housekeeping —
-  // future moves of the upper level will then keep the lower one in sync.
-  const flagged = flagSameAsAbove(db)
+  tx(db, () => {
+    const markMissing = db.prepare(`UPDATE levels SET sheet_missing_since = datetime('now') WHERE id = ? AND sheet_missing_since IS NULL`)
+    for (const l of missingNow) markMissing.run(l.id)
+    const clearRank = db.prepare(`UPDATE levels SET sheet_rank = NULL WHERE id = ?`)
+    for (const id of anchors) clearRank.run(id)
+    const del = db.prepare(`DELETE FROM levels WHERE id = ?`)
+    for (const l of toPrune) {
+      recordRemoval(db, l.id, null, 'Removed from the sheet')
+      del.run(l.id)
+    }
+    // The sheet dropped the rows these were holding back.
+    const dropTomb = db.prepare(`DELETE FROM level_tombstones WHERE id = ?`)
+    for (const t of tombstones) if (!tombstonesStillListed.has(t.id)) dropTomb.run(t.id)
+  })
+
+  if (missingNow.length) {
+    console.log(`[import] ${missingNow.length} level(s) not on the sheet this run; removed next run if still missing:`)
+    for (const l of missingNow.slice(0, 15)) console.log(`  · ${l.name}${l.gd_id ? ` (${l.gd_id})` : ''}`)
+  }
+  if (toPrune.length) {
+    console.log(`[import] removed ${toPrune.length} level(s) the sheet no longer lists:`)
+    for (const l of toPrune.slice(0, 15)) console.log(`  · ${l.name}${l.gd_id ? ` (${l.gd_id})` : ''}`)
+  }
+
+  const siteOnly = markSiteOnly(db, sheetGdIds, sheetNames)
+  recordSheetExclusives(db, sheetExclusives)
+
+  // ---- order
+  report?.({ phase: 'Ordering', done: 0, total: null })
+  const pins = settlePins(db, levels, sheetRankById, anchors)
+  const satisfied = applySheetOrder(db, sheetIndexById, { anchors, newIds, recordHistory: hadLevelsBefore })
+  applyChallengeFromSheet(db, challengeIds)
+
+  const tierFixes = repairSandwichedTiers(db)
+  for (const f of tierFixes.slice(0, 20)) console.log(`  tier fix: #${f.position} ${f.name}: ${f.from} → ${f.to}`)
+
+  report?.({ phase: 'Recomputing points', done: 0, total: null })
+  afterListChange(db)
 
   console.log(
-    `\nImported ${total} new levels; renumbered all non-permanent rows by sheet order ` +
-    `(${orphans} not in current sheet, kept at end). ${skipped} blank rows, ` +
-    `${permSkipped} skipped — owned by permanent records. Points recomputed. ` +
-    `${flagged} level(s) auto-flagged "same as above". ` +
-    `${tierFixes.length} sandwiched tier(s) corrected.`,
+    `[import] ${sheet.length} sheet rows: ${updates.length} matched (${refreshed} with new data), ${newIds.size} new, ` +
+    `${handedOver} handed to the sheet, ${toPrune.length} removed, ${missingNow.length} missing once, ` +
+    `${sheetExclusives.length} skipped. Pins: ${pins.kept} kept, ${pins.released + satisfied} released. ` +
+    `${siteOnly.siteOnly} site-only. ${tierFixes.length} tier fix(es).`,
   )
 }
 
 /**
- * Flag `same_as_above = 1` on any level whose `points` exactly match the level
- * immediately above it (position − 1). Only writes when the flag is currently
- * 0 — never clears a flag set elsewhere, and is otherwise a no-op on rerun.
- * Returns the number of rows updated this call.
+ * Release pins the sheet has overruled.
  *
- * Position-adjacency is required so a gap (e.g. a missing position from a
- * past delete) doesn't cause us to bridge unrelated rows.
+ * A pin holds until the curators move that level themselves. "Moved" means
+ * moved relative to the other levels — everything outside the longest run of
+ * levels the old and new sheet orders agree on — so a level merely shifted by
+ * insertions above it keeps its pin.
  */
-function flagSameAsAbove(db: ReturnType<typeof getDb>): number {
-  const rows = db
-    .prepare(
-      `SELECT id, position, points, same_as_above
-         FROM levels
-        ORDER BY position ASC`,
-    )
-    .all() as { id: number; position: number; points: number | null; same_as_above: number }[]
-  if (rows.length < 2) return 0
+function settlePins(db: Db, levels: LevelRow[], sheetRankById: Map<number, number>, anchors: Set<number>): { kept: number; released: number } {
+  const pinned = levels.filter((l) => l.pinned)
+  if (!pinned.length) return { kept: 0, released: 0 }
 
-  const upd = db.prepare(`UPDATE levels SET same_as_above = 1 WHERE id = ?`)
-  let prev: (typeof rows)[number] | null = null
-  let flagged = 0
-
-  db.exec('BEGIN')
-  try {
-    for (const r of rows) {
-      if (
-        prev &&
-        prev.position === r.position - 1 &&
-        prev.points != null &&
-        r.points != null &&
-        Math.abs(prev.points - r.points) < 1e-6 &&
-        !r.same_as_above
-      ) {
-        upd.run(r.id)
-        flagged++
-      }
-      prev = r
+  const oldRank = new Map<number, number>()
+  const newRank = new Map<number, number>()
+  for (const l of levels) {
+    const now = sheetRankById.get(l.id)
+    if (l.sheet_rank != null && now != null) {
+      oldRank.set(l.id, l.sheet_rank)
+      newRank.set(l.id, now)
     }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
   }
-  return flagged
+  const movedBySheet = new Set(survivorsThatMoved(oldRank, newRank))
+
+  let released = 0
+  let kept = 0
+  tx(db, () => {
+    for (const l of pinned) {
+      if (!sheetRankById.has(l.id)) { anchors.add(l.id); kept++; continue }
+      if (movedBySheet.has(l.id)) {
+        releasePin(db, l.id)
+        released++
+      } else {
+        anchors.add(l.id)
+        kept++
+      }
+    }
+  })
+  return { kept, released }
+}
+
+function releasePin(db: Db, id: number): void {
+  const row = db.prepare(`SELECT site_fields FROM levels WHERE id = ?`).get(id) as { site_fields: string | null }
+  const site = parseSiteFields(row.site_fields)
+  site.delete('gddl_tier') // the tier came with the slot, and the slot is the sheet's again
+  db.prepare(`UPDATE levels SET pinned = 0, pinned_at = NULL, site_fields = ? WHERE id = ?`)
+    .run(site.size ? JSON.stringify([...site].sort()) : null, id)
 }
 
 /**
- * Sync the 'rated' field for non-permanent levels based on the sheet data.
- * Only the 'Challenge' value is imported from the sheet; all other ratings
- * come from the GD API at query time and are never overwritten here.
- * - If sheet says 'Challenge' and DB doesn't → set to 'Challenge'.
- * - If sheet doesn't say 'Challenge' and DB has 'Challenge' → clear to NULL
- *   (so it no longer suppresses the GD API rating).
- * - Other rated values (Featured, Epic, etc.) set by admins are left alone.
- */
-function applyRatedFromSheet(
-  db: ReturnType<typeof getDb>,
-  sheetOrder: { key: string; gdId: number | null; name: string; rated: string | null }[],
-): void {
-  const challengeKeys = new Set(
-    sheetOrder.filter((s) => s.rated === 'Challenge').map((s) => s.key),
-  )
-
-  const rows = db
-    .prepare(`SELECT id, gd_id, name, rated FROM levels WHERE permanent = 0 OR permanent IS NULL`)
-    .all() as { id: number; gd_id: number | null; name: string; rated: string | null }[]
-
-  const update = db.prepare(`UPDATE levels SET rated = ? WHERE id = ?`)
-  let changed = 0
-
-  db.exec('BEGIN')
-  try {
-    for (const row of rows) {
-      const key = dupKey(row.gd_id, row.name)
-      const sheetSaysChallenge = challengeKeys.has(key)
-      if (sheetSaysChallenge && row.rated !== 'Challenge') {
-        update.run('Challenge', row.id)
-        changed++
-      } else if (!sheetSaysChallenge && row.rated === 'Challenge') {
-        update.run(null, row.id)
-        changed++
-      }
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-
-  if (changed > 0) console.log(`Challenge rated: ${changed} level(s) updated.`)
-}
-
-/**
- * Two-phase reposition. Sheet entries get sequential positions starting at 1,
- * skipping over positions held by permanent levels (which are website-owned and
- * never move). DB rows that don't match a sheet entry are appended after the
- * sheet entries in their previous-position order. Everything happens inside a
- * single transaction; the negative-position parking step lets us swap rows
- * without tripping the position UNIQUE constraint mid-way.
+ * Renumber the list: sheet levels in the sheet's order, and every anchored
+ * level (pinned, site-added, missing this run) directly after whichever sheet
+ * level it followed before. Positions come out 1..N with no gaps.
  *
- * Returns the count of non-permanent rows that weren't matched against the
- * sheet (orphans).
+ * Returns how many pins turned out to agree with the sheet and were released.
  */
 function applySheetOrder(
-  db: ReturnType<typeof getDb>,
-  sheetOrder: { key: string; gdId: number | null; name: string }[],
-  opts: { newIds?: Set<number>; recordHistory?: boolean; anchorIds?: Set<number> } = {},
+  db: Db,
+  sheetIndexById: Map<number, number>,
+  opts: { anchors: Set<number>; newIds: Set<number>; recordHistory: boolean },
 ): number {
-  const sheetRank = new Map<string, number>()
-  sheetOrder.forEach((s, i) => sheetRank.set(s.key, i))
+  const all = db.prepare(`SELECT id, position, pinned FROM levels ORDER BY position ASC`).all() as { id: number; position: number; pinned: number }[]
+  const oldPositions = new Map(all.map((r) => [r.id, r.position]))
 
-  const anchorIds = opts.anchorIds ?? new Set<number>()
-  const allNonPerm = (db
-    .prepare(`SELECT id, gd_id, name, position FROM levels WHERE permanent = 0 OR permanent IS NULL`)
-    .all() as { id: number; gd_id: number | null; name: string; position: number }[])
-    .sort((a, b) => a.position - b.position)
-
-  // Positions before the renumber, so real movements can be told apart from
-  // the passive shifting every level does when rows are inserted above it.
-  const oldPositions = new Map<number, number>(allNonPerm.map((r) => [r.id, r.position]))
-
-  // A level the site owns rather than the sheet keeps its place in the list by
-  // remembering which sheet level it sits *behind*, not by holding an absolute
-  // position number. Those are only the same thing while the rows above it stay
-  // put: pin a site level to #4,000 and let the sheet grow by ten thousand rows
-  // above it, and it is still at #4,000 while the levels it used to sit among
-  // have moved thousands of places — which is how a hand-placed level ends up
-  // somewhere unrecognisable after a refresh. Predecessor is read from the order
-  // as it stands now, before anything is renumbered.
-  const followers = new Map<number | 'top', typeof allNonPerm>()
-  let precedingSheetRow: number | 'top' = 'top'
-  for (const r of allNonPerm) {
-    if (anchorIds.has(r.id)) {
-      const list = followers.get(precedingSheetRow) ?? []
-      list.push(r)
-      followers.set(precedingSheetRow, list)
+  const followers = new Map<number | 'top', number[]>()
+  let prev: number | 'top' = 'top'
+  for (const r of all) {
+    if (opts.anchors.has(r.id)) {
+      const list = followers.get(prev) ?? []
+      list.push(r.id)
+      followers.set(prev, list)
     } else {
-      precedingSheetRow = r.id
+      prev = r.id
     }
   }
 
-  const ranked = allNonPerm
-    .filter((r) => !anchorIds.has(r.id))
-    .map((r) => ({
-      id: r.id,
-      rank: sheetRank.get(dupKey(r.gd_id, r.name)) ?? Number.POSITIVE_INFINITY,
-      fallbackPos: r.position,
-    }))
-  ranked.sort((a, b) => a.rank - b.rank || a.fallbackPos - b.fallbackPos)
+  const ranked = all
+    .filter((r) => !opts.anchors.has(r.id))
+    .map((r) => ({ id: r.id, rank: sheetIndexById.get(r.id) ?? Number.POSITIVE_INFINITY, pos: r.position }))
+    .sort((a, b) => a.rank - b.rank || a.pos - b.pos)
 
-  // Weave the anchored rows back in behind whichever level they were following.
-  const finalOrder: number[] = []
-  for (const s of followers.get('top') ?? []) finalOrder.push(s.id)
+  const order: number[] = [...(followers.get('top') ?? [])]
   for (const r of ranked) {
-    finalOrder.push(r.id)
-    for (const s of followers.get(r.id) ?? []) finalOrder.push(s.id)
-  }
-
-  // Permanent levels are website-owned and never move, so their positions stay
-  // spoken for and the rest of the list flows around them.
-  const permanentPositions = new Set(
-    (db.prepare(
-      `SELECT position FROM levels WHERE permanent = 1`,
-    ).all() as { position: number }[]).map((r) => r.position),
-  )
-  const targets: number[] = []
-  let p = 1
-  while (targets.length < finalOrder.length) {
-    if (!permanentPositions.has(p)) targets.push(p)
-    p++
+    order.push(r.id)
+    for (const f of followers.get(r.id) ?? []) order.push(f)
   }
 
   const setPos = db.prepare(`UPDATE levels SET position = ? WHERE id = ?`)
-  db.exec('BEGIN')
-  try {
-    // Park every non-permanent row at a unique negative position so the final
-    // assignment can't collide with a value still held by another row in this
-    // batch. Permanent positions are positive, so negatives are conflict-free.
-    for (let i = 0; i < finalOrder.length; i++) setPos.run(-(i + 1), finalOrder[i]!)
-    for (let i = 0; i < finalOrder.length; i++) setPos.run(targets[i]!, finalOrder[i]!)
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
+  tx(db, () => {
+    order.forEach((id, i) => setPos.run(-(i + 1), id))
+    order.forEach((id, i) => setPos.run(i + 1, id))
+  })
+
+  // A pin the sheet now agrees with — the level would land in the same spot
+  // without it — has done its job.
+  const pinnedIds = all.filter((r) => r.pinned && opts.anchors.has(r.id) && sheetIndexById.has(r.id)).map((r) => r.id)
+  let satisfied = 0
+  if (pinnedIds.length) {
+    const rankedIdx = ranked.map((r) => r.rank)
+    const indexInOrder = new Map(order.map((id, i) => [id, i]))
+    tx(db, () => {
+      for (const id of pinnedIds) {
+        const myRank = sheetIndexById.get(id)!
+        // The last sheet level the sheet puts before this one.
+        let lo = 0
+        let hi = rankedIdx.length
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1
+          if (rankedIdx[mid]! < myRank) lo = mid + 1
+          else hi = mid
+        }
+        const sheetPrev = lo > 0 ? ranked[lo - 1]!.id : null
+        const at = indexInOrder.get(id)!
+        const actualPrev = at > 0 ? order[at - 1]! : null
+        if (sheetPrev === actualPrev) {
+          releasePin(db, id)
+          satisfied++
+        }
+      }
+    })
   }
 
   if (opts.recordHistory) {
     recordSheetMovements(db, {
       oldPositions,
-      newPositions: new Map(finalOrder.map((id, i) => [id, targets[i]!])),
-      newIds: opts.newIds ?? new Set(),
+      newPositions: new Map(order.map((id, i) => [id, i + 1])),
+      newIds: opts.newIds,
     })
   }
-
-  return ranked.filter((r) => !Number.isFinite(r.rank)).length
+  return satisfied
 }
 
 /**
- * Write changelog entries for a sheet refresh.
- *
- * Every level's absolute position moves whenever rows are inserted above it,
- * so absolute position is useless as a "did this move?" signal — a single new
- * level at the top would otherwise generate 54,000 changelog entries. What
- * matters is a level's order *among the levels that were already on the list*:
- * insertions and removals leave that untouched.
- *
- * That alone is not enough, and this is the part that was wrong. Rank among
- * survivors still changes for *everything a moved level passes*: promote one
- * level from #500 to #100 and its rank drops by 400 — while the 400 levels it
- * overtook each gain one. Comparing ranks reported all 401 as movement, so the
- * changelog for a single promotion read as one level up and four hundred down.
- *
- * The question is really "which levels moved *relative to each other*", and the
- * answer is the set outside the **longest increasing subsequence** of the new
- * order read in the old order's sequence. That subsequence is the largest group
- * still in agreement — the list's backbone — and everything else is a level
- * whose movement is what changed. For the promotion above it is one entry, which
- * is what a reader of the changelog would have written by hand.
- *
- * Newly imported levels get an "added" entry (from_position NULL), which is
- * what the changelog renders as "Added".
- *
- * `survivorsThatMoved` is the decision on its own, with no database in it, so
- * it can be checked against a made-up before/after directly.
+ * Which levels moved relative to each other: everything outside the longest
+ * increasing run of the new order read in the old order. One promotion from
+ * #500 to #100 is one entry, not one up and four hundred down.
  */
 export function survivorsThatMoved(
   oldPositions: Map<number, number>,
   newPositions: Map<number, number>,
   newIds: Set<number> = new Set(),
 ): number[] {
-  // Survivors: on the list before this run and still on it now.
   const survivors = [...newPositions.keys()].filter((id) => !newIds.has(id) && oldPositions.has(id))
-
-  // Survivors in the order the list had them before, and where each one sits in
-  // the new order. Ranks rather than raw positions on both sides, so a run of
-  // insertions above them doesn't register as everything below moving.
-  const byOldOrder = survivors
-    .slice()
-    .sort((a, b) => oldPositions.get(a)! - oldPositions.get(b)!)
-
+  const byOldOrder = survivors.slice().sort((a, b) => oldPositions.get(a)! - oldPositions.get(b)!)
   const newRank = new Map<number, number>()
-  survivors
-    .slice()
+  survivors.slice()
     .sort((a, b) => newPositions.get(a)! - newPositions.get(b)!)
     .forEach((id, i) => newRank.set(id, i))
-
-  // The backbone: the longest run of levels still in the same order relative to
-  // one another. Everything outside it is a level that genuinely moved.
   const backbone = new Set(longestIncreasingRun(byOldOrder.map((id) => newRank.get(id)!)))
-
-  return byOldOrder.filter((id, i) => {
-    if (backbone.has(i)) return false
-    // A level can be outside the backbone and still land on the number it
-    // started from, when everything around it shuffled instead.
-    return oldPositions.get(id) !== newPositions.get(id)
-  })
+  return byOldOrder.filter((id, i) => !backbone.has(i) && oldPositions.get(id) !== newPositions.get(id))
 }
 
 function recordSheetMovements(
-  db: ReturnType<typeof getDb>,
-  args: {
-    oldPositions: Map<number, number>
-    newPositions: Map<number, number>
-    newIds: Set<number>
-  },
+  db: Db,
+  args: { oldPositions: Map<number, number>; newPositions: Map<number, number>; newIds: Set<number> },
 ): void {
   const { oldPositions, newPositions, newIds } = args
-
   const ins = db.prepare(
     `INSERT INTO position_history (level_id, from_position, to_position, changed_by, source)
      VALUES (?, ?, ?, NULL, 'all')`,
   )
-
   let moves = 0
   let adds = 0
-  db.exec('BEGIN')
-  try {
+  tx(db, () => {
     for (const id of survivorsThatMoved(oldPositions, newPositions, newIds)) {
       ins.run(id, oldPositions.get(id)!, newPositions.get(id)!)
       moves++
@@ -1193,452 +633,417 @@ function recordSheetMovements(
       ins.run(id, null, pos)
       adds++
     }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-
-  console.log(`Changelog: ${adds} level(s) added, ${moves} genuinely re-ranked.`)
-}
-
-async function importLeaderboard() {
-  const db = getDb()
-  process.stdout.write(`Fetching leaderboard (gid=${LEADERBOARD_GID})... `)
-  const { text } = await fetchTabRows(LEADERBOARD_GID)
-  const found = findHeaderColumns(text)
-  if (!found) { console.log('no header row, skipping'); return }
-  const c = found.cols
-
-  db.exec('DELETE FROM players')
-  const insert = db.prepare(`
-    INSERT INTO players (name, total_points, skill_points, hardest, tier)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-
-  let imported = 0
-  db.exec('BEGIN')
-  try {
-    for (let i = found.headerIdx + 1; i < text.length; i++) {
-      const r = text[i]!
-      const name = txt(r[c['player name']!])
-      if (!name) continue
-      const tot = num(r[c['total points']!]) ?? 0
-      const skl = num(r[c['skill points']!]) ?? 0
-      if (tot === 0 && skl === 0) continue
-      insert.run(name, tot, skl, txt(r[c['hardest']!]), txt(r[c['tier']!]))
-      imported++
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-  console.log(`${imported} players`)
+  })
+  console.log(`[import] changelog: ${adds} added, ${moves} moved`)
 }
 
 /**
- * Stats Viewer tab — wide spreadsheet, one 5-column block per player:
- *   col 5N+1: separator
- *   col 5N+2: Level Name
- *   col 5N+3: Points
- *   col 5N+4: ALL Place  (the global level position; the level_id isn't shown)
- *   col 5N+5: GDDL Tier
- *
- * The player names sit in an early row at col 5N+2 (same column as Level Name).
- * We look levels up by `position = ALL Place` since the tab doesn't expose gd_id.
+ * `rated = 'Challenge'` follows the sheet's Rated column for sheet levels.
+ * Other ratings come from Geometry Dash and are never written here.
  */
-type CellPos = { col: number; text: string }
-
-function parseRowWithCols(rowHtml: string): CellPos[] {
-  const cells: CellPos[] = []
-  let col = 0
-  const re = /<t([dh])([^>]*)>([\s\S]*?)<\/t\1>/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(rowHtml)) !== null) {
-    const attrs = m[2]!
-    const content = m[3]!
-    const csMatch = attrs.match(/colspan="(\d+)"/)
-    const cs = csMatch ? Number(csMatch[1]) : 1
-    cells.push({ col, text: stripTags(content) })
-    col += cs
-  }
-  return cells
-}
-
-async function importStatsViewer() {
-  const db = getDb()
-  process.stdout.write(`Fetching stats viewer (gid=${STATS_VIEWER_GID})... `)
-
-  const url = `${SHEET_BASE_URL}/pubhtml/sheet?headers=false&gid=${STATS_VIEWER_GID}`
-  const res = await fetch(url, { headers: { 'User-Agent': 'all-levels-list-importer/1.0' } })
-  if (!res.ok) throw new Error(`fetch stats viewer failed: ${res.status}`)
-  const html = await res.text()
-  const tbodyMatch = html.match(/<tbody[^>]*>([\s\S]*?)<\/tbody>/)
-  if (!tbodyMatch) { console.log('no tbody, skipping'); return }
-  const trs = splitRows(tbodyMatch[1]!)
-  const rows = trs.map(parseRowWithCols)
-
-  // Find player-name row: the one containing 'Total Points' labels.
-  let playerRowIdx = -1
-  for (let i = 0; i < Math.min(8, rows.length); i++) {
-    if (rows[i]!.some((c) => c.text === 'Total Points')) { playerRowIdx = i; break }
-  }
-  if (playerRowIdx < 0) { console.log('no player row, skipping'); return }
-
-  // Find level-header row: the one containing 'ALL Place'.
-  let headerRowIdx = -1
-  for (let i = playerRowIdx + 1; i < Math.min(12, rows.length); i++) {
-    if (rows[i]!.some((c) => c.text.toLowerCase() === 'all place')) { headerRowIdx = i; break }
-  }
-  if (headerRowIdx < 0) { console.log('no header row, skipping'); return }
-
-  // Build block index → player name. Player names are at col 5N+2 (block-local pos 1).
-  const players = new Map<number, string>()
-  for (const c of rows[playerRowIdx]!) {
-    if (c.col < 1 || !c.text) continue
-    const block = Math.floor((c.col - 1) / 5)
-    const pos = (c.col - 1) % 5
-    if (pos !== 1) continue
-    if (c.text === 'Total Points' || c.text === 'Skill Points') continue
-    players.set(block, c.text)
-  }
-
-  // Sheet records are auto-accepted (permanent = 1). They never went through the
-  // submission queue, and not every legacy entry has a video link of consistent
-  // shape, so we don't store one here either.
-  const insert = db.prepare(
-    `INSERT INTO records (level_id, player_id, player_name, video, permanent, submitted_by)
-     VALUES (?, ?, ?, NULL, 1, NULL)`,
-  )
-  // Resolve by name first — that's the most stable key the stats viewer exposes.
-  // Position lookup is the fallback: admin moves/deletes can shift DB positions
-  // out of sync with the sheet's "ALL Place", and matching by position would
-  // then bind records to the wrong level. The resulting level_id is the
-  // levels.id PK (stable for the lifetime of the row), so once stored, records
-  // stay correctly attached even if the level later moves.
-  const findLevelByName = db.prepare(
-    `SELECT id FROM levels WHERE name = ? COLLATE NOCASE ORDER BY position ASC LIMIT 1`,
-  )
-  const findLevelByPosition = db.prepare(`SELECT id FROM levels WHERE position = ?`)
-  const findPlayer = db.prepare(`SELECT id FROM players WHERE name = ? COLLATE NOCASE`)
-
-  let imported = 0
-  let missingLevels = 0
-  let dupes = 0
-
-  // De-dup cases where the sheet lists the same player + level twice.
-  const seen = new Set<string>()
-
-  db.exec('BEGIN')
-  try {
-    // Wipe all sheet-source records and re-import. User submissions
-    // (submitted_by IS NOT NULL) are preserved regardless of permanent state.
-    db.exec(`DELETE FROM records WHERE submitted_by IS NULL`)
-
-    for (let i = headerRowIdx + 1; i < rows.length; i++) {
-      const row = rows[i]!
-      // Group cells by block index → { name, place }
-      const blocks = new Map<number, { name?: string; place?: string }>()
-      for (const c of row) {
-        if (c.col < 1) continue
-        const block = Math.floor((c.col - 1) / 5)
-        const pos = (c.col - 1) % 5
-        if (pos !== 1 && pos !== 3) continue
-        let entry = blocks.get(block)
-        if (!entry) { entry = {}; blocks.set(block, entry) }
-        if (pos === 1) entry.name = c.text
-        else entry.place = c.text
-      }
-
-      for (const [block, fields] of blocks) {
-        const player = players.get(block)
-        if (!player || !fields.name) continue
-        const place = num(fields.place ?? '')
-
-        const levelName = (fields.name ?? '').trim()
-        const lvl = (levelName ? findLevelByName.get(levelName) as { id: number } | undefined : undefined)
-                 ?? (place !== null && place > 0
-                       ? findLevelByPosition.get(place) as { id: number } | undefined
-                       : undefined)
-        if (!lvl) { missingLevels++; continue }
-
-        const dedupeKey = `${lvl.id}:${player.toLowerCase()}`
-        if (seen.has(dedupeKey)) { dupes++; continue }
-        seen.add(dedupeKey)
-
-        const p = findPlayer.get(player) as { id: number } | undefined
-        insert.run(lvl.id, p?.id ?? null, player)
-        imported++
-      }
+function applyChallengeFromSheet(db: Db, challengeIds: Set<number>): void {
+  const rows = db.prepare(
+    `SELECT id, rated FROM levels WHERE COALESCE(permanent, 0) = 0 AND COALESCE(site_only, 0) = 0`,
+  ).all() as { id: number; rated: string | null }[]
+  const upd = db.prepare(`UPDATE levels SET rated = ? WHERE id = ?`)
+  let changed = 0
+  tx(db, () => {
+    for (const r of rows) {
+      const want = challengeIds.has(r.id)
+      if (want && r.rated !== 'Challenge') { upd.run('Challenge', r.id); changed++ }
+      else if (!want && r.rated === 'Challenge') { upd.run(null, r.id); changed++ }
     }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-
-  console.log(`${imported} records (${dupes} duplicates, ${missingLevels} skipped — no matching position)`)
+  })
+  if (changed) console.log(`[import] challenge pins: ${changed} updated`)
 }
 
-export async function importVoidList() {
-  const db = getDb()
-  process.stdout.write(`Fetching void list (gid=${VOID_LIST_GID})... `)
-  const { text, html } = await fetchTabRows(VOID_LIST_GID)
-  const found = findHeaderColumns(text)
-  if (!found) { console.log('no header row, skipping'); return }
-  const c = found.cols
-  const verCol = c['verification link']
-
-  // Wipe and re-import — void list churns frequently as levels move into the main list.
-  db.exec(`DELETE FROM void_levels`)
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO void_levels
-      (position, name, gd_id, verify_date, days, demon_ranking,
-       placement_source, verification, verification_url, added_on)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-
-  let pos = 0
-  let imported = 0
-  db.exec('BEGIN')
+/** Placements as they were before this import, in `data/backups/`. Keeps the newest few. */
+function snapshotBeforeImport(db: Db): void {
   try {
-    for (let i = found.headerIdx + 1; i < text.length; i++) {
-      const r = text[i]!
-      const rh = html[i]!
-      const name = txt(r[c['level name']!])
-      if (!name) continue
-      const gdId = num(r[c['level id']!])
-      const verifyDate = txt(r[c['verify date']!])
-      const days = num(r[c['days']!])
-      const demonRank = txt(r[c['demon ranking']!])
-      const source = txt(r[c['source']!] ?? r[c['primary source']!])
-      // Skip section header / blank rows — they have a name but no actual level data.
-      if (!gdId && !verifyDate && days == null && !demonRank && !source) continue
+    const count = (db.prepare(`SELECT COUNT(*) AS n FROM levels`).get() as { n: number }).n
+    if (!count) return
+    const dir = join(dataDir(), 'backups')
+    mkdirSync(dir, { recursive: true })
+    const prefix = 'placements-before-import-'
+    writeFileSync(join(dir, `${prefix}${new Date().toISOString().replace(/[:.]/g, '-')}.json`), JSON.stringify(buildSnapshot(db)))
+    const old = readdirSync(dir).filter((f) => f.startsWith(prefix)).sort()
+    for (const f of old.slice(0, Math.max(0, old.length - KEEP_IMPORT_SNAPSHOTS))) unlinkSync(join(dir, f))
+  } catch (e) {
+    console.warn('[import] could not write the pre-import placement backup:', (e as Error).message)
+  }
+}
+
+// ---------------------------------------------------------------- housekeeping
+
+/**
+ * Collapse rows left behind by very old imports that duplicated the list. Keeps
+ * the permanent row, else the oldest, and repoints what referenced the rest.
+ * A no-op on a clean database.
+ */
+function cleanupDuplicateLevels(db: Db): void {
+  const rows = db.prepare(`SELECT id, gd_id, name, permanent FROM levels`).all() as
+    { id: number; gd_id: number | null; name: string; permanent: number }[]
+  const groups = new Map<string, { id: number; perm: boolean }[]>()
+  for (const r of rows) {
+    const key = dupKey(r.gd_id, r.name)
+    const g = groups.get(key) ?? []
+    g.push({ id: r.id, perm: r.permanent === 1 })
+    groups.set(key, g)
+  }
+  const remap: { drop: number; keep: number }[] = []
+  for (const g of groups.values()) {
+    if (g.length < 2) continue
+    g.sort((a, b) => Number(b.perm) - Number(a.perm) || a.id - b.id)
+    for (let i = 1; i < g.length; i++) remap.push({ drop: g[i]!.id, keep: g[0]!.id })
+  }
+  if (!remap.length) return
+
+  tx(db, () => {
+    const updRecords = db.prepare(`UPDATE records SET level_id = ? WHERE level_id = ?`)
+    const updOpinions = db.prepare(`UPDATE opinions SET level_id = ? WHERE list_kind = 'main' AND level_id = ?`)
+    const updPending = db.prepare(`UPDATE pending_levels SET comparison_level_id = ? WHERE comparison_level_id = ?`)
+    const del = db.prepare(`DELETE FROM levels WHERE id = ?`)
+    for (const { drop, keep } of remap) {
+      updRecords.run(keep, drop)
+      updOpinions.run(keep, drop)
+      updPending.run(keep, drop)
+      del.run(drop)
+    }
+  })
+  console.log(`[import] merged ${remap.length} duplicate level row(s)`)
+}
+
+/**
+ * `site_only` = the sheet lists nothing with this level's ID (or, for a level
+ * with no ID, its name). Recomputed from the whole sheet every run.
+ */
+export function markSiteOnly(db: Db, sheetGdIds: Set<number>, sheetNames: Set<string>): { siteOnly: number; changed: number } {
+  const rows = db.prepare(`SELECT id, gd_id, name, site_only FROM levels`).all() as
+    { id: number; gd_id: number | null; name: string; site_only: number }[]
+  const upd = db.prepare(`UPDATE levels SET site_only = ? WHERE id = ?`)
+  let siteOnly = 0
+  let changed = 0
+  tx(db, () => {
+    for (const r of rows) {
+      const onSheet = r.gd_id != null ? sheetGdIds.has(r.gd_id) : sheetNames.has(r.name.toLowerCase())
+      const want = onSheet ? 0 : 1
+      if (want) siteOnly++
+      if (r.site_only !== want) { upd.run(want, r.id); changed++ }
+    }
+  })
+  return { siteOnly, changed }
+}
+
+type SheetExclusiveRow = {
+  gd_id: number | null
+  name: string
+  sheet_placement: number | null
+  gddl_tier: string | null
+  difficulty: string | null
+  verify_date: string | null
+  verification_url: string | null
+  source_tab: string | null
+  placement_source: string | null
+  reason: string
+}
+
+function exclusiveFrom(row: SheetRow, reason: string): SheetExclusiveRow {
+  return {
+    gd_id: row.gdId, name: row.name, sheet_placement: row.placement, gddl_tier: row.tier,
+    difficulty: row.difficulty, verify_date: row.verifyDate, verification_url: row.verificationUrl,
+    source_tab: row.tab, placement_source: row.source, reason,
+  }
+}
+
+/** Sheet rows the import read but didn't put on the list, replaced every run. */
+function recordSheetExclusives(db: Db, rows: SheetExclusiveRow[]): void {
+  tx(db, () => {
+    db.exec(`DELETE FROM sheet_exclusive_levels`)
+    const ins = db.prepare(
+      `INSERT INTO sheet_exclusive_levels
+         (gd_id, name, sheet_placement, gddl_tier, difficulty, verifier, verify_date,
+          verification_url, source_tab, placement_source, reason)
+       VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+    )
+    for (const r of rows) {
+      ins.run(r.gd_id, r.name, r.sheet_placement, r.gddl_tier, r.difficulty, r.verify_date,
+        r.verification_url, r.source_tab, r.placement_source, r.reason)
+    }
+  })
+}
+
+// ---------------------------------------------------------------- void list
+
+const VOID_FIELDS: FieldSpec[] = [
+  { key: 'name', titles: ['levelname', 'level', 'name'], not: /id$/ },
+  { key: 'gd_id', titles: ['levelid', 'id', 'gdid'], shape: (t) => int(t) != null, drift: [1, -1] },
+  { key: 'verify_date', titles: ['verifydate', 'verificationdate', 'dateverified'], drift: [1, -1] },
+  { key: 'days', titles: ['days', 'dayssinceverification', 'daysvoid'], shape: (t) => num(t) != null },
+  { key: 'demon_ranking', titles: ['demonranking', 'difficulty', 'demondifficulty'], drift: [1, -1] },
+  { key: 'source', titles: ['source', 'primarysource', 'placementsource'], drift: [1, -1] },
+  { key: 'verification', titles: ['verificationlink', 'verification', 'video'], shape: (_t, h) => /<a[^>]*\shref=/i.test(h), drift: [1, 2, -1] },
+  { key: 'added_on', titles: ['addedtopendingon', 'addedon', 'added', 'dateadded'], drift: [1, -1] },
+]
+
+/**
+ * The sheet's void list. Rows are matched to existing ones by (ID, name) so
+ * their ids — which opinions and submissions point at — survive a refresh.
+ */
+export async function importVoidList(): Promise<void> {
+  const db = getDb()
+  const table = parseTable(await fetchTabHtml(VOID_LIST_GID))
+  if (!table) { console.log('[void] no table, skipping'); return }
+  const headerIdx = findHeaderRow(table.text, VOID_FIELDS)
+  if (headerIdx == null) { console.log('[void] no header row, skipping'); return }
+  const { cols } = resolveColumns(table, headerIdx, VOID_FIELDS)
+  if (cols.name == null) { console.log('[void] no level name column, skipping'); return }
+
+  type VoidRow = { name: string; gdId: number | null; verifyDate: string | null; days: number | null; ranking: string | null; source: string | null; verification: string | null; url: string | null; addedOn: string | null }
+  const rows: VoidRow[] = []
+  for (let i = headerIdx + 1; i < table.text.length; i++) {
+    const name = cell(table, cols, i, 'name')
+    if (!name) continue
+    const gdId = int(cell(table, cols, i, 'gd_id'))
+    const verifyDate = normDate(cell(table, cols, i, 'verify_date'))
+    const days = num(cell(table, cols, i, 'days'))
+    const ranking = cell(table, cols, i, 'demon_ranking')
+    const source = cell(table, cols, i, 'source')
+    if (gdId == null && !verifyDate && days == null && !ranking && !source) continue // section header
+    let addedOn = normDate(cell(table, cols, i, 'added_on'))
+    if (!addedOn && days != null) {
+      const d = new Date()
+      d.setUTCDate(d.getUTCDate() - Math.max(0, Math.round(days)))
+      addedOn = d.toISOString().slice(0, 10)
+    }
+    rows.push({
+      name, gdId, verifyDate, days, ranking, source,
+      verification: cell(table, cols, i, 'verification'),
+      url: extractLinkHref(cellHtml(table, cols, i, 'verification')),
+      addedOn,
+    })
+  }
+
+  const existing = db.prepare(`SELECT id, gd_id, name FROM void_levels`).all() as { id: number; gd_id: number | null; name: string }[]
+  if (existing.length > 10 && rows.length < existing.length * 0.5) {
+    console.warn(`[void] sheet yielded ${rows.length} rows against ${existing.length} here; not updating`)
+    return
+  }
+  const byKey = new Map(existing.map((r) => [dupKey(r.gd_id, r.name), r.id]))
+
+  tx(db, () => {
+    // Park every position so the renumbering below can't collide.
+    db.exec(`UPDATE void_levels SET position = -id`)
+    const upd = db.prepare(
+      `UPDATE void_levels SET position = ?, name = ?, gd_id = ?, verify_date = ?, days = ?, demon_ranking = ?,
+              placement_source = ?, verification = ?, verification_url = COALESCE(?, verification_url), added_on = COALESCE(?, added_on)
+        WHERE id = ?`,
+    )
+    const ins = db.prepare(
+      `INSERT INTO void_levels (position, name, gd_id, verify_date, days, demon_ranking, placement_source, verification, verification_url, added_on)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    const kept = new Set<number>()
+    let pos = 0
+    for (const r of rows) {
+      const key = dupKey(r.gdId, r.name)
+      const id = byKey.get(key)
+      if (id !== undefined && kept.has(id)) continue
       pos++
-      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
-      // Prefer an explicit date from the sheet; fall back to computing one from
-      // the `days` count so the display auto-updates every day rather than
-      // staying frozen at the import snapshot.
-      const explicitAddedOn = txt(r[c['added to pending on']!])
-      const addedOn = explicitAddedOn || (days != null ? (() => {
-        const d = new Date()
-        d.setUTCDate(d.getUTCDate() - Math.max(0, days))
-        return d.toISOString().slice(0, 10)
-      })() : null)
-      insert.run(
-        pos, name, gdId, verifyDate, days, demonRank, source,
-        verCol != null ? txt(r[verCol]) : null, verHref,
-        addedOn,
-      )
-      imported++
+      if (id !== undefined) {
+        kept.add(id)
+        upd.run(pos, r.name, r.gdId, r.verifyDate, r.days, r.ranking, r.source, r.verification, r.url, r.addedOn, id)
+      } else {
+        const res = ins.run(pos, r.name, r.gdId, r.verifyDate, r.days, r.ranking, r.source, r.verification, r.url, r.addedOn)
+        kept.add(Number(res.lastInsertRowid))
+      }
     }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
-  console.log(`${imported} levels`)
+    const del = db.prepare(`DELETE FROM void_levels WHERE id = ?`)
+    for (const r of existing) if (!kept.has(r.id)) del.run(r.id)
+  })
+  console.log(`[void] ${rows.length} levels`)
 }
 
-export async function importPendingList(report?: ProgressReporter) {
+// ---------------------------------------------------------------- pending list
+
+const PENDING_FIELDS: FieldSpec[] = [
+  { key: 'name', titles: ['levelname', 'level', 'name'], not: /id$/ },
+  { key: 'gd_id', titles: ['levelid', 'id', 'gdid'], shape: (t) => int(t) != null, drift: [1, -1] },
+  { key: 'verify_date', titles: ['verifydate', 'verificationdate', 'dateverified'], drift: [1, -1] },
+  { key: 'approx', titles: ['difficultyapproximation', 'approximation', 'generalidea', 'opinion', 'notes'], contains: ['approx'] },
+  { key: 'range', titles: ['range', 'generalidearange', 'placementrange', 'estimate', 'estimatedplacement'], contains: ['range'], shape: (t) => /\d/.test(t) },
+  { key: 'gddl_tier', titles: ['gddltier', 'tier', 'gddl'], shape: (t) => parseTierLabel(t) != null, drift: [1, -1] },
+  { key: 'demon_ranking', titles: ['demonranking', 'difficulty', 'demondifficulty'], not: /approx/, drift: [1, -1] },
+  { key: 'source', titles: ['source', 'primarysource', 'placementsource'], drift: [1, -1] },
+  { key: 'verification', titles: ['verificationlink', 'verification', 'video'], shape: (_t, h) => /<a[^>]*\shref=/i.test(h), drift: [1, 2, -1] },
+  { key: 'added_on', titles: ['addedtopendingon', 'addedon', 'added', 'dateadded'], drift: [1, -1] },
+]
+
+/**
+ * The sheet's pending tab, as review items in the admin queue. Rows already
+ * pending, awaiting or on the list are skipped; rows the sheet dropped are
+ * removed from the queue.
+ */
+export async function importPendingList(report?: ProgressReporter): Promise<void> {
   const db = getDb()
   report?.({ phase: 'Fetching the pending tab', done: 0, total: null })
-  process.stdout.write(`Fetching pending list (gid=${PENDING_LIST_GID})... `)
-  const { text, html } = await fetchTabRows(PENDING_LIST_GID)
-  const found = findHeaderColumns(text)
-  if (!found) { console.log('no header row, skipping'); return }
-  const c = refineColumns(text, found.cols, found.headerIdx + 1)
-  const verCol = c['verification link']
-  // The pending tab calls the source column "Source" historically, but other
-  // tabs use "Primary Source" — accept either so the import survives a header
-  // tweak on the sheet.
-  const sourceCol = c['source'] ?? c['primary source']
+  const table = parseTable(await fetchTabHtml(PENDING_LIST_GID))
+  if (!table) { console.log('[pending] no table, skipping'); return }
+  const headerIdx = findHeaderRow(table.text, PENDING_FIELDS)
+  if (headerIdx == null) { console.log('[pending] no header row, skipping'); return }
+  const { cols } = resolveColumns(table, headerIdx, PENDING_FIELDS)
+  if (cols.name == null) { console.log('[pending] no level name column, skipping'); return }
 
-  // Dedupe across pending_levels (any source) and awaiting_levels so we don't
-  // duplicate a level the user has already submitted or that's already in the
-  // post-pending awaiting queue.
   const existingKeys = new Set<string>([
     ...(db.prepare(`SELECT gd_id, name FROM pending_levels WHERE status = 'pending'`).all() as { gd_id: number | null; name: string }[])
-      .map((r) => dupKey(r.gd_id, r.name)),
+      .map((r) => dupKey(r.gd_id, r.name ?? '')),
     ...(db.prepare(`SELECT gd_id, name FROM awaiting_levels`).all() as { gd_id: number | null; name: string }[])
       .map((r) => dupKey(r.gd_id, r.name)),
   ])
+  const existingSheetRows = db.prepare(
+    `SELECT id, gd_id, name FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`,
+  ).all() as { id: number; gd_id: number | null; name: string }[]
+  const mainGdIds = new Set((db.prepare(`SELECT gd_id FROM levels WHERE gd_id IS NOT NULL`).all() as { gd_id: number }[]).map((r) => r.gd_id))
+  const usedVideos = new Set((db.prepare(
+    `SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`,
+  ).all() as { verification_url: string }[]).map((r) => r.verification_url))
 
-  // Sheet-originated rows from earlier imports — used to prune stale entries
-  // (levels that have since been removed from the sheet's pending tab).
-  const existingSheetRows = db
-    .prepare(`SELECT id, gd_id, name FROM pending_levels WHERE from_sheet_pending = 1 AND status = 'pending'`)
-    .all() as { id: number; gd_id: number | null; name: string }[]
-
-  // Skip levels already on the main list — overlapping would create a
-  // confusing duplicate where the same gd_id appears in two queues.
-  const mainGdIds = new Set<number>(
-    (db.prepare(`SELECT gd_id FROM levels WHERE gd_id IS NOT NULL`).all() as { gd_id: number }[])
-      .map((r) => r.gd_id),
-  )
-  // Auto-reject rows whose verification URL is already in use by an existing
-  // main-list level — the same video can't verify two different rankings, so
-  // these are almost always re-postings of an already-tracked level under a
-  // different name or source.
-  const existingVerUrls = new Set<string>(
-    (db.prepare(`SELECT verification_url FROM levels WHERE verification_url IS NOT NULL AND verification_url <> ''`).all() as { verification_url: string }[])
-      .map((r) => r.verification_url),
-  )
+  const tierPositions = new Map<string, number[]>()
+  const positionForTier = (tier: string, frac: number): number | null => {
+    let positions = tierPositions.get(tier)
+    if (!positions) {
+      positions = (db.prepare(`SELECT position FROM levels WHERE gddl_tier = ? ORDER BY position ASC`).all(tier) as { position: number }[]).map((r) => r.position)
+      tierPositions.set(tier, positions)
+    }
+    if (!positions.length) return null
+    return positions[Math.min(positions.length - 1, Math.floor(frac * positions.length))]!
+  }
 
   const insert = db.prepare(`
     INSERT INTO pending_levels
-      (gd_id, name, verify_date, gddl_tier, difficulty,
-       verification, verification_url, placement_source,
-       placement_estimate, status, submitted_at, from_sheet_pending)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1)
-  `)
+      (gd_id, name, verify_date, gddl_tier, difficulty, verification, verification_url, placement_source,
+       placement_estimate, notes, status, submitted_at, from_sheet_pending)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1)`)
 
-  // Per-tier sorted positions for the placement-estimate fallback. Built
-  // lazily as we encounter each tier, so we only pay the query cost for tiers
-  // actually present in the sheet's pending tab.
-  const tierPositions = new Map<string, number[]>()
-  function positionForTier(tier: string, frac: number): number | null {
-    let positions = tierPositions.get(tier)
-    if (!positions) {
-      positions = (db
-        .prepare(`SELECT position FROM levels WHERE gddl_tier = ? ORDER BY position ASC`)
-        .all(tier) as { position: number }[]).map((r) => r.position)
-      tierPositions.set(tier, positions)
-    }
-    if (positions.length === 0) return null
-    const idx = Math.min(positions.length - 1, Math.floor(frac * positions.length))
-    return positions[idx]!
-  }
-
-  const seenInThisRun = new Set<string>()
-  let imported = 0, skippedExisting = 0, skippedMain = 0, skippedBlank = 0, skippedDupVer = 0
-
-  db.exec('BEGIN')
-  try {
-    // Sweep legacy sheet-pending rows out of awaiting_levels — they now go
-    // through the admin "Imported levels" review queue (pending_levels).
-    const legacyAwaiting = db.prepare(`DELETE FROM awaiting_levels WHERE pending_id = ?`).run(SHEET_PENDING_ID)
-    for (let i = found.headerIdx + 1; i < text.length; i++) {
-      const r = text[i]!
-      const rh = html[i]!
-      const name = txt(r[c['level name']!])
-      const gdId = num(r[c['level id']!])
-      const verifyDate = txt(r[c['verify date']!])
-      const rawTier = txt(r[c['gddl tier']!])
-      const giRange = txt(r[c['general idea / range']!])
-      // Section headers / decoration: a name with no other identifying data.
-      if (!name) { skippedBlank++; continue }
-      if (!gdId && !verifyDate && !rawTier && !giRange) { skippedBlank++; continue }
-      if (gdId !== null && mainGdIds.has(gdId)) { skippedMain++; continue }
-
+  const seen = new Set<string>()
+  let imported = 0
+  let removed = 0
+  tx(db, () => {
+    db.prepare(`DELETE FROM awaiting_levels WHERE pending_id = ?`).run(SHEET_PENDING_ID)
+    for (let i = headerIdx + 1; i < table.text.length; i++) {
+      const name = cell(table, cols, i, 'name')
+      if (!name) continue
+      const gdId = int(cell(table, cols, i, 'gd_id'))
+      const verifyDate = normDate(cell(table, cols, i, 'verify_date'))
+      const rawTier = cell(table, cols, i, 'gddl_tier')
+      const range = cell(table, cols, i, 'range')
+      if (gdId == null && !verifyDate && !rawTier && !range) continue // section header
+      if (gdId != null && mainGdIds.has(gdId)) continue
       const key = dupKey(gdId, name)
-      if (seenInThisRun.has(key)) continue
-      seenInThisRun.add(key)
-      if (existingKeys.has(key)) { skippedExisting++; continue }
+      if (seen.has(key)) continue
+      seen.add(key)
+      if (existingKeys.has(key)) continue
+      const url = extractLinkHref(cellHtml(table, cols, i, 'verification'))
+      if (url && usedVideos.has(url)) continue
 
-      const verHref = verCol != null ? extractLinkHref(rh[verCol] ?? '') : null
-      // Auto-reject when the verification video already verifies a main-list
-      // entry — the curator pulled the level into pending under a different
-      // source, but it's already tracked.
-      if (verHref && existingVerUrls.has(verHref)) { skippedDupVer++; continue }
-
-      // Normalize the tier string. Sheet rows can be "Tier 25", "Tier 25.5",
-      // "25", "S4", etc. — we store the integer-tier form so the rest of the
-      // app's tier filters/joins work, while the decimal informs the
-      // placement-within-tier fallback below. Anything we can't parse is
-      // stored verbatim so we don't lose information.
       const parsedTier = parseTierLabel(rawTier)
-      const tier = parsedTier?.tier ?? rawTier
-
-      // "General Idea / Range" looks like "~#2400" — extract the integer for
-      // the placement estimate. If absent, fall back to a position derived
-      // from the GDDL tier (decimal = position within tier) so the reviewer
-      // gets a sensible default instead of an empty placement field.
-      const placementMatch = giRange?.match(/(\d[\d,]*)/)
-      const placementEstimate = placementMatch
-        ? num(placementMatch[1]!)
-        : (parsedTier ? positionForTier(parsedTier.tier, parsedTier.frac) : null)
-
-      const addedOn = txt(r[c['added to pending on']!]) ?? new Date().toISOString().slice(0, 10)
-
+      const rangeNum = range?.match(/(\d[\d,]*)/)
+      const estimate = rangeNum ? num(rangeNum[1]!) : (parsedTier ? positionForTier(parsedTier.tier, parsedTier.frac) : null)
       insert.run(
-        gdId,
-        name,
-        verifyDate,
-        tier,
-        // Demon Ranking ("Extreme Demon", "Hard Demon", …) is GD's difficulty
-        // category — fits the existing `difficulty` text column.
-        txt(r[c['demon ranking']!]),
-        verCol != null ? txt(r[verCol]) : null,
-        verHref,
-        sourceCol != null ? txt(r[sourceCol]) : null,
-        placementEstimate,
-        addedOn,
+        gdId, name, verifyDate, parsedTier?.tier ?? rawTier, cell(table, cols, i, 'demon_ranking'),
+        cell(table, cols, i, 'verification'), url, cell(table, cols, i, 'source'),
+        estimate, cell(table, cols, i, 'approx'),
+        normDate(cell(table, cols, i, 'added_on')) ?? new Date().toISOString().slice(0, 10),
       )
       imported++
     }
-
-    // Prune sheet rows from prior imports that are no longer on the sheet.
     const del = db.prepare(`DELETE FROM pending_levels WHERE id = ?`)
-    let removed = 0
-    for (const row of existingSheetRows) {
-      if (!seenInThisRun.has(dupKey(row.gd_id, row.name))) { del.run(row.id); removed++ }
+    for (const r of existingSheetRows) {
+      if (!seen.has(dupKey(r.gd_id, r.name ?? ''))) { del.run(r.id); removed++ }
     }
-
-    db.exec('COMMIT')
-    console.log(
-      `${imported} new (${skippedExisting} already pending/awaiting, ${skippedMain} on main list, ` +
-      `${skippedDupVer} dup verification URL, ${skippedBlank} blank rows, ${removed} removed, ` +
-      `${legacyAwaiting.changes} legacy awaiting rows swept)`,
-    )
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
-  }
+  })
+  console.log(`[pending] ${imported} new, ${removed} removed`)
 }
 
-export async function runImport(report?: ProgressReporter) {
-  const t0 = Date.now()
+// ---------------------------------------------------------------- entry point
 
-  // The level tabs are the list; if they can't be read the run must stop, and
-  // importLevels throws rather than write a partial list.
-  await importLevels(report)
+let running: Promise<void> | null = null
 
-  // Everything after this point is a separate tab feeding a separate feature,
-  // and each one is allowed to fail on its own. They used to be bare awaits in
-  // a row, so the first tab the curators unpublished took the rest down with
-  // it: the Leaderboard tab now answers 400, which meant the void list and the
-  // pending list — both still published and both perfectly readable — had not
-  // been imported since, and the whole refresh was logged as a failure.
-  const failures: string[] = []
-  const stage = async (phase: string, run: () => Promise<unknown>) => {
-    report?.({ phase, done: 0, total: null })
+/**
+ * Import the sheet. Only one runs at a time: a second caller (the scheduled
+ * refresh firing while an admin's import is going) joins the one in progress.
+ */
+export function runImport(report?: ProgressReporter): Promise<void> {
+  if (running) {
+    console.log('[import] already running; waiting for it instead of starting another')
+    return running
+  }
+  running = (async () => {
+    const t0 = Date.now()
     try {
-      await run()
-    } catch (err) {
-      failures.push(phase)
-      console.error(`[import] ${phase} failed — continuing with the rest:`, (err as Error).message)
+      await importLevels(report)
+      const failures: string[] = []
+      const stage = async (phase: string, run: () => Promise<unknown>) => {
+        report?.({ phase, done: 0, total: null })
+        try {
+          await run()
+        } catch (err) {
+          failures.push(phase)
+          console.error(`[import] ${phase} failed, continuing:`, (err as Error).message)
+        }
+      }
+      await stage('Void list', importVoidList)
+      await stage('Pending list', () => importPendingList(report))
+      console.log(`[import] done in ${((Date.now() - t0) / 1000).toFixed(1)}s${failures.length ? ` (${failures.join(', ')} failed)` : ''}`)
+    } finally {
+      running = null
     }
-  }
+  })()
+  return running
+}
 
-  // The Leaderboard and Stats Viewer tabs were removed from the sheet, so
-  // nothing is pulled for them any more and `players` / sheet-sourced `records`
-  // are now the site's own data. Both importers begin by wiping their table
-  // (`DELETE FROM players`, `DELETE FROM records WHERE submitted_by IS NULL`)
-  // and refilling it from the tab, which against a tab that no longer exists is
-  // a way to lose everything and gain nothing — so they are not called. The
-  // functions are kept for reference should the tabs ever come back.
-  await stage('Void list', importVoidList)
-  await stage('Pending list', () => importPendingList(report))
+export function isImportRunning(): boolean {
+  return running !== null
+}
 
-  console.log(`\nDone in ${((Date.now() - t0) / 1000).toFixed(1)}s.`)
-  if (failures.length) {
-    console.log(
-      `${failures.length} optional tab(s) did not import: ${failures.join(', ')}. ` +
-      `The list itself imported normally.`,
-    )
+export { SHEET_BASE_URL }
+
+// ---------------------------------------------------------------- legacy helpers
+// Used by `diff-sheet.ts` and `repull-levels.ts`.
+
+export async function fetchTabRows(gid: string): Promise<{ text: string[][]; html: string[][] }> {
+  const table = parseTable(await fetchTabHtml(gid))
+  if (!table) throw new Error(`gid=${gid}: no table found`)
+  return table
+}
+
+export const PLACEMENT_HEADERS = ['placement', '#'] as const
+
+/** Header row and lowercase-title → column map, for the maintenance scripts. */
+export function findHeaderColumns(rows: string[][]): { headerIdx: number; cols: Record<string, number> } | null {
+  const headerIdx = findHeaderRow(rows)
+  if (headerIdx == null) return null
+  const cols: Record<string, number> = {}
+  rows[headerIdx]!.forEach((c, idx) => { if (c) cols[c.toLowerCase()] = idx })
+  return { headerIdx, cols }
+}
+
+export function resolvePlacementColumn(cols: Record<string, number>): number | undefined {
+  for (const header of PLACEMENT_HEADERS) {
+    const idx = cols[header]
+    if (idx != null) { cols['placement'] = idx; return idx }
   }
+  return undefined
+}
+
+export function refineColumns(textRows: string[][], cols: Record<string, number>, dataStart: number): Record<string, number> {
+  const sample = textRows.slice(dataStart, dataStart + 50).filter((r) => r.some((c) => c))
+  if (!sample.length) return cols
+  const refined = { ...cols }
+  for (const [name, idx] of Object.entries(cols)) {
+    if (sample.some((r) => (r[idx] ?? '').trim() !== '')) continue
+    if (sample.some((r) => (r[idx + 1] ?? '').trim() !== '')) refined[name] = idx + 1
+  }
+  return refined
 }
 
 // Run as a CLI when invoked directly via `node server/db/import.ts`

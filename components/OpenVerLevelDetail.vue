@@ -121,16 +121,12 @@ const tagList = computed(() => {
 </script>
 
 <template>
-  <div class="px-4 sm:px-8 py-6 max-w-3xl mx-auto w-full">
+  <div class="px-4 sm:px-8 pt-6 sm:pt-10 pb-12 max-w-4xl mx-auto w-full">
     <header class="mb-6 flex items-start justify-between gap-3 flex-wrap">
-      <div>
-        <div class="flex items-baseline gap-3 flex-wrap">
-          <h1 class="text-3xl font-semibold tracking-tight">{{ level.name }}</h1>
-          <span class="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded bg-violet-900/40 text-violet-300 border border-violet-800/60">
-            Open verification
-          </span>
-        </div>
-        <p class="text-xs text-zinc-500 mt-1.5">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-violet-300">Open verification</p>
+        <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
+        <p class="text-sm text-zinc-400 mt-2">
           Submitted on {{ level.submitted_at }}<span v-if="level.submitter">
             · by
             <NuxtLink :to="`/users/${level.submitter}`" class="hover:text-accent">{{ level.submitter }}</NuxtLink>
@@ -147,7 +143,7 @@ const tagList = computed(() => {
         <button
           v-if="canEdit && !editing"
           type="button"
-          class="rounded border border-accent/40 text-accent font-medium text-sm px-3 py-1.5 hover:bg-accent/10 transition-colors"
+          class="btn btn-sm btn-ghost"
           @click="startEdit"
         >Edit</button>
       </div>
@@ -156,60 +152,60 @@ const tagList = computed(() => {
     <!-- Edit form -->
     <section v-if="editing" class="rounded-md border border-accent/40 bg-zinc-950/80 p-5 mb-6 space-y-4">
       <div class="flex items-baseline justify-between">
-        <h2 class="text-xs uppercase tracking-widest text-accent font-medium">Editing open verification</h2>
+        <h2 class="section-title">Editing open verification</h2>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Name</span>
+          <span class="text-xs text-zinc-500">Name</span>
           <input v-model="draft.name" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Level ID</span>
+          <span class="text-xs text-zinc-500">Level ID</span>
           <input v-model="draft.gd_id" inputmode="numeric" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Verifier</span>
+          <span class="text-xs text-zinc-500">Verifier</span>
           <input v-model="draft.verifier" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">FPS</span>
+          <span class="text-xs text-zinc-500">FPS</span>
           <input v-model="draft.fps" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Game version</span>
+          <span class="text-xs text-zinc-500">Game version</span>
           <input v-model="draft.game_version" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">GDDL Tier</span>
+          <span class="text-xs text-zinc-500">GDDL Tier</span>
           <input v-model="draft.gddl_tier" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Difficulty</span>
+          <span class="text-xs text-zinc-500">Difficulty</span>
           <input v-model="draft.difficulty" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
+          <span class="text-xs text-zinc-500">Enjoyment <span class="text-zinc-600 normal-case">— 0–10</span></span>
           <input v-model="draft.enjoyment" inputmode="decimal" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Main skillset</span>
+          <span class="text-xs text-zinc-500">Main skillset</span>
           <input v-model="draft.main_skillset" class="field field-md mt-1" />
         </label>
         <label class="block">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Source</span>
+          <span class="text-xs text-zinc-500">Source</span>
           <input v-model="draft.placement_source" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Showcase URL</span>
+          <span class="text-xs text-zinc-500">Showcase URL</span>
           <input v-model="draft.showcase_url" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
+          <span class="text-xs text-zinc-500">Tags <span class="text-zinc-600 normal-case">— comma-separated</span></span>
           <input v-model="draft.tags" class="field field-md mt-1" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[11px] uppercase tracking-widest text-zinc-500">Notes</span>
+          <span class="text-xs text-zinc-500">Notes</span>
           <textarea v-model="draft.notes" rows="3" class="field field-md mt-1" />
         </label>
       </div>
@@ -260,7 +256,7 @@ const tagList = computed(() => {
             </svg>
           </div>
           <p class="text-sm font-medium text-zinc-300 max-w-md mx-auto line-clamp-2">Showcase</p>
-          <p class="text-[11px] text-zinc-500 mt-2 uppercase tracking-wider">Open showcase ↗</p>
+          <p class="text-xs text-zinc-500 mt-2">Open showcase ↗</p>
         </div>
       </div>
     </a>
@@ -282,7 +278,7 @@ const tagList = computed(() => {
     <!-- Stats grid -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-zinc-800 rounded-md overflow-hidden mb-6">
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Level ID</div>
+        <div class="text-xs text-zinc-500 mb-1">Level ID</div>
         <a
           v-if="levelUrl"
           :href="levelUrl"
@@ -293,37 +289,37 @@ const tagList = computed(() => {
         <div v-else class="tabular-nums text-base text-zinc-600">—</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">FPS</div>
+        <div class="text-xs text-zinc-500 mb-1">FPS</div>
         <div class="text-base text-zinc-100">{{ level.fps ?? 'any' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Version</div>
+        <div class="text-xs text-zinc-500 mb-1">Version</div>
         <div class="text-base text-zinc-100">{{ level.game_version ?? 'any' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Verifier</div>
+        <div class="text-xs text-zinc-500 mb-1">Verifier</div>
         <div class="text-base text-zinc-100 truncate">{{ level.verifier ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">GDDL Tier</div>
+        <div class="text-xs text-zinc-500 mb-1">GDDL Tier</div>
         <div class="text-base text-zinc-100">{{ level.gddl_tier ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Difficulty</div>
+        <div class="text-xs text-zinc-500 mb-1">Difficulty</div>
         <div class="text-base text-zinc-100">{{ level.difficulty ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Skillset</div>
+        <div class="text-xs text-zinc-500 mb-1">Skillset</div>
         <div class="text-base text-zinc-100">{{ level.main_skillset ?? '—' }}</div>
       </div>
       <div class="bg-zinc-950 p-4">
-        <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Enjoyment</div>
+        <div class="text-xs text-zinc-500 mb-1">Enjoyment</div>
         <div class="tabular-nums text-base text-zinc-100">{{ level.enjoyment != null ? Number(level.enjoyment).toFixed(1) : '—' }}</div>
       </div>
     </div>
 
     <section v-if="level.notes" class="card px-4 py-3 mb-6">
-      <h3 class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-1.5">Notes from submitter</h3>
+      <h3 class="text-sm font-semibold text-zinc-200 mb-1.5">Notes from submitter</h3>
       <p class="text-sm text-zinc-200 whitespace-pre-wrap">{{ level.notes }}</p>
     </section>
 

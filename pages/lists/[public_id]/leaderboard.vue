@@ -90,7 +90,7 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
     <template #default="{ list: l }">
       <header class="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Leaderboard</h2>
+          <h2 class="section-title">Leaderboard</h2>
           <p class="text-sm text-zinc-400 mt-0.5">
             Ranked by the points each approved record is worth.
           </p>
@@ -119,7 +119,7 @@ useHead(() => ({ title: list.value ? `Leaderboard — ${list.value.title}` : 'Le
             { l: 'Completions', v: totals.completions },
             { l: 'Progresses', v: totals.progresses },
           ]" :key="s.l" class="bg-zinc-950 px-3 py-2">
-            <dt class="text-[9px] uppercase tracking-widest text-zinc-600">{{ s.l }}</dt>
+            <dt class="text-xs text-zinc-600">{{ s.l }}</dt>
             <dd class="text-base font-semibold tabular-nums text-zinc-200">{{ s.v.toLocaleString() }}</dd>
           </div>
         </dl>

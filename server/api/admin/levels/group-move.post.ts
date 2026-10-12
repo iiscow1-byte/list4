@@ -1,90 +1,50 @@
 import { getDb } from '~/server/db'
 import { requireMod } from '~/server/utils/auth'
-import { recomputePoints } from '~/server/utils/points'
-import { resyncPlacementsForMove } from '~/server/utils/placement-sync'
-import { tierForSlot } from '~/server/utils/move-level'
+import { afterListChange, moveLevelsBelow } from '~/server/utils/list-ops'
+import { logActivity } from '~/server/utils/activity-log'
 
-const STASH = -1_000_000_000
-
+/**
+ * Move several levels as a block, keeping their order, directly under one level.
+ *
+ * Body: `{ positions: number[], below_position: number | null, keep_tier? }`.
+ * `below_position: null` puts the block at the top of the list.
+ */
 export default defineEventHandler(async (event) => {
   const account = requireMod(event)
-  const body = await readBody<{ positions?: unknown; delta?: unknown; keep_tier?: unknown }>(event) ?? {}
-  const keepTier = body.keep_tier === true
+  const body = await readBody<{ positions?: unknown; below_position?: unknown; keep_tier?: unknown }>(event) ?? {}
 
   const positions: number[] = Array.isArray(body.positions)
     ? [...new Set(body.positions.map(Number).filter((n) => Number.isInteger(n) && n > 0))]
     : []
-  if (positions.length === 0) throw createError({ statusCode: 400, statusMessage: 'No valid positions provided.' })
-
-  const delta = Number(body.delta)
-  if (!Number.isInteger(delta) || delta === 0) {
-    throw createError({ statusCode: 400, statusMessage: 'delta must be a non-zero integer.' })
-  }
+  if (!positions.length) throw createError({ statusCode: 400, statusMessage: 'Pick at least one level.' })
+  if (body.below_position === undefined) throw createError({ statusCode: 400, statusMessage: 'Pick where the levels go.' })
 
   const db = getDb()
-  const maxPos = (db.prepare(`SELECT MAX(position) AS m FROM levels`).get() as { m: number | null }).m ?? 0
+  const idAt = db.prepare(`SELECT id FROM levels WHERE position = ?`)
+  const ids = positions
+    .map((p) => (idAt.get(p) as { id: number } | undefined)?.id)
+    .filter((id): id is number => id != null)
 
-  // Moving down → process highest first so each shift doesn't affect lower picks.
-  // Moving up  → process lowest first for the same reason.
-  const sorted = positions.sort((a, b) => delta > 0 ? b - a : a - b)
-
-  db.exec('BEGIN')
-  let moved = 0
-  let retiered = 0
-  try {
-    for (const fromPos of sorted) {
-      const row = db.prepare(`SELECT id, gddl_tier FROM levels WHERE position = ?`)
-        .get(fromPos) as { id: number; gddl_tier: string | null } | undefined
-      if (!row) continue
-
-      const toPos = Math.min(Math.max(1, fromPos + delta), maxPos)
-      if (fromPos === toPos) continue
-
-      db.prepare(`UPDATE levels SET position = ? WHERE position = ?`).run(STASH, fromPos)
-
-      if (toPos < fromPos) {
-        db.prepare(`UPDATE levels SET position = -(position + 1) WHERE position >= ? AND position < ?`).run(toPos, fromPos)
-      } else {
-        db.prepare(`UPDATE levels SET position = -(position - 1) WHERE position > ? AND position <= ?`).run(fromPos, toPos)
-      }
-      db.prepare(`UPDATE levels SET position = -position WHERE position < 0 AND position != ?`).run(STASH)
-      db.prepare(`UPDATE levels SET position = ?, tentative_placement = 0 WHERE position = ?`).run(toPos, STASH)
-
-      const existingToday = db.prepare(
-        `SELECT id FROM position_history
-         WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now')
-         ORDER BY changed_at ASC, id ASC LIMIT 1`,
-      ).get(row.id) as { id: number } | undefined
-      if (existingToday) {
-        db.prepare(`UPDATE position_history SET to_position = ?, changed_at = datetime('now'), changed_by = ? WHERE id = ?`)
-          .run(toPos, account.id, existingToday.id)
-        db.prepare(`DELETE FROM position_history WHERE level_id = ? AND from_position IS NOT NULL AND DATE(changed_at) = DATE('now') AND id != ?`)
-          .run(row.id, existingToday.id)
-      } else {
-        db.prepare(`INSERT INTO position_history (level_id, from_position, to_position, changed_by) VALUES (?, ?, ?, ?)`)
-          .run(row.id, fromPos, toPos, account.id)
-      }
-      moved++
-      // Placement numbers stay with the slot, not the level — see
-      // `server/utils/placement-sync.ts`.
-      resyncPlacementsForMove(db, fromPos, toPos)
-
-      // …and so does the tier. A group move is the same statement about
-      // difficulty as a single one, made about several levels at once.
-      if (!keepTier) {
-        const landed = tierForSlot(db, toPos, row.id)
-        if (landed && landed !== row.gddl_tier) {
-          db.prepare(`UPDATE levels SET gddl_tier = ? WHERE id = ?`).run(landed, row.id)
-          retiered++
-        }
-      }
-    }
-    db.exec('COMMIT')
-  } catch (e) {
-    db.exec('ROLLBACK')
-    throw e
+  let belowId: number | null = null
+  if (body.below_position !== null) {
+    const p = Number(body.below_position)
+    belowId = (idAt.get(p) as { id: number } | undefined)?.id ?? null
+    if (belowId == null) throw createError({ statusCode: 400, statusMessage: `No level at #${p}.` })
+    if (ids.includes(belowId)) throw createError({ statusCode: 400, statusMessage: 'The target is one of the levels being moved.' })
   }
 
-  recomputePoints(db)
-  return { ok: true, moved, retiered }
+  const res = moveLevelsBelow(db, ids, belowId, account.id, { keepTier: body.keep_tier === true })
+  if (res.moved) {
+    afterListChange(db)
+    logActivity({
+      kind: 'level.group-move',
+      area: 'levels',
+      severity: 'notable',
+      actor: account,
+      subject: null,
+      summary: `Moved ${res.moved} level${res.moved === 1 ? '' : 's'} as a group`,
+      detail: { positions, below_position: body.below_position },
+    }, db)
+  }
+  return { ok: true, ...res }
 })

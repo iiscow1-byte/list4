@@ -408,7 +408,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
 
           <!-- Levels -->
           <section v-show="settingsTab === 'list'" class="card p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold mb-2">Levels</h2>
+            <h2 class="section-title mb-2">Levels</h2>
             <p class="text-xs text-zinc-500 mb-3">
               Add, remove and reorder levels in the builder — it keeps every record attached as rows move.
             </p>
@@ -422,13 +422,13 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Appearance -->
           <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Appearance</h2>
+              <h2 class="section-title">Appearance</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 An icon and colour so the list reads as yours. Paste a direct image link.
               </p>
             </div>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Icon URL</span>
+              <span class="text-xs text-zinc-500 font-medium">Icon URL</span>
               <input
                 type="url"
                 :value="l.icon_url ?? ''"
@@ -447,7 +447,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                  particular one, and a hex box for the people who want theirs. -->
             <div>
               <div class="flex items-baseline gap-2 flex-wrap">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">List colour</span>
+                <span class="text-xs text-zinc-500 font-medium">List colour</span>
                 <span class="text-[11px] text-zinc-600">
                   Tints the tabs, rank numbers and links on every page of this list.
                 </span>
@@ -507,7 +507,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               </div>
             </div>
             <label class="block">
-              <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Banner URL</span>
+              <span class="text-xs text-zinc-500 font-medium">Banner URL</span>
               <input
                 type="url"
                 :value="l.banner_url ?? ''"
@@ -522,7 +522,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
             </label>
 
             <div v-if="l.icon_url || l.banner_url" class="space-y-2 pt-1">
-              <span class="block text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Preview</span>
+              <span class="block text-xs text-zinc-500 font-medium">Preview</span>
               <div v-if="l.banner_url" class="relative h-16 rounded-lg overflow-hidden border border-zinc-800">
                 <img :src="l.banner_url" alt="" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
                 <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent" aria-hidden="true" />
@@ -537,7 +537,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Presets -->
           <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Presets</h2>
+              <h2 class="section-title">Presets</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 A whole look in one press. Each just sets the switches below, so you can start from
                 one and change anything you like afterwards.
@@ -557,7 +557,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
               >
                 <span class="block text-sm" :class="activePreset === p.id ? 'text-accent' : 'text-zinc-200'">
                   {{ p.label }}
-                  <span v-if="activePreset === p.id" class="text-[10px] uppercase tracking-widest ml-1">current</span>
+                  <span v-if="activePreset === p.id" class="text-xs ml-1">current</span>
                 </span>
                 <span class="block text-[11px] text-zinc-500 leading-snug mt-0.5">{{ p.blurb }}</span>
               </button>
@@ -570,7 +570,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Long names -->
           <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Long level names</h2>
+              <h2 class="section-title">Long level names</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 What a row does when the name is wider than the panel. Names in this game run long and
                 often differ only at the end, so cutting them off can leave two rows looking identical.
@@ -600,7 +600,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- What the list shows -->
           <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">What the list shows</h2>
+              <h2 class="section-title">What the list shows</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 How the list draws itself for everyone who opens it. Each is on unless you turn it off.
               </p>
@@ -632,7 +632,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Tiers -->
           <section v-show="settingsTab === 'appearance'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Tiers</h2>
+              <h2 class="section-title">Tiers</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 Split the list into named bands. A tier runs from its starting rank until the
                 next one begins, so they follow the list as levels move. Leave this empty for
@@ -643,7 +643,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
             <ul v-if="tierDrafts.length" class="space-y-2">
               <li v-for="(t, i) in tierDrafts" :key="i" class="flex items-end gap-2 flex-wrap">
                 <label class="block flex-1 min-w-[9rem]">
-                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">Name</span>
+                  <span class="text-xs text-zinc-600">Name</span>
                   <input
                     v-model="t.name"
                     maxlength="40"
@@ -652,7 +652,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                   />
                 </label>
                 <label class="block w-24">
-                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">From rank</span>
+                  <span class="text-xs text-zinc-600">From rank</span>
                   <input
                     v-model.number="t.from_rank"
                     type="number"
@@ -661,7 +661,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
                   />
                 </label>
                 <label class="block">
-                  <span class="text-[10px] uppercase tracking-widest text-zinc-600">Colour</span>
+                  <span class="text-xs text-zinc-600">Colour</span>
                   <input
                     v-model="t.color"
                     type="color"
@@ -697,7 +697,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
 
           <!-- Visibility -->
           <section v-show="settingsTab === 'list'" class="card p-4 space-y-3">
-            <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Visibility</h2>
+            <h2 class="section-title">Visibility</h2>
             <label class="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -787,7 +787,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Standalone link -->
           <section v-show="settingsTab === 'sharing'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Standalone link</h2>
+              <h2 class="section-title">Standalone link</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 The same list, opened as its own site: no ALL header or footer, this list's bar at the
                 top, and one button back to the main list. For pinning in a Discord or linking from a
@@ -818,19 +818,19 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Community links -->
           <section v-show="settingsTab === 'sharing'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Community links</h2>
+              <h2 class="section-title">Community links</h2>
               <p class="text-xs text-zinc-500 mt-1">Shown as icons in this list's header.</p>
             </div>
             <div class="grid gap-3 sm:grid-cols-2">
               <label class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">Discord invite</span>
+                <span class="text-xs text-zinc-500 font-medium">Discord invite</span>
                 <input
                   v-model="discordUrl" type="url" placeholder="https://discord.gg/…"
                   class="field field-md mt-1"
                 />
               </label>
               <label class="block">
-                <span class="text-[10px] uppercase tracking-widest text-zinc-500 font-medium">YouTube channel</span>
+                <span class="text-xs text-zinc-500 font-medium">YouTube channel</span>
                 <input
                   v-model="youtubeUrl" type="url" placeholder="https://youtube.com/@…"
                   class="field field-md mt-1"
@@ -847,7 +847,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Discord webhooks -->
           <section v-show="settingsTab === 'integrations'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Discord webhooks</h2>
+              <h2 class="section-title">Discord webhooks</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 Post this list's activity to a Discord channel. URLs are stored write-only —
                 once saved, only the webhook's id is shown back.
@@ -916,7 +916,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
           <!-- Editors -->
           <section v-show="settingsTab === 'people'" class="card p-4 space-y-3">
             <div>
-              <h2 class="text-[10px] uppercase tracking-widest text-accent font-semibold">Editors</h2>
+              <h2 class="section-title">Editors</h2>
               <p class="text-xs text-zinc-500 mt-1">
                 Editors can change the list's levels and settings and review records.
                 Only you can delete the list or change this roster.
@@ -968,7 +968,7 @@ useHead(() => ({ title: list.value ? `Settings — ${list.value.title}` : 'Setti
 
           <!-- Danger zone -->
           <section v-if="canManage && settingsTab === 'list'" class="rounded-xl border border-red-950/70 bg-red-950/10 p-4">
-            <h2 class="text-[10px] uppercase tracking-widest text-red-400 font-semibold mb-2">Delete list</h2>
+            <h2 class="text-xs text-red-400 font-semibold mb-2">Delete list</h2>
             <p class="text-xs text-zinc-500 mb-3">
               Removes the list, its levels, and every record submitted to it. This can't be undone.
             </p>
