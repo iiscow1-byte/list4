@@ -62,8 +62,10 @@ async function decide(action: 'approve' | 'reject') {
   }
 }
 
+const { confirm: confirmDialog } = useConfirmDialog()
+
 async function quickReject(id: number) {
-  if (!confirm('Reject this movement request?')) return
+  if (!(await confirmDialog({ title: 'Reject this move request?', confirmLabel: 'Reject', tone: 'danger' }))) return
   try {
     await $fetch(`/api/admin/movements/${id}`, { method: 'POST', body: { action: 'reject' } })
     if (selectedId.value === id) selectedId.value = null

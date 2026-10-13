@@ -100,9 +100,16 @@ const rows = computed(() => data.value?.items ?? [])
 const undoing = ref<number | null>(null)
 const undoError = reactive<Record<number, string>>({})
 
+const { confirm: confirmDialog } = useConfirmDialog()
+
 async function undo(r: Row) {
   if (undoing.value) return
-  if (!confirm(`${r.undo}?\n\n${r.summary}\n\nThis reverses the action and gets logged.`)) return
+  if (!(await confirmDialog({
+    title: `${r.undo}?`,
+    message: `${r.summary}\n\nThis reverses the action, and the undo is logged too.`,
+    confirmLabel: r.undo,
+    tone: 'danger',
+  }))) return
   undoing.value = r.id
   delete undoError[r.id]
   try {
@@ -153,7 +160,11 @@ function subjectLink(r: Row): string | null {
   <div class="flex flex-col h-full min-h-0">
     <!-- Controls. One row, because all three narrow the same list and reading
          them together is how you know what you are looking at. -->
-    <div class="shrink-0 border-b border-zinc-800/80 p-3 space-y-2.5">
+    <div class="shrink-0 border-b border-zinc-800/80 px-4 sm:px-6 pt-5 pb-3 space-y-3">
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h1 class="font-display text-xl font-semibold text-zinc-50">Activity log</h1>
+        <p class="text-sm text-zinc-400">Everything staff have done, newest first. Most of it can be undone.</p>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <input
           v-model="search"

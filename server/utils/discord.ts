@@ -128,7 +128,7 @@ type DigestOptions = {
 }
 
 type Embed = Record<string, unknown>
-type Payload = { embeds: Embed[]; allowed_mentions: { parse: never[] } }
+export type Payload = { embeds: Embed[]; allowed_mentions: { parse: never[] }; content?: string }
 
 /** `#N` on the main list, `Challenge #N` on the challenge digest. */
 type Numbering = {
@@ -419,26 +419,125 @@ export function buildTestEmbed(kind: string): Payload {
   }
 }
 
-export type PostStatus = { ok: boolean; status: string; retryable: boolean }
+export type PostStatus = {
+  ok: boolean
+  status: string
+  retryable: boolean
+  /** Discord says the webhook no longer exists: deleted, or its token was reset. */
+  gone?: boolean
+}
 
-/** POST a payload. Never throws. */
-export async function postToDiscordWebhook(url: string, payload: object, timeoutMs = 10_000): Promise<PostStatus> {
+/** Longest rate-limit wait honoured in place before giving up on a send. */
+const MAX_RATE_LIMIT_WAIT_MS = 15_000
+
+/** Discord's "try again in N seconds", from the JSON body or the header. */
+function retryAfterMs(resp: Response, body: string): number | null {
   try {
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ allowed_mentions: { parse: [] }, ...payload }),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    if (resp.status === 204 || resp.status === 200) return { ok: true, status: 'ok', retryable: false }
-    const body = await resp.text().catch(() => '')
+    const s = Number(JSON.parse(body)?.retry_after)
+    if (Number.isFinite(s) && s >= 0) return Math.ceil(s * 1000)
+  } catch { /* not JSON */ }
+  const h = Number(resp.headers.get('retry-after'))
+  return Number.isFinite(h) && h >= 0 ? Math.ceil(h * 1000) : null
+}
+
+/**
+ * A 404 (Unknown Webhook) or 401 (Invalid Webhook Token) is permanent: the
+ * webhook was deleted in Discord or its URL was regenerated.
+ */
+function isGone(status: number): boolean {
+  return status === 404 || status === 401
+}
+
+/**
+ * POST a payload. Never throws.
+ *
+ * A rate limit is waited out in place, twice at most and only for a short wait,
+ * because the alternative is a record post that silently never arrives.
+ */
+export async function postToDiscordWebhook(url: string, payload: object, timeoutMs = 10_000): Promise<PostStatus> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ allowed_mentions: { parse: [] }, ...payload }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (resp.status === 204 || resp.status === 200) return { ok: true, status: 'ok', retryable: false }
+      const body = await resp.text().catch(() => '')
+      if (resp.status === 429 && attempt < 2) {
+        const wait = retryAfterMs(resp, body)
+        if (wait != null && wait <= MAX_RATE_LIMIT_WAIT_MS) {
+          await new Promise((r) => setTimeout(r, wait + 250))
+          continue
+        }
+      }
+      return {
+        ok: false,
+        status: `HTTP ${resp.status}${body ? ` ${body.slice(0, 160)}` : ''}`,
+        // Rate limits and Discord's own outages pass; a 4xx about the webhook doesn't.
+        retryable: resp.status === 429 || resp.status >= 500,
+        gone: isGone(resp.status),
+      }
+    } catch (e: any) {
+      return { ok: false, status: `error: ${e?.message ?? 'unknown'}`, retryable: true }
+    }
+  }
+}
+
+export type WebhookInfo = {
+  /** Discord answered and the webhook exists. */
+  ok: boolean
+  /** Discord answered that it doesn't exist. False when Discord couldn't be reached. */
+  gone: boolean
+  status: string
+  name: string | null
+  channel_id: string | null
+  guild_id: string | null
+}
+
+/**
+ * Ask Discord about a webhook without posting to it. A GET on the webhook URL
+ * needs no other credentials and returns its name and channel.
+ */
+export async function fetchWebhookInfo(url: string, timeoutMs = 8_000): Promise<WebhookInfo> {
+  try {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
+    if (resp.ok) {
+      const j = await resp.json().catch(() => ({})) as { name?: string; channel_id?: string; guild_id?: string }
+      return {
+        ok: true, gone: false, status: 'ok',
+        name: j.name ?? null, channel_id: j.channel_id ?? null, guild_id: j.guild_id ?? null,
+      }
+    }
     return {
-      ok: false,
-      status: `HTTP ${resp.status}${body ? ` ${body.slice(0, 160)}` : ''}`,
-      // Rate limits and Discord's own outages pass; a 4xx about the webhook doesn't.
-      retryable: resp.status === 429 || resp.status >= 500,
+      ok: false, gone: isGone(resp.status), status: `HTTP ${resp.status}`,
+      name: null, channel_id: null, guild_id: null,
     }
   } catch (e: any) {
-    return { ok: false, status: `error: ${e?.message ?? 'unknown'}`, retryable: true }
+    return { ok: false, gone: false, status: `error: ${e?.message ?? 'unknown'}`, name: null, channel_id: null, guild_id: null }
+  }
+}
+
+/**
+ * A Discord role id from what an admin pastes: the bare id, or the `<@&id>`
+ * that Discord's "Copy mention" produces. Null for anything else.
+ */
+export function parseRoleId(input: unknown): string | null {
+  const m = String(input ?? '').trim().match(/^(?:<@&)?(\d{17,20})>?$/)
+  return m ? m[1]! : null
+}
+
+/**
+ * Ping a role with a post. The role goes in `content`, and `allowed_mentions`
+ * allows exactly that role, so names in the embeds still can't ping anyone.
+ */
+export function withRoleMention<T extends object>(payload: T, roleId: string | null | undefined): T {
+  if (!roleId) return payload
+  const p = payload as T & { content?: string }
+  return {
+    ...p,
+    content: `<@&${roleId}>${p.content ? ` ${p.content}` : ''}`,
+    allowed_mentions: { parse: [], roles: [roleId] },
   }
 }

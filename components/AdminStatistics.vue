@@ -259,8 +259,8 @@ const shownLevels = computed(() =>
     <div class="container-wide py-6 space-y-6">
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 class="text-lg font-semibold tracking-tight text-zinc-100">Statistics</h1>
-          <p class="text-xs text-zinc-500 mt-0.5 max-w-2xl">
+          <h1 class="font-display text-xl font-semibold text-zinc-50">Statistics</h1>
+          <p class="text-sm text-zinc-400 mt-1 max-w-2xl">
             A <em>view</em> is one page opened; a <em>visitor</em> is one person, counted
             once a day, anonymously. All times are UTC.
           </p>

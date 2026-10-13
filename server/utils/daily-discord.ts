@@ -1,7 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { getDb } from '~/server/db'
 import { loadChanges } from '~/server/utils/changes'
-import { buildChallengeEmbeds, buildDailyEmbeds, dayLabel, postToDiscordWebhook } from '~/server/utils/discord'
+import { buildChallengeEmbeds, buildDailyEmbeds, dayLabel, postToDiscordWebhook, withRoleMention, type Payload } from '~/server/utils/discord'
+import { recordDelivery } from '~/server/utils/discord-deliveries'
 
 /**
  * The daily changelog digest for `changes` / `challenge_changes` webhooks.
@@ -30,6 +31,7 @@ type Hook = {
   split_long: number
   posted_through: string | null
   fail_count: number
+  mention_role_id: string | null
 }
 
 export type PostedEntry = { webhookId: number; window: string; status: string }
@@ -97,11 +99,8 @@ function setStatus(db: DatabaseSync, hookId: number, status: string, failCount: 
   }
 }
 
-async function sendWindow(db: DatabaseSync, hook: Hook, w: Window): Promise<{ status: string; stop: boolean }> {
-  const before = hook.posted_through
-  if (!claim(db, hook, before, w.through)) return { status: 'skipped: already sent elsewhere', stop: true }
-  hook.posted_through = w.through
-
+/** The payloads a window turns into, without sending anything. */
+function payloadsFor(db: DatabaseSync, hook: Hook, w: Window): { payloads: Payload[]; changes: number } {
   // `loadChanges` treats `since` as inclusive; timestamps are whole seconds.
   const since = sqlTs(new Date(new Date(w.after.replace(' ', 'T') + 'Z').getTime() + 1000))
   const changes = loadChanges(db, { since, until: w.through, limit: 2000 }).reverse()
@@ -109,7 +108,20 @@ async function sendWindow(db: DatabaseSync, hook: Hook, w: Window): Promise<{ st
   const payloads = hook.kind === 'challenge_changes'
     ? buildChallengeEmbeds(w.title.replace('List changes', 'Challenge changes'), changes, opts)
     : buildDailyEmbeds(w.title, changes, opts)
+  // Only the first message pings; the rest of a split day follows it.
+  if (payloads[0]) payloads[0] = withRoleMention(payloads[0], hook.mention_role_id)
+  const counted = hook.kind === 'challenge_changes' ? changes.filter((c) => c.level_rated === 'Challenge').length : changes.length
+  return { payloads, changes: counted }
+}
+
+async function sendWindow(db: DatabaseSync, hook: Hook, w: Window): Promise<{ status: string; stop: boolean }> {
+  const before = hook.posted_through
+  if (!claim(db, hook, before, w.through)) return { status: 'skipped: already sent elsewhere', stop: true }
+  hook.posted_through = w.through
+
+  const { payloads } = payloadsFor(db, hook, w)
   const day = w.through.slice(0, 10)
+  const what = hook.kind === 'challenge_changes' ? w.title.replace('List changes', 'Challenge changes') : w.title
 
   if (!payloads.length) {
     setStatus(db, hook.id, 'no changes', 0, day)
@@ -124,14 +136,22 @@ async function sendWindow(db: DatabaseSync, hook: Hook, w: Window): Promise<{ st
       // Nothing reached the channel: hand the window back for the next tick.
       if (claim(db, hook, w.through, before)) hook.posted_through = before
       setStatus(db, hook.id, `will retry: ${res.status}`, hook.fail_count + 1)
+      recordDelivery(db, hook.id, what, { ...res, status: `will retry: ${res.status}` })
       return { status: `retrying (${res.status})`, stop: true }
+    }
+    if (i === 0 && res.gone) {
+      // The webhook is gone, so nothing was delivered: give the window back for
+      // whichever URL replaces it.
+      if (claim(db, hook, w.through, before)) hook.posted_through = before
     }
     const status = i === 0 ? `failed: ${res.status}` : `sent ${i} of ${payloads.length}, then ${res.status}`
     setStatus(db, hook.id, status, 0, day)
-    return { status, stop: false }
+    recordDelivery(db, hook.id, what, { ok: false, status, gone: res.gone }, i)
+    return { status, stop: !!res.gone }
   }
   const status = payloads.length > 1 ? `ok (${payloads.length} messages)` : 'ok'
   setStatus(db, hook.id, status, 0, day)
+  recordDelivery(db, hook.id, what, { ok: true, status }, payloads.length)
   return { status, stop: false }
 }
 
@@ -159,7 +179,7 @@ export async function postDailyChangesIfDue(opts: {
     if (!opts.includePaused) where.push('active = 1')
     if (opts.webhookId != null) { where.push('id = ?'); params.push(opts.webhookId) }
     const hooks = db.prepare(
-      `SELECT id, url, kind, tier_emoji, split_long, posted_through, fail_count
+      `SELECT id, url, kind, tier_emoji, split_long, posted_through, fail_count, mention_role_id
          FROM discord_webhooks WHERE ${where.join(' AND ')}`,
     ).all(...params) as Hook[]
 
@@ -175,6 +195,41 @@ export async function postDailyChangesIfDue(opts: {
   } finally {
     running = false
   }
+}
+
+/**
+ * What "Post now" would send to one digest webhook, without sending it or
+ * moving its cursor.
+ */
+export function queuedDigest(db: DatabaseSync, webhookId: number): {
+  window: { after: string; through: string; title: string } | null
+  changes: number
+  payloads: Payload[]
+} | null {
+  const hook = db.prepare(
+    `SELECT id, url, kind, tier_emoji, split_long, posted_through, fail_count, mention_role_id
+       FROM discord_webhooks WHERE id = ? AND kind IN ('changes', 'challenge_changes')`,
+  ).get(webhookId) as Hook | undefined
+  if (!hook) return null
+  const w = windowsFor(hook, 'now')[0]
+  if (!w) return { window: null, changes: 0, payloads: [] }
+  const title = hook.kind === 'challenge_changes' ? w.title.replace('List changes', 'Challenge changes') : w.title
+  return { window: { ...w, title }, ...payloadsFor(db, hook, w) }
+}
+
+/**
+ * Whether this server sends the nightly digest by itself, and if not, why.
+ * The plugin and the admin panel both read this, so the panel never promises a
+ * post the schedule won't make.
+ */
+export function dailyScheduleState(): { enabled: boolean; reason: string | null } {
+  if (process.env.LIST_SKIP_DAILY_DISCORD === '1') {
+    return { enabled: false, reason: 'Switched off on this server (LIST_SKIP_DAILY_DISCORD=1).' }
+  }
+  if (import.meta.dev && process.env.LIST_DAILY_DISCORD !== '1') {
+    return { enabled: false, reason: 'Development server: nothing posts on its own unless LIST_DAILY_DISCORD=1.' }
+  }
+  return { enabled: true, reason: null }
 }
 
 /** For a new or re-enabled webhook: start from now, not from the backlog. */

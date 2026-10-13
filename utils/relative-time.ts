@@ -40,3 +40,9 @@ export function absoluteTime(at: string | null | undefined): string {
   if (Number.isNaN(t)) return ''
   return new Date(t).toLocaleString()
 }
+
+/** "just now", "3m ago", "2d ago", then a date: `relativeTime` as a phrase. */
+export function timeAgo(at: string | null | undefined): string {
+  const r = relativeTime(at)
+  return /^\d+[mhd]$/.test(r) ? `${r} ago` : r
+}

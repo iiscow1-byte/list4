@@ -234,8 +234,10 @@ async function returnToLevels() {
   }
 }
 
+const { confirm: confirmDialog } = useConfirmDialog()
+
 async function quickRemove(id: number) {
-  if (!confirm('Remove this level from awaiting placement?')) return
+  if (!(await confirmDialog({ title: 'Remove this level from awaiting placement?', message: 'It leaves the queue without being placed.', confirmLabel: 'Remove', tone: 'danger' }))) return
   try {
     await $fetch(`/api/admin/awaiting/${id}`, { method: 'POST', body: { action: 'remove' } })
     if (selectedId.value === id) selectedId.value = null
@@ -332,7 +334,7 @@ const difficultyOverride = ref('')
 const submitAllLoading = ref(false)
 async function submitAllPending() {
   if (submitAllLoading.value) return
-  if (!confirm('Place all awaiting levels (with a placement suggestion) and approve all pending movements?')) return
+  if (!(await confirmDialog({ title: 'Place everything with a suggestion?', message: 'Every awaiting level that has a placement suggestion goes onto the list, and every pending move request is approved.', confirmLabel: 'Place all' }))) return
   submitAllLoading.value = true
   try {
     const res = await $fetch<{ placed: number; moved: number }>('/api/admin/submit-all', { method: 'POST' })

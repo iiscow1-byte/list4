@@ -1,7 +1,8 @@
 import { getDb } from '~/server/db'
 import { requireListStaff } from '~/server/utils/auth'
 import { sendInboxMessage } from '~/server/utils/inbox'
-import { postLeaderboardUpdate } from '~/server/utils/leaderboard-discord'
+import { approvePendingRecord } from '~/server/utils/record-decisions'
+import { logActivity } from '~/server/utils/activity-log'
 
 export default defineEventHandler(async (event) => {
   const me = requireListStaff(event)
@@ -28,31 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (action === 'approve') {
-    db.prepare(
-      `UPDATE records SET permanent = 1, decided_at = datetime('now'), decided_by = ? WHERE id = ?`,
-    ).run(me.id, id)
-    // Honor the verifier claim only if the level still has no verifier.
-    if (rec.is_verification_claim) {
-      db.prepare(
-        `UPDATE levels SET verifier = ? WHERE id = ? AND (verifier IS NULL OR verifier = '')`,
-      ).run(rec.player_name, rec.level_id)
-    }
-    // Approve any linked rating attached at submit time.
-    db.prepare(
-      `UPDATE opinions SET status = 'approved', decided_at = datetime('now'), decided_by = ?
-        WHERE source_record_id = ? AND status = 'pending'`,
-    ).run(me.id, id)
-
-    // Fire-and-forget leaderboard Discord notification.
-    const posted = db.prepare(`SELECT video, percent FROM records WHERE id = ?`).get(id) as { video: string | null; percent: number | null } | undefined
-    postLeaderboardUpdate(db, {
-      recordId: rec.id,
-      playerName: rec.player_name,
-      levelId: rec.level_id,
-      videoUrl: posted?.video ?? null,
-      percent: posted?.percent ?? null,
-      isVerification: !!rec.is_verification_claim,
-    }).catch(() => {})
+    approvePendingRecord(db, rec, me)
   } else {
     // Reject the linked opinion alongside the record so it doesn't outlive the
     // proof video. ON DELETE SET NULL would leave it dangling without proof.
@@ -61,6 +38,15 @@ export default defineEventHandler(async (event) => {
         WHERE source_record_id = ? AND status = 'pending'`,
     ).run(me.id, id)
     db.prepare(`DELETE FROM records WHERE id = ?`).run(id)
+    logActivity({
+      kind: 'record.reject',
+      area: 'records',
+      severity: 'notable',
+      actor: me,
+      subject: { kind: 'record', id: rec.id, label: `${rec.player_name} on ${rec.level_name}` },
+      summary: `Rejected ${rec.player_name}'s record on ${rec.level_name}`,
+      detail: reason ? { reason } : null,
+    }, db)
     if (rec.submitted_by) {
       sendInboxMessage(db, rec.submitted_by, {
         kind: 'record_rejected',

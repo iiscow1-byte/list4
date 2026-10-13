@@ -717,6 +717,42 @@ function initSchema(db: DatabaseSync) {
   if (!dwCols.some((c) => c.name === 'fail_count')) {
     db.exec(`ALTER TABLE discord_webhooks ADD COLUMN fail_count INTEGER NOT NULL DEFAULT 0`)
   }
+  // A role to ping with each post (`<@&id>`). Only that role can be pinged:
+  // `allowed_mentions` still parses nothing from level or player names.
+  if (!dwCols.some((c) => c.name === 'mention_role_id')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN mention_role_id TEXT`)
+  }
+  // What Discord says about the webhook when it is added or checked: its own
+  // name and where it posts. Shown so two hooks in one server can be told apart.
+  if (!dwCols.some((c) => c.name === 'discord_name')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN discord_name TEXT`)
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN channel_id TEXT`)
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN guild_id TEXT`)
+  }
+  // Why a webhook was switched off by the site rather than by an admin: Discord
+  // answered that it no longer exists. Cleared when it is switched back on.
+  if (!dwCols.some((c) => c.name === 'paused_reason')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN paused_reason TEXT`)
+  }
+  // When a post last reached the channel. `last_posted_date` is the day a
+  // digest covered, which says nothing about record or level posts.
+  if (!dwCols.some((c) => c.name === 'last_success_at')) {
+    db.exec(`ALTER TABLE discord_webhooks ADD COLUMN last_success_at TEXT`)
+  }
+  // Every send, kept briefly, so "did it post?" has an answer per webhook.
+  // Trimmed to the newest 50 per webhook on each insert.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS discord_deliveries (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      webhook_id  INTEGER NOT NULL REFERENCES discord_webhooks(id) ON DELETE CASCADE,
+      at          TEXT    NOT NULL DEFAULT (datetime('now')),
+      what        TEXT    NOT NULL,
+      ok          INTEGER NOT NULL,
+      status      TEXT    NOT NULL,
+      messages    INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_discord_deliveries_hook ON discord_deliveries(webhook_id, id);
+  `)
   // One row per one-off announcement (a record approved, a level sent to
   // awaiting), so the same event is never posted twice to the same channel.
   db.exec(`

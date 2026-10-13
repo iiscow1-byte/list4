@@ -28,17 +28,25 @@ export default defineEventHandler((event) => {
   requireAdmin(event)
   const q = getQuery(event)
   const search = typeof q.search === 'string' ? q.search.trim() : ''
+  // `staff` and `banned` narrow the list on the server, so the filter covers
+  // every account rather than the 200 newest.
+  const filter = q.filter === 'staff' || q.filter === 'banned' ? q.filter : 'all'
+
+  const where: string[] = []
+  const params: string[] = []
+  if (search) {
+    where.push(`(a.username LIKE ? COLLATE NOCASE OR a.claimed_player LIKE ? COLLATE NOCASE)`)
+    params.push(`%${search}%`, `%${search}%`)
+  }
+  if (filter === 'staff') where.push(`a.role <> 'user'`)
+  if (filter === 'banned') where.push(`a.banned_at IS NOT NULL`)
 
   const db = getDb()
-  const rows = (search
-    ? db.prepare(
-        `SELECT ${COLS} ${JOINS}
-          WHERE a.username LIKE ? COLLATE NOCASE OR a.claimed_player LIKE ? COLLATE NOCASE
-          ORDER BY a.created_at DESC LIMIT 200`,
-      ).all(`%${search}%`, `%${search}%`)
-    : db.prepare(
-        `SELECT ${COLS} ${JOINS} ORDER BY a.created_at DESC LIMIT 200`,
-      ).all()) as any[]
+  const rows = db.prepare(
+    `SELECT ${COLS} ${JOINS}
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY a.created_at DESC LIMIT 200`,
+  ).all(...params) as any[]
 
   // One grouped count for the page rather than a correlated subquery per row.
   const counts = new Map<string, number>()

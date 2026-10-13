@@ -109,8 +109,8 @@ function isSevere(r: Report): boolean {
   <div class="space-y-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold text-zinc-100">Reports</h2>
-        <p class="text-[11px] text-zinc-500 mt-0.5 max-w-2xl">
+        <h1 class="font-display text-xl font-semibold text-zinc-50">Reports</h1>
+        <p class="text-sm text-zinc-400 mt-1 max-w-2xl">
           Accounts, comments, custom lists, levels and forum posts people have flagged.
           Resolved reports stay in the log.
           <span v-if="data?.isAdmin" class="text-amber-400/80">

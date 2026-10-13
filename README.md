@@ -570,9 +570,80 @@ Custom list webhooks (`server/utils/custom-list-webhooks.ts`) carry the list's
 own name, icon and colour, and the level's thumbnail. Every post sends
 `allowed_mentions: { parse: [] }`, so a level or player name can't ping anyone.
 
+### Keeping webhooks healthy
+
+Most of what used to go wrong with a webhook went wrong silently, so the admin
+panel now answers three questions for each one:
+
+- **Is it working?** A new webhook is checked with Discord before it is saved
+  (`fetchWebhookInfo`, a GET on the webhook URL needs no other credentials), so
+  a URL copied from a deleted webhook is refused instead of failing every night.
+  The check also stores the webhook's own name and channel. If Discord later
+  answers 404 or 401 (deleted, or its URL regenerated), the site pauses it and
+  records why in `paused_reason`. Pasting a new URL into the same row repairs it
+  and keeps its settings, history and place in the digest.
+- **What did it post?** Every send lands in `discord_deliveries` (the newest 50
+  per webhook): what it was, whether it arrived, and Discord's answer if not.
+  `last_post_status` only ever held the newest outcome, so a record post that
+  failed at noon used to be overwritten by the digest that worked at midnight.
+- **What will it post?** "Preview" builds the post from the same code that
+  sends it (`queuedDigest` for a digest, `samplePayload` for record and level
+  posts, from the newest real event) and the panel draws it the way Discord
+  does. For a digest, "Post now" sends exactly what the preview showed.
+
+Sends wait out a short rate limit (`retry_after` up to 15 seconds, twice) rather
+than dropping the post. "Approve all" on a submitter's records announces them
+one at a time for the same reason; it used to announce none of them at all.
+
+A webhook can ping a role (`mention_role_id`). The role goes in the message's
+`content` and `allowed_mentions` allows exactly that role, so a level or player
+name still can't ping anyone. Only the first message of a split digest pings.
+
 Development servers don't post at all unless `LIST_DAILY_DISCORD=1` is set, so
 a copy of the production database on a laptop can't post into the real channels.
-`LIST_SKIP_DAILY_DISCORD=1` turns the schedule off anywhere.
+That covers record and level announcements (`eventsEnabled()` in
+`server/utils/leaderboard-discord.ts`) as well as the digest, whose rule is
+`dailyScheduleState()`. The admin panel reads that too, so it says when this
+server won't send the digest by itself. `LIST_SKIP_DAILY_DISCORD=1` turns the
+schedule off anywhere. A production build run locally does post events, so point
+it at a database without real webhooks.
+
+## The admin panel
+
+`pages/admin.vue` is a shell: a sidebar of sections and the open one beside it.
+Every section is its own component (`components/Admin*.vue`), and what each is
+called, its icon, its one-line description, who can open it and which group it
+sits in are one table, `utils/admin-sections.ts`. The sidebar, the Overview's
+cards and each section's heading all read it, so they can't call one place by
+two names.
+
+- **The sidebar** replaced four dropdowns. A dropdown hides what it holds, so
+  seeing whether anything waited in Moderation meant opening it. Each queue
+  shows how many are waiting, red when some arrived since you last opened it.
+  It collapses to icons for the review queues (cookie `als_admin_nav`); below
+  `lg` it is a drawer.
+- **The Overview** is where the panel opens: everything waiting, biggest first,
+  then for admins the site switches (site access, registration) and whether
+  Discord and the importers are healthy.
+- **Notices and confirmations** are `useAdminToast()` and `useConfirmDialog()`,
+  rendered once by the page (`AdminToasts`, `AdminConfirmDialog`). No section
+  keeps its own banner or calls the browser's `confirm()` or `prompt()`, and a
+  section used outside this page would need those two components mounted.
+- **"New" counts** are the live count minus the count when you last opened the
+  section (`admin_seen_counts`). When a queue shrinks, the mark drops with it,
+  so the next arrivals show as new instead of quietly refilling it.
+
+### Reviewing records
+
+`AdminRecordsReview` leads with the run: the video, then percent, refresh rate,
+the points it is worth and how many more the submitter has waiting, then the
+level as a `LevelRow`, with its own verification a click away for comparison.
+Keys: J and K move, A approves, R jumps to the reason box, Ctrl+Enter there
+rejects. A decision opens the next record rather than the top of the queue.
+Common rejection reasons are one click, and are sent to the submitter as
+written. Approvals and rejections are written to the activity log
+(`record.approve`, `record.reject`), which the log's Records section had always
+promised and nothing had ever written.
 
 ## Access control (alpha lockdown)
 
@@ -1641,7 +1712,9 @@ pages/index.vue                         home — hero + list builder + latest mo
 pages/lists/[public_id].vue             a saved custom list, by share token
 pages/levels/[position].vue             3-panel level page (uses LevelListNav, LevelDetail, LevelRecords)
 pages/changelog.vue                     full changelog, filterable by source / range
-pages/leaderboard.vue                   leaderboard
+pages/leaderboard.vue                   leaderboard: podium, columns, ?tab= ?q= ?page= in the address
+pages/admin.vue                         admin shell: sidebar + the open section
+utils/admin-sections.ts                 every admin section: name, icon, audience, group
 pages/about.vue                         intro, FAQ, stats, demonlists used
 components/SiteHeader.vue · SiteFooter.vue
 components/ListBuilder.vue              drag-and-drop custom list builder
@@ -1651,12 +1724,17 @@ components/PlacementHistory.vue         a level's placement history: summary, ch
 components/LevelListNav.vue             left 1/5: searchable scrollable list nav
 components/LevelDetail.vue              center 3/5: title, video link, tags, stats grid, metadata
 components/LevelRecords.vue             right 1/5: records
+components/AdminNav.vue · AdminSection.vue  admin sidebar, and the frame of a page-like section
+components/AdminDiscord.vue · DiscordPreview.vue  webhooks, and posts drawn as Discord draws them
 composables/useListBuilder.ts           builder draft state (localStorage-backed)
 server/api/levels.get.ts                paginated/searchable/difficulty-filterable list
 server/api/levels/[position].get.ts     full level detail + records + placement history
 server/api/custom-lists/                custom list CRUD (owner-scoped writes, public reads)
 server/api/changes/recent.get.ts        changelog feed (days / limit / source)
 server/api/leaderboard.get.ts           reads players table directly
+server/utils/discord.ts                 every Discord payload, and the one sender
+server/utils/discord-deliveries.ts      per-webhook send history; pauses webhooks Discord says are gone
+server/utils/record-decisions.ts        approving a record (single and bulk share it)
 server/db/index.ts                      DB connection + schema
 server/db/import.ts                     Google Sheet importer (CSV per tab)
 server/db/import-aredl-history.ts       AREDL placement history → converted ALL placements

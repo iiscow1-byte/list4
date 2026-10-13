@@ -43,6 +43,30 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '2.3.0',
+    date: '2026-10-13',
+    title: 'The leaderboard gets a podium, and finds you',
+    tags: ['UI', 'Leaderboard', 'Admin', 'Discord'],
+    changes: [
+      'The leaderboard opens on a podium for the top three, with columns for each player’s count and hardest level below it.',
+      'Your own row is highlighted, and "Find me" shows where you stand.',
+      'A player’s hardest level links to its page, and each row shows the player’s flag.',
+      'The leaderboard keeps its tab, search and page in the address, so a link opens where you left it.',
+      adm('The admin panel has a sidebar listing every section and how much is waiting in each, and opens on an Overview of what needs doing.'),
+      adm('Every admin page has a title saying what it is for, and confirmations and notices look the same everywhere.'),
+      adm('Record review leads with the video, the percent, refresh rate and points, with the level’s own verification a click away.'),
+      adm('Rejecting a record takes one click with the common reasons. Keys: J and K to move, A to approve, R for a reason.'),
+      adm('After a decision the next record opens, not the first one.'),
+      adm('Approving and rejecting records shows in the activity log, and so do changes to Discord webhooks.'),
+      adm('Discord webhooks are checked with Discord when added. One that Discord has deleted is paused with the reason shown, and pasting a new URL fixes it.'),
+      adm('Preview what a webhook will post before it goes out, see its recent posts and whether each arrived, and post a single channel’s digest early.'),
+      adm('A webhook can ping a role with each post.'),
+      adm('"Approve all" on a submitter’s records now posts each of them to Discord, and posts wait out Discord’s rate limit instead of being lost.'),
+      adm('Accounts have one role menu per person, and filters for staff and banned accounts. Registration and site access are on the Overview.'),
+      adm('Imports are split into importers, placement tools and the sheet report.'),
+    ],
+  },
+  {
     version: '2.2.0',
     date: '2026-10-13',
     title: 'The challenge list opens properly, and clicks always land',

@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { SITE_URL, levelThumbnail, siteFooter } from '~/server/utils/discord'
+import { SITE_URL, levelThumbnail, postToDiscordWebhook, siteFooter } from '~/server/utils/discord'
 
 /**
  * Per-list Discord webhooks. Distinct from the site-wide ones in
@@ -72,18 +72,10 @@ export async function notifyListWebhooks(
 
   const setStatus = db.prepare(`UPDATE custom_list_webhooks SET last_status = ? WHERE id = ?`)
 
+  // The shared sender waits out a short rate limit instead of dropping the post.
   await Promise.all(hooks.map(async (h) => {
-    try {
-      const res = await fetch(h.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(8000),
-      })
-      setStatus.run(res.ok ? 'ok' : `HTTP ${res.status}`, h.id)
-    } catch (err: any) {
-      setStatus.run(String(err?.message ?? 'failed').slice(0, 120), h.id)
-    }
+    const res = await postToDiscordWebhook(h.url, payload, 8000)
+    setStatus.run(res.ok ? 'ok' : res.status.slice(0, 120), h.id)
   }))
 }
 

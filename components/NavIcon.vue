@@ -29,6 +29,22 @@ const PATHS: Record<string, string[]> = {
   check: ['M20 6 9 17l-5-5'],
   changelog: ['M3 12a9 9 0 1 0 3-6.7L3 8', 'M3 3v5h5', 'M12 7v5l3 2'],
   leaderboard: ['M6 21V10', 'M12 21V4', 'M18 21v-7'],
+  // The admin panel's sections.
+  home: ['m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V10Z'],
+  download: ['M12 3v12', 'm7 10 5 5 5-5', 'M5 21h14'],
+  move: ['M12 3v18', 'm8 7 4-4 4 4', 'm8 17 4 4 4-4'],
+  flag: ['M4 21V4', 'M4 4h12l-2 4 2 4H4'],
+  helper: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3', 'M12 17h.01'],
+  chart: ['M3 3v18h18', 'm7 15 4-4 3 3 5-6'],
+  activity: ['M22 12h-4l-3 9L9 3l-3 9H2'],
+  link: ['M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7', 'M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'],
+  bell: ['M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9', 'M10.3 21a1.94 1.94 0 0 0 3.4 0'],
+  'panel-left': ['M4 4h16v16H4z', 'M9 4v16'],
+  menu: ['M4 6h16', 'M4 12h16', 'M4 18h16'],
+  close: ['M18 6 6 18', 'm6 6 12 12'],
+  play: ['M6 4l14 8-14 8V4Z'],
+  external: ['M15 3h6v6', 'M10 14 21 3', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6'],
+  keyboard: ['M3 6h18v12H3z', 'M7 10h.01', 'M11 10h.01', 'M15 10h.01', 'M8 14h8'],
 }
 const paths = computed(() => PATHS[props.name] ?? [])
 </script>

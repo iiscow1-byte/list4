@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { timeAgo } from '~/utils/relative-time'
 
 /** Enough of a clan to print its tag — attached per page by the endpoint. */
 type ClanTagInfo = { tag: string; name: string; color: string | null }
@@ -35,26 +36,6 @@ type GlobalRow = {
   clan?: ClanTagInfo | null
   aredl_avatar_url?: string | null
 }
-type Row = AllRow | GlobalRow | ChallengeRow | RecordsRow
-
-type FeedItem = {
-  kind: 'record' | 'verify' | 'level' | 'progress'
-  at: string
-  actor: string
-  actor_username?: string | null
-  actor_has_avatar?: boolean
-  level_position: number | null
-  level_name: string
-  level_gd_id?: number | null
-  percent?: number | null
-  start_percent?: number | null
-  end_percent?: number | null
-  video_url?: string | null
-  clan?: ClanTagInfo | null
-}
-
-const { data: meRes } = useCurrentUser()
-const me = computed(() => meRes.value?.account ?? null)
 
 /**
  * A player's challenge standing.
@@ -62,9 +43,6 @@ const me = computed(() => meRes.value?.account ?? null)
  * Ranked by challenge points rather than list points, because they measure
  * different things: the main list's points reflect where a level sits among
  * fifty thousand, and by that measure every challenge is worth roughly nothing.
- * A player with three hundred challenges and a player with three extreme demons
- * were never comparable on one number, and the leaderboard only ever answered
- * for the second.
  */
 type ChallengeRow = {
   rank: number
@@ -83,13 +61,9 @@ type ChallengeRow = {
 }
 
 /**
- * A player's standing across every record the site knows about.
- *
- * Unlike Global, which merges the standings AREDL, Pointercrate and GDL each
- * publish on their own scale, this takes the raw records from all of them plus
- * this site's own and scores every one with the ALL list's points — so the
- * totals are comparable and a player appears once. A clear reported by three
- * sources is still one clear.
+ * A player's standing across every record the site knows about, every one
+ * scored with the ALL list's points, so the totals are comparable and a player
+ * appears once. A clear reported by three sources is still one clear.
  */
 type RecordsRow = {
   rank: number
@@ -106,27 +80,58 @@ type RecordsRow = {
   aredl_avatar_url?: string | null
   clan?: ClanTagInfo | null
 }
+type Row = AllRow | GlobalRow | ChallengeRow | RecordsRow
+
+type FeedItem = {
+  kind: 'record' | 'verify' | 'level' | 'progress'
+  at: string
+  actor: string
+  actor_username?: string | null
+  actor_has_avatar?: boolean
+  level_position: number | null
+  level_name: string
+  level_gd_id?: number | null
+  percent?: number | null
+  start_percent?: number | null
+  end_percent?: number | null
+  video_url?: string | null
+  clan?: ClanTagInfo | null
+}
+
+const route = useRoute()
+const setQuery = useQuerySync()
+const { data: meRes } = useCurrentUser()
+const me = computed(() => meRes.value?.account ?? null)
 
 type Tab = 'members' | 'global' | 'records' | 'followed' | 'challenges'
-const tab = ref<Tab>('global')
+const TABS: { value: Tab; label: string; lead: string }[] = [
+  { value: 'global', label: 'Global', lead: 'Everyone from AREDL, Pointercrate, GDL and this list, ranked by points here.' },
+  { value: 'records', label: 'Records', lead: 'Every record from every source, scored with this list’s points. A clear on three lists counts once.' },
+  { value: 'members', label: 'Members', lead: 'Players with an account here.' },
+  { value: 'challenges', label: 'Challenges', lead: 'Players ranked by the challenges they’ve beaten, on the challenge scale.' },
+  { value: 'followed', label: 'Followed', lead: 'The players you follow, and what they’ve been doing.' },
+]
 
 /**
- * Which records the All Records tab counts. Points and ranking are identical
- * either way — this narrows the set to challenge levels, it does not switch to
- * the separate challenge scale the Challenges tab ranks on.
+ * The tab, the search and the page live in the address, so a leaderboard
+ * position can be linked to and survives a reload.
  */
-const recordsMode = ref<'all' | 'challenges'>('all')
-const recordsModeModel = computed({
-  get: () => recordsMode.value as string,
-  set: (v: string) => { recordsMode.value = v as 'all' | 'challenges' },
-})
-// `SegmentedControl` speaks plain strings; the page's own type is narrower.
-const tabModel = computed({
-  get: () => tab.value as string,
-  set: (v: string) => { tab.value = v as Tab },
-})
-const search = ref('')
-const debounced = ref('')
+const q0 = route.query
+const tab = ref<Tab>(TABS.some((t) => t.value === q0.tab) ? (q0.tab as Tab) : 'global')
+/**
+ * Which records the Records tab counts. Points and ranking are identical either
+ * way: this narrows the set to challenge levels, it does not switch to the
+ * separate challenge scale the Challenges tab ranks on.
+ */
+const recordsMode = ref<'all' | 'challenges'>(q0.mode === 'challenges' ? 'challenges' : 'all')
+const search = ref(typeof q0.q === 'string' ? q0.q : '')
+const debounced = ref(search.value.trim())
+
+// `SegmentedControl` speaks plain strings; the page's own types are narrower.
+const tabModel = computed({ get: () => tab.value as string, set: (v: string) => { tab.value = v as Tab } })
+const recordsModeModel = computed({ get: () => recordsMode.value as string, set: (v: string) => { recordsMode.value = v as 'all' | 'challenges' } })
+const lead = computed(() => TABS.find((t) => t.value === tab.value)?.lead ?? '')
+
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 watch(search, (v) => {
   if (debounceTimer) clearTimeout(debounceTimer)
@@ -134,8 +139,8 @@ watch(search, (v) => {
 })
 
 // "Members" and "Followed" use /api/leaderboard (ALL list players); "Global"
-// hits /api/leaderboard/global, which merges AREDL, PC, GDL and ALL; and
-// "Challenges" its own endpoint, which ranks by challenge points instead.
+// merges AREDL, PC, GDL and ALL; "Records" scores raw records from all of them;
+// "Challenges" ranks by challenge points.
 const url = computed(() => {
   if (tab.value === 'global') return '/api/leaderboard/global'
   if (tab.value === 'records') return '/api/leaderboard/records'
@@ -143,136 +148,135 @@ const url = computed(() => {
   return '/api/leaderboard'
 })
 
-const PAGE_SIZE = 200
+const PAGE_SIZE = 100
 const items = ref<Row[]>([])
 const total = ref(0)
 const pending = ref(true)
-const page = ref(1)
-const pageInput = ref('1')
+const page = ref(Math.max(1, Number(q0.page) || 1))
+const pageInput = ref(String(page.value))
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 
 function buildParams(offset: number) {
   const params: Record<string, string | number> = { limit: PAGE_SIZE, offset }
   if (debounced.value) params.q = debounced.value
-  if (tab.value === 'global') {
-    params.source = 'all'
-  } else if (tab.value === 'records') {
-    params.mode = recordsMode.value
-  } else if (tab.value === 'followed') {
-    params.followed = '1'
-  }
-  // The challenge endpoint takes `limit` / `offset` / `q` and nothing else.
+  if (tab.value === 'global') params.source = 'all'
+  else if (tab.value === 'records') params.mode = recordsMode.value
+  else if (tab.value === 'followed') params.followed = '1'
   return params
 }
 
+let loadSeq = 0
 async function load(targetPage: number) {
+  const seq = ++loadSeq
   pending.value = true
   try {
-    const offset = (targetPage - 1) * PAGE_SIZE
-    const res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams(offset) })
-    items.value = res.items
-    total.value = res.total
-    // If the server's total dropped below this page (e.g. a search narrowed
-    // the result set), snap back to the last valid page and refetch.
+    let res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams((targetPage - 1) * PAGE_SIZE) })
+    // A narrower search can leave this page past the end: go to the last one.
     const tp = Math.max(1, Math.ceil(res.total / PAGE_SIZE))
     if (targetPage > tp) {
-      page.value = tp
-      pageInput.value = String(tp)
-      const fixed = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams((tp - 1) * PAGE_SIZE) })
-      items.value = fixed.items
-      total.value = fixed.total
-    } else {
-      page.value = targetPage
-      pageInput.value = String(targetPage)
+      targetPage = tp
+      res = await $fetch<{ total: number; items: Row[] }>(url.value, { params: buildParams((tp - 1) * PAGE_SIZE) })
     }
+    if (seq !== loadSeq) return
+    items.value = res.items
+    total.value = res.total
+    page.value = targetPage
+    pageInput.value = String(targetPage)
   } catch {
+    if (seq !== loadSeq) return
     items.value = []
     total.value = 0
   } finally {
-    pending.value = false
+    if (seq === loadSeq) pending.value = false
   }
+  setQuery({
+    tab: tab.value === 'global' ? null : tab.value,
+    mode: tab.value === 'records' && recordsMode.value === 'challenges' ? 'challenges' : null,
+    q: debounced.value || null,
+    page: page.value > 1 ? String(page.value) : null,
+  })
 }
 
 function gotoPage(n: number) {
   const clamped = Math.min(totalPages.value, Math.max(1, Math.floor(n) || 1))
-  if (clamped === page.value) return
+  if (clamped === page.value) { pageInput.value = String(page.value); return }
   load(clamped)
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
 }
-
 function onPageInputCommit() {
   const n = Number(pageInput.value)
   if (!Number.isFinite(n)) { pageInput.value = String(page.value); return }
   gotoPage(n)
 }
 
-onMounted(() => { load(1) })
-// Filter / tab changes reset to page 1. `recordsMode` is in here because
-// switching it changes which records are counted, which changes the ranking.
-watch([tab, debounced, recordsMode], () => { page.value = 1; pageInput.value = '1'; load(1) })
-watch(me, () => { if (tab.value === 'followed') { page.value = 1; pageInput.value = '1'; load(1) } })
+onMounted(() => { load(page.value) })
+// Filter and tab changes go back to page 1. `recordsMode` is here because it
+// changes which records count, which changes the ranking.
+watch([tab, debounced, recordsMode], () => { load(1) })
+watch(me, () => { if (tab.value === 'followed') load(1) })
 
+// ---------------------------------------------------------------- you
+/** The name to look for: the player this account claims, or its username. */
+const myName = computed(() => me.value?.claimed_player || me.value?.username || null)
+function isMe(p: Row): boolean {
+  if (!me.value) return false
+  const u = me.value.username.toLowerCase()
+  const acct = ((p as GlobalRow).claimed_account?.username ?? (p as AllRow).account_username ?? '').toLowerCase()
+  if (acct) return acct === u
+  return !!me.value.claimed_player && p.player.toLowerCase() === me.value.claimed_player.toLowerCase()
+}
+/** Ranks are kept through a search, so searching for yourself shows where you stand. */
+function findMe() {
+  if (!myName.value) return
+  search.value = myName.value
+}
+
+// ---------------------------------------------------------------- podium
+const showPodium = computed(() => page.value === 1 && !debounced.value && tab.value !== 'followed' && items.value.length >= 3)
+const podium = computed(() => (showPodium.value ? items.value.slice(0, 3) : []))
+const rows = computed(() => (showPodium.value ? items.value.slice(3) : items.value))
+/** First in the middle, as on a real podium; on a phone they stack in order. */
+const PODIUM_ORDER = ['sm:order-2', 'sm:order-1', 'sm:order-3']
+const MEDAL = [
+  { ring: 'ring-amber-400', chip: 'bg-amber-400 text-amber-950', glow: 'from-amber-400/15', lift: 'sm:-translate-y-3' },
+  { ring: 'ring-zinc-300', chip: 'bg-zinc-300 text-zinc-900', glow: 'from-zinc-300/10', lift: '' },
+  { ring: 'ring-orange-400/80', chip: 'bg-orange-400/80 text-orange-950', glow: 'from-orange-400/10', lift: '' },
+]
+
+// ---------------------------------------------------------------- feed
 const feed = ref<FeedItem[]>([])
 const feedLoading = ref(false)
 async function loadFeed() {
   if (!me.value) { feed.value = []; return }
   feedLoading.value = true
   try {
-    const res = await $fetch<{ items: FeedItem[] }>('/api/feed/followed', { query: { limit: 30 } })
-    feed.value = res.items
+    feed.value = (await $fetch<{ items: FeedItem[] }>('/api/feed/followed', { query: { limit: 30 } })).items
   } catch {
     feed.value = []
   } finally {
     feedLoading.value = false
   }
 }
-watch([tab, me], () => {
-  if (tab.value === 'followed') loadFeed()
-})
+watch([tab, me], () => { if (tab.value === 'followed') loadFeed() })
+onMounted(() => { if (tab.value === 'followed') loadFeed() })
 
-const listItems = computed(() => items.value)
-/**
- * The per-row points bar is gone.
- *
- * It shaded each row from the left in proportion to the leader's points, which
- * on a leaderboard whose top scores dwarf the rest meant a bright band across
- * the first few rows and nothing measurable below them — read as a stray
- * coloured outline rather than as data, and it tinted whichever accent colour
- * the reader had chosen. The number is in the row already.
- */
-
+// ---------------------------------------------------------------- rows
 function rankClass(rank: number) {
   if (rank === 1) return 'bg-amber-400 text-amber-950'
   if (rank === 2) return 'bg-zinc-300 text-zinc-900'
   if (rank === 3) return 'bg-orange-400/80 text-orange-950'
   if (rank <= 10) return 'bg-zinc-300/15 text-zinc-200'
-  return 'bg-zinc-800 text-zinc-400'
+  return 'bg-zinc-800/80 text-zinc-400'
 }
-function fmt(n: number) {
-  return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
-}
-function relative(at: string): string {
-  const t = Date.parse(at)
-  if (Number.isNaN(t)) return ''
-  const diff = (Date.now() - t) / 1000
-  if (diff < 60) return 'just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`
-  return new Date(t).toLocaleDateString()
+function fmt(n: number | null | undefined) {
+  return (n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 /**
- * Every row goes to that player's profile on this site.
- *
- * Rows sourced from AREDL, Pointercrate and GDL used to link straight out to
- * those lists' own player pages, so clicking a name on the All Levels List's
- * leaderboard took you to somebody's AREDL profile. It is our leaderboard: the
- * destination is their standing *here*, and their ranks on the other lists are
- * shown on that page as links for anyone who wants them.
- *
- * A claimed player has a real account page; everyone else gets the by-player
- * profile, which now answers for external-only players too rather than 404ing
- * — that gap is why this used to point outward.
+ * Every row goes to that player's profile on this site, never out to AREDL or
+ * Pointercrate: it is our leaderboard, and their ranks elsewhere are linked from
+ * that page. A claimed player has a real account page; everyone else gets the
+ * by-player profile.
  */
 function rowLink(p: Row): string {
   const claimed = (p as GlobalRow).claimed_account?.username ?? (p as AllRow).account_username
@@ -283,45 +287,76 @@ function rowKey(p: Row, i: number): string {
   if (p.source === 'aredl' || p.source === 'pointercrate' || p.source === 'gdl') return `${p.source}-${p.id}`
   return `all-${p.player}-${i}`
 }
-const SOURCE_NAMES: Record<string, string> = { aredl: 'AREDL', pointercrate: 'Pointercrate', gdl: 'GDL' }
+const SOURCE_NAMES: Record<string, string> = { aredl: 'AREDL', pointercrate: 'Pointercrate', gdl: 'GDL', site: 'ALL' }
 /** Which other lists a player comes from; null for players only on this one. */
 function sourceLabel(p: Row): string | null {
   if (!p.source) return null
   const sources = ((p as GlobalRow).sources ?? [p.source]).filter((x) => x !== 'alllist')
   return sources.length ? sources.map((x) => SOURCE_NAMES[x] ?? x).join(' · ') : null
 }
+
 /**
- * The picture behind a row, whichever tab it came from.
- *
- * The two endpoints name the account differently — Members flattens it onto the
- * row, Global nests it under `claimed_account` — and this only read the first
- * shape, so the tab the page opens on showed initials for everyone.
- *
- * ## Order, and why it is this order
- *
- * 1. An account on **this site**, always and without exception. It is a picture
- *    its owner uploaded and cropped here, and it is the one they expect to see
- *    next to their name here.
- * 2. Failing that, their **AREDL** picture, which is their Discord avatar. Most
- *    ranked players have never signed up to this site, and the alternative for
- *    them is a grey circle with one letter in it.
- * 3. Failing that, initials.
- *
- * The order matters because the two can disagree: somebody who has claimed a
- * leaderboard identity here *and* is on AREDL has two pictures, and the one
- * they chose here is the one that wins.
+ * The picture beside a row: an account here first (it is the picture they
+ * chose here), then their AREDL picture (their Discord avatar), then initials.
  */
 function avatarFor(p: Row): string | null {
   const all = p as AllRow
-  if (all.has_avatar && all.account_username) {
-    return `/api/users/${encodeURIComponent(all.account_username)}/avatar`
-  }
+  if (all.has_avatar && all.account_username) return `/api/users/${encodeURIComponent(all.account_username)}/avatar`
   const claimed = (p as GlobalRow).claimed_account
-  if (claimed?.has_avatar) {
-    return `/api/users/${encodeURIComponent(claimed.username)}/avatar`
-  }
+  if (claimed?.has_avatar) return `/api/users/${encodeURIComponent(claimed.username)}/avatar`
   return p.aredl_avatar_url ?? null
 }
+
+/** The one number each tab adds beside points, as a phrase: "1 extreme", "4 records". */
+function statText(p: Row): string | null {
+  const n = stat(p)
+  if (n == null) return null
+  const word = tab.value === 'records' ? 'record' : tab.value === 'challenges' ? 'challenge' : 'extreme'
+  return `${fmt(n)} ${word}${n === 1 ? '' : 's'}`
+}
+
+/**
+ * The line under a player's name. On phones the stat and hardest columns are
+ * hidden, so they fold into it.
+ */
+function subline(p: Row): { lead: string[]; folded: string[] } {
+  const lead: string[] = []
+  const src = sourceLabel(p)
+  if (src) lead.push(src)
+  else if (tab.value === 'records' && (p as RecordsRow).sources?.length) lead.push(`From ${(p as RecordsRow).sources.map((s) => SOURCE_NAMES[s] ?? s).join(', ')}`)
+  else if ((p as AllRow).skill_points) lead.push(`Skill ${fmt((p as AllRow).skill_points)}`)
+  const folded: string[] = []
+  const st = statText(p)
+  if (st) folded.push(st)
+  const hd = hardest(p)
+  if (hd) folded.push(hd.name)
+  return { lead, folded }
+}
+
+const statLabel = computed(() => {
+  if (tab.value === 'records') return 'Records'
+  if (tab.value === 'challenges') return 'Challenges'
+  return 'Extremes'
+})
+function stat(p: Row): number | null {
+  if (tab.value === 'records') return (p as RecordsRow).records ?? null
+  if (tab.value === 'challenges') return (p as ChallengeRow).challenges ?? null
+  if (p.source) return (p as GlobalRow).extras?.extremes ?? null
+  return (p as AllRow).extremes ?? null
+}
+
+/** The hardest level, with a link when the endpoint says where it is. */
+function hardest(p: Row): { name: string; to: string | null; label: string | null } | null {
+  if (!p.hardest) return null
+  if (tab.value === 'challenges') {
+    const c = p as ChallengeRow
+    return { name: c.hardest!, to: c.hardest_position ? `/levels/${c.hardest_position}?list=challenge` : null, label: c.hardest_rank ? `Ch. #${c.hardest_rank}` : null }
+  }
+  const pos = (p as RecordsRow).hardest_position
+  return { name: p.hardest, to: pos ? `/levels/${pos}` : null, label: pos ? `#${pos.toLocaleString()}` : null }
+}
+const firstShown = computed(() => (page.value - 1) * PAGE_SIZE + 1)
+const lastShown = computed(() => Math.min(total.value, page.value * PAGE_SIZE))
 
 useHead({ title: 'Leaderboard — All Levels List' })
 </script>
@@ -330,233 +365,207 @@ useHead({ title: 'Leaderboard — All Levels List' })
   <div class="container-tight py-8">
     <header class="mb-5">
       <h1 class="page-title">Leaderboard</h1>
-      <p class="page-lead">
-        <template v-if="tab === 'global'">Everyone from AREDL, Pointercrate, GDL and this list, ranked by points here.</template>
-        <template v-else-if="tab === 'records'">Players ranked by the records they have on this list's levels.</template>
-        <template v-else-if="tab === 'challenges'">Players ranked by the challenges they've beaten.</template>
-        <template v-else-if="tab === 'members'">Players with an account here.</template>
-        <template v-else>The players you follow.</template>
-      </p>
+      <p class="page-lead">{{ lead }}</p>
     </header>
 
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-      <SegmentedControl
-        v-model="tabModel"
-        size="md"
-        aria-label="Leaderboard source"
-        :options="[
-          { value: 'global', label: 'Global' },
-          { value: 'records', label: 'Records' },
-          { value: 'members', label: 'Members' },
-          { value: 'challenges', label: 'Challenges' },
-          { value: 'followed', label: 'Followed' },
-        ]"
-      />
-      <!-- Narrows All Records to challenge levels. Same players, same points,
-           smaller set — not the separate scale the Challenges tab uses. -->
+    <div class="mb-5 flex flex-wrap items-center gap-2.5">
+      <SegmentedControl v-model="tabModel" size="md" aria-label="Leaderboard" :options="TABS.map((t) => ({ value: t.value, label: t.label }))" />
+      <!-- Narrows Records to challenge levels. Same players, same points,
+           smaller set: not the separate scale the Challenges tab uses. -->
       <SegmentedControl
         v-if="tab === 'records'"
         v-model="recordsModeModel"
-        size="sm"
         aria-label="Which records to count"
-        :options="[
-          { value: 'all', label: 'All records' },
-          { value: 'challenges', label: 'Challenges' },
-        ]"
+        :options="[{ value: 'all', label: 'All levels' }, { value: 'challenges', label: 'Challenges only' }]"
       />
-      <div class="relative flex-1 min-w-[200px] max-w-md">
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Find a player"
-          class="field field-sm"
-        />
+    </div>
+
+    <div v-if="tab !== 'followed' || me" class="mb-4 flex flex-wrap items-center gap-2">
+      <div class="relative flex-1 min-w-[12rem] max-w-md">
+        <NavIcon name="search" class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
+        <input v-model="search" type="search" placeholder="Find a player" class="field field-sm pl-8" />
       </div>
+      <button
+        v-if="myName && tab !== 'followed'"
+        type="button"
+        class="btn btn-sm btn-ghost"
+        :title="`Search for ${myName}`"
+        @click="findMe"
+      >Find me</button>
       <span v-if="total" class="text-xs text-zinc-500 tabular-nums ml-auto">
-        {{ total.toLocaleString() }} player{{ total === 1 ? '' : 's' }}
+        {{ total.toLocaleString() }} {{ total === 1 ? 'player' : 'players' }}
       </span>
     </div>
 
-    <div v-if="tab === 'followed' && !me" class="text-sm text-zinc-500 card px-4 py-12 text-center">
-      <NuxtLink to="/login" class="text-accent hover:underline">Log in</NuxtLink> to follow other profiles and see them here.
+    <div v-if="tab === 'followed' && !me" class="card px-4 py-12 text-center text-sm text-zinc-400">
+      <NuxtLink to="/login" class="link">Log in</NuxtLink> to follow players and see them here.
     </div>
 
-    <div v-else class="grid gap-6" :class="tab === 'followed' ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''">
+    <div v-else class="grid grid-cols-1 gap-6" :class="tab === 'followed' ? 'lg:grid-cols-[minmax(0,1fr)_320px]' : ''">
       <div class="min-w-0">
-        <div v-if="pending && items.length === 0" class="text-sm text-zinc-500 py-12 text-center">Loading…</div>
-
-        <template v-else>
-          <ol
-            class="divide-y divide-zinc-900 card overflow-hidden transition-opacity"
-            :class="{ 'opacity-50': pending }"
-          >
-            <li v-for="(p, i) in listItems" :key="rowKey(p, i)" class="relative">
-              <NuxtLink
-                :to="rowLink(p)"
-                class="relative flex items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-zinc-900/60 transition-colors group"
-              >
-                <span class="rank-badge shrink-0" :class="rankClass(p.rank)">#{{ p.rank }}</span>
-                <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">
-                  <img
-                    v-if="avatarFor(p)"
-                    :src="avatarFor(p)!"
-                    class="w-full h-full object-cover"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    referrerpolicy="no-referrer"
-                  />
-                  <span v-else class="text-[11px] font-bold uppercase text-zinc-500">{{ p.player.charAt(0) }}</span>
-                </span>
-                <div class="flex-1 min-w-0">
-                  <div class="font-medium truncate flex items-center gap-2 group-hover:text-accent transition-colors">
-                    <ClanTag v-if="p.clan" :tag="p.clan.tag" :name="p.clan.name" :color="p.clan.color" size="sm" :link="false" />
-                    <span class="truncate min-w-0">{{ p.player }}</span>
-                    <!-- Role badge intentionally excluded from external-list rows
-                         (Aredl, Pointercrate): they are list mirrors, not site
-                         identities, so the site-role chip would be misleading. -->
-                    <template v-if="!sourceLabel(p)">
-                      <RoleBadge :role="(p as AllRow).badge" size="sm" />
-                    </template>
-                    <template v-else>
-                      <span class="text-xs font-normal text-zinc-500 shrink-0">{{ sourceLabel(p) }}</span>
-                      <span
-                        v-if="(p as GlobalRow).claimed_account"
-                        class="text-xs font-normal text-emerald-400 shrink-0"
-                        :title="`Claimed by @${(p as GlobalRow).claimed_account!.username}`"
-                      >has an account</span>
-                    </template>
-                  </div>
-                  <div class="text-xs text-zinc-500 flex flex-wrap gap-x-3 gap-y-0.5 min-w-0">
-                    <!-- The challenge tab's numbers are its own: how many, and
-                         the best one by *challenge* rank rather than by list
-                         placement, which is the number the challenge list
-                         itself prints. -->
-                    <template v-if="tab === 'challenges'">
-                      <span class="tabular-nums">{{ fmt((p as ChallengeRow).challenges) }} challenges</span>
-                      <span v-if="(p as ChallengeRow).hardest" class="truncate max-w-full">
-                        Hardest: {{ (p as ChallengeRow).hardest }}
-                        <span v-if="(p as ChallengeRow).hardest_rank" class="text-zinc-600 tabular-nums">
-                          (#{{ (p as ChallengeRow).hardest_rank }})
-                        </span>
-                      </span>
-                    </template>
-                    <!-- Record count sits next to points because the two orders
-                         disagree: many easy clears against a few hard ones. -->
-                    <template v-else-if="tab === 'records'">
-                      <span class="tabular-nums">{{ fmt((p as RecordsRow).records) }} records</span>
-                      <span v-if="(p as RecordsRow).sources?.length" class="text-xs text-zinc-600">
-                        {{ (p as RecordsRow).sources.join(' · ') }}
-                      </span>
-                      <span v-if="p.hardest" class="truncate max-w-full">
-                        Hardest: {{ p.hardest }}
-                        <span v-if="(p as RecordsRow).hardest_position" class="text-zinc-600 tabular-nums">
-                          (#{{ (p as RecordsRow).hardest_position }})
-                        </span>
-                      </span>
-                    </template>
-                    <template v-else-if="!sourceLabel(p)">
-                      <span v-if="(p as AllRow).skill_points" class="tabular-nums">Skill {{ fmt((p as AllRow).skill_points) }}</span>
-                      <span v-if="(p as AllRow).extremes" class="tabular-nums">{{ (p as AllRow).extremes }} extremes</span>
-                      <span v-if="p.hardest" class="truncate max-w-full">Hardest: {{ p.hardest }}</span>
-                    </template>
-                    <template v-else>
-                      <span v-if="p.country" class="uppercase tabular-nums">{{ p.country }}</span>
-                      <span v-if="(p as GlobalRow).extras?.extremes" class="tabular-nums">{{ (p as GlobalRow).extras.extremes }} extremes</span>
-                      <span v-if="p.hardest" class="truncate max-w-full">Hardest: {{ p.hardest }}</span>
-                    </template>
-                  </div>
-                </div>
+        <!-- Podium -->
+        <ol v-if="podium.length" class="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:items-end mb-4 sm:pt-3" aria-label="Top three">
+          <li v-for="(p, i) in podium" :key="rowKey(p, i)" :class="[PODIUM_ORDER[i], MEDAL[i]!.lift]">
+            <NuxtLink
+              :to="rowLink(p)"
+              class="card group relative overflow-hidden flex sm:flex-col items-center gap-3 sm:gap-2 p-4 sm:pt-6 sm:pb-5 sm:text-center hover:border-zinc-600 transition-colors"
+              :class="isMe(p) ? 'ring-1 ring-accent/70' : ''"
+            >
+              <span class="absolute inset-0 bg-gradient-to-b to-transparent pointer-events-none" :class="MEDAL[i]!.glow" aria-hidden="true" />
+              <span class="relative shrink-0">
                 <span
-                  v-if="p.points > 0"
-                  class="tabular-nums text-sm shrink-0 font-semibold text-amber-300"
-                >{{ fmt(p.points) }}<span class="text-xs font-normal text-zinc-500 ml-1">pts</span></span>
-                <span v-else class="text-sm shrink-0 text-zinc-600" title="No records on this list yet">—</span>
-              </NuxtLink>
-            </li>
-            <li v-if="!pending && items.length === 0" class="px-4 py-16 text-center text-sm text-zinc-500">
-              <template v-if="tab === 'followed'">
-                You're not following anyone yet. Open a profile and click "Follow".
-              </template>
-              <template v-else-if="tab === 'global' && debounced">
-                No global players match "{{ debounced }}".
-              </template>
-              <template v-else-if="tab === 'global'">
-                No global players imported yet.
-              </template>
-              <template v-else-if="tab === 'records' && debounced">
-                No players match "{{ debounced }}".
-              </template>
-              <template v-else-if="tab === 'records' && recordsMode === 'challenges'">
-                No records on challenge levels from any source yet.
-              </template>
-              <template v-else-if="tab === 'records'">
-                No records from any source yet.
-              </template>
-              <template v-else-if="tab === 'challenges' && debounced">
-                No challenge players match "{{ debounced }}".
-              </template>
-              <template v-else-if="tab === 'challenges'">
-                Nobody has an approved record on a challenge yet.
-              </template>
-              <template v-else-if="debounced">
-                No players or accounts match "{{ debounced }}".
-              </template>
-              <template v-else>
-                No players yet.
-              </template>
+                  class="block rounded-full overflow-hidden bg-zinc-800 ring-2 flex items-center justify-center"
+                  :class="[MEDAL[i]!.ring, i === 0 ? 'w-14 h-14 sm:w-20 sm:h-20' : 'w-12 h-12 sm:w-16 sm:h-16']"
+                >
+                  <img v-if="avatarFor(p)" :src="avatarFor(p)!" class="w-full h-full object-cover" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                  <span v-else class="text-xl font-black uppercase text-zinc-500">{{ p.player.charAt(0) }}</span>
+                </span>
+                <span class="absolute -bottom-1 -right-1 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:-bottom-2 min-w-[1.75rem] h-6 px-1.5 rounded-full text-xs font-bold flex items-center justify-center ring-2 ring-zinc-950" :class="MEDAL[i]!.chip">{{ p.rank }}</span>
+              </span>
+              <span class="relative min-w-0 flex-1 sm:flex-none sm:w-full sm:mt-2">
+                <span class="flex items-center gap-1.5 sm:justify-center min-w-0">
+                  <ClanTag v-if="p.clan" :tag="p.clan.tag" :name="p.clan.name" :color="p.clan.color" size="sm" :link="false" />
+                  <span class="font-semibold text-zinc-50 truncate group-hover:text-accent transition-colors">{{ p.player }}</span>
+                  <CountryFlag v-if="p.country" :country="p.country" size="sm" />
+                </span>
+                <span class="block text-xs text-zinc-500 mt-0.5 truncate">
+                  <template v-if="p.points > 0 && statText(p)">{{ statText(p) }}<template v-if="hardest(p)"> · </template></template>
+                  <template v-if="hardest(p)">{{ hardest(p)!.name }}</template>
+                </span>
+              </span>
+              <!-- Points when there are any. Until this list has records nobody
+                   does, and the tab's own number is what the order means. -->
+              <span class="relative font-display text-lg sm:text-xl font-semibold tabular-nums shrink-0" :class="p.points > 0 ? 'text-amber-300' : 'text-zinc-100'">
+                <template v-if="p.points > 0">{{ fmt(p.points) }}<span class="text-xs font-normal text-zinc-500 ml-1">pts</span></template>
+                <template v-else-if="stat(p) != null">{{ fmt(stat(p)) }}<span class="text-xs font-normal text-zinc-500 ml-1">{{ statText(p)!.split(' ').pop() }}</span></template>
+              </span>
+            </NuxtLink>
+          </li>
+        </ol>
+
+        <!-- Table -->
+        <div class="card overflow-hidden">
+          <div class="hidden md:grid grid-cols-[4rem_minmax(0,1fr)_6rem_minmax(0,13rem)_6.5rem] gap-3 px-4 py-2 border-b border-zinc-800 text-xs font-medium text-zinc-500">
+            <span>Rank</span>
+            <span>Player</span>
+            <span class="text-right">{{ statLabel }}</span>
+            <span>Hardest</span>
+            <span class="text-right">Points</span>
+          </div>
+
+          <ol v-if="pending && !items.length" aria-busy="true">
+            <li v-for="n in 10" :key="n" class="flex items-center gap-3 px-4 py-3 border-b border-zinc-900 last:border-0">
+              <span class="w-10 h-7 rounded-md bg-zinc-800/80 animate-pulse" />
+              <span class="w-8 h-8 rounded-full bg-zinc-800/80 animate-pulse" />
+              <span class="h-3.5 rounded bg-zinc-800/80 animate-pulse" :style="{ width: `${30 + ((n * 37) % 40)}%` }" />
             </li>
           </ol>
-        </template>
 
-        <div v-if="totalPages > 1" class="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
-          <button
-            type="button"
-            :disabled="pending || page <= 1"
-            class="btn btn-sm btn-ghost"
-            title="First page"
-            @click="gotoPage(1)"
-          >&laquo;</button>
-          <button
-            type="button"
-            :disabled="pending || page <= 1"
-            class="btn btn-sm btn-ghost"
-            title="Previous page"
-            @click="gotoPage(page - 1)"
-          >&lsaquo;</button>
-          <div class="flex items-center gap-1 text-zinc-400">
-            <span>Page</span>
-            <input
-              v-model="pageInput"
-              type="number"
-              min="1"
-              :max="totalPages"
-              class="field field-sm w-14 text-center tabular-nums"
-              @keydown.enter="onPageInputCommit"
-              @blur="onPageInputCommit"
-            />
-            <span class="tabular-nums">/ {{ totalPages }}</span>
+          <ol v-else class="divide-y divide-zinc-900 transition-opacity" :class="{ 'opacity-50': pending }">
+            <li
+              v-for="(p, i) in rows"
+              :key="rowKey(p, i)"
+              class="relative group flex md:grid md:grid-cols-[4rem_minmax(0,1fr)_6rem_minmax(0,13rem)_6.5rem] items-center gap-3 px-3 sm:px-4 py-2.5 hover:bg-zinc-900/60 transition-colors"
+              :class="isMe(p) ? 'bg-accent/[0.06] shadow-[inset_3px_0_0_rgb(var(--c-accent))]' : ''"
+            >
+              <span class="rank-badge shrink-0 text-xs h-7 min-w-[2.75rem]" :class="rankClass(p.rank)">{{ p.rank.toLocaleString() }}</span>
+
+              <span class="flex items-center gap-3 min-w-0 flex-1">
+                <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 border border-zinc-700/50 shrink-0 flex items-center justify-center">
+                  <img v-if="avatarFor(p)" :src="avatarFor(p)!" class="w-full h-full object-cover" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+                  <span v-else class="text-[11px] font-bold uppercase text-zinc-500">{{ p.player.charAt(0) }}</span>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-2 min-w-0">
+                    <ClanTag v-if="p.clan" :tag="p.clan.tag" :name="p.clan.name" :color="p.clan.color" size="sm" :link="false" />
+                    <!-- The whole row is this link: its ::after covers the row,
+                         and the hardest-level link sits above it. -->
+                    <NuxtLink
+                      :to="rowLink(p)"
+                      class="font-medium text-zinc-100 truncate group-hover:text-accent transition-colors after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-accent/60"
+                    >{{ p.player }}</NuxtLink>
+                    <CountryFlag v-if="p.country" :country="p.country" size="sm" class="shrink-0" />
+                    <span v-if="isMe(p)" class="shrink-0 text-[11px] font-semibold text-accent">You</span>
+                    <!-- Site roles only on rows that are site identities: an
+                         AREDL or Pointercrate row is a mirror, not an account. -->
+                    <RoleBadge v-if="!sourceLabel(p)" :role="(p as AllRow).badge" size="sm" />
+                  </span>
+                  <span class="block text-xs text-zinc-500 truncate">
+                    {{ subline(p).lead.join(' · ') }}<span v-if="(p as GlobalRow).claimed_account" class="text-emerald-400">{{ subline(p).lead.length ? ' · ' : '' }}has an account</span>
+                    <!-- On phones the stat and hardest columns fold into this line. -->
+                    <span v-if="subline(p).folded.length" class="md:hidden">{{ subline(p).lead.length || (p as GlobalRow).claimed_account ? ' · ' : '' }}{{ subline(p).folded.join(' · ') }}</span>
+                  </span>
+                </span>
+              </span>
+
+              <span class="hidden md:block text-right text-sm tabular-nums text-zinc-300">{{ stat(p) != null ? fmt(stat(p)) : '—' }}</span>
+
+              <span class="hidden md:block min-w-0 text-sm">
+                <template v-if="hardest(p)">
+                  <NuxtLink
+                    v-if="hardest(p)!.to"
+                    :to="hardest(p)!.to!"
+                    class="relative z-10 block truncate text-zinc-300 hover:text-accent"
+                    :title="hardest(p)!.name"
+                  >{{ hardest(p)!.name }} <span v-if="hardest(p)!.label" class="text-xs text-zinc-600 tabular-nums">{{ hardest(p)!.label }}</span></NuxtLink>
+                  <span v-else class="block truncate text-zinc-400" :title="hardest(p)!.name">{{ hardest(p)!.name }}</span>
+                </template>
+                <span v-else class="text-zinc-700">—</span>
+              </span>
+
+              <span class="shrink-0 text-right tabular-nums">
+                <template v-if="p.points > 0">
+                  <span class="text-sm font-semibold text-amber-300">{{ fmt(p.points) }}</span>
+                  <span class="text-xs text-zinc-500 ml-1">pts</span>
+                </template>
+                <span v-else class="text-sm text-zinc-600" title="No points on this list yet">—</span>
+              </span>
+            </li>
+
+            <li v-if="!pending && !items.length" class="px-4 py-16 text-center">
+              <p class="text-sm text-zinc-300">
+                <template v-if="debounced">Nobody here matches “{{ debounced }}”.</template>
+                <template v-else-if="tab === 'followed'">You’re not following anyone yet.</template>
+                <template v-else-if="tab === 'records' && recordsMode === 'challenges'">No records on challenge levels yet.</template>
+                <template v-else-if="tab === 'challenges'">Nobody has an approved record on a challenge yet.</template>
+                <template v-else>No players yet.</template>
+              </p>
+              <p v-if="tab === 'followed' && !debounced" class="text-xs text-zinc-500 mt-1">Open someone’s profile and press Follow.</p>
+              <button v-if="debounced" type="button" class="mt-2 text-xs link" @click="search = ''">Clear the search</button>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Pages -->
+        <div v-if="totalPages > 1" class="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span class="text-xs text-zinc-500 tabular-nums">
+            {{ firstShown.toLocaleString() }}–{{ lastShown.toLocaleString() }} of {{ total.toLocaleString() }}
+          </span>
+          <div class="flex items-center gap-1.5">
+            <button type="button" :disabled="pending || page <= 1" class="btn btn-sm btn-ghost" title="First page" @click="gotoPage(1)">&laquo;</button>
+            <button type="button" :disabled="pending || page <= 1" class="btn btn-sm btn-ghost" @click="gotoPage(page - 1)">&lsaquo; Previous</button>
+            <span class="flex items-center gap-1 text-zinc-400 px-1">
+              <input
+                v-model="pageInput"
+                type="number"
+                min="1"
+                :max="totalPages"
+                aria-label="Page"
+                class="field field-sm w-14 text-center tabular-nums"
+                @keydown.enter="onPageInputCommit"
+                @blur="onPageInputCommit"
+              />
+              <span class="tabular-nums text-xs">of {{ totalPages.toLocaleString() }}</span>
+            </span>
+            <button type="button" :disabled="pending || page >= totalPages" class="btn btn-sm btn-ghost" @click="gotoPage(page + 1)">Next &rsaquo;</button>
+            <button type="button" :disabled="pending || page >= totalPages" class="btn btn-sm btn-ghost" title="Last page" @click="gotoPage(totalPages)">&raquo;</button>
           </div>
-          <button
-            type="button"
-            :disabled="pending || page >= totalPages"
-            class="btn btn-sm btn-ghost"
-            title="Next page"
-            @click="gotoPage(page + 1)"
-          >&rsaquo;</button>
-          <button
-            type="button"
-            :disabled="pending || page >= totalPages"
-            class="btn btn-sm btn-ghost"
-            title="Last page"
-            @click="gotoPage(totalPages)"
-          >&raquo;</button>
         </div>
       </div>
 
       <aside v-if="tab === 'followed'" class="space-y-3">
-        <h2 class="text-sm font-semibold text-zinc-200 px-1">Recent activity</h2>
-        <div v-if="feedLoading" class="text-xs text-zinc-600 px-1">loading…</div>
+        <h2 class="section-title text-sm px-1">Recent activity</h2>
+        <div v-if="feedLoading" class="card h-40 animate-pulse" />
         <ol v-else-if="feed.length" class="divide-y divide-zinc-900 card overflow-hidden">
           <li v-for="(item, idx) in feed" :key="`${item.kind}-${idx}-${item.at}`" class="px-3 py-2.5 text-xs">
             <div class="flex items-baseline gap-2">
@@ -565,37 +574,24 @@ useHead({ title: 'Leaderboard — All Levels List' })
                 :to="item.actor_username ? `/users/${encodeURIComponent(item.actor_username)}` : `/users/by-player/${encodeURIComponent(item.actor)}`"
                 class="font-medium text-zinc-200 hover:text-accent transition-colors truncate"
               >{{ item.actor }}</NuxtLink>
-              <span class="text-zinc-600 tabular-nums shrink-0 ml-auto">{{ relative(item.at) }}</span>
+              <span class="text-zinc-600 tabular-nums shrink-0 ml-auto">{{ timeAgo(item.at) }}</span>
             </div>
             <div class="mt-0.5 text-zinc-400">
-              <template v-if="item.kind === 'record'">
-                completed
-                <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
-                <span v-else class="text-zinc-200">{{ item.level_name }}</span>
-                <span v-if="item.percent != null && item.percent < 100" class="text-zinc-500"> ({{ item.percent }}%)</span>
-              </template>
-              <template v-else-if="item.kind === 'verify'">
-                verified
-                <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
-                <span v-else class="text-zinc-200">{{ item.level_name }}</span>
-              </template>
-              <template v-else-if="item.kind === 'level'">
-                added
-                <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
-                <span v-else class="text-zinc-200">{{ item.level_name }}</span>
-              </template>
-              <template v-else-if="item.kind === 'progress'">
-                progressed on
-                <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
-                <span v-else class="text-zinc-200">{{ item.level_name }}</span>
-                <span class="text-zinc-500">{{ ` ${item.start_percent}% → ${item.end_percent}%` }}</span>
-                <a v-if="item.video_url" :href="item.video_url" target="_blank" rel="noopener" class="ml-1 text-accent hover:underline">[video]</a>
-              </template>
+              <template v-if="item.kind === 'record'">completed</template>
+              <template v-else-if="item.kind === 'verify'">verified</template>
+              <template v-else-if="item.kind === 'level'">added</template>
+              <template v-else>progressed on</template>
+              {{ ' ' }}
+              <NuxtLink v-if="item.level_position" :to="`/levels/${item.level_position}`" class="text-zinc-200 hover:text-accent">{{ item.level_name }}</NuxtLink>
+              <span v-else class="text-zinc-200">{{ item.level_name }}</span>
+              <span v-if="item.kind === 'record' && item.percent != null && item.percent < 100" class="text-zinc-500"> ({{ item.percent }}%)</span>
+              <span v-if="item.kind === 'progress'" class="text-zinc-500"> {{ item.start_percent }}% → {{ item.end_percent }}%</span>
+              <a v-if="item.kind === 'progress' && item.video_url" :href="item.video_url" target="_blank" rel="noopener" class="ml-1 link">video</a>
             </div>
           </li>
         </ol>
-        <div v-else class="text-xs text-zinc-600 px-1 py-3 card text-center">
-          No recent activity from people you follow.
+        <div v-else class="text-xs text-zinc-500 px-3 py-6 card text-center">
+          Nothing new from the people you follow.
         </div>
       </aside>
     </div>

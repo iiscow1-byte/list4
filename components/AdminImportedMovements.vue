@@ -123,10 +123,12 @@ async function applyOne(m: Movement) {
   }
 }
 
+const { confirm: confirmDialog } = useConfirmDialog()
+
 async function applyPicked() {
   const ids = [...picked.value]
   if (!ids.length || applyingAll.value) return
-  if (!confirm(`Move ${ids.length} level${ids.length === 1 ? '' : 's'} to where ${current.value?.label ?? 'this list'} puts them?`)) return
+  if (!(await confirmDialog({ title: `Move ${ids.length} level${ids.length === 1 ? '' : 's'}?`, message: `To where ${current.value?.label ?? 'this list'} puts them. Each move goes in the changelog.`, confirmLabel: 'Move' }))) return
   applyingAll.value = true
   try {
     const res = await $fetch<{ moved: number; results: Array<{ moved: boolean; reason?: string }> }>(

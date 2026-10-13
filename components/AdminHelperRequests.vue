@@ -99,10 +99,10 @@ const STATUS_TONE: Record<Request['status'], string> = {
   <div class="space-y-4">
     <header class="flex flex-wrap items-end justify-between gap-3">
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold text-zinc-100">
+        <h1 class="font-display text-xl font-semibold text-zinc-50">
           {{ mine ? 'Your requests' : 'Helper requests' }}
-        </h2>
-        <p class="text-[11px] text-zinc-500 mt-0.5 max-w-2xl">
+        </h1>
+        <p class="text-sm text-zinc-400 mt-1 max-w-2xl">
           <template v-if="mine">
             Your move and challenge requests, and what happened to them.
           </template>

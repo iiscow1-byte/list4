@@ -1,16 +1,17 @@
-import { postDailyChangesIfDue } from '~/server/utils/daily-discord'
+import { dailyScheduleState, postDailyChangesIfDue } from '~/server/utils/daily-discord'
 
 /**
  * Sends the daily changelog digest shortly after each UTC midnight.
  *
  * Off in `nuxt dev` unless `LIST_DAILY_DISCORD=1`: a local server running on a
  * copy of the production database would otherwise post to the real channels.
- * `LIST_SKIP_DAILY_DISCORD=1` turns it off anywhere.
+ * `LIST_SKIP_DAILY_DISCORD=1` turns it off anywhere. The rule lives in
+ * `dailyScheduleState()` so the admin panel reports the same answer.
  */
 export default defineNitroPlugin(() => {
-  if (process.env.LIST_SKIP_DAILY_DISCORD === '1') return
-  if (import.meta.dev && process.env.LIST_DAILY_DISCORD !== '1') {
-    console.log('[daily-discord] not running in dev (set LIST_DAILY_DISCORD=1 to enable)')
+  const state = dailyScheduleState()
+  if (!state.enabled) {
+    console.log(`[daily-discord] not scheduled: ${state.reason}`)
     return
   }
 
