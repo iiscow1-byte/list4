@@ -144,6 +144,15 @@ async function open(which: 'nav' | 'aside') {
   el?.querySelector<HTMLElement>('[data-pane-close]')?.focus({ preventScroll: true })
 }
 
+/**
+ * Bring the list into view: opens the drawer on a phone. On a wide screen it
+ * is a column and already showing.
+ */
+function revealNav() {
+  if (navDrawer.value) open('nav')
+}
+defineExpose({ revealNav })
+
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape' && (navOpen.value || asideOpen.value)) closeAll()
 }

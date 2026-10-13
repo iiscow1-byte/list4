@@ -118,9 +118,14 @@
     @apply rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl shadow-black/60;
   }
 
-  /* A small tag: tier, difficulty, skillset. */
+  /* A small tag. */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-md bg-zinc-800/80 px-2 py-0.5 text-xs font-medium text-zinc-300 whitespace-nowrap;
+    @apply inline-flex items-center gap-1 rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-0.5 text-xs font-medium text-zinc-300 whitespace-nowrap;
+  }
+  /* A fact about a level in its header: tier, difficulty, challenge rank. The
+     same shape as `Badge` (utils/badge-styles.ts), a size up. */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-zinc-700/70 bg-zinc-900/70 px-2.5 py-1 text-xs font-medium leading-none text-zinc-200 whitespace-nowrap backdrop-blur-sm transition-colors;
   }
 
   /*

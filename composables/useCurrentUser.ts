@@ -42,6 +42,20 @@ export type SitePolicy = {
 export type MeResponse = { account: CurrentUser | null; site: SitePolicy }
 
 /**
+ * What is already known, except when someone asks for it fresh.
+ *
+ * Nuxt's default only reuses data while the page is hydrating, so every later
+ * caller fetched `/api/auth/me` again, including the route middleware, which
+ * awaits it. Every click on a level waited a full round trip before the page
+ * changed. Login, logout and profile edits still get a fresh copy: they call
+ * `refreshNuxtData('auth-me')`, which arrives here as a refresh.
+ */
+function cachedSession(key: string, nuxtApp: ReturnType<typeof useNuxtApp>, ctx: { cause: string }) {
+  if (ctx.cause === 'refresh:manual' || ctx.cause === 'refresh:hook') return undefined
+  return nuxtApp.payload.data[key] ?? nuxtApp.static.data[key]
+}
+
+/**
  * Shared, SSR-aware current-user fetch. Components that need the active session
  * call this; mutations refresh it via `refreshNuxtData('auth-me')`.
  */
@@ -49,5 +63,6 @@ export function useCurrentUser() {
   return useFetch<MeResponse>('/api/auth/me', {
     key: 'auth-me',
     headers: useRequestHeaders(['cookie']),
+    getCachedData: cachedSession,
   })
 }

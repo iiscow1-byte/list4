@@ -47,7 +47,7 @@ const sections = computed<Section[]>(() => {
     }
     // A menu with nothing under it is one link, and a heading over it would
     // only repeat its name. Neighbouring ones share a headless group.
-    const link: NavLink = { label: m.label, to: m.to }
+    const link: NavLink = { label: m.label, to: m.to, icon: m.icon }
     const prev = out[out.length - 1]
     if (prev && prev.label === null) prev.links.push(link)
     else out.push({ label: null, active: false, links: [link] })
@@ -96,10 +96,10 @@ const sections = computed<Section[]>(() => {
                 </span>
                 <span class="font-medium truncate">{{ me.username }}</span>
               </div>
-              <NavMenuItem to="/account">{{ t('Profile') }}</NavMenuItem>
-              <NavMenuItem to="/inbox" :badge="inboxUnread || null">{{ t('Inbox') }}</NavMenuItem>
-              <NavMenuItem to="/account?panel=friends" :badge="friendRequests || null">{{ t('Friends') }}</NavMenuItem>
-              <NavMenuItem v-if="me.role !== 'user'" to="/admin" :badge="adminPending || null">{{ me.role === 'moderator' ? t('Mod') : t('Admin') }}</NavMenuItem>
+              <NavMenuItem to="/account" icon="user">{{ t('Profile') }}</NavMenuItem>
+              <NavMenuItem to="/inbox" icon="inbox" :badge="inboxUnread || null">{{ t('Inbox') }}</NavMenuItem>
+              <NavMenuItem to="/account?panel=friends" icon="users" :badge="friendRequests || null">{{ t('Friends') }}</NavMenuItem>
+              <NavMenuItem v-if="me.role !== 'user'" to="/admin" icon="admin" :badge="adminPending || null">{{ me.role === 'moderator' ? t('Mod') : t('Admin') }}</NavMenuItem>
             </div>
             <div v-else class="flex gap-2 px-2.5">
               <NuxtLink to="/login" class="btn btn-md btn-ghost flex-1">{{ t('Log in') }}</NuxtLink>
@@ -113,6 +113,7 @@ const sections = computed<Section[]>(() => {
                 :key="link.label"
                 :to="link.to"
                 :href="link.href"
+                :icon="link.icon"
                 :dot="link.flag === 'updates' && updatesUnread"
               >{{ t(link.label) }}</NavMenuItem>
             </div>

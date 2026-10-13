@@ -19,7 +19,7 @@ const showThumbs = useShowThumbnails()
 const props = defineProps<{ activeId?: number | null }>()
 
 const route = useRoute()
-const router = useRouter()
+const setQuery = useQuerySync()
 
 const PAGE_SIZE = 500
 
@@ -153,12 +153,12 @@ function refilter(immediate = false) {
         const els = scrollEl.value?.querySelectorAll<HTMLElement>('[data-id]')
         if (els && els.length > 0) {
           const idx = Math.min(els.length - 1, Math.floor((1 - tierResult.frac) * els.length))
-          els[idx]?.scrollIntoView({ block: 'center' })
+          scrollWithin(scrollEl.value, els[idx], 'center')
         }
         return
       }
     }
-    router.replace({ query: { ...route.query, q: search.value || undefined } })
+    setQuery({ q: search.value })
     reset()
     await loadMore()
   }
@@ -198,7 +198,7 @@ watch(
     if (id == null) return
     await nextTick()
     const el = scrollEl.value?.querySelector<HTMLElement>(`[data-id="${id}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    scrollWithin(scrollEl.value, el, 'nearest')
   },
   { immediate: true },
 )

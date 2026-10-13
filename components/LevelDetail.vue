@@ -165,37 +165,31 @@ const description = computed(() => props.level.description_override || gd.value?
 const showThumbs = useShowThumbnails()
 
 /**
- * The credits line can run to dozens of names on a megacollab. Each part keeps
- * to one line and ends in "…" when it doesn't fit; clicking opens them up.
+ * Who made the level, as labelled groups of names, each a link to that
+ * player. A megacollab can list dozens of creators, so the first few show and
+ * the rest open on request.
  */
+const CREDIT_PREVIEW = 3
 const creditsOpen = ref(false)
-const creditsEl = ref<HTMLElement | null>(null)
-const creditsCut = ref(false)
-function measureCredits() {
-  const el = creditsEl.value
-  if (!el || creditsOpen.value) return
-  creditsCut.value = [...el.querySelectorAll<HTMLElement>('[data-credit]')].some((c) => c.scrollWidth > c.clientWidth + 1)
-}
-let creditsObserver: ResizeObserver | null = null
-onMounted(() => {
-  measureCredits()
-  if (creditsEl.value && typeof ResizeObserver !== 'undefined') {
-    creditsObserver = new ResizeObserver(measureCredits)
-    creditsObserver.observe(creditsEl.value)
-  }
-})
-onBeforeUnmount(() => creditsObserver?.disconnect())
+const splitNames = (s: string | null | undefined) =>
+  (s ?? '').split(/\s*(?:,|&|\+|\band\b)\s*/i).map((n) => n.trim()).filter(Boolean)
 
-const credits = computed(() => {
-  const parts: { label: string; value: string }[] = []
-  if (props.level.creator) parts.push({ label: 'by', value: props.level.creator })
-  else if (publisher.value) parts.push({ label: 'by', value: publisher.value })
-  if (props.level.verifier) parts.push({ label: 'verified by', value: props.level.verifier })
-  if (props.level.creator && publisher.value && publisher.value.toLowerCase() !== props.level.creator.toLowerCase()) {
-    parts.push({ label: 'published by', value: publisher.value })
+type Credit = { label: string; names: string[] }
+const credits = computed<Credit[]>(() => {
+  const out: Credit[] = []
+  const creators = splitNames(props.level.creator)
+  if (creators.length) out.push({ label: creators.length > 1 ? 'Creators' : 'Creator', names: creators })
+  else if (publisher.value) out.push({ label: 'Publisher', names: [publisher.value] })
+  const verifiers = splitNames(props.level.verifier)
+  if (verifiers.length) out.push({ label: verifiers.length > 1 ? 'Verifiers' : 'Verifier', names: verifiers })
+  if (creators.length && publisher.value && publisher.value.toLowerCase() !== (props.level.creator ?? '').toLowerCase()) {
+    out.push({ label: 'Publisher', names: [publisher.value] })
   }
-  return parts
+  return out
 })
+const shownNames = (c: Credit) => (creditsOpen.value ? c.names : c.names.slice(0, CREDIT_PREVIEW))
+/** A player's page, without a trailing note like "(host)". */
+const playerLink = (name: string) => `/users/by-player/${encodeURIComponent(name.replace(/\s*\([^)]*\)\s*$/, ''))}`
 
 // ---------------------------------------------------------------- stats & details
 
@@ -335,26 +329,45 @@ onMounted(async () => {
               <span v-if="swapRanks" class="ml-1 text-sm font-medium text-zinc-400">on the challenge list</span>
             </p>
             <h1 class="mt-1 font-display text-3xl sm:text-[2.6rem] sm:leading-[1.1] font-bold tracking-tight text-zinc-50 break-words">{{ level.name }}</h1>
-            <p
-              v-if="credits.length"
-              ref="creditsEl"
-              class="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-zinc-400"
-              :class="creditsCut || creditsOpen ? 'cursor-pointer' : ''"
-              :title="creditsCut && !creditsOpen ? 'Show all' : undefined"
-              :role="creditsCut || creditsOpen ? 'button' : undefined"
-              :tabindex="creditsCut || creditsOpen ? 0 : undefined"
-              :aria-expanded="creditsCut || creditsOpen ? creditsOpen : undefined"
-              @click="(creditsCut || creditsOpen) && (creditsOpen = !creditsOpen)"
-              @keydown.enter.prevent="(creditsCut || creditsOpen) && (creditsOpen = !creditsOpen)"
-            >
+            <!-- Labels in a column on a phone, one row of groups from `sm`. -->
+            <dl v-if="credits.length" class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-1.5">
+              <div v-for="c in credits" :key="c.label" class="contents sm:flex sm:min-w-0 sm:max-w-full sm:items-baseline sm:gap-2">
+                <dt class="shrink-0 text-xs font-medium text-zinc-500">{{ c.label }}</dt>
+                <dd class="min-w-0 text-zinc-100">
+                  <template v-for="(name, i) in shownNames(c)" :key="`${c.label}-${i}`"><span v-if="i" class="text-zinc-500">, </span><NuxtLink :to="playerLink(name)" class="hover:text-accent transition-colors">{{ name }}</NuxtLink></template>
+                  <button
+                    v-if="c.names.length > CREDIT_PREVIEW"
+                    type="button"
+                    class="ml-1.5 rounded-full bg-zinc-800/80 px-2 py-px text-xs font-medium text-zinc-300 hover:bg-zinc-700 hover:text-zinc-50 transition-colors"
+                    :aria-expanded="creditsOpen"
+                    @click="creditsOpen = !creditsOpen"
+                  >{{ creditsOpen ? 'Show fewer' : `+${c.names.length - CREDIT_PREVIEW} more` }}</button>
+                </dd>
+              </div>
+            </dl>
+
+            <!-- What kind of level it is: the tier, the difficulty, and where it
+                 stands among challenges. Tags follow as plain text, quieter. -->
+            <div class="mt-3 flex flex-wrap items-center gap-1.5">
               <span
-                v-for="c in credits"
-                :key="c.label"
-                data-credit
-                class="max-w-full"
-                :class="creditsOpen ? 'break-words' : 'truncate'"
-              >{{ c.label }} <span class="text-zinc-200">{{ c.value }}</span></span>
-            </p>
+                v-if="tierLabel"
+                class="badge font-semibold border-transparent"
+                :style="{ backgroundColor: tierColor(level.gddl_tier), color: textOn(tierColor(level.gddl_tier)) }"
+              >{{ tierLabel }}</span>
+              <span v-if="level.difficulty" class="badge">{{ level.challenge_rank != null ? level.difficulty.replace(/Demon/i, 'Challenge') : level.difficulty }}</span>
+              <NuxtLink
+                v-if="level.challenge_rank != null"
+                :to="{ path: `/levels/${level.position}`, query: { ...route.query, list: swapRanks ? undefined : 'challenge' } }"
+                class="badge border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                :title="swapRanks ? 'Read it on the main list' : 'Open the challenge list'"
+              >{{ swapRanks ? `#${level.position} overall` : `Challenge #${level.challenge_rank}` }}</NuxtLink>
+              <span v-if="level.tentative_placement" class="badge border-yellow-500/40 bg-yellow-500/10 text-yellow-300" title="No firm estimate yet, so this placement may change.">Tentative</span>
+              <NuxtLink v-if="level.same_as_above && level.duplicate_of" :to="`/levels/${level.duplicate_of.position}`" class="badge hover:text-zinc-50">Duplicate of {{ level.duplicate_of.name }}</NuxtLink>
+              <span v-else-if="level.same_as_above" class="badge">Duplicate</span>
+              <NuxtLink v-if="level.is_alternate && level.alternate_of" :to="`/levels/${level.alternate_of.position}`" class="badge hover:text-zinc-50">Version of {{ level.alternate_of.name }}</NuxtLink>
+              <span v-else-if="level.is_alternate" class="badge">Alternate version</span>
+              <span v-if="extraTags.length" class="ml-1.5 text-xs text-zinc-400">{{ extraTags.join(' · ') }}</span>
+            </div>
           </div>
           <div v-if="!readonly" class="shrink-0 flex items-center gap-1.5">
             <NuxtLink
@@ -364,27 +377,6 @@ onMounted(async () => {
             >Submit record</NuxtLink>
             <ReportButton target="level" :target-id="level.id" :label="`#${level.position} ${level.name}`" />
           </div>
-        </div>
-
-        <div class="mt-4 flex flex-wrap items-center gap-1.5">
-          <span
-            v-if="tierLabel"
-            class="chip"
-            :style="{ backgroundColor: tierColor(level.gddl_tier), color: textOn(tierColor(level.gddl_tier)) }"
-          >{{ tierLabel }}</span>
-          <span v-if="level.difficulty" class="chip">{{ level.challenge_rank != null ? level.difficulty.replace(/Demon/i, 'Challenge') : level.difficulty }}</span>
-          <NuxtLink
-            v-if="level.challenge_rank != null"
-            :to="{ path: `/levels/${level.position}`, query: { ...route.query, list: swapRanks ? undefined : 'challenge' } }"
-            class="chip bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
-            :title="swapRanks ? 'Read it on the main list' : 'Open the challenge list'"
-          >{{ swapRanks ? `#${level.position} overall` : `Challenge #${level.challenge_rank}` }}</NuxtLink>
-          <span v-if="level.tentative_placement" class="chip bg-yellow-500/15 text-yellow-300" title="No firm estimate yet, so this placement may change.">Tentative</span>
-          <NuxtLink v-if="level.same_as_above && level.duplicate_of" :to="`/levels/${level.duplicate_of.position}`" class="chip hover:text-zinc-50">Duplicate of {{ level.duplicate_of.name }}</NuxtLink>
-          <span v-else-if="level.same_as_above" class="chip">Duplicate</span>
-          <NuxtLink v-if="level.is_alternate && level.alternate_of" :to="`/levels/${level.alternate_of.position}`" class="chip hover:text-zinc-50">Version of {{ level.alternate_of.name }}</NuxtLink>
-          <span v-else-if="level.is_alternate" class="chip">Alternate version</span>
-          <span v-for="t in extraTags" :key="t" class="chip text-zinc-400">{{ t }}</span>
         </div>
       </header>
 

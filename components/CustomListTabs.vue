@@ -32,10 +32,10 @@ function isActive(t: ListTab) {
       v-for="t in tabs"
       :key="t.to"
       :to="to(t.to)"
-      class="relative whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+      class="relative whitespace-nowrap px-2.5 py-1.5 rounded-md text-[13px] font-medium transition-colors"
       :class="isActive(t)
-        ? 'text-accent bg-accent/10 ring-1 ring-inset ring-accent/25'
-        : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900'"
+        ? 'text-zinc-50 bg-zinc-800'
+        : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900'"
       :aria-current="isActive(t) ? 'page' : undefined"
     >
       {{ t.label }}

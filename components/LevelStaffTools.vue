@@ -358,7 +358,7 @@ function pinnedDate(at: string | null | undefined) {
             More
             <svg viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06z" clip-rule="evenodd" /></svg>
           </button>
-          <div v-if="moreOpen" class="absolute left-0 top-full mt-1 min-w-[13rem] popover p-1 z-30" role="menu">
+          <div v-if="moreOpen" class="absolute left-0 top-full mt-1 min-w-[16rem] popover p-1 z-30" role="menu">
             <button type="button" role="menuitem" class="menu-row" @click="moreOpen = false; open('group')">Move several levels…</button>
             <button v-if="isAdmin" type="button" role="menuitem" class="menu-row" @click="moreOpen = false; placementEditorOpen = true">Drag into place…</button>
             <button v-if="isAdmin && isChallenge" type="button" role="menuitem" class="menu-row" @click="setChallenge(false)">Take off the challenge list</button>
@@ -366,7 +366,7 @@ function pinnedDate(at: string | null | undefined) {
             <template v-if="isAdmin">
               <div class="my-1 border-t border-zinc-800" />
               <button type="button" role="menuitem" class="menu-row" @click="sendToAwaiting">Send to awaiting placement</button>
-              <button type="button" role="menuitem" class="menu-row text-red-300" @click="removeLevel">Remove from the list…</button>
+              <button type="button" role="menuitem" class="menu-row menu-row-danger" @click="removeLevel">Remove from the list…</button>
             </template>
           </div>
         </div>
@@ -551,6 +551,9 @@ function pinnedDate(at: string | null | undefined) {
 
 <style scoped>
 .menu-row {
-  @apply w-full text-left px-2.5 py-1.5 rounded-md text-sm text-zinc-300 hover:bg-zinc-800 hover:text-zinc-50 transition-colors;
+  @apply w-full text-left px-2.5 py-2 rounded-md text-sm text-zinc-300 whitespace-nowrap hover:bg-zinc-800 hover:text-zinc-50 transition-colors;
+}
+.menu-row-danger {
+  @apply text-red-300 hover:bg-red-950/40 hover:text-red-200;
 }
 </style>

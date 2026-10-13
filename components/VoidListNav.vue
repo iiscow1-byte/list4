@@ -13,7 +13,7 @@ const showThumbs = useShowThumbnails()
 const props = defineProps<{ activePosition?: number | null }>()
 
 const route = useRoute()
-const router = useRouter()
+const setQuery = useQuerySync()
 
 const PAGE_SIZE = 500
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
@@ -53,7 +53,7 @@ let debounce: ReturnType<typeof setTimeout> | null = null
 watch(search, (v) => {
   if (debounce) clearTimeout(debounce)
   debounce = setTimeout(async () => {
-    router.replace({ query: { ...route.query, q: v || undefined } })
+    setQuery({ q: v })
     reset()
     await loadMore()
   }, 200)
@@ -79,7 +79,7 @@ watch(
     if (pos == null) return
     await nextTick()
     const el = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    scrollWithin(scrollEl.value, el, 'nearest')
   },
   { immediate: true },
 )

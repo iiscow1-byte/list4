@@ -961,6 +961,37 @@ Two details worth keeping:
   and never for `/levelsomething`. Submit claims `/levels/submit` explicitly,
   and both menus answering for it is correct — it genuinely belongs to both.
 
+Each row can name an `icon` (`components/NavIcon.vue`), and `NavMenuItem` marks
+the row for the page being read. A level page counts as the main list, or as
+the challenge list when the address has `?list=challenge`.
+
+### The challenge list
+
+`/levels/challenges` (`pages/levels/challenges.vue`) is the challenge list's own
+address: it redirects to challenge #1 with `?list=challenge`. The list sidebar
+follows `?list=` whenever it changes, not only on load, so the "Challenge #12"
+badge on a level and the menu link both switch it. After a switch the sidebar
+scrolls to the level being read, the page expands the list on a wide screen or
+opens the drawer on a phone (`ListPaneLayout.revealNav()`), and if the level
+isn't a challenge it opens challenge #1 instead.
+
+### Clicks that always land
+
+Two things used to make a click on a level do nothing, so it had to be clicked
+again:
+
+- `middleware/lockdown.global.ts` awaits the current user on every navigation,
+  and `useCurrentUser` refetched `/api/auth/me` each time, because Nuxt's
+  default cache only applies while the page hydrates. Every click waited a full
+  round trip. It now keeps what it has (`getCachedData`) and only fetches again
+  for `refreshNuxtData('auth-me')`, which login, logout and profile edits call.
+- The list sidebars write `?q=` into the address a moment after typing stops.
+  Any `router.replace` made while another navigation is in flight cancels that
+  navigation, so clicking a search result in that moment was cancelled.
+  `composables/useQuerySync.ts` waits for a navigation in flight
+  (`plugins/nav-pending.client.ts` tracks it) and skips updates that change
+  nothing. Use it for any query update on a page with links.
+
 ## Badges
 
 `utils/badge-styles.ts` is the whole visual vocabulary: `BADGE_BASE` (shape),

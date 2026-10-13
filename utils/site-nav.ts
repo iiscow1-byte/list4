@@ -15,6 +15,8 @@ export type NavLink = {
   authOnly?: boolean
   /** Lights a dot while there's a site update the visitor hasn't opened. */
   flag?: 'updates'
+  /** A `NavIcon` name. */
+  icon?: string
 }
 
 export type NavMenu = {
@@ -26,6 +28,8 @@ export type NavMenu = {
   match: string[]
   /** Pages under this one; shown as a dropdown. */
   links?: NavLink[]
+  /** A `NavIcon` name, for the phone menu. */
+  icon?: string
 }
 
 export const SITE_NAV: NavMenu[] = [
@@ -35,18 +39,20 @@ export const SITE_NAV: NavMenu[] = [
     to: '/levels/1',
     match: ['/levels', '/awaiting', '/void', '/open-verifications'],
     links: [
-      { label: 'Main list', to: '/levels/1' },
-      { label: 'Awaiting placement', to: '/awaiting' },
-      { label: 'Void list', to: '/void' },
-      { label: 'Open verifications', to: '/open-verifications' },
-      { label: 'The ALL sheet', href: ALL_SHEET_URL },
+      { label: 'Main list', to: '/levels/1', icon: 'list' },
+      { label: 'Challenge list', to: '/levels/challenges', icon: 'trophy' },
+      { label: 'Awaiting placement', to: '/awaiting', icon: 'hourglass' },
+      { label: 'Void list', to: '/void', icon: 'void' },
+      { label: 'Open verifications', to: '/open-verifications', icon: 'verify' },
+      { label: 'The ALL sheet', href: ALL_SHEET_URL, icon: 'sheet' },
     ],
   },
-  { key: 'changelog', label: 'Changelog', to: '/changelog', match: ['/changelog'] },
+  { key: 'changelog', label: 'Changelog', to: '/changelog', match: ['/changelog'], icon: 'changelog' },
   {
     key: 'leaderboard',
     label: 'Leaderboard',
     to: '/leaderboard',
+    icon: 'leaderboard',
     match: ['/leaderboard', '/aredl-players', '/gdl-players', '/pointercrate-players'],
   },
   {
@@ -55,8 +61,8 @@ export const SITE_NAV: NavMenu[] = [
     to: '/community',
     match: ['/community', '/clans', '/users'],
     links: [
-      { label: 'Community hub', to: '/community' },
-      { label: 'Clans', to: '/clans' },
+      { label: 'Community hub', to: '/community', icon: 'users' },
+      { label: 'Clans', to: '/clans', icon: 'clan' },
     ],
   },
   {
@@ -65,8 +71,8 @@ export const SITE_NAV: NavMenu[] = [
     to: '/lists',
     match: ['/lists', '/builder'],
     links: [
-      { label: 'Custom lists', to: '/lists' },
-      { label: 'Build your own list', to: '/builder' },
+      { label: 'Custom lists', to: '/lists', icon: 'layers' },
+      { label: 'Build your own list', to: '/builder', icon: 'build' },
     ],
   },
   {
@@ -75,17 +81,17 @@ export const SITE_NAV: NavMenu[] = [
     to: '/about',
     match: ['/about', '/updates'],
     links: [
-      { label: 'About & stats', to: '/about' },
-      { label: 'List updates', to: '/updates', flag: 'updates' },
+      { label: 'About & stats', to: '/about', icon: 'info' },
+      { label: 'List updates', to: '/updates', flag: 'updates', icon: 'updates' },
     ],
   },
 ]
 
 export const SUBMIT_NAV: NavLink[] = [
-  { label: 'Submit a record', to: '/records/submit' },
-  { label: 'Submit a level', to: '/levels/submit' },
-  { label: 'Submit an opinion', to: '/opinions/submit' },
-  { label: 'Find a level', to: '/levels/find' },
+  { label: 'Submit a record', to: '/records/submit', icon: 'record' },
+  { label: 'Submit a level', to: '/levels/submit', icon: 'level' },
+  { label: 'Submit an opinion', to: '/opinions/submit', icon: 'opinion' },
+  { label: 'Find a level', to: '/levels/find', icon: 'search' },
 ]
 
 export const SUBMIT_MATCH = ['/records', '/opinions', '/levels/submit', '/levels/find']

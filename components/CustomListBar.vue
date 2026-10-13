@@ -81,9 +81,9 @@ const tabs = computed<ListTab[]>(() => [
   ...(props.list.packs?.length ? [{ to: `${base.value}/packs`, label: 'Packs' }] : []),
   { to: `${base.value}/changelog`, label: 'Changelog' },
   ...(props.list.accepts_submissions || props.canEdit
-    ? [{ to: `${base.value}/suggest`, label: 'Submit Level', badge: props.suggestionCount }]
+    ? [{ to: `${base.value}/suggest`, label: 'Submit a level', badge: props.suggestionCount }]
     : []),
-  ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit Record' }] : []),
+  ...(props.list.accepts_records ? [{ to: `${base.value}/submit`, label: 'Submit a record' }] : []),
   // Only worth showing when there's actually something the ALL doesn't have.
   ...(props.canEdit && unlinkedCount.value > 0
     ? [{ to: `${base.value}/to-all`, label: 'To the ALL', badge: unlinkedCount.value }]

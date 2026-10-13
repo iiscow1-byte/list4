@@ -58,13 +58,13 @@ export const BADGE_TONE: Record<BadgeTone, string> = {
 
 /** Two sizes: beside a heading, or inside a dense row. */
 export const BADGE_SIZE = {
-  sm: 'text-[11px] px-1.5 py-[2px] gap-1',
-  md: 'text-xs px-2 py-0.5 gap-1.5',
+  sm: 'text-[11px] px-2 py-[2px] gap-1',
+  md: 'text-xs px-2.5 py-0.5 gap-1.5',
 } as const
 export type BadgeSize = keyof typeof BADGE_SIZE
 
 export const BADGE_BASE =
-  'shrink-0 inline-flex items-center rounded-md border font-medium leading-tight whitespace-nowrap align-middle'
+  'shrink-0 inline-flex items-center rounded-full border font-medium leading-tight whitespace-nowrap align-middle'
 
 /** The dot before a label, when a badge asks for one. */
 export const BADGE_DOT = {

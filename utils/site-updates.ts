@@ -43,6 +43,24 @@ const adm = (text: string): SiteChange => ({ text, admin: true })
 
 export const SITE_UPDATES: SiteUpdate[] = [
   {
+    version: '2.2.0',
+    date: '2026-10-13',
+    title: 'The challenge list opens properly, and clicks always land',
+    tags: ['UI', 'List', 'Fixes'],
+    changes: [
+      'Fixed clicking a level sometimes doing nothing, so it had to be clicked again. Clicking a search result straight after typing opens it, and every click opens its level faster.',
+      'The challenge list has its own entry in the List menu. Opening it, or the Challenge badge on a level, switches the list beside it to challenges and scrolls to the level, and on phones the list slides open.',
+      'Choosing the challenge list from the list’s own menu while reading a level that isn’t a challenge opens challenge #1.',
+      'Level pages list the creators, verifier and publisher under their own labels, and each name links to that player. A long list of creators shows the first three and the rest on request.',
+      'Cleaner badges: the tier, difficulty and challenge rank sit under the title as rounded tags, with the level’s tags as a quiet line beside them.',
+      'Menus have icons and show which page you are on, and the account menu shows who is signed in.',
+      'Advanced search uses the same switches and buttons as the rest of the site.',
+      'The challenge list’s filter button no longer counts the list’s own settings as filters, and resetting filters keeps you on the list you are reading.',
+      'Custom list tabs match the rest of the site.',
+      adm('The staff menu on a level is wider, and "Remove from the list" is in red.'),
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-10-12',
     title: 'Thumbnails are back, and every list matches',

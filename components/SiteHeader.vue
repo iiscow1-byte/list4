@@ -91,6 +91,7 @@ async function logout() {
               :key="link.label"
               :to="link.to"
               :href="link.href"
+              :icon="link.icon"
               :dot="link.flag === 'updates' && updatesUnread"
             >{{ t(link.label) }}</NavMenuItem>
           </NavMenu>
@@ -111,7 +112,7 @@ async function logout() {
 
       <div class="ml-auto flex items-center gap-1">
         <NavMenu :label="t('Submit')" align="right" :active="submitActive" class="hidden lg:flex">
-          <NavMenuItem v-for="link in SUBMIT_NAV" :key="link.label" :to="link.to">{{ t(link.label) }}</NavMenuItem>
+          <NavMenuItem v-for="link in SUBMIT_NAV" :key="link.label" :to="link.to" :icon="link.icon">{{ t(link.label) }}</NavMenuItem>
         </NavMenu>
 
         <a
@@ -135,12 +136,23 @@ async function logout() {
             </span>
             <span class="max-w-[9rem] truncate">{{ me.username }}</span>
           </template>
-          <NavMenuItem to="/account">{{ t('Profile') }}</NavMenuItem>
-          <NavMenuItem to="/inbox" :badge="inboxUnread || null">{{ t('Inbox') }}</NavMenuItem>
-          <NavMenuItem to="/account?panel=friends" :badge="friendRequests || null">{{ t('Friends') }}</NavMenuItem>
-          <NavMenuItem v-if="isStaff" to="/admin" :badge="adminPending || null">{{ me.role === 'moderator' ? t('Mod') : t('Admin') }}</NavMenuItem>
+          <!-- Who is signed in, above what they can do. -->
+          <div class="flex items-center gap-2.5 px-2.5 pt-1.5 pb-2.5 mb-1 border-b border-zinc-800">
+            <span class="w-8 h-8 rounded-full overflow-hidden bg-zinc-800 shrink-0 flex items-center justify-center">
+              <img v-if="me.has_avatar" :src="`/api/users/${encodeURIComponent(me.username)}/avatar`" class="w-full h-full object-cover" alt="" />
+              <span v-else class="text-xs font-semibold text-zinc-200 uppercase">{{ me.username.charAt(0) }}</span>
+            </span>
+            <span class="min-w-0">
+              <span class="block truncate text-sm font-semibold text-zinc-50">{{ me.username }}</span>
+              <span v-if="me.claimed_player && me.claimed_player.toLowerCase() !== me.username.toLowerCase()" class="block truncate text-xs text-zinc-500">{{ me.claimed_player }}</span>
+            </span>
+          </div>
+          <NavMenuItem to="/account" icon="user">{{ t('Profile') }}</NavMenuItem>
+          <NavMenuItem to="/inbox" icon="inbox" :badge="inboxUnread || null">{{ t('Inbox') }}</NavMenuItem>
+          <NavMenuItem to="/account?panel=friends" icon="users" :badge="friendRequests || null">{{ t('Friends') }}</NavMenuItem>
+          <NavMenuItem v-if="isStaff" to="/admin" icon="admin" :badge="adminPending || null">{{ me.role === 'moderator' ? t('Mod') : t('Admin') }}</NavMenuItem>
           <NavMenuSection />
-          <NavMenuItem danger @click="logout">{{ t('Log out') }}</NavMenuItem>
+          <NavMenuItem danger icon="logout" @click="logout">{{ t('Log out') }}</NavMenuItem>
         </NavMenu>
         <template v-else>
           <NuxtLink to="/login" class="hidden lg:inline-flex btn btn-sm btn-ghost">{{ t('Log in') }}</NuxtLink>

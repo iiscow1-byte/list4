@@ -183,7 +183,7 @@ watch(
   async (id) => {
     if (id == null) return
     await nextTick()
-    scrollEl.value?.querySelector<HTMLElement>(`[data-item="${id}"]`)?.scrollIntoView({ block: 'nearest' })
+    scrollWithin(scrollEl.value, scrollEl.value?.querySelector<HTMLElement>(`[data-item="${id}"]`), 'nearest')
   },
   { immediate: true },
 )

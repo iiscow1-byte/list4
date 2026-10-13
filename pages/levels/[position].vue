@@ -4,9 +4,10 @@ definePageMeta({ layout: 'level', key: () => 'level-page' })
 const route = useRoute()
 const position = computed(() => Number(route.params.position))
 
-const { data: level, error, refresh } = await useFetch(() => `/api/levels/${position.value}`, {
-  watch: [position],
-})
+// The URL is a getter, so a new position fetches on its own.
+const { data: level, error, refresh, status } = await useFetch(() => `/api/levels/${position.value}`)
+/** A different level is on its way: the panel dims until it arrives. */
+const switching = computed(() => status.value === 'pending' && !!level.value && level.value.position !== position.value)
 
 useHead(() => ({
   title: level.value ? `#${level.value.position} ${level.value.name} — All Levels List` : 'All Levels List',
@@ -20,6 +21,32 @@ const groupMovePhase = ref<'select' | 'target'>('select')
 const groupMovePicks = ref<NavLevel[]>([])
 const groupMoveTargetPick = ref<NavLevel | null>(null)
 const sidebarOpen = ref(true)
+
+/**
+ * Switching lists (the "Challenge #12" badge, the menu's challenge list, or
+ * the list's own menu) brings the list into view: expanded on a wide screen,
+ * opened as a drawer on a phone, scrolled to the level being read.
+ */
+const pane = ref<{ revealNav: () => void } | null>(null)
+async function revealList() {
+  sidebarOpen.value = true
+  await nextTick()
+  pane.value?.revealNav()
+}
+async function onVariantLoaded(info: { variant: string; first: number | null }) {
+  // The challenge list opened on a level that isn't on it: go to its #1.
+  if (info.variant === 'Challenge' && level.value && level.value.challenge_rank == null && info.first != null) {
+    await navigateTo({ path: `/levels/${info.first}`, query: { ...route.query, list: 'challenge' } })
+  }
+  revealList()
+}
+/** Set by `/levels/challenges` so the list opens on arrival, on a phone too. */
+const revealOnArrival = useState('reveal-level-list', () => false)
+onMounted(() => {
+  if (!revealOnArrival.value) return
+  revealOnArrival.value = false
+  revealList()
+})
 
 function onNavPick(lvl: NavLevel) {
   if (groupMoveMode.value) {
@@ -115,9 +142,10 @@ const columns = computed(() => (sidebarOpen.value ? '20% 60% 20%' : '0px 80% 20%
 
 <template>
   <ListPaneLayout
+    ref="pane"
     :columns="columns"
     :nav-collapsed="!sidebarOpen"
-    nav-label="Levels"
+    :nav-label="String(route.query.list ?? '').toLowerCase() === 'challenge' ? 'Challenges' : 'Levels'"
     aside-label="Records"
     :aside-count="allRecords.length"
     :title="level ? `#${level.position} ${level.name}` : null"
@@ -130,6 +158,7 @@ const columns = computed(() => (sidebarOpen.value ? '20% 60% 20%' : '0px 80% 20%
         :picked-positions="navPickedPositions"
         :pick-mode-hint="navHint"
         @pick="onNavPick"
+        @variant-loaded="onVariantLoaded"
       />
     </template>
 
@@ -155,7 +184,8 @@ const columns = computed(() => (sidebarOpen.value ? '20% 60% 20%' : '0px 80% 20%
       <p class="text-sm">Level #{{ position }} not found.</p>
       <NuxtLink to="/levels/1" class="text-accent hover:underline text-sm mt-2 inline-block">Back to top of list</NuxtLink>
     </div>
-    <!-- Keyed by position so every level gets a fresh panel.
+    <!-- Keyed by the loaded level, so every level gets a fresh panel and the
+         old one isn't redrawn under the new address while the next loads.
          The page itself is deliberately *not* re-created between levels (see
          the constant `key` in `definePageMeta`) — that is what keeps the
          sidebar's scroll position and loaded pages while you read down the
@@ -166,7 +196,10 @@ const columns = computed(() => (sidebarOpen.value ? '20% 60% 20%' : '0px 80% 20%
          that by hand. A key does it once, for all of them. -->
     <LevelDetail
       v-else-if="level"
-      :key="position"
+      :key="level.position"
+      class="transition-opacity duration-150"
+      :class="switching ? 'opacity-50 pointer-events-none' : ''"
+      :aria-busy="switching"
       :level="level"
       :move-below-pick="moveBelowPick"
       :group-move-picks="groupMovePicks"

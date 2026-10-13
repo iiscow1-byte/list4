@@ -18,7 +18,7 @@ const showThumbs = useShowThumbnails()
 const props = defineProps<{ activeId?: number | null }>()
 
 const route = useRoute()
-const router = useRouter()
+const setQuery = useQuerySync()
 
 const PAGE_SIZE = 500
 
@@ -122,7 +122,7 @@ let debounce: ReturnType<typeof setTimeout> | null = null
 function refilter(immediate = false) {
   if (debounce) clearTimeout(debounce)
   const run = async () => {
-    router.replace({ query: { ...route.query, q: search.value || undefined } })
+    setQuery({ q: search.value })
     reset()
     await loadMore()
   }
@@ -160,7 +160,7 @@ watch(
     if (id == null) return
     await nextTick()
     const el = scrollEl.value?.querySelector<HTMLElement>(`[data-id="${id}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    scrollWithin(scrollEl.value, el, 'nearest')
   },
   { immediate: true },
 )

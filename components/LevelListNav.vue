@@ -31,10 +31,14 @@ const props = defineProps<{
   pickedPositions?: number[]
   pickModeHint?: string
 }>()
-const emit = defineEmits<{ (e: 'pick', level: ListLevelRow): void }>()
+const emit = defineEmits<{
+  (e: 'pick', level: ListLevelRow): void
+  /** A different list finished loading, with its first level. */
+  (e: 'variantLoaded', info: { variant: string; first: number | null }): void
+}>()
 
 const route = useRoute()
-const router = useRouter()
+const setQuery = useQuerySync()
 
 const PAGE_SIZE = 500
 
@@ -131,7 +135,8 @@ const ratingSet = reactive<Record<string, boolean>>(
 )
 const enjoyMin = ref(0)
 const enjoyMax = ref(10)
-const sort = ref<typeof SORTS[number]['value']>('position')
+// The menu's orders, plus the ones the AREDL, GDL and CL lists set for themselves.
+const sort = ref<typeof SORTS[number]['value'] | 'aredl_asc' | 'gdl_asc' | 'cl_asc'>('position')
 const rankByFilter = ref(false)
 const showTierDecimal = useTierDecimal()
 const showTierInList = ref(false)
@@ -227,8 +232,17 @@ onBeforeUnmount(() => {
 
 function pickVariant(v: ListVariant) {
   variantOpen.value = false
-  if (v !== listVariant.value) applyVariant(v)
+  if (v === listVariant.value) return
+  revealAfterReload = true
+  applyVariant(v)
 }
+
+/**
+ * Set when the list changes to another variant, so that once it has loaded the
+ * level being read is scrolled into view rather than leaving the reader at the
+ * top of a list they didn't scroll.
+ */
+let revealAfterReload = false
 
 function applyVariant(v: ListVariant) {
   listVariant.value = v
@@ -268,6 +282,29 @@ function displayNum(lvl: ListLevelRow): string {
   return `#${lvl.position}`
 }
 
+/**
+ * What the list being read sets by itself. The challenge list is "Challenge
+ * ratings, renumbered"; counting those as filters the reader added put a "2"
+ * on the filter button of a list nobody had filtered.
+ */
+const SHOW_HIDE_ONLY = [
+  { value: 'show', label: 'Show' },
+  { value: 'hide', label: 'Hide' },
+  { value: 'only', label: 'Only' },
+]
+
+const preset = computed(() => {
+  switch (listVariant.value) {
+    case 'Rated': return { ratings: ['Rated', 'Featured', 'Epic', 'Legendary', 'Mythic'], rank: true, sort: 'position' }
+    case 'Challenge': return { ratings: ['Challenge'], rank: true, sort: 'position' }
+    case 'AREDL': return { ratings: [] as string[], rank: false, sort: 'aredl_asc' }
+    case 'GDL': return { ratings: [] as string[], rank: false, sort: 'gdl_asc' }
+    case 'CL': return { ratings: [] as string[], rank: false, sort: 'cl_asc' }
+    default: return { ratings: [] as string[], rank: false, sort: 'position' }
+  }
+})
+const ratingsChanged = computed(() => RATINGS.some((r) => !!ratingSet[r] !== preset.value.ratings.includes(r)))
+
 const activeFilterCount = computed(() => {
   let n = 0
   if (tierMin.value > 0 || tierMax.value < TIER_MAX_ORD) n++
@@ -275,10 +312,10 @@ const activeFilterCount = computed(() => {
   if (creator.value.trim()) n++
   if (sourceFilter.value) n++
   if (verifyFrom.value || verifyTo.value) n++
-  if (RATINGS.some((r) => ratingSet[r])) n++
+  if (ratingsChanged.value) n++
   if (enjoyMin.value > 0 || enjoyMax.value < 10) n++
-  if (sort.value !== 'position') n++
-  if (rankByFilter.value) n++
+  if (sort.value !== preset.value.sort) n++
+  if (rankByFilter.value !== preset.value.rank) n++
   return n
 })
 
@@ -301,8 +338,10 @@ const activeFilters = computed<FilterChip[]>(() => {
       clear: () => { tierMin.value = 0; tierMax.value = TIER_MAX_ORD },
     })
   }
-  for (const r of RATINGS) {
-    if (ratingSet[r]) out.push({ key: `rating:${r}`, label: r, clear: () => { ratingSet[r] = false } })
+  if (ratingsChanged.value) {
+    for (const r of RATINGS) {
+      if (ratingSet[r]) out.push({ key: `rating:${r}`, label: r, clear: () => { ratingSet[r] = false } })
+    }
   }
   for (const t of TAGS) {
     if (tagSet[t]) out.push({ key: `tag:${t}`, label: t === 'uldm' ? 'ULDM' : t, clear: () => { tagSet[t] = false } })
@@ -344,11 +383,11 @@ const activeFilters = computed<FilterChip[]>(() => {
       })
     }
   }
-  if (sort.value !== 'position') {
-    out.push({ key: 'sort', label: `sorted by ${sort.value.replace(/_/g, ' ')}`, clear: () => { sort.value = 'position' } })
+  if (sort.value !== preset.value.sort) {
+    out.push({ key: 'sort', label: `sorted by ${sort.value.replace(/_/g, ' ')}`, clear: () => { sort.value = preset.value.sort as typeof sort.value } })
   }
-  if (rankByFilter.value) {
-    out.push({ key: 'rank', label: 'renumbered', clear: () => { rankByFilter.value = false } })
+  if (rankByFilter.value !== preset.value.rank) {
+    out.push({ key: 'rank', label: rankByFilter.value ? 'renumbered' : 'not renumbered', clear: () => { rankByFilter.value = preset.value.rank } })
   }
   return out
 })
@@ -451,11 +490,30 @@ function reset() {
  * for one filter change, and a visible flash of nothing in between. Fetching
  * first and assigning once does neither.
  */
+/** The list is being replaced, not extended: it dims until the new one arrives. */
+const reloading = ref(false)
+
+const scrollToRow = (el: Element | null | undefined, mode: 'center' | 'nearest' = 'center') => scrollWithin(scrollEl.value, el, mode)
+
+/** Scroll the level being read into view, loading further pages to reach it. */
+async function revealActive(maxPages = 6) {
+  const pos = props.activePosition
+  if (pos == null || props.pickMode) return
+  for (let i = 0; i <= maxPages; i++) {
+    await nextTick()
+    const el = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
+    if (el) { scrollToRow(el); return }
+    if (done.value || i === maxPages) return
+    await loadMore()
+  }
+}
+
 async function reloadFromStart() {
   activeFetch?.abort()
   const ctrl = new AbortController()
   activeFetch = ctrl
   loading.value = true
+  reloading.value = true
   try {
     const res = await $fetch<{ total: number; items: ListLevelRow[]; challengeMode: boolean }>(
       '/api/levels',
@@ -473,8 +531,14 @@ async function reloadFromStart() {
   } finally {
     if (activeFetch === ctrl) {
       loading.value = false
+      reloading.value = false
       activeFetch = null
     }
+  }
+  if (revealAfterReload && !loading.value) {
+    revealAfterReload = false
+    await revealActive()
+    emit('variantLoaded', { variant: listVariant.value, first: items.value[0]?.position ?? null })
   }
 }
 
@@ -491,14 +555,11 @@ function resetFilters() {
   sourceFilter.value = ''
   verifyFrom.value = ''
   verifyTo.value = ''
-  for (const r of RATINGS) ratingSet[r] = false
   enjoyMin.value = 0
   enjoyMax.value = 10
-  sort.value = 'position'
-  rankByFilter.value = false
   showTierInList.value = false
-  listVariant.value = 'Classic'
-  externalList.value = ''
+  // Back to the list being read as it comes, not to the main list.
+  applyVariant(listVariant.value)
 }
 
 /**
@@ -532,6 +593,18 @@ const initialVariant = VARIANT_BY_PARAM[String(route.query.list ?? '').toLowerCa
 if (initialVariant && initialVariant !== 'Classic') applyVariant(initialVariant)
 
 /**
+ * Follow `?list=` when it changes after the page has loaded: the "Challenge #12"
+ * badge on a level and the menu's challenge list link both change it without
+ * reloading the page.
+ */
+watch(() => route.query.list, (raw) => {
+  const v = VARIANT_BY_PARAM[String(raw ?? '').toLowerCase()] ?? 'Classic'
+  if (v === listVariant.value) return
+  revealAfterReload = true
+  applyVariant(v)
+})
+
+/**
  * Keep `?list=` in step with the menu.
  *
  * `replace`, not `push`: switching lists is changing how this page is drawn,
@@ -542,7 +615,7 @@ if (initialVariant && initialVariant !== 'Classic') applyVariant(initialVariant)
 watch(listVariant, (v) => {
   const list = v === 'Classic' ? undefined : v.toLowerCase()
   if ((route.query.list ?? undefined) === list) return
-  router.replace({ query: { ...route.query, list } })
+  setQuery({ list })
 })
 
 /**
@@ -590,8 +663,7 @@ async function jumpToPosition(pos: number) {
   nextPage.value = Math.max(1, Math.ceil(pos / PAGE_SIZE))
   await loadMore()
   await nextTick()
-  scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    ?.scrollIntoView({ block: 'center' })
+  scrollToRow(scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`))
 }
 
 async function maybeJumpToTier(): Promise<boolean> {
@@ -707,7 +779,7 @@ function refilter(immediate = false) {
     if (await maybeJumpToTier()) return
     if (await maybeJumpToPosition()) return
     if (await maybeJumpToGdId()) return
-    router.replace({ query: { ...route.query, q: search.value || undefined } })
+    setQuery({ q: search.value })
     await reloadFromStart()
   }
   debounce = setTimeout(run, immediate ? 150 : 400)
@@ -728,7 +800,7 @@ watch(filtersOpen, async (open) => {
   countLoading.value = false
   if (!filtersDirty.value) return
   filtersDirty.value = false
-  router.replace({ query: { ...route.query, q: search.value || undefined } })
+  setQuery({ q: search.value })
   await reloadFromStart()
 })
 
@@ -788,6 +860,10 @@ async function checkVersion() {
 onMounted(() => { pollTimer = setInterval(checkVersion, 60_000) })
 onBeforeUnmount(() => { if (pollTimer) clearInterval(pollTimer) })
 
+// The level being read, in view once the list is on screen. The watcher below
+// runs too early on the first load, before the rows have been mounted.
+onMounted(() => { revealActive(0) })
+
 // Auto-scroll active item into view
 watch(
   () => props.activePosition,
@@ -795,7 +871,7 @@ watch(
     if (pos == null) return
     await nextTick()
     const el = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    el?.scrollIntoView({ block: 'nearest' })
+    scrollToRow(el, 'nearest')
   },
   { immediate: true },
 )
@@ -807,13 +883,13 @@ watch(
     if (pos == null) return
     await nextTick()
     const el = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-    if (el) { el.scrollIntoView({ block: 'center' }); return }
+    if (el) { scrollToRow(el); return }
     // Item not yet loaded — load forward until it appears
     while (!done.value) {
       await loadMore()
       await nextTick()
       const found = scrollEl.value?.querySelector<HTMLElement>(`[data-pos="${pos}"]`)
-      if (found) { found.scrollIntoView({ block: 'center' }); return }
+      if (found) { scrollToRow(found); return }
     }
   },
 )
@@ -849,8 +925,11 @@ watch(
               :class="listVariant === v.id ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300'"
               @click="pickVariant(v.id)"
             >
-              <span>{{ VARIANT_TITLES[v.id] }}</span>
-              <span class="text-xs text-zinc-500">{{ v.hint }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block">{{ VARIANT_TITLES[v.id] }}</span>
+                <span class="block text-xs text-zinc-500">{{ v.hint }}</span>
+              </span>
+              <NavIcon v-if="listVariant === v.id" name="check" class="w-4 h-4 shrink-0 text-accent" />
             </button>
             <p class="mt-1 pt-2 px-2.5 pb-1 border-t border-zinc-800 text-xs text-zinc-500">Ordered by another list</p>
             <button
@@ -863,8 +942,11 @@ watch(
               :class="listVariant === v.id ? 'bg-zinc-800 text-zinc-50' : 'text-zinc-300'"
               @click="pickVariant(v.id)"
             >
-              <span>{{ VARIANT_TITLES[v.id] }}</span>
-              <span class="text-xs text-zinc-500">{{ v.hint }}</span>
+              <span class="min-w-0 flex-1">
+                <span class="block">{{ VARIANT_TITLES[v.id] }}</span>
+                <span class="block text-xs text-zinc-500">{{ v.hint }}</span>
+              </span>
+              <NavIcon v-if="listVariant === v.id" name="check" class="w-4 h-4 shrink-0 text-accent" />
             </button>
           </div>
         </div>
@@ -919,7 +1001,7 @@ watch(
           <div class="px-4 py-3 border-b border-zinc-800 shrink-0 space-y-2.5">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-baseline gap-2 min-w-0">
-                <h2 class="text-xs text-zinc-200 font-semibold">Advanced search</h2>
+                <h2 class="font-display text-base font-semibold text-zinc-50">Advanced search</h2>
                 <!-- What the filters currently produce, live, in the dialog
                      that set them. It used to take closing the dialog to find
                      out whether the last change had narrowed the list to
@@ -930,8 +1012,8 @@ watch(
                 <span class="text-[11px] tabular-nums" :class="(matchCount ?? total) ? 'text-zinc-500' : 'text-amber-400'">
                   {{ (matchCount ?? total).toLocaleString() }} match{{ (matchCount ?? total) === 1 ? '' : 'es' }}
                 </span>
-                <span v-if="countLoading" class="text-[10px] text-zinc-600">counting…</span>
-                <span v-else-if="filtersDirty" class="text-[10px] text-zinc-600">applied when you close this</span>
+                <span v-if="countLoading" class="text-xs text-zinc-500">counting…</span>
+                <span v-else-if="filtersDirty" class="text-xs text-zinc-500">applied when you close this</span>
                 <span v-if="challengeMode" class="text-[10px] text-accent">· challenge ranks</span>
               </div>
               <div class="flex items-center gap-3 shrink-0">
@@ -976,7 +1058,7 @@ watch(
                 <span class="text-[10px] opacity-70" aria-hidden="true">✕</span>
               </button>
             </div>
-            <p v-else class="text-[11px] text-zinc-600">
+            <p v-else class="text-xs text-zinc-500">
               No filters active.
             </p>
           </div>
@@ -994,7 +1076,7 @@ watch(
               <!-- Tier range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-xs text-zinc-500 font-medium">Difficulty</span>
+                  <span class="text-xs font-medium text-zinc-400">Difficulty</span>
                   <span class="text-[10px] text-zinc-400 tabular-nums">{{ ordToTier(tierMin) }} → {{ ordToTier(tierMax) }}</span>
                 </div>
                 <div class="relative h-6">
@@ -1021,14 +1103,12 @@ watch(
 
               <!-- Ratings -->
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Rating</div>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Rating</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="r in RATINGS" :key="r"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="ratingSet[r]
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                    class="toggle-pill"
+                    :class="{ 'is-on': ratingSet[r] }"
                   >
                     <input v-model="ratingSet[r]" type="checkbox" class="sr-only" />
                     {{ r }}
@@ -1038,7 +1118,7 @@ watch(
 
               <!-- Creator -->
               <label class="block">
-                <span class="text-xs text-zinc-500 font-medium">Creator</span>
+                <span class="text-xs font-medium text-zinc-400">Creator</span>
                 <input
                   v-model="creator"
                   type="text" placeholder="Creator name"
@@ -1048,7 +1128,7 @@ watch(
 
               <!-- Source -->
               <div class="block">
-                <span class="text-xs text-zinc-500 font-medium">Source</span>
+                <span class="text-xs font-medium text-zinc-400">Source</span>
                 <SearchableSelect
                   v-model="sourceFilter"
                   :option-objects="sources.map(s => ({ label: `${s.source} (${s.count.toLocaleString()})`, value: s.source }))"
@@ -1060,7 +1140,7 @@ watch(
 
               <!-- Verify date range -->
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1">Verify date</div>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Verify date</div>
                 <div class="flex items-center gap-1.5">
                   <input
                     v-model="verifyFrom" type="date"
@@ -1077,7 +1157,7 @@ watch(
               <!-- Enjoyment range -->
               <div>
                 <div class="flex items-center justify-between mb-1.5">
-                  <span class="text-xs text-zinc-500 font-medium">Enjoyment</span>
+                  <span class="text-xs font-medium text-zinc-400">Enjoyment</span>
                   <span class="text-[10px] text-zinc-400 tabular-nums">{{ enjoyMin }} → {{ enjoyMax }}</span>
                 </div>
                 <div class="relative h-6">
@@ -1104,7 +1184,7 @@ watch(
 
               <!-- Sort -->
               <div class="block">
-                <span class="text-xs text-zinc-500 font-medium">Sort by</span>
+                <span class="text-xs font-medium text-zinc-400">Sort by</span>
                 <SearchableSelect
                   v-model="sort"
                   :option-objects="[...SORTS]"
@@ -1123,14 +1203,12 @@ watch(
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Skillset</div>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Skillset</div>
                 <div class="flex flex-wrap gap-1.5">
                   <label
                     v-for="s in SKILLSETS" :key="s"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="skillsetSet[s]
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
+                    class="toggle-pill"
+                    :class="{ 'is-on': skillsetSet[s] }"
                   >
                     <input v-model="skillsetSet[s]" type="checkbox" class="sr-only" />
                     {{ s }}
@@ -1139,122 +1217,64 @@ watch(
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Tentative placements</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="opt in (['show', 'hide', 'only'] as const)"
-                    :key="`tent-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="tentativePlacements === opt
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input v-model="tentativePlacements" type="radio" :value="opt" class="sr-only" />
-                    {{ opt }}
-                  </label>
-                </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Levels with uncertain placements on the list.</p>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Tentative placements</div>
+                <SegmentedControl v-model="tentativePlacements" :options="SHOW_HIDE_ONLY" aria-label="Tentative placements" />
+                <p class="text-xs text-zinc-500 mt-1.5">Levels with uncertain placements on the list.</p>
               </div>
 
               <div v-if="isStaff">
                 <div class="text-xs text-zinc-500 font-medium mb-1.5 flex items-center gap-1.5">
                   Site-only levels
-                  <span class="text-[9px] tracking-widest px-1 py-px rounded border border-amber-900/60 bg-amber-950/40 text-amber-300/90">admin</span>
+                  <Badge tone="amber" size="sm">Staff</Badge>
                 </div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="opt in (['show', 'hide', 'only'] as const)"
-                    :key="`site-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="siteOnly === opt
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input v-model="siteOnly" type="radio" :value="opt" class="sr-only" />
-                    {{ opt }}
-                  </label>
-                </div>
-                <p class="text-[10px] text-zinc-600 mt-1">
+                <SegmentedControl v-model="siteOnly" :options="SHOW_HIDE_ONLY" aria-label="Site-only levels" />
+                <p class="text-xs text-zinc-500 mt-1.5">
                   Levels on the site that aren't on the ALL sheet.
                 </p>
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Duplicate levels</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="opt in (['show', 'hide', 'only'] as const)"
-                    :key="opt"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="altVersions === opt
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input v-model="altVersions" type="radio" :value="opt" class="sr-only" />
-                    {{ opt }}
-                  </label>
-                </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Example: Red Slaughterhouse</p>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Duplicate levels</div>
+                <SegmentedControl v-model="altVersions" :options="SHOW_HIDE_ONLY" aria-label="Duplicate levels" />
+                <p class="text-xs text-zinc-500 mt-1.5">Example: Red Slaughterhouse</p>
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Alternate versions</div>
-                <div class="flex flex-wrap gap-1.5">
-                  <label
-                    v-for="opt in (['show', 'hide', 'only'] as const)"
-                    :key="`alt-${opt}`"
-                    class="cursor-pointer select-none px-2 py-0.5 rounded-lg border text-[11px] transition-colors capitalize focus-within:ring-1 focus-within:ring-accent/60"
-                    :class="alternates === opt
-                      ? 'border-accent/60 text-accent bg-accent/10'
-                      : 'border-zinc-800 text-zinc-400 hover:text-zinc-200'"
-                  >
-                    <input v-model="alternates" type="radio" :value="opt" class="sr-only" />
-                    {{ opt }}
-                  </label>
-                </div>
-                <p class="text-[10px] text-zinc-600 mt-1">Example: Tidal Wave (Buffed)</p>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Alternate versions</div>
+                <SegmentedControl v-model="alternates" :options="SHOW_HIDE_ONLY" aria-label="Alternate versions" />
+                <p class="text-xs text-zinc-500 mt-1.5">Example: Tidal Wave (Buffed)</p>
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Rank by filter</div>
-                <label class="flex items-start gap-2 cursor-pointer select-none">
-                  <input v-model="rankByFilter" type="checkbox" class="mt-0.5 accent-accent" />
-                  <span class="text-[10px] text-zinc-500">
-                    Number levels by their rank within the filtered list.
-                  </span>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Numbering</div>
+                <label class="option-row">
+                  <span>Number levels by their rank within the filtered list</span>
+                  <ToggleSwitch v-model="rankByFilter" />
                 </label>
               </div>
 
               <div>
-                <div class="text-xs text-zinc-500 font-medium mb-1.5">Display</div>
+                <div class="text-xs font-medium text-zinc-400 mb-2">Display</div>
                 <div class="space-y-1.5">
-                  <label class="flex items-start gap-2 cursor-pointer select-none">
-                    <input v-model="showTierDecimal" type="checkbox" class="mt-0.5 accent-accent" />
-                    <span class="text-[10px] text-zinc-500">
-                      Show tier decimals, e.g. "Tier 20.75" instead of "Tier 20".
-                    </span>
+                  <label class="option-row">
+                    <span>Show tier decimals, e.g. "Tier 20.75" instead of "Tier 20"</span>
+                    <ToggleSwitch v-model="showTierDecimal" />
                   </label>
-                  <label class="flex items-start gap-2 cursor-pointer select-none">
-                    <input v-model="showTierInList" type="checkbox" class="mt-0.5 accent-accent" />
-                    <span class="text-[10px] text-zinc-500">
-                      Show a tier label on each level row.
-                    </span>
+                  <label class="option-row">
+                    <span>Show a tier label on each level row</span>
+                    <ToggleSwitch v-model="showTierInList" />
                   </label>
                   <!-- A reading preference, not a filter: it changes nothing
                        about which levels are shown, so it doesn't touch the
                        query or count as an active filter. It is remembered
                        between visits. -->
-                  <label class="flex items-start gap-2 cursor-pointer select-none">
-                    <input v-model="showViews" type="checkbox" class="mt-0.5 accent-accent" />
-                    <span class="text-[10px] text-zinc-500">
-                      Show view counts on level pages.
-                    </span>
+                  <label class="option-row">
+                    <span>Show view counts on level pages</span>
+                    <ToggleSwitch v-model="showViews" />
                   </label>
-                  <label class="flex items-start gap-2 cursor-pointer select-none">
-                    <input v-model="showThumbs" type="checkbox" class="mt-0.5 accent-accent" />
-                    <span class="text-[10px] text-zinc-500">
-                      Show level thumbnails in lists and on level pages.
-                    </span>
+                  <label class="option-row">
+                    <span>Show level thumbnails in lists and on level pages</span>
+                    <ToggleSwitch v-model="showThumbs" />
                   </label>
                 </div>
               </div>
@@ -1265,7 +1285,7 @@ watch(
     </Teleport>
 
     <div ref="scrollEl" class="flex-1 min-h-0 overflow-y-auto">
-      <ul class="p-1.5 space-y-1">
+      <ul class="p-1.5 space-y-1 transition-opacity duration-150" :class="reloading ? 'opacity-50' : ''" :aria-busy="reloading">
         <li v-for="lvl in items" :key="lvl.position" :data-pos="lvl.position" class="nav-row">
           <LevelRow
             :to="pickMode ? null : { path: `/levels/${lvl.position}`, query: rowQuery }"
@@ -1303,8 +1323,18 @@ watch(
   content-visibility: auto;
   contain-intrinsic-size: auto 40px;
 }
+.toggle-pill {
+  @apply inline-flex items-center rounded-full border border-zinc-800 bg-zinc-900/60 px-2.5 py-1 text-xs font-medium text-zinc-400 cursor-pointer select-none transition-colors
+         hover:border-zinc-700 hover:text-zinc-100 focus-within:ring-2 focus-within:ring-accent/50;
+}
+.toggle-pill.is-on {
+  @apply border-accent/50 bg-accent/15 text-accent;
+}
+.option-row {
+  @apply flex items-center justify-between gap-4 rounded-md py-1.5 text-sm text-zinc-300 cursor-pointer select-none;
+}
 .variant-row {
-  @apply w-full text-left px-2.5 py-1.5 rounded-md text-sm flex flex-col hover:bg-zinc-800/70 transition-colors;
+  @apply w-full text-left px-2.5 py-1.5 rounded-md text-sm flex items-center gap-2 hover:bg-zinc-800/70 transition-colors;
 }
 /* Dual-handle range slider — both inputs share the same track and only their
    thumbs receive pointer events, so they can be dragged independently. */
